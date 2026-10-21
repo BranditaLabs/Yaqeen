@@ -10,6 +10,7 @@ import 'package:http/testing.dart';
 import 'package:yaqeen/core/di/providers.dart';
 import 'package:yaqeen/core/network/api_client.dart';
 import 'package:yaqeen/core/notifications/notification_planner.dart';
+import 'package:yaqeen/core/notifications/push_service.dart';
 import 'package:yaqeen/core/platform/device_services.dart';
 import 'package:yaqeen/core/settings/app_settings.dart';
 import 'package:yaqeen/core/settings/settings_controller.dart';
@@ -57,6 +58,12 @@ void main() {
       final done = AppSettings(onboardingCompletedAt: DateTime(2026));
       expect(nextAfterSplash(done), '/home');
       expect(nextAfterSplash(done, deepLink: '/challenge/calendar'), '/challenge/calendar');
+    });
+
+    test('a universal link path (as the OS hands it to the router) maps to its route', () {
+      expect(routeForDeepLink(Uri(path: '/app/calendar')), '/challenge/calendar');
+      expect(routeForDeepLink(Uri.parse('https://yaqin-brand.com/app/hifz')), '/quran/hifz');
+      expect(routeForDeepLink(Uri(path: '/app/unknown')), '/home');
     });
 
     test('full choreography once a day, 1.2 s afterwards', () {

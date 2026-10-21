@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["TEAMID.com.yaqinbrand.yaqeen"],
+        "components": [{ "/": "/app/*", "comment": "yaqin-brand.com/app/<target> → routeForDeepLink" }]
+      }
+    ]
+  },
+  "webcredentials": { "apps": ["TEAMID.com.yaqinbrand.yaqeen"] }
+}

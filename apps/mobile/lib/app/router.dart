@@ -23,6 +23,7 @@ import '../features/quran/presentation/quran_index_screen.dart';
 import '../features/quran/presentation/reader_screen.dart';
 import '../features/recite/presentation/recite_screen.dart';
 import '../features/rewards/presentation/redeem_screen.dart';
+import '../core/notifications/push_service.dart';
 import 'shell.dart';
 
 /// Navigator for full-screen routes (reader, recitation, player, Qibla) — above the tab bar.
@@ -33,6 +34,10 @@ final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
       navigatorKey: rootNavigatorKey,
       initialLocation: initialLocation,
+      // Universal / App Links arrive as /app/<target> (spec §4.2): through the splash, so a cold
+      // start still warms up and a first launch still onboards before landing on the target.
+      redirect: (_, s) =>
+          s.uri.path.startsWith('/app/') ? Uri(path: '/splash', queryParameters: {'to': routeForDeepLink(s.uri)}).toString() : null,
       routes: [
         GoRoute(path: '/splash', builder: (_, s) => SplashGate(deepLink: s.uri.queryParameters['to'])),
         GoRoute(
