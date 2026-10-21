@@ -24,12 +24,14 @@ final apiClientProvider = Provider((ref) => ApiClient(baseUrl: Env.apiBaseUrl, t
 final outboxProvider = Provider((ref) => Outbox(ref.watch(kvStoreProvider)));
 
 final authRepositoryProvider = Provider((ref) => AuthRepository(api: ref.watch(apiClientProvider), tokens: ref.watch(tokenStoreProvider)));
-final consentRepositoryProvider = Provider((ref) => ConsentRepository(api: ref.watch(apiClientProvider), store: ref.watch(kvStoreProvider)));
+final consentRepositoryProvider =
+    Provider((ref) => ConsentRepository(api: ref.watch(apiClientProvider), store: ref.watch(kvStoreProvider)));
 final challengeRepositoryProvider = Provider(
   (ref) => ChallengeRepository(api: ref.watch(apiClientProvider), outbox: ref.watch(outboxProvider), cache: ref.watch(kvStoreProvider)),
 );
 final rewardsRepositoryProvider = Provider((ref) => RewardsRepository(ref.watch(apiClientProvider)));
-final calendarRepositoryProvider = Provider((ref) => CalendarRepository(api: ref.watch(apiClientProvider), cache: ref.watch(kvStoreProvider)));
+final calendarRepositoryProvider =
+    Provider((ref) => CalendarRepository(api: ref.watch(apiClientProvider), cache: ref.watch(kvStoreProvider)));
 
 /// Ad SDK sinks (Firebase/Google Ads, Meta, TikTok) are appended here once added.
 final adSinksProvider = Provider<List<AdSink>>((_) => [DebugAdSink()]);

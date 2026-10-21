@@ -16,8 +16,15 @@ void main() {
 
   test('event names match packages/contracts AD_EVENTS', () {
     expect(AdEvent.values.map((e) => e.wireName).toList(), [
-      'first_open', 'sign_up', 'onboarding_complete', 'challenge_join',
-      'streak_7', 'streak_30', 'reward_redeem', 'store_click', 'purchase',
+      'first_open',
+      'sign_up',
+      'onboarding_complete',
+      'challenge_join',
+      'streak_7',
+      'streak_30',
+      'reward_redeem',
+      'store_click',
+      'purchase',
     ]);
   });
 

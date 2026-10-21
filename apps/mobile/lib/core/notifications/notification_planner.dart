@@ -93,7 +93,7 @@ abstract final class NotificationPlanner {
             at: t.subtract(Duration(minutes: pre)),
             kind: ReminderKind.prePrayer,
             prayer: p,
-          ));
+          ),);
         }
       }
       final fajr = day.times[Prayer.fajr];
@@ -103,14 +103,14 @@ abstract final class NotificationPlanner {
           id: stableId(d, ReminderKind.morningAzkar),
           at: fajr.add(Duration(minutes: prefs.morningAfterFajrMinutes)),
           kind: ReminderKind.morningAzkar,
-        ));
+        ),);
       }
       if (prefs.eveningAzkar && asr != null) {
         out.add(PlannedNotification(
           id: stableId(d, ReminderKind.eveningAzkar),
           at: asr.add(Duration(minutes: prefs.eveningAfterAsrMinutes)),
           kind: ReminderKind.eveningAzkar,
-        ));
+        ),);
       }
       final wird = prefs.wirdAt;
       if (wird != null) {
@@ -118,7 +118,7 @@ abstract final class NotificationPlanner {
           id: stableId(d, ReminderKind.wird),
           at: d.add(Duration(minutes: wird)),
           kind: ReminderKind.wird,
-        ));
+        ),);
       }
     }
 

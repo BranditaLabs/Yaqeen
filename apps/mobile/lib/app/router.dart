@@ -19,13 +19,13 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
           branches: [
             StatefulShellBranch(routes: [
               GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
-            ]),
+            ],),
             StatefulShellBranch(routes: [
               GoRoute(path: '/quran', builder: (_, __) => const PlaceholderScreen(titleKey: PlaceholderTitle.quran)),
-            ]),
+            ],),
             StatefulShellBranch(routes: [
               GoRoute(path: '/prayer', builder: (_, __) => const PlaceholderScreen(titleKey: PlaceholderTitle.prayer)),
-            ]),
+            ],),
             StatefulShellBranch(routes: [
               GoRoute(
                 path: '/challenge',
@@ -34,10 +34,10 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
                   GoRoute(path: 'redeem', builder: (_, __) => const RedeemScreen()),
                 ],
               ),
-            ]),
+            ],),
             StatefulShellBranch(routes: [
               GoRoute(path: '/profile', builder: (_, __) => const PlaceholderScreen(titleKey: PlaceholderTitle.profile)),
-            ]),
+            ],),
           ],
         ),
       ],

@@ -49,7 +49,7 @@ class ChallengeRepository {
       method: 'POST',
       path: '/v1/challenge/tasks/${task.wire}/complete',
       body: {'date': date, 'clientEventId': id},
-    ));
+    ),);
     await syncPending();
   }
 

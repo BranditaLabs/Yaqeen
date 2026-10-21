@@ -27,7 +27,7 @@ describe.skipIf(!url)('integration (Postgres)', () => {
   let app: FastifyInstance;
   let db: Db;
   let pool: pg.Pool;
-  const env = loadEnv({ NODE_ENV: 'test', DATABASE_URL: url ?? '' });
+  const env = loadEnv({ NODE_ENV: 'test', DATABASE_URL: url ?? 'postgres://skip@localhost:5432/skip' });
   const auth = (t: string) => ({ authorization: `Bearer ${t}` });
 
   beforeAll(async () => {

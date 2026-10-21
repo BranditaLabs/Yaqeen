@@ -28,7 +28,8 @@ class ChallengeScreen extends ConsumerWidget {
         child: state.when(
           loading: () => const Center(child: CircularProgressIndicator.adaptive()),
           error: (_, __) => _ErrorView(onRetry: () => ref.invalidate(challengeControllerProvider)),
-          data: (s) => s.enrolled ? _Enrolled(summary: s) : _JoinView(onJoin: () => ref.read(challengeControllerProvider.notifier).enroll()),
+          data: (s) =>
+              s.enrolled ? _Enrolled(summary: s) : _JoinView(onJoin: () => ref.read(challengeControllerProvider.notifier).enroll()),
         ),
       ),
     );
@@ -51,7 +52,8 @@ class _Enrolled extends ConsumerWidget {
         children: [
           Text(t.challengeTitle, style: YqText.display.copyWith(fontSize: 30)),
           const SizedBox(height: YqSpace.xs),
-          Text(t.dayOfTotal(summary.dayNumber, summary.challengeLengthDays), style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: YqColors.muted)),
+          Text(t.dayOfTotal(summary.dayNumber, summary.challengeLengthDays),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: YqColors.muted),),
           const SizedBox(height: YqSpace.m),
           YqProgressLine(value: summary.progress, color: YqColors.gold),
           const SizedBox(height: YqSpace.xl),

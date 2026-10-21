@@ -17,7 +17,7 @@ void main() {
         secureStoreProvider.overrideWithValue(MemoryKvStore()),
       ],
       child: const YaqeenApp(),
-    ));
+    ),);
     await tester.pump(const Duration(milliseconds: 100));
 
     final dir = Directionality.of(tester.element(find.byType(Scaffold).first));
@@ -31,8 +31,8 @@ void main() {
       child: Wrap(children: [
         for (final icon in YqIcons.values)
           for (final tone in YqIconTone.values) YqIcon(icon, tone: tone),
-      ]),
-    ));
+      ],),
+    ),);
     expect(find.byType(YqIcon), findsNWidgets(YqIcons.values.length * YqIconTone.values.length));
   });
 }

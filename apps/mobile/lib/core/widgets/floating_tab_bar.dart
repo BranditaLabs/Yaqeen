@@ -52,8 +52,7 @@ class FloatingTabBar extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          for (var i = 0; i < tabs.length; i++)
-            _TabItem(tab: tabs[i], active: i == currentIndex, onTap: () => _select(i)),
+          for (var i = 0; i < tabs.length; i++) _TabItem(tab: tabs[i], active: i == currentIndex, onTap: () => _select(i)),
           _Avatar(initial: avatarInitial, active: profileActive, label: profileLabel, onTap: () => _select(tabs.length)),
         ],
       ),
@@ -72,9 +71,7 @@ class FloatingTabBar extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(YqRadii.pill),
-          child: YqGlassConfig.enableBlur
-              ? BackdropFilter(filter: ui.ImageFilter.blur(sigmaX: 13, sigmaY: 13), child: bar)
-              : bar,
+          child: YqGlassConfig.enableBlur ? BackdropFilter(filter: ui.ImageFilter.blur(sigmaX: 13, sigmaY: 13), child: bar) : bar,
         ),
       ),
     );

@@ -1,7 +1,13 @@
 enum RewardKind { fixedAmount, percentage, freeShipping }
 
 class Reward {
-  const Reward({required this.id, required this.titleAr, required this.kind, required this.value, required this.costPoints, required this.available});
+  const Reward(
+      {required this.id,
+      required this.titleAr,
+      required this.kind,
+      required this.value,
+      required this.costPoints,
+      required this.available,});
 
   final String id;
   final String titleAr;

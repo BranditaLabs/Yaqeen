@@ -19,7 +19,7 @@ class CalendarRepository {
         'year': '$year',
         'month': '$month',
         'offset': '$personalOffset',
-      }) as Map)
+      },) as Map)
           .cast<String, dynamic>();
       final days = (json['days'] as List).map((e) => HijriDay.fromJson((e as Map).cast<String, dynamic>())).toList();
       await cache.write(key, jsonEncode(days.map((d) => d.toJson()).toList()));

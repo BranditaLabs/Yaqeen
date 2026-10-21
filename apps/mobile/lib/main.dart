@@ -19,14 +19,14 @@ Future<void> main() async {
     systemNavigationBarColor: Color(0x00000000),
     statusBarIconBrightness: Brightness.dark,
     statusBarBrightness: Brightness.light,
-  ));
+  ),);
 
   final prefs = await SharedPreferences.getInstance();
   final container = ProviderContainer(overrides: [
     kvStoreProvider.overrideWithValue(PrefsKvStore(prefs)),
     // Phase 2: override localNotificationsProvider, pushServiceProvider and
     // adSinksProvider with plugin-backed implementations (see apps/mobile/README.md).
-  ]);
+  ],);
   await container.read(consentRepositoryProvider).load();
 
   runApp(UncontrolledProviderScope(container: container, child: YaqeenApp(router: buildRouter(initialLocation: '/splash'))));
