@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/calendar/data/calendar_repository.dart';
 import '../../features/challenge/data/challenge_repository.dart';
+import '../../features/hifz/data/hifz_repository.dart';
 import '../../features/listen/data/audio_downloads.dart';
 import '../../features/listen/data/listen_store.dart';
 import '../../features/listen/data/reciter_repository.dart';
@@ -29,6 +30,7 @@ import '../offline/outbox.dart';
 import '../platform/audio_engine.dart';
 import '../platform/device_services.dart';
 import '../platform/location_service.dart';
+import '../platform/recitation_engine.dart';
 import '../platform/social_auth.dart';
 import '../settings/app_settings.dart';
 import '../settings/settings_repository.dart';
@@ -149,6 +151,13 @@ final reciterRepositoryProvider = Provider(
       ReciterRepository(api: ref.watch(apiClientProvider), cache: ref.watch(kvStoreProvider), downloads: ref.watch(audioDownloadsProvider)),
 );
 final listenStoreProvider = Provider((ref) => ListenStore(ref.watch(localStoreProvider)));
+
+/* ------------------------------------------------------------ hifz, recite */
+
+final hifzRepositoryProvider = Provider((ref) => HifzRepository(ref.watch(localStoreProvider)));
+
+/// On-device ASR for «التسميع» — unavailable until a model passes the ship gate (spec §6.8).
+final recitationEngineProvider = Provider<RecitationEngine>((_) => const UnavailableRecitationEngine());
 
 final reminderServiceProvider = Provider(
   (ref) => ReminderService(

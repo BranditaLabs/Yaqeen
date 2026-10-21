@@ -668,7 +668,7 @@
   "reciteStop": "إيقاف التسميع",
   "reciteStart": "ابدأ التسميع",
   "reciteHearReciter": "استمع إلى القارئ",
-  "reciteOk": "{count} آيات صحيحة",
+  "reciteOk": "{count, plural, =1{آية واحدة صحيحة} =2{آيتان صحيحتان} few{{count} آيات صحيحة} other{{count} آية صحيحة}}",
   "@reciteOk": {
     "placeholders": {
       "count": {

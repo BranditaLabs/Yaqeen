@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../features/challenge/presentation/challenge_screen.dart';
 import '../features/debug/gallery_screen.dart';
 import '../features/home/home_screen.dart';
+import '../features/hifz/presentation/hifz_screen.dart';
 import '../features/listen/presentation/now_playing_screen.dart';
 import '../features/listen/presentation/reciters_screen.dart';
 import '../features/notifications/presentation/inbox_screen.dart';
@@ -14,6 +15,7 @@ import '../features/placeholder/placeholder_screen.dart';
 import '../features/prayer/presentation/qibla_screen.dart';
 import '../features/quran/presentation/quran_index_screen.dart';
 import '../features/quran/presentation/reader_screen.dart';
+import '../features/recite/presentation/recite_screen.dart';
 import '../features/rewards/presentation/redeem_screen.dart';
 import 'shell.dart';
 
@@ -64,14 +66,23 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
                   path: '/quran',
                   builder: (_, __) => const QuranIndexScreen(),
                   routes: [
-                    GoRoute(path: 'hifz', builder: (_, __) => _todo('hifz')),
+                    GoRoute(path: 'hifz', builder: (_, __) => const HifzScreen()),
                     GoRoute(path: 'reciters', builder: (_, __) => const RecitersScreen()),
                     GoRoute(
                       parentNavigatorKey: rootNavigatorKey,
                       path: 'read/:page',
                       builder: (_, s) => ReaderScreen(initialPage: (int.tryParse(s.pathParameters['page'] ?? '') ?? 1).clamp(1, 604)),
                     ),
-                    GoRoute(parentNavigatorKey: rootNavigatorKey, path: 'recite/:surah', builder: (_, __) => _todo('recite')),
+                    GoRoute(
+                      parentNavigatorKey: rootNavigatorKey,
+                      path: 'recite/:surah',
+                      builder: (_, s) => ReciteScreen(
+                        surah: (int.tryParse(s.pathParameters['surah'] ?? '') ?? 1).clamp(1, 114),
+                        from: int.tryParse(s.uri.queryParameters['from'] ?? ''),
+                        to: int.tryParse(s.uri.queryParameters['to'] ?? ''),
+                        fromHifz: s.uri.queryParameters['hifz'] == '1',
+                      ),
+                    ),
                     GoRoute(
                       parentNavigatorKey: rootNavigatorKey,
                       path: 'listen/:surah',

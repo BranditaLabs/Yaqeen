@@ -641,7 +641,7 @@
   "reciteStop": "Stop",
   "reciteStart": "Start",
   "reciteHearReciter": "Hear the reciter",
-  "reciteOk": "{count} ayat correct",
+  "reciteOk": "{count, plural, =1{1 ayah correct} other{{count} ayat correct}}",
   "@reciteOk": {
     "placeholders": {
       "count": {
