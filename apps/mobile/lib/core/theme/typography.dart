@@ -16,6 +16,9 @@ abstract final class YqFonts {
   /// Headlines: brand Arabic → brand Latin (for mixed text) → Amiri.
   static const display = brandArabic;
   static const displayFallback = [brandLatin, naskh, ui];
+
+  /// Jost has Latin digits only — Arabic in the same run («3:55 م», «بعد») falls back to Tajawal.
+  static const numbersFallback = [ui];
 }
 
 abstract final class YqText {
@@ -32,6 +35,7 @@ abstract final class YqText {
   /// Big numerals: countdowns, points, degrees.
   static const numeral = TextStyle(
     fontFamily: YqFonts.numbers,
+    fontFamilyFallback: YqFonts.numbersFallback,
     fontWeight: FontWeight.w300,
     fontSize: 38,
     height: 1.1,
@@ -41,6 +45,7 @@ abstract final class YqText {
 
   static const numberSmall = TextStyle(
     fontFamily: YqFonts.numbers,
+    fontFamilyFallback: YqFonts.numbersFallback,
     fontWeight: FontWeight.w400,
     fontSize: 13,
     color: YqColors.muted,

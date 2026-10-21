@@ -120,5 +120,296 @@
     }
   },
   "openSettings": "Open settings",
-  "errorSignIn": "Couldn't sign in, please try again"
+  "errorSignIn": "Couldn't sign in, please try again",
+  "prayerFajr": "Fajr",
+  "prayerSunrise": "Sunrise",
+  "prayerDhuhr": "Dhuhr",
+  "prayerJumuah": "Jumu'ah",
+  "prayerAsr": "Asr",
+  "prayerMaghrib": "Maghrib",
+  "prayerIsha": "Isha",
+  "notifAdhanTitle": "It's time for {prayer}",
+  "@notifAdhanTitle": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "notifSunriseTitle": "Sunrise",
+  "notifAdhanBody": "{time} · {place}",
+  "@notifAdhanBody": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "notifPreTitle": "{prayer} in {minutes} minutes",
+  "@notifPreTitle": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "notifPreBody": "Get ready to pray · {time}",
+  "@notifPreBody": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "notifMorningTitle": "Morning azkar",
+  "notifMorningBody": "A few calm minutes to start your day",
+  "notifEveningTitle": "Evening azkar",
+  "notifEveningBody": "A few calm minutes before Maghrib",
+  "notifWirdTitle": "Your daily wird",
+  "notifWirdBody": "Your pages are waiting",
+  "notifKahfTitle": "Surah Al-Kahf",
+  "notifKahfBody": "Jumu'ah Mubarak · a good time to read Al-Kahf",
+  "notifWirdMissingTitle": "Today's wird isn't finished yet",
+  "notifWirdMissingBody": "One page before Isha keeps you on the path",
+  "notifHifzTitle": "Hifz review",
+  "notifHifzBody": "You have a review due today",
+  "channelAdhan": "Adhan",
+  "channelReminders": "Reminders",
+  "channelChallenge": "Challenge & rewards",
+  "channelOffers": "Yaqeen store offers",
+  "prayerTitle": "Prayer times",
+  "prayerToday": "Today's times",
+  "prayerIn": "in {time}",
+  "@prayerIn": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerNow": "It's time for {prayer}",
+  "@prayerNow": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerAlertOn": "{prayer} alert on",
+  "@prayerAlertOn": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerAlertOff": "{prayer} alert off",
+  "@prayerAlertOff": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerModeSheet": "{prayer} alert",
+  "@prayerModeSheet": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "alertAdhan": "Adhan",
+  "alertNotify": "Notify",
+  "alertSilent": "Silent",
+  "alertModeA11y": "{prayer}, current mode {mode}. Tap to change",
+  "@alertModeA11y": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      },
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerNotificationsLink": "Adhan & notifications",
+  "prayerPrevDay": "Previous day",
+  "prayerNextDay": "Next day",
+  "prayerTravelPrompt": "Have you moved to {city}?",
+  "@prayerTravelPrompt": {
+    "placeholders": {
+      "city": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerTravelUpdate": "Update times",
+  "methodEgypt": "Egyptian General Authority of Survey",
+  "methodMwl": "Muslim World League",
+  "methodUmmAlQura": "Umm al-Qura",
+  "methodKarachi": "University of Islamic Sciences, Karachi",
+  "methodIsna": "ISNA",
+  "methodDubai": "Dubai",
+  "methodKuwait": "Kuwait",
+  "methodQatar": "Qatar",
+  "methodSingapore": "Singapore",
+  "methodTurkey": "Diyanet (Turkey)",
+  "methodMwlDetail": "Fajr 18° · Isha 17°",
+  "methodUmmAlQuraDetail": "Saudi Arabia",
+  "methodRecommended": "Recommended for your location",
+  "asrStandard": "Standard",
+  "asrHanafi": "Hanafi",
+  "qiblaCardTitle": "Qibla {degrees}°",
+  "@qiblaCardTitle": {
+    "placeholders": {
+      "degrees": {
+        "type": "String"
+      }
+    }
+  },
+  "qiblaCardFrom": "From north towards the {direction}",
+  "@qiblaCardFrom": {
+    "placeholders": {
+      "direction": {
+        "type": "String"
+      }
+    }
+  },
+  "qiblaOpen": "Open the Qibla compass",
+  "dirN": "north",
+  "dirNE": "north-east",
+  "dirE": "east",
+  "dirSE": "south-east",
+  "dirS": "south",
+  "dirSW": "south-west",
+  "dirW": "west",
+  "dirNW": "north-west",
+  "qiblaTitle": "Qibla",
+  "qiblaDistance": "{city} · ≈ {km} km",
+  "@qiblaDistance": {
+    "placeholders": {
+      "city": {
+        "type": "String"
+      },
+      "km": {
+        "type": "String"
+      }
+    }
+  },
+  "qiblaReadout": "Qibla at {qibla}° from north · you face {heading}°",
+  "@qiblaReadout": {
+    "placeholders": {
+      "qibla": {
+        "type": "String"
+      },
+      "heading": {
+        "type": "String"
+      }
+    }
+  },
+  "qiblaTurnRight": "Turn right",
+  "qiblaTurnLeft": "Turn left",
+  "qiblaAligned": "You're facing the Qibla",
+  "qiblaCalibrate": "Calibrate compass",
+  "qiblaCalibrateHint": "Move your phone in a figure 8 a few times, away from metal and magnets.",
+  "qiblaNeedsCalibration": "The compass needs calibrating",
+  "qiblaCalibrated": "Compass calibrated",
+  "qiblaCamera": "Camera view",
+  "qiblaNoCompass": "This device has no compass. The Qibla is {qibla}° from north.",
+  "@qiblaNoCompass": {
+    "placeholders": {
+      "qibla": {
+        "type": "String"
+      }
+    }
+  },
+  "qiblaA11y": "Qibla compass, {diff} degrees off",
+  "@qiblaA11y": {
+    "placeholders": {
+      "diff": {
+        "type": "String"
+      }
+    }
+  },
+  "locationTitle": "Location",
+  "locationChange": "Change",
+  "locationAuto": "Detected automatically",
+  "locationManual": "Chosen from the list",
+  "locationUseMine": "Use my current location",
+  "locationSearch": "Search for a city",
+  "locationDenied": "We couldn't get your location. Pick your city from the list.",
+  "locationNoResults": "No city with that name",
+  "notifSettingsTitle": "Adhan & notifications",
+  "notifEachPrayer": "Alert for each prayer",
+  "notifVoice": "Adhan voice",
+  "voiceMakkah": "Makkah adhan",
+  "voiceMakkahDetail": "Full adhan",
+  "voiceMadinah": "Madinah adhan",
+  "voiceCalm": "Calm adhan",
+  "voiceTakbir": "Takbir only",
+  "voiceTakbirDetail": "Good for work",
+  "voicePreview": "Preview",
+  "voicePreviewStop": "Stop preview",
+  "voicePending": "Licensed recordings are coming — the default alert sound is used for now",
+  "notifBefore": "Reminder before the adhan",
+  "notifBeforeNone": "None",
+  "notifOther": "Other reminders",
+  "notifMorning": "Morning azkar",
+  "notifMorningDetail": "30 minutes after Fajr",
+  "notifEvening": "Evening azkar",
+  "notifEveningDetail": "After Asr",
+  "notifKahf": "Surah Al-Kahf",
+  "notifKahfDetail": "Every Friday · 10:00 AM",
+  "notifWird": "Daily wird",
+  "notifWirdDetail": "If unfinished before Isha",
+  "notifHifz": "Hifz review",
+  "notifHifzDetail": "When a surah is due for review",
+  "notifChallengeSection": "Challenge, rewards & offers",
+  "notifChallenge": "Challenge progress",
+  "notifChallengeDetail": "Streaks and missed days",
+  "notifRewards": "Available rewards",
+  "notifRewardsDetail": "When your balance covers a reward",
+  "notifOffers": "Yaqeen store offers",
+  "notifOffersDetail": "At most one a day · with your consent",
+  "notifQuiet": "Quiet hours",
+  "notifQuietDetail": "After Isha until Fajr · the adhan is never silenced",
+  "notifQuietFrom": "From",
+  "notifQuietTo": "To",
+  "notifFooter": "Alerts work offline; times are calculated on your device using the {method} method.",
+  "@notifFooter": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "notifPermissionTitle": "Notifications are off",
+  "notifPermissionBody": "Turn on notifications to receive the adhan and reminders.",
+  "notifExactAlarms": "Alerts may arrive a few minutes late: allow exact alarms in your phone settings.",
+  "inboxTitle": "Notifications",
+  "inboxReadAll": "Mark all read",
+  "inboxAll": "All",
+  "inboxWorship": "Worship",
+  "inboxChallenge": "Challenge",
+  "inboxOffers": "Offers",
+  "inboxToday": "Today",
+  "inboxYesterday": "Yesterday",
+  "inboxEarlier": "Earlier",
+  "inboxEmpty": "No notifications here",
+  "inboxEmptyHint": "Your reminders and store offers will show up here",
+  "homeBellA11y": "Notifications, {count} unread",
+  "@homeBellA11y": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

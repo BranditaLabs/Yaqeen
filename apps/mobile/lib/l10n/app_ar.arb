@@ -147,5 +147,296 @@
     }
   },
   "openSettings": "افتح الإعدادات",
-  "errorSignIn": "تعذّر تسجيل الدخول، حاول مرة أخرى"
+  "errorSignIn": "تعذّر تسجيل الدخول، حاول مرة أخرى",
+  "prayerFajr": "الفجر",
+  "prayerSunrise": "الشروق",
+  "prayerDhuhr": "الظهر",
+  "prayerJumuah": "الجمعة",
+  "prayerAsr": "العصر",
+  "prayerMaghrib": "المغرب",
+  "prayerIsha": "العشاء",
+  "notifAdhanTitle": "حان وقت صلاة {prayer}",
+  "@notifAdhanTitle": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "notifSunriseTitle": "الشروق",
+  "notifAdhanBody": "{time} · {place}",
+  "@notifAdhanBody": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "notifPreTitle": "{prayer} بعد {minutes} دقائق",
+  "@notifPreTitle": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "notifPreBody": "استعد للصلاة · {time}",
+  "@notifPreBody": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "notifMorningTitle": "أذكار الصباح",
+  "notifMorningBody": "دقائق من السكينة لبداية يومك",
+  "notifEveningTitle": "أذكار المساء",
+  "notifEveningBody": "دقائق من السكينة قبل المغرب",
+  "notifWirdTitle": "وِردك اليومي",
+  "notifWirdBody": "صفحاتك بانتظارك",
+  "notifKahfTitle": "سورة الكهف",
+  "notifKahfBody": "جمعة مباركة · وقت طيب لقراءة سورة الكهف",
+  "notifWirdMissingTitle": "وِرد اليوم لم يكتمل بعد",
+  "notifWirdMissingBody": "صفحة واحدة قبل العشاء تكفي لتبقى على الطريق",
+  "notifHifzTitle": "مراجعة الحفظ",
+  "notifHifzBody": "لديك مراجعة مستحقة اليوم",
+  "channelAdhan": "الأذان",
+  "channelReminders": "التذكيرات",
+  "channelChallenge": "التحدي والمكافآت",
+  "channelOffers": "عروض متجر يقين",
+  "prayerTitle": "مواقيت الصلاة",
+  "prayerToday": "مواقيت اليوم",
+  "prayerIn": "بعد {time}",
+  "@prayerIn": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerNow": "حان وقت صلاة {prayer}",
+  "@prayerNow": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerAlertOn": "تنبيه {prayer} مفعل",
+  "@prayerAlertOn": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerAlertOff": "تنبيه {prayer} متوقف",
+  "@prayerAlertOff": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerModeSheet": "تنبيه {prayer}",
+  "@prayerModeSheet": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "alertAdhan": "أذان",
+  "alertNotify": "تنبيه",
+  "alertSilent": "صامت",
+  "alertModeA11y": "{prayer}، الوضع الحالي {mode}. المس للتغيير",
+  "@alertModeA11y": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      },
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerNotificationsLink": "التنبيهات والأذان",
+  "prayerPrevDay": "اليوم السابق",
+  "prayerNextDay": "اليوم التالي",
+  "prayerTravelPrompt": "هل انتقلت إلى {city}؟",
+  "@prayerTravelPrompt": {
+    "placeholders": {
+      "city": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerTravelUpdate": "تحديث المواقيت",
+  "methodEgypt": "الهيئة المصرية العامة للمساحة",
+  "methodMwl": "رابطة العالم الإسلامي",
+  "methodUmmAlQura": "أم القرى",
+  "methodKarachi": "جامعة العلوم الإسلامية بكراتشي",
+  "methodIsna": "الجمعية الإسلامية لأمريكا الشمالية",
+  "methodDubai": "دبي",
+  "methodKuwait": "الكويت",
+  "methodQatar": "قطر",
+  "methodSingapore": "سنغافورة",
+  "methodTurkey": "رئاسة الشؤون الدينية التركية",
+  "methodMwlDetail": "الفجر 18° · العشاء 17°",
+  "methodUmmAlQuraDetail": "المملكة العربية السعودية",
+  "methodRecommended": "الموصى بها لموقعك",
+  "asrStandard": "الجمهور",
+  "asrHanafi": "الحنفي",
+  "qiblaCardTitle": "اتجاه القبلة {degrees}°",
+  "@qiblaCardTitle": {
+    "placeholders": {
+      "degrees": {
+        "type": "String"
+      }
+    }
+  },
+  "qiblaCardFrom": "من الشمال باتجاه {direction}",
+  "@qiblaCardFrom": {
+    "placeholders": {
+      "direction": {
+        "type": "String"
+      }
+    }
+  },
+  "qiblaOpen": "افتح بوصلة القبلة",
+  "dirN": "الشمال",
+  "dirNE": "الشمال الشرقي",
+  "dirE": "الشرق",
+  "dirSE": "الجنوب الشرقي",
+  "dirS": "الجنوب",
+  "dirSW": "الجنوب الغربي",
+  "dirW": "الغرب",
+  "dirNW": "الشمال الغربي",
+  "qiblaTitle": "القبلة",
+  "qiblaDistance": "{city} · ≈ {km} كم",
+  "@qiblaDistance": {
+    "placeholders": {
+      "city": {
+        "type": "String"
+      },
+      "km": {
+        "type": "String"
+      }
+    }
+  },
+  "qiblaReadout": "القبلة على {qibla}° من الشمال · اتجاهك {heading}°",
+  "@qiblaReadout": {
+    "placeholders": {
+      "qibla": {
+        "type": "String"
+      },
+      "heading": {
+        "type": "String"
+      }
+    }
+  },
+  "qiblaTurnRight": "استدر يميناً",
+  "qiblaTurnLeft": "استدر يساراً",
+  "qiblaAligned": "أنت في اتجاه القبلة",
+  "qiblaCalibrate": "معايرة البوصلة",
+  "qiblaCalibrateHint": "حرّك هاتفك على شكل الرقم 8 عدة مرات بعيداً عن المعادن والمغناطيس.",
+  "qiblaNeedsCalibration": "البوصلة تحتاج معايرة",
+  "qiblaCalibrated": "البوصلة معايرة",
+  "qiblaCamera": "عرض بالكاميرا",
+  "qiblaNoCompass": "لا تتوفر بوصلة في هذا الجهاز. اتجاه القبلة {qibla}° من الشمال.",
+  "@qiblaNoCompass": {
+    "placeholders": {
+      "qibla": {
+        "type": "String"
+      }
+    }
+  },
+  "qiblaA11y": "بوصلة القبلة، الفرق {diff} درجة",
+  "@qiblaA11y": {
+    "placeholders": {
+      "diff": {
+        "type": "String"
+      }
+    }
+  },
+  "locationTitle": "الموقع",
+  "locationChange": "تغيير",
+  "locationAuto": "تم تحديد موقعك تلقائياً",
+  "locationManual": "اخترتها من القائمة",
+  "locationUseMine": "استخدم موقعي الحالي",
+  "locationSearch": "ابحث عن مدينة",
+  "locationDenied": "لم نتمكن من تحديد موقعك. اختر مدينتك من القائمة.",
+  "locationNoResults": "لا توجد مدينة بهذا الاسم",
+  "notifSettingsTitle": "الأذان والتنبيهات",
+  "notifEachPrayer": "تنبيه كل صلاة",
+  "notifVoice": "صوت الأذان",
+  "voiceMakkah": "أذان الحرم المكي",
+  "voiceMakkahDetail": "الأذان كاملاً",
+  "voiceMadinah": "أذان المسجد النبوي",
+  "voiceCalm": "أذان هادئ",
+  "voiceTakbir": "التكبير فقط",
+  "voiceTakbirDetail": "مناسب للعمل",
+  "voicePreview": "معاينة",
+  "voicePreviewStop": "إيقاف المعاينة",
+  "voicePending": "تُضاف التسجيلات المرخّصة قريباً — حالياً صوت التنبيه الافتراضي",
+  "notifBefore": "التذكير قبل الأذان",
+  "notifBeforeNone": "بدون",
+  "notifOther": "تذكيرات أخرى",
+  "notifMorning": "أذكار الصباح",
+  "notifMorningDetail": "بعد الفجر بـ 30 دقيقة",
+  "notifEvening": "أذكار المساء",
+  "notifEveningDetail": "بعد العصر",
+  "notifKahf": "سورة الكهف",
+  "notifKahfDetail": "كل جمعة · 10:00 ص",
+  "notifWird": "الورد اليومي",
+  "notifWirdDetail": "إذا لم يكتمل قبل العشاء",
+  "notifHifz": "مراجعة الحفظ",
+  "notifHifzDetail": "عند استحقاق سورة للمراجعة",
+  "notifChallengeSection": "التحدي والمكافآت والعروض",
+  "notifChallenge": "تقدم التحدي",
+  "notifChallengeDetail": "الاستمرارية والأيام الفائتة",
+  "notifRewards": "المكافآت المتاحة",
+  "notifRewardsDetail": "عندما يكفي رصيدك لمكافأة",
+  "notifOffers": "عروض متجر يقين",
+  "notifOffersDetail": "رسالة واحدة يومياً على الأكثر · بموافقتك",
+  "notifQuiet": "الساعات الهادئة",
+  "notifQuietDetail": "من بعد العشاء حتى الفجر · الأذان مستثنى",
+  "notifQuietFrom": "من",
+  "notifQuietTo": "إلى",
+  "notifFooter": "تعمل التنبيهات دون اتصال بالإنترنت، وتُحسب المواقيت على جهازك وفق طريقة {method}.",
+  "@notifFooter": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "notifPermissionTitle": "الإشعارات متوقفة",
+  "notifPermissionBody": "فعّل الإشعارات ليصلك الأذان والتذكيرات.",
+  "notifExactAlarms": "قد تتأخر التنبيهات بضع دقائق: اسمح بالتنبيهات الدقيقة من إعدادات الهاتف.",
+  "inboxTitle": "الإشعارات",
+  "inboxReadAll": "قراءة الكل",
+  "inboxAll": "الكل",
+  "inboxWorship": "العبادات",
+  "inboxChallenge": "التحدي",
+  "inboxOffers": "العروض",
+  "inboxToday": "اليوم",
+  "inboxYesterday": "أمس",
+  "inboxEarlier": "سابقاً",
+  "inboxEmpty": "لا إشعارات هنا",
+  "inboxEmptyHint": "ستظهر هنا تذكيراتك وعروض المتجر",
+  "homeBellA11y": "الإشعارات، {count} غير مقروءة",
+  "@homeBellA11y": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

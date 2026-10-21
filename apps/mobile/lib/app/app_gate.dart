@@ -3,7 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:go_router/go_router.dart';
+
 import '../core/config/config_controller.dart';
+import '../core/notifications/push_service.dart';
+import '../features/notifications/presentation/reminders_controller.dart';
+import 'router.dart';
 import '../core/di/providers.dart';
 import '../core/theme/tokens.dart';
 import '../core/theme/typography.dart';
@@ -36,6 +41,8 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
     });
     // Every 15 minutes while in the foreground.
     _flushTimer = Timer.periodic(const Duration(minutes: 15), (_) => ref.read(outboxSyncProvider).flush());
+    // Keep the local adhan/reminder schedule fresh (spec §6.5: re-plan on start).
+    WidgetsBinding.instance.addPostFrameCallback((_) => ref.read(remindersControllerProvider.notifier).replan());
   }
 
   @override
@@ -43,6 +50,7 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       ref.read(outboxSyncProvider).flush().ignore();
       ref.read(remoteConfigProvider.notifier).refresh().ignore();
+      ref.read(remindersControllerProvider.notifier).replan().ignore();
     }
   }
 
@@ -55,6 +63,12 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(remindersControllerProvider); // listens to settings changes and re-plans
+    ref.listen(notificationTapsProvider, (_, next) {
+      final link = next.valueOrNull;
+      final nav = rootNavigatorKey.currentContext;
+      if (link != null && nav != null) GoRouter.of(nav).go(routeForDeepLink(link));
+    });
     ref.listen(onlineProvider, (prev, next) {
       if (next.valueOrNull == true && prev?.valueOrNull == false) ref.read(outboxSyncProvider).flush(force: true).ignore();
     });

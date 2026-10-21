@@ -29,9 +29,10 @@ def main(path: str) -> None:
     ar, en = load("ar"), load("en")
     for key, value in spec.items():
         text_ar, text_en, *rest = value
-        placeholders = rest[0] if rest else {}
-        for name in set(re.findall(r"\{(\w+)\}", text_ar)) | set(re.findall(r"\{(\w+)\}", text_en)):
-            placeholders.setdefault(name, "String")
+        types = rest[0] if rest else {}
+        # Parameter order = first appearance in the Arabic template (deterministic, matches reading order).
+        names = list(dict.fromkeys(re.findall(r"\{(\w+)\}", text_ar) + re.findall(r"\{(\w+)\}", text_en)))
+        placeholders = {n: types.get(n, "String") for n in names}
         for data, text in ((ar, text_ar), (en, text_en)):
             data[key] = text
             if placeholders:

@@ -5,8 +5,11 @@ import 'package:go_router/go_router.dart';
 import '../features/challenge/presentation/challenge_screen.dart';
 import '../features/debug/gallery_screen.dart';
 import '../features/home/home_screen.dart';
+import '../features/notifications/presentation/inbox_screen.dart';
+import '../features/notifications/presentation/notification_settings_screen.dart';
 import '../features/onboarding/presentation/splash_screen.dart';
 import '../features/placeholder/placeholder_screen.dart';
+import '../features/prayer/presentation/qibla_screen.dart';
 import '../features/rewards/presentation/redeem_screen.dart';
 import 'shell.dart';
 
@@ -46,7 +49,7 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
                   routes: [
                     GoRoute(path: 'azkar', builder: (_, __) => _todo('azkar')),
                     GoRoute(path: 'duas', builder: (_, __) => _todo('duas')),
-                    GoRoute(path: 'inbox', builder: (_, __) => _todo('inbox')),
+                    GoRoute(path: 'inbox', builder: (_, __) => const InboxScreen()),
                   ],
                 ),
               ],
@@ -72,8 +75,8 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
                   path: '/prayer',
                   builder: (_, __) => _todo('prayer'),
                   routes: [
-                    GoRoute(path: 'notifications', builder: (_, __) => _todo('notifications')),
-                    GoRoute(parentNavigatorKey: rootNavigatorKey, path: 'qibla', builder: (_, __) => _todo('qibla')),
+                    GoRoute(path: 'notifications', builder: (_, __) => const NotificationSettingsScreen()),
+                    GoRoute(parentNavigatorKey: rootNavigatorKey, path: 'qibla', builder: (_, __) => const QiblaScreen()),
                   ],
                 ),
               ],

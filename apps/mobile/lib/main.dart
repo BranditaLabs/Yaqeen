@@ -8,6 +8,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app/app_gate.dart';
 import 'app/router.dart';
 import 'core/di/providers.dart';
+import 'core/notifications/local_notifier.dart';
+import 'core/notifications/notification_planner.dart';
+import 'features/notifications/data/reminder_service.dart';
+import 'core/settings/app_settings.dart';
 import 'core/network/connectivity.dart';
 import 'core/platform/device_services.dart';
 import 'core/platform/location_service.dart';
@@ -49,7 +53,30 @@ Future<void> main() async {
       await AuthRepository(api: ApiClient(baseUrl: Env.apiBaseUrl, tokens: TokenStore(secure)), tokens: TokenStore(secure), store: kv)
           .load();
 
-  final container = ProviderContainer(
+  // Local notifications read the *current* settings and locale each time they are scheduled.
+  late final ProviderContainer container;
+  AppSettings current() => container.read(settingsProvider);
+  final notifier = PluginLocalNotifier(
+    copy: () {
+      final t = lookupAppLocalizations(Locale(current().locale));
+      final copy = NotificationCopy(t, current());
+      return copy.of;
+    },
+    channelNames: () {
+      final t = lookupAppLocalizations(Locale(current().locale));
+      return {
+        NotificationChannel.adhan: t.channelAdhan,
+        NotificationChannel.reminders: t.channelReminders,
+        NotificationChannel.challenge: t.channelChallenge,
+        NotificationChannel.offers: t.channelOffers,
+      };
+    },
+    timezone: () => current().placeOrDefault.timezone,
+    adhanVoice: () => current().adhanVoice.name,
+  );
+  await notifier.init();
+
+  container = ProviderContainer(
     overrides: [
       kvStoreProvider.overrideWithValue(kv),
       secureStoreProvider.overrideWithValue(secure),
@@ -61,6 +88,8 @@ Future<void> main() async {
       compassServiceProvider.overrideWithValue(PluginCompassService()),
       socialAuthProvider.overrideWithValue(PluginSocialAuth()),
       connectivityProvider.overrideWithValue(PluginConnectivityMonitor()),
+      localNotificationsProvider.overrideWithValue(notifier),
+      notificationTapsProvider.overrideWith((_) => notifier.taps),
       // Phase 2: pushServiceProvider (Firebase) and adSinksProvider (ad SDKs) — see README.
     ],
   );

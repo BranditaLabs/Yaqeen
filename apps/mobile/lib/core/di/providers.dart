@@ -2,8 +2,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/calendar/data/calendar_repository.dart';
 import '../../features/challenge/data/challenge_repository.dart';
+import '../../features/notifications/data/inbox_repository.dart';
+import '../../features/notifications/data/reminder_service.dart';
 import '../../features/onboarding/data/auth_repository.dart';
 import '../../features/onboarding/data/consent_repository.dart';
+import '../../features/prayer/data/city_repository.dart';
+import '../../features/prayer/data/prayer_repository.dart';
 import '../../features/rewards/data/rewards_repository.dart';
 import '../analytics/analytics.dart';
 import '../config/env.dart';
@@ -102,4 +106,20 @@ final analyticsProvider = Provider((ref) {
 });
 
 final localNotificationsProvider = Provider<LocalNotificationScheduler>((_) => NoopLocalNotificationScheduler());
+
+/// Deep links from tapped local notifications and pushes (overridden in main()).
+final notificationTapsProvider = StreamProvider<Uri>((_) => const Stream.empty());
+
+/* ------------------------------------------------------------ worship data */
+
+final cityRepositoryProvider = Provider((_) => CityRepository());
+final prayerRepositoryProvider = Provider((_) => const PrayerRepository());
+final inboxRepositoryProvider = Provider((ref) => InboxRepository(ref.watch(localStoreProvider), now: ref.watch(clockProvider)));
+final reminderServiceProvider = Provider(
+  (ref) => ReminderService(
+    scheduler: ref.watch(localNotificationsProvider),
+    store: ref.watch(localStoreProvider),
+    inbox: ref.watch(inboxRepositoryProvider),
+  ),
+);
 final pushServiceProvider = Provider<PushService>((_) => NoopPushService());
