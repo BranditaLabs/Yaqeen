@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/azkar/presentation/azkar_screen.dart';
+import '../features/calendar/presentation/calendar_screen.dart';
 import '../features/challenge/presentation/challenge_screen.dart';
 import '../features/content/domain/content_item.dart';
 import '../features/duas/presentation/duas_screen.dart';
@@ -120,8 +121,12 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
                   path: '/challenge',
                   builder: (_, __) => const ChallengeScreen(),
                   routes: [
-                    GoRoute(path: 'calendar', builder: (_, __) => _todo('calendar')),
-                    GoRoute(path: 'redeem', builder: (_, __) => const RedeemScreen()),
+                    GoRoute(path: 'calendar', builder: (_, __) => const CalendarScreen()),
+                    GoRoute(
+                      path: 'redeem',
+                      builder: (_, __) => const RedeemScreen(),
+                      routes: [GoRoute(path: 'codes', builder: (_, __) => const CodesScreen())],
+                    ),
                   ],
                 ),
               ],

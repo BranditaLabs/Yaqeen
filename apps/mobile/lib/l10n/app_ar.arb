@@ -976,5 +976,198 @@
   "homeStreakHint": "أكمل ورد اليوم للحفاظ عليها",
   "homeJoin": "ابدأ رحلة 365 يوماً",
   "homeJoinHint": "مهام يومية بسيطة ونقاط تُستبدل في متجر يقين",
-  "servicesTitle": "الخدمات"
+  "servicesTitle": "الخدمات",
+  "challengeCalendar": "تقويم اليقين",
+  "challengeQadaDays": "{count, plural, =0{لا أيام قضاء} =1{يوم قضاء واحد} =2{يوما قضاء} few{{count} أيام قضاء} other{{count} يوم قضاء}}",
+  "@challengeQadaDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "challengeTodayProgress": "{done} من {total}",
+  "@challengeTodayProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "challengePointsLabel": "{points} نقطة",
+  "@challengePointsLabel": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "taskPrivate": "خاص بك",
+  "taskAuto": "يُحتسب تلقائياً",
+  "taskOpen": "افتح",
+  "tickDayClosed": "انتهى هذا اليوم، ولم تُحتسب المهمة",
+  "tickQadaPassed": "انتهت مهلة القضاء لهذا اليوم",
+  "tickFailed": "تعذّر احتساب المهمة الآن، سنحاول لاحقاً",
+  "milestoneTitle": "بارك الله فيك",
+  "milestoneBody": "{days} يوماً من اليقين · +{points}",
+  "@milestoneBody": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      },
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "milestoneOk": "الحمد لله",
+  "redeemCardTitle": "مكافأة متجر يقين",
+  "redeemCardHint": "{points} نقطة لكل مكافأة",
+  "@redeemCardHint": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "challengeSignIn": "سجّل الدخول لتبدأ التحدي وتجمع النقاط",
+  "signIn": "تسجيل الدخول",
+  "calendarBack": "رجوع إلى التحدي",
+  "calendarJourney": "رحلة 365 يوماً",
+  "calendarStarted": "بدأت {start} · تنتهي ≈ {end}",
+  "@calendarStarted": {
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarPrev": "الشهر السابق",
+  "calendarNext": "الشهر التالي",
+  "calDone": "مكتمل",
+  "calPartial": "جزئي",
+  "calQada": "قضاء",
+  "calMissed": "فائت",
+  "calToday": "اليوم",
+  "calFuture": "قادم",
+  "calOutside": "خارج الرحلة",
+  "calWhiteDays": "الأيام البيض",
+  "calFriday": "الجمعة",
+  "calMonThu": "الإثنين/الخميس",
+  "calRamadan": "رمضان",
+  "calEidFitr": "عيد الفطر",
+  "calEidAdha": "عيد الأضحى",
+  "calArafah": "يوم عرفة",
+  "calAshura": "عاشوراء",
+  "calSat": "سبت",
+  "calSun": "أحد",
+  "calMon": "إثنين",
+  "calTue": "ثلاثاء",
+  "calWed": "أربعاء",
+  "calThu": "خميس",
+  "calFri": "جمعة",
+  "calScore": "{status} · {points} / {total}",
+  "@calScore": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      },
+      "points": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "calMakeUp": "قضاء هذا اليوم الآن · يحافظ على رحلتك",
+  "calMakeUpHint": "اضغط على المهام التي أتممتها لهذا اليوم",
+  "calFinishToday": "أكمل مهام اليوم",
+  "calFooter": "الهجري من تقويم أم القرى عبر AlAdhan · تعديل ±1 يوم من الإعدادات",
+  "calBonusWhite": "الأيام البيض · مهمة صيام إضافية",
+  "calBonusMonThu": "صيام الإثنين والخميس · مهمة إضافية",
+  "calBonusKahf": "الجمعة · سورة الكهف",
+  "calCellA11y": "{hijri}، {greg}، {status}",
+  "@calCellA11y": {
+    "placeholders": {
+      "hijri": {
+        "type": "String"
+      },
+      "greg": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "redeemBalance": "رصيدك الحالي {points} نقطة",
+  "@redeemBalance": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "redeemChoose": "اختر مكافأة",
+  "redeemAvailable": "متاح",
+  "redeemShort": "ينقصك {points}",
+  "@redeemShort": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "redeemNote": "النقاط تُكتسب من مهام التحدي اليومية. لكل كود استخدام واحد ولا يُستبدل نقداً.",
+  "redeemConfirmTitle": "تأكيد الاستبدال",
+  "redeemReward": "المكافأة",
+  "redeemDeducted": "النقاط المخصومة",
+  "redeemAfter": "الرصيد بعد الاستبدال",
+  "redeemLoading": "جارٍ إنشاء الكود…",
+  "redeemSuccess": "بارك الله لك",
+  "redeemSuccessBody": "هذا كود {reward}، صالح لاستخدام واحد في متجر يقين.",
+  "@redeemSuccessBody": {
+    "placeholders": {
+      "reward": {
+        "type": "String"
+      }
+    }
+  },
+  "redeemEmailed": "يصلك الكود أيضاً على بريدك · صالح حتى {date}",
+  "@redeemEmailed": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "redeemShop": "تسوّق الآن",
+  "redeemBack": "العودة إلى المكافآت",
+  "redeemErrInsufficient": "رصيدك لا يكفي بعد",
+  "redeemErrOutOfStock": "نفدت هذه المكافأة",
+  "redeemErrMonthly": "وصلت للحد الشهري لهذه المكافأة",
+  "redeemErrStore": "المتجر غير متاح الآن، لم تُخصم نقاطك",
+  "redeemErrAccount": "سجّل الدخول لاستبدال النقاط",
+  "redeemErrOffline": "الاستبدال يحتاج اتصالاً بالإنترنت",
+  "redeemErrInProgress": "جارٍ إنشاء كودك، حاول بعد لحظات",
+  "myCodes": "أكوادي",
+  "codesEmpty": "لا توجد أكواد بعد",
+  "codeActive": "صالح حتى {date}",
+  "@codeActive": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "codeUsed": "مُستخدم",
+  "codeExpired": "منتهي",
+  "codeVoid": "ملغي · أُعيدت النقاط"
 }

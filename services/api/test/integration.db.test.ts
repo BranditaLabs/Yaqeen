@@ -133,6 +133,7 @@ describe.skipIf(!url)('integration (Postgres)', () => {
     expect(summary.dayNumber).toBe(6);
     expect(summary.today.status).toBe('done');
     expect(summary.streak).toBe(1); // 19 Oct was missed
+    expect(summary.qadaDays).toBe(1); // 18 Oct kept by qada
 
     const days = (
       await app.inject({ method: 'GET', url: '/v1/challenge/days?from=2026-10-15&to=2026-10-21', headers: auth(u.token) })
@@ -280,9 +281,13 @@ describe.skipIf(!url)('integration (Postgres)', () => {
     const original = shopify.createDiscount;
     shopify.createDiscount = async () => 'gid://shopify/DiscountCodeNode/1';
     try {
-      const r1 = await app.inject({ method: 'POST', url: `/v1/rewards/${reward!.id}/redeem`, headers: auth(u.token) });
+      const tap = { ...auth(u.token), 'idempotency-key': 'tap-0001-abcdef' };
+      const r1 = await app.inject({ method: 'POST', url: `/v1/rewards/${reward!.id}/redeem`, headers: tap });
       expect(r1.statusCode).toBe(200);
       expect(r1.json().balanceAfter).toBe(175);
+      // A retry of the same confirm tap returns the same code and spends nothing.
+      const replay = await app.inject({ method: 'POST', url: `/v1/rewards/${reward!.id}/redeem`, headers: tap });
+      expect(replay.json()).toMatchObject({ code: r1.json().code, balanceAfter: 175 });
       const r2 = await app.inject({ method: 'POST', url: `/v1/rewards/${reward!.id}/redeem`, headers: auth(u.token) });
       expect(r2.json().error.code).toBe('user_reward_limit_reached');
     } finally {

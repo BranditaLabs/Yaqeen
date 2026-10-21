@@ -36,7 +36,7 @@ Base URL: `API_URL` (local `http://localhost:4000`). JSON only. Schemas: `packag
 | POST | `/v1/challenge/tasks/:task/complete` | user | `{date, clientEventId}` → `{awarded, milestoneAwarded, day}`; idempotent; qada within the admin-set window |
 | POST | `/v1/challenge/bonuses/:kind/claim` | user | Today only; eligibility computed server-side from the Hijri date |
 | GET | `/v1/rewards` | user | Catalogue with `available` for the caller's balance |
-| POST | `/v1/rewards/:id/redeem` | user | Debits points, creates a single-use Shopify code; refunds on Shopify failure |
+| POST | `/v1/rewards/:id/redeem` | user | Debits points, creates a single-use Shopify code; refunds on Shopify failure. Send `Idempotency-Key` (one per confirm tap): a retry returns the same code without a second debit (`redemption_in_progress` while the first is still with Shopify) |
 
 ## Admin
 

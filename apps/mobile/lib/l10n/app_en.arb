@@ -949,5 +949,198 @@
   "homeStreakHint": "Finish today's wird to keep it",
   "homeJoin": "Start the 365-day journey",
   "homeJoinHint": "Simple daily tasks and points for the Yaqeen store",
-  "servicesTitle": "Services"
+  "servicesTitle": "Services",
+  "challengeCalendar": "Yaqeen calendar",
+  "challengeQadaDays": "{count, plural, =0{No qada days} =1{1 qada day} other{{count} qada days}}",
+  "@challengeQadaDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "challengeTodayProgress": "{done} of {total}",
+  "@challengeTodayProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "challengePointsLabel": "{points} points",
+  "@challengePointsLabel": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "taskPrivate": "Private to you",
+  "taskAuto": "Counts automatically",
+  "taskOpen": "Open",
+  "tickDayClosed": "That day has closed; the task wasn't counted",
+  "tickQadaPassed": "The make-up window for that day has passed",
+  "tickFailed": "Couldn't count it now — we'll retry",
+  "milestoneTitle": "Barak Allahu feek",
+  "milestoneBody": "{days} days of Yaqeen · +{points}",
+  "@milestoneBody": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      },
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "milestoneOk": "Alhamdulillah",
+  "redeemCardTitle": "Yaqeen store reward",
+  "redeemCardHint": "{points} points per reward",
+  "@redeemCardHint": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "challengeSignIn": "Sign in to start the challenge and earn points",
+  "signIn": "Sign in",
+  "calendarBack": "Back to the challenge",
+  "calendarJourney": "The 365-day journey",
+  "calendarStarted": "Started {start} · ends ≈ {end}",
+  "@calendarStarted": {
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarPrev": "Previous month",
+  "calendarNext": "Next month",
+  "calDone": "Complete",
+  "calPartial": "Partial",
+  "calQada": "Made up",
+  "calMissed": "Missed",
+  "calToday": "Today",
+  "calFuture": "Upcoming",
+  "calOutside": "Outside the journey",
+  "calWhiteDays": "White days",
+  "calFriday": "Friday",
+  "calMonThu": "Mon/Thu",
+  "calRamadan": "Ramadan",
+  "calEidFitr": "Eid al-Fitr",
+  "calEidAdha": "Eid al-Adha",
+  "calArafah": "Day of Arafah",
+  "calAshura": "Ashura",
+  "calSat": "Sat",
+  "calSun": "Sun",
+  "calMon": "Mon",
+  "calTue": "Tue",
+  "calWed": "Wed",
+  "calThu": "Thu",
+  "calFri": "Fri",
+  "calScore": "{status} · {points} / {total}",
+  "@calScore": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      },
+      "points": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "calMakeUp": "Make up this day now · keeps your journey",
+  "calMakeUpHint": "Tap the tasks you completed for this day",
+  "calFinishToday": "Finish today's tasks",
+  "calFooter": "Hijri from Umm al-Qura via AlAdhan · adjust ±1 day in settings",
+  "calBonusWhite": "White days · extra fasting task",
+  "calBonusMonThu": "Monday/Thursday fast · extra task",
+  "calBonusKahf": "Friday · Surat al-Kahf",
+  "calCellA11y": "{hijri}, {greg}, {status}",
+  "@calCellA11y": {
+    "placeholders": {
+      "hijri": {
+        "type": "String"
+      },
+      "greg": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "redeemBalance": "Your balance: {points} points",
+  "@redeemBalance": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "redeemChoose": "Choose a reward",
+  "redeemAvailable": "Available",
+  "redeemShort": "{points} to go",
+  "@redeemShort": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "redeemNote": "Points come from the daily challenge tasks. Each code is single-use and has no cash value.",
+  "redeemConfirmTitle": "Confirm redemption",
+  "redeemReward": "Reward",
+  "redeemDeducted": "Points deducted",
+  "redeemAfter": "Balance after",
+  "redeemLoading": "Creating your code…",
+  "redeemSuccess": "Barak Allahu lak",
+  "redeemSuccessBody": "This is your {reward} code, valid for one use in the Yaqeen store.",
+  "@redeemSuccessBody": {
+    "placeholders": {
+      "reward": {
+        "type": "String"
+      }
+    }
+  },
+  "redeemEmailed": "We've also emailed the code · valid until {date}",
+  "@redeemEmailed": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "redeemShop": "Shop now",
+  "redeemBack": "Back to rewards",
+  "redeemErrInsufficient": "Not enough points yet",
+  "redeemErrOutOfStock": "This reward is out of stock",
+  "redeemErrMonthly": "You've reached this reward's monthly limit",
+  "redeemErrStore": "The store is unavailable right now — no points were deducted",
+  "redeemErrAccount": "Sign in to redeem points",
+  "redeemErrOffline": "Redeeming needs an internet connection",
+  "redeemErrInProgress": "Your code is being created — try again in a moment",
+  "myCodes": "My codes",
+  "codesEmpty": "No codes yet",
+  "codeActive": "Valid until {date}",
+  "@codeActive": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "codeUsed": "Used",
+  "codeExpired": "Expired",
+  "codeVoid": "Cancelled · points returned"
 }

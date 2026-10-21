@@ -101,6 +101,7 @@ class ChallengeSummary {
     required this.tasks,
     this.challengeLengthDays = 365,
     this.nextMilestone,
+    this.qadaDays = 0,
   });
 
   final bool enrolled;
@@ -114,6 +115,9 @@ class ChallengeSummary {
   /// Admin-controlled (dashboard → النقاط والمكافآت). Only the API's active tasks are listed.
   final int challengeLengthDays;
   final Milestone? nextMilestone;
+
+  /// Days kept through qada over the journey.
+  final int qadaDays;
 
   double get progress => challengeLengthDays == 0 ? 0 : dayNumber / challengeLengthDays;
   bool get todayComplete => today != null && tasks.every((t) => today!.completed.contains(t.key));
@@ -136,6 +140,7 @@ class ChallengeSummary {
                 days: (j['nextMilestone'] as Map)['days'] as int,
                 points: (j['nextMilestone'] as Map)['points'] as int,
               ),
+        qadaDays: (j['qadaDays'] as int?) ?? 0,
       );
 
   /// Optimistic update after a local completion (server confirms later via the outbox).
@@ -153,6 +158,7 @@ class ChallengeSummary {
       tasks: tasks,
       challengeLengthDays: challengeLengthDays,
       nextMilestone: nextMilestone,
+      qadaDays: qadaDays,
     );
   }
 }

@@ -247,7 +247,8 @@ export const appRoutes: FastifyPluginAsync = async (app) => {
       { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
       async (req) => {
         const { id } = z.object({ id: z.uuid() }).parse(req.params);
-        return redeem(app.ctx, userId(req), id);
+        const key = z.string().min(8).max(80).optional().parse(req.headers['idempotency-key']);
+        return redeem(app.ctx, userId(req), id, key);
       },
     );
   });

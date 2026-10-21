@@ -160,6 +160,8 @@ export const ChallengeSummary = z.object({
   nextMilestone: z.object({ days: z.number().int(), points: z.number().int() }).nullable(),
   today: ChallengeDay.nullable(),
   tasks: z.array(z.object({ key: TaskKey, labelAr: z.string(), labelEn: z.string(), points: z.number().int() })),
+  /** Days kept through qada (make-up) — «2 أيام قضاء». */
+  qadaDays: z.number().int(),
 });
 export type ChallengeSummary = z.infer<typeof ChallengeSummary>;
 

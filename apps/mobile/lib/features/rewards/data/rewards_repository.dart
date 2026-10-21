@@ -23,9 +23,11 @@ class RewardsRepository {
     }
   }
 
-  /// Same key for retries of one confirm tap (the API is also rate-limited per user).
-  Future<Redemption> redeem(String rewardId) async =>
-      Redemption.fromJson((await api.post('/v1/rewards/$rewardId/redeem') as Map).cast<String, dynamic>());
+  /// [idempotencyKey]: one per confirm tap, reused on retries — the API then returns the same code
+  /// instead of spending twice.
+  Future<Redemption> redeem(String rewardId, {required String idempotencyKey}) async => Redemption.fromJson(
+        (await api.post('/v1/rewards/$rewardId/redeem', null, {'Idempotency-Key': idempotencyKey}) as Map).cast<String, dynamic>(),
+      );
 
   Future<List<Redemption>> codes() async {
     try {

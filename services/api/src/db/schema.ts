@@ -325,10 +325,13 @@ export const redemptions = pgTable(
     status: redemptionStatus('status').notNull().default('issued'),
     costPoints: integer('cost_points').notNull(),
     expiresAt: ts('expires_at').notNull(),
+    /** Client key for one confirm tap: a retry returns the same code instead of spending twice. */
+    idempotencyKey: text('idempotency_key'),
     createdAt: createdAt(),
   },
   (t) => [
     uniqueIndex('redemptions_code_uq').on(t.code),
+    uniqueIndex('redemptions_user_idem_uq').on(t.userId, t.idempotencyKey),
     index('redemptions_user_idx').on(t.userId),
     // Monthly caps count per reward per month inside the redeem transaction.
     index('redemptions_reward_created_idx').on(t.rewardId, t.createdAt),
