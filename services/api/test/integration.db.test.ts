@@ -194,7 +194,7 @@ describe.skipIf(!url)('integration (Postgres)', () => {
         method: 'POST',
         url: '/admin/content',
         headers: auth(superToken),
-        payload: { type: 'dua', category: 'عام', title: 'دعاء', textAr: 'رَبِّ زِدْنِي عِلْمًا', source: 'طه: 114' },
+        payload: { type: 'dua', category: 'general', title: 'دعاء', textAr: 'رَبِّ زِدْنِي عِلْمًا', source: 'طه: 114' },
       })
     ).json();
     await app.inject({ method: 'POST', url: `/admin/content/${created.id}/submit`, headers: auth(superToken) });

@@ -1,7 +1,4 @@
-import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,10 +12,9 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/controls.dart';
-import '../../../core/widgets/yq_button.dart';
 import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_layout.dart';
-import '../../../core/widgets/yq_logo.dart';
+import '../../../core/widgets/share_card.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../data/reading_repository.dart';
@@ -186,61 +182,15 @@ class _Action extends StatelessWidget {
 }
 
 /// Image card for sharing an ayah: porcelain, the verse, its reference and the brand mark.
-Future<void> showShareCard(BuildContext context, WidgetRef ref, {required QuranData quran, required AyahRef ayah}) async {
+Future<void> showShareCard(BuildContext context, WidgetRef ref, {required QuranData quran, required AyahRef ayah}) {
   final t = AppLocalizations.of(context);
-  final key = GlobalKey();
-  final surah = quran.surah(ayah.surah).nameAr;
-  await showDialog<void>(
-    context: context,
-    builder: (c) => Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(YqSpace.xl),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          RepaintBoundary(
-            key: key,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(YqSpace.xxl, YqSpace.xxl, YqSpace.xxl, YqSpace.l),
-              decoration: BoxDecoration(color: YqColors.porcelain, borderRadius: BorderRadius.circular(YqRadii.card)),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    quran.text(ayah),
-                    textAlign: TextAlign.center,
-                    textDirection: TextDirection.rtl,
-                    style: YqText.quran(size: 24, color: YqColors.ink),
-                  ),
-                  const SizedBox(height: YqSpace.m),
-                  Text(t.ayahRefLabel(surah, ayah.ayah), style: const TextStyle(color: YqColors.goldText, fontSize: 13)),
-                  const SizedBox(height: YqSpace.xl),
-                  const YqLogo(variant: YqLogoVariant.mark, width: 32),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: YqSpace.l),
-          YqButton(
-            label: t.share,
-            icon: const YqIcon(YqIcons.share, size: 18, tone: YqIconTone.light),
-            onPressed: () async {
-              final boundary = key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-              final image = await boundary?.toImage(pixelRatio: 3);
-              final png = await image?.toByteData(format: ui.ImageByteFormat.png);
-              if (png != null) {
-                await ref.read(deviceServicesProvider).sharePng(
-                      png.buffer.asUint8List(),
-                      fileName: 'yaqeen-${ayah.surah}-${ayah.ayah}.png',
-                      text: t.ayahRefLabel(surah, ayah.ayah),
-                    );
-              }
-              if (c.mounted) Navigator.of(c).pop();
-            },
-          ),
-        ],
-      ),
-    ),
+  return showTextShareCard(
+    context,
+    ref,
+    text: quran.text(ayah),
+    reference: t.ayahRefLabel(quran.surah(ayah.surah).nameAr, ayah.ayah),
+    fileName: 'yaqeen-${ayah.surah}-${ayah.ayah}.png',
+    quranic: true,
   );
 }
 

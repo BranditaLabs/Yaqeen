@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/calendar/data/calendar_repository.dart';
 import '../../features/challenge/data/challenge_repository.dart';
+import '../../features/azkar/data/azkar_store.dart';
+import '../../features/content/data/content_repository.dart';
 import '../../features/hifz/data/hifz_repository.dart';
 import '../../features/listen/data/audio_downloads.dart';
 import '../../features/listen/data/listen_store.dart';
@@ -151,6 +153,12 @@ final reciterRepositoryProvider = Provider(
       ReciterRepository(api: ref.watch(apiClientProvider), cache: ref.watch(kvStoreProvider), downloads: ref.watch(audioDownloadsProvider)),
 );
 final listenStoreProvider = Provider((ref) => ListenStore(ref.watch(localStoreProvider)));
+
+/* ---------------------------------------------------------- azkar & duas */
+
+final contentRepositoryProvider =
+    Provider((ref) => ContentRepository(api: ref.watch(apiClientProvider), cache: ref.watch(kvStoreProvider)));
+final azkarStoreProvider = Provider((ref) => AzkarStore(ref.watch(localStoreProvider)));
 
 /* ------------------------------------------------------------ hifz, recite */
 

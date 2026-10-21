@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { cookies } from 'next/headers';
+import { CONTENT_CATEGORY_LABELS, DUA_CATEGORIES, ZIKR_CATEGORIES } from '@yaqeen/contracts';
 import type { AdminMe, AdminRole, ContentAdminRow, ContentStatus } from '@yaqeen/contracts';
 import { ActionForm } from '@/components/action-form';
 import { Badge, Button, Card, CardTitle, Notice, PageHeader } from '@/components/ui';
@@ -73,11 +74,15 @@ export default async function ContentPage({ searchParams }: { searchParams: Prom
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <Badge tone={CONTENT_STATUS[c.status].tone}>{CONTENT_STATUS[c.status].label}</Badge>
                 <Badge tone="blue">{TYPE_LABEL[c.type]}</Badge>
-                <span className="text-xs text-muted">{c.category} · نسخة <span className="num">{c.version}</span></span>
+                <span className="text-xs text-muted">
+                  {CONTENT_CATEGORY_LABELS[c.category] ?? c.category} · نسخة <span className="num">{c.version}</span>
+                  {c.featured ? ' · ضمن دعاء اليوم' : ''}
+                </span>
               </div>
               <h3 className="font-bold">{c.title}</h3>
               <p className="mt-2 font-[family-name:var(--font-naskh)] text-xl leading-loose text-ink">{c.textAr}</p>
               {c.translationEn && <p dir="ltr" className="mt-1 text-left text-sm text-muted">{c.translationEn}</p>}
+              {c.virtue && <p className="mt-2 text-sm text-ink/80">الفضل: {c.virtue}</p>}
               <p className="mt-2 text-xs text-gold-text">المصدر: {c.source}{c.repeatCount > 1 ? ` · يُكرَّر ${c.repeatCount} مرات` : ''}</p>
               <p className="mt-1 text-xs text-muted">
                 آخر تعديل: {c.editorName ?? '—'} · {dateTime(c.updatedAt)}
@@ -120,9 +125,23 @@ export default async function ContentPage({ searchParams }: { searchParams: Prom
                     <input name="repeatCount" type="number" min={1} defaultValue={1} className="field num" />
                   </div>
                 </div>
-                <div>
-                  <label className="label">التصنيف</label>
-                  <input name="category" required placeholder="أذكار الصباح، أدعية السفر…" className="field" />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label">التصنيف</label>
+                    {/* Stable keys: the app maps them to the azkar tabs and dua sections. */}
+                    <select name="category" required className="field">
+                      <optgroup label="الأذكار">
+                        {ZIKR_CATEGORIES.map((k) => <option key={k} value={k}>{CONTENT_CATEGORY_LABELS[k]}</option>)}
+                      </optgroup>
+                      <optgroup label="الأدعية">
+                        {DUA_CATEGORIES.map((k) => <option key={`d-${k}`} value={k}>{CONTENT_CATEGORY_LABELS[k]}</option>)}
+                      </optgroup>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">الترتيب</label>
+                    <input name="sortOrder" type="number" min={0} max={999} defaultValue={0} className="field num" />
+                  </div>
                 </div>
                 <div>
                   <label className="label">العنوان</label>
@@ -140,6 +159,13 @@ export default async function ContentPage({ searchParams }: { searchParams: Prom
                   <label className="label">المصدر والتخريج</label>
                   <input name="source" required placeholder="صحيح البخاري 6306" className="field" />
                 </div>
+                <div>
+                  <label className="label">الفضل مع مصدره (اختياري)</label>
+                  <textarea name="virtue" rows={2} className="field" />
+                </div>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" name="featured" value="1" /> ضمن «دعاء اليوم»
+                </label>
                 <div className="flex gap-2">
                   <Button name="submit" value="1">حفظ وإرسال للمراجعة</Button>
                   <Button variant="ghost" name="submit" value="0">حفظ كمسودة</Button>

@@ -38,7 +38,7 @@ export const adminContentRoutes: FastifyPluginAsync = async (app) => {
     return db.transaction(async (tx) => {
       const [row] = await tx
         .insert(contentItems)
-        .values({ ...body, translationEn: body.translationEn ?? null, createdBy: adminOf(req).sub })
+        .values({ ...body, translationEn: body.translationEn ?? null, virtue: body.virtue ?? null, createdBy: adminOf(req).sub })
         .returning();
       await audit(tx, req, { action: 'content.create', targetType: 'content', targetId: row!.id, after: row });
       return row;
@@ -60,6 +60,7 @@ export const adminContentRoutes: FastifyPluginAsync = async (app) => {
         .set({
           ...body,
           translationEn: body.translationEn ?? null,
+          virtue: body.virtue ?? null,
           status: 'draft',
           version: before.version + 1,
           createdBy: adminOf(req).sub,

@@ -286,6 +286,32 @@ describe.skipIf(!url)('spec v1 endpoints (Postgres)', () => {
     expect(content.map((c: { type: string }) => c.type)).not.toContain('splash_verse');
   });
 
+  it('content: stable categories, virtue/order/featured synced; unknown category rejected', async () => {
+    const editor = await makeAdmin('content_editor', 'ed3@yaqin-brand.com');
+    const reviewer = await makeAdmin('religious_reviewer', 'rv3@yaqin-brand.com');
+    const base = { type: 'zikr', title: 'ذكر', textAr: '[نص من مصدر مراجع]', source: '[المصدر]' };
+    const bad = await app.inject({ method: 'POST', url: '/admin/content', headers: auth(editor), payload: { ...base, category: 'أذكار الصباح' } });
+    expect(bad.statusCode).toBe(400);
+    const mk = async (title: string, sortOrder: number) => {
+      const c = (
+        await app.inject({
+          method: 'POST',
+          url: '/admin/content',
+          headers: auth(editor),
+          payload: { ...base, title, category: 'evening', sortOrder, virtue: '[الفضل ومصدره]', featured: sortOrder === 2 },
+        })
+      ).json();
+      await app.inject({ method: 'POST', url: `/admin/content/${c.id}/submit`, headers: auth(editor) });
+      await app.inject({ method: 'POST', url: `/admin/content/${c.id}/review`, headers: auth(reviewer), payload: { decision: 'approve' } });
+    };
+    await mk('ب', 2);
+    await mk('أ', 1);
+    const list = (await app.inject({ method: 'GET', url: '/v1/content?type=zikr' })).json() as { title: string; category: string; sortOrder: number; featured: boolean; virtue: string }[];
+    const evening = list.filter((c) => c.category === 'evening');
+    expect(evening.map((c) => [c.title, c.sortOrder, c.featured])).toEqual([['أ', 1, false], ['ب', 2, true]]);
+    expect(evening[0]!.virtue).toBe('[الفضل ومصدره]');
+  });
+
   it('erasure: sessions end now, the account is anonymised after 30 days, the ledger stays', async () => {
     const u = await makeUser('Leaving');
     await db.insert(s.pointsLedger).values({ userId: u.id, delta: 40, reason: 'task', refKey: 'seed:leaving' });

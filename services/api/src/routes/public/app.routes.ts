@@ -105,13 +105,16 @@ export const appRoutes: FastifyPluginAsync = async (app) => {
         textAr: contentItems.textAr,
         translationEn: contentItems.translationEn,
         source: contentItems.source,
+        virtue: contentItems.virtue,
         repeatCount: contentItems.repeatCount,
+        sortOrder: contentItems.sortOrder,
+        featured: contentItems.featured,
         version: contentItems.version,
         updatedAt: contentItems.updatedAt,
       })
       .from(contentItems)
       .where(and(...conds))
-      .orderBy(asc(contentItems.category), asc(contentItems.title));
+      .orderBy(asc(contentItems.category), asc(contentItems.sortOrder), asc(contentItems.title));
     const json = await app.ctx.cache.getJson('content', `list:${q.type ?? '*'}:${q.since ?? ''}`, 300, load);
     return sendCachedJson(req, reply, json, 600);
   });

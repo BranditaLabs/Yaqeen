@@ -808,5 +808,85 @@
   "reciterSelected": "Selected reciter",
   "reciterDownloadFailed": "Download paused. Tap to resume.",
   "useMobileData": "Allow downloads on mobile data",
-  "delete": "Delete"
+  "delete": "Delete",
+  "azkarMorning": "Morning azkar",
+  "azkarEvening": "Evening azkar",
+  "azkarAfterPrayer": "After prayer",
+  "azkarSleep": "Sleep",
+  "azkarTitleAfterPrayer": "After-prayer azkar",
+  "azkarTitleSleep": "Sleep azkar",
+  "azkarKinds": "Azkar type",
+  "azkarSettings": "Settings: vibration and sound",
+  "azkarPosition": "Zikr {n} of {total}",
+  "@azkarPosition": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "azkarTapHint": "Tap anywhere on the card to count",
+  "azkarNext": "May Allah accept · moving to the next",
+  "azkarSetDone": "May Allah accept — all done",
+  "azkarRest": "Remaining azkar",
+  "azkarCount": "{count} / {total}",
+  "@azkarCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "azkarCounterA11y": "Counter {count} of {total}, tap to count",
+  "@azkarCounterA11y": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "azkarReset": "Reset count",
+  "azkarEmpty": "Azkar appear here once reviewed and published",
+  "contentOfflineHint": "Connect once to download the reviewed content",
+  "azkarHaptics": "Vibrate on each count",
+  "azkarSound": "Soft click sound",
+  "duasTitle": "Duas",
+  "duaOfTheDay": "Dua of the day",
+  "duaShare": "Share dua",
+  "duaFavAdd": "Add to favourites",
+  "duaFavRemove": "Remove from favourites",
+  "duaSections": "Sections",
+  "duaCount": "{count, plural, =0{None yet} =1{1 dua} other{{count} duas}}",
+  "@duaCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "duaFavCount": "{count, plural, =0{None yet} other{{count} saved}}",
+  "@duaFavCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "duaCatWorry": "Worry & grief",
+  "duaCatTravel": "Travel",
+  "duaCatFood": "Food",
+  "duaCatSleep": "Sleep",
+  "duaCatMosque": "Mosque",
+  "duaCatGeneral": "General",
+  "duaFavourites": "Favourites",
+  "duasEmpty": "Duas appear here once reviewed and published"
 }

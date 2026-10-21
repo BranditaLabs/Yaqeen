@@ -835,5 +835,85 @@
   "reciterSelected": "القارئ المختار",
   "reciterDownloadFailed": "توقف التحميل. المس للمتابعة.",
   "useMobileData": "السماح بالتحميل عبر بيانات الجوال",
-  "delete": "حذف"
+  "delete": "حذف",
+  "azkarMorning": "أذكار الصباح",
+  "azkarEvening": "أذكار المساء",
+  "azkarAfterPrayer": "بعد الصلاة",
+  "azkarSleep": "النوم",
+  "azkarTitleAfterPrayer": "أذكار بعد الصلاة",
+  "azkarTitleSleep": "أذكار النوم",
+  "azkarKinds": "نوع الأذكار",
+  "azkarSettings": "الإعدادات: الاهتزاز والصوت",
+  "azkarPosition": "الذكر {n} من {total}",
+  "@azkarPosition": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "azkarTapHint": "اضغط في أي مكان على البطاقة للعدّ",
+  "azkarNext": "تقبّل الله · انتقل للذكر التالي",
+  "azkarSetDone": "تقبّل الله، اكتملت الأذكار",
+  "azkarRest": "باقي الأذكار",
+  "azkarCount": "{count} / {total}",
+  "@azkarCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "azkarCounterA11y": "العدّاد {count} من {total}، اضغط للعد",
+  "@azkarCounterA11y": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "azkarReset": "إعادة العدّ",
+  "azkarEmpty": "ستظهر الأذكار هنا بعد مراجعتها ونشرها",
+  "contentOfflineHint": "اتصل بالإنترنت مرة واحدة لتنزيل المحتوى المراجَع",
+  "azkarHaptics": "الاهتزاز مع كل عدّة",
+  "azkarSound": "صوت نقرة خفيف",
+  "duasTitle": "الأدعية",
+  "duaOfTheDay": "دعاء اليوم",
+  "duaShare": "مشاركة الدعاء",
+  "duaFavAdd": "إضافة إلى المفضلة",
+  "duaFavRemove": "إزالة من المفضلة",
+  "duaSections": "الأقسام",
+  "duaCount": "{count, plural, =0{لا يوجد بعد} =1{دعاء واحد} =2{دعاءان} few{{count} أدعية} other{{count} دعاءً}}",
+  "@duaCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "duaFavCount": "{count, plural, =0{لا يوجد بعد} other{{count} محفوظ}}",
+  "@duaFavCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "duaCatWorry": "الهم والحزن",
+  "duaCatTravel": "السفر",
+  "duaCatFood": "الطعام",
+  "duaCatSleep": "النوم",
+  "duaCatMosque": "المسجد",
+  "duaCatGeneral": "أدعية عامة",
+  "duaFavourites": "المفضلة",
+  "duasEmpty": "ستظهر الأدعية هنا بعد مراجعتها ونشرها"
 }

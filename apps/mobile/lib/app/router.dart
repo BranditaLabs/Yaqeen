@@ -2,7 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/azkar/presentation/azkar_screen.dart';
 import '../features/challenge/presentation/challenge_screen.dart';
+import '../features/content/domain/content_item.dart';
+import '../features/duas/presentation/duas_screen.dart';
 import '../features/debug/gallery_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/hifz/presentation/hifz_screen.dart';
@@ -53,8 +56,12 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
                   path: '/home',
                   builder: (_, __) => const HomeScreen(),
                   routes: [
-                    GoRoute(path: 'azkar', builder: (_, __) => _todo('azkar')),
-                    GoRoute(path: 'duas', builder: (_, __) => _todo('duas')),
+                    GoRoute(path: 'azkar', builder: (_, s) => AzkarScreen(initial: ZikrSet.of(s.uri.queryParameters['set'] ?? ''))),
+                    GoRoute(
+                      path: 'duas',
+                      builder: (_, __) => const DuasScreen(),
+                      routes: [GoRoute(path: ':category', builder: (_, s) => DuaCategoryScreen(category: s.pathParameters['category']!))],
+                    ),
                     GoRoute(path: 'inbox', builder: (_, __) => const InboxScreen()),
                   ],
                 ),

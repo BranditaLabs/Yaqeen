@@ -16,8 +16,14 @@ export async function createContent(_prev: S, form: FormData): Promise<S> {
     translationEn: (form.get('translationEn') as string) || null,
     source: form.get('source'),
     repeatCount: Number(form.get('repeatCount') || 1),
+    virtue: (form.get('virtue') as string) || null,
+    sortOrder: Number(form.get('sortOrder') || 0),
+    featured: form.get('featured') === '1',
   });
-  if (!parsed.success) return { error: 'أكمل الحقول المطلوبة — المصدر إلزامي' };
+  if (!parsed.success) {
+    const badCategory = parsed.error.issues.some((i) => i.message === 'unknown_category');
+    return { error: badCategory ? 'التصنيف لا يناسب النوع — اختر تصنيف أذكار للذِّكر وتصنيف أدعية للدعاء' : 'أكمل الحقول المطلوبة — المصدر إلزامي' };
+  }
   const created = await tryApi<{ id: string }>('/admin/content', { method: 'POST', body: parsed.data });
   if (created.error || !created.data) return { error: created.error };
   if (form.get('submit') === '1') {

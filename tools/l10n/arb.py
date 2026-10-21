@@ -31,7 +31,11 @@ def main(path: str) -> None:
         text_ar, text_en, *rest = value
         types = rest[0] if rest else {}
         # Parameter order = first appearance in the Arabic template (deterministic, matches reading order).
-        names = list(dict.fromkeys(re.findall(r"\{(\w+)\}", text_ar) + re.findall(r"\{(\w+)\}", text_en)))
+        # ICU plural/select: `{count, plural, …}` names its variable; branch bodies like `=2{دعاءان}` are text.
+        found = re.findall(r"\{(\w+)[,}]", text_ar) + re.findall(r"\{(\w+)[,}]", text_en)
+        names = list(dict.fromkeys(found))
+        if "plural," in text_ar or "select," in text_ar:
+            names = [n for n in names if n in types]
         placeholders = {n: types.get(n, "String") for n in names}
         for data, text in ((ar, text_ar), (en, text_en)):
             data[key] = text

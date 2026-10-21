@@ -15,6 +15,7 @@
     "db:seed": "tsx src/db/seed.ts",
     "job:campaigns": "tsx src/jobs/campaign-dispatcher.ts",
     "job:purge": "tsx src/jobs/purge-deleted.ts",
+    "content:export": "tsx src/scripts/export-content-seed.ts",
     "load": "tsx load/run.ts"
   },
   "dependencies": {

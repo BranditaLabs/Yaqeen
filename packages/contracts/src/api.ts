@@ -12,6 +12,7 @@ import {
   ContentType,
   DayStatus,
   DeepLink,
+  DUA_CATEGORIES,
   LedgerReason,
   PackKind,
   Platform,
@@ -20,6 +21,7 @@ import {
   RewardKind,
   TaskKey,
   UserStatus,
+  ZIKR_CATEGORIES,
 } from './enums.js';
 
 const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD');
@@ -220,7 +222,12 @@ export const ContentItem = z.object({
   textAr: z.string(),
   translationEn: z.string().nullable(),
   source: z.string(),
+  /** Virtue line shown under the text (with its own source inside), e.g. «من قالها حين يصبح…». */
+  virtue: z.string().nullable(),
   repeatCount: z.number().int().min(1),
+  sortOrder: z.number().int(),
+  /** Pool for «دعاء اليوم». */
+  featured: z.boolean(),
   version: z.number().int(),
   updatedAt: z.string(),
 });
@@ -336,15 +343,28 @@ export const LedgerEntry = z.object({
 });
 export type LedgerEntry = z.infer<typeof LedgerEntry>;
 
-export const UpsertContentRequest = z.object({
-  type: ContentType,
-  category: z.string().min(1).max(60),
-  title: z.string().min(1).max(120),
-  textAr: z.string().min(1),
-  translationEn: z.string().nullable().optional(),
-  source: z.string().min(2).max(160),
-  repeatCount: z.number().int().min(1).default(1),
-});
+export const UpsertContentRequest = z
+  .object({
+    type: ContentType,
+    category: z.string().min(1).max(60),
+    title: z.string().min(1).max(120),
+    textAr: z.string().min(1),
+    translationEn: z.string().nullable().optional(),
+    source: z.string().min(2).max(160),
+    virtue: z.string().max(600).nullable().optional(),
+    repeatCount: z.number().int().min(1).max(1000).default(1),
+    sortOrder: z.number().int().min(0).max(999).default(0),
+    featured: z.boolean().default(false),
+  })
+  .refine(
+    (c) =>
+      c.type === 'zikr'
+        ? (ZIKR_CATEGORIES as readonly string[]).includes(c.category)
+        : c.type === 'dua'
+          ? (DUA_CATEGORIES as readonly string[]).includes(c.category)
+          : true,
+    { message: 'unknown_category', path: ['category'] },
+  );
 export type UpsertContentRequest = z.infer<typeof UpsertContentRequest>;
 
 export const ReviewDecision = z.object({
