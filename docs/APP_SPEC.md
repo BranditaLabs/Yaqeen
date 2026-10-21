@@ -216,7 +216,7 @@ Push payload: `data.link`, `data.campaignId` (opened → `POST /v1/me/campaigns/
 | 04 | Prayer setup | `/onboarding/prayer` | ✅ | — |
 | 04·ب | Notifications & privacy | `/onboarding/consent` | ✅ | — |
 | 05 | Daily goal & challenge | `/onboarding/goal` | ✅ | — |
-| 06 | Offline mushaf | `/onboarding/download` | ✅ | tafsir pack licence (§10) |
+| 06 | Offline mushaf | `/onboarding/download` | ✅ | tafsir pack licence (§10); the pack manager installs it once published |
 | 07 | Home | `/home` | ✅ | — |
 | 08 | Quran index | `/quran` | ✅ | — |
 | 09 | Reading mode | `/quran/read/:page` | ✅ | KFGQPC page fonts licence (Amiri Quran until then) |

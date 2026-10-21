@@ -22,6 +22,7 @@ import '../../../core/widgets/yq_layout.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../challenge/presentation/challenge_controller.dart';
+import '../../content/presentation/pack_row.dart';
 import '../../onboarding/data/auth_repository.dart';
 import '../../onboarding/data/consent_repository.dart';
 import '../../onboarding/presentation/session_controller.dart';
@@ -30,10 +31,10 @@ import '../../prayer/presentation/prayer_labels.dart';
 import '../../rewards/domain/reward.dart';
 
 final pendingSyncProvider = FutureProvider.autoDispose((ref) => ref.watch(outboxProvider).length);
-final downloadsBytesProvider = FutureProvider.autoDispose((ref) => ref.watch(audioDownloadsProvider).bytesOnDisk());
+final downloadsBytesProvider = FutureProvider.autoDispose(
+  (ref) async => await ref.watch(audioDownloadsProvider).bytesOnDisk() + await ref.watch(packRepositoryProvider).bytesOnDisk(),
+);
 final ledgerProvider = FutureProvider.autoDispose((ref) => ref.watch(rewardsRepositoryProvider).ledger());
-
-String megabytes(AppLocalizations t, int bytes) => t.megabytes((bytes / (1024 * 1024)).toStringAsFixed(bytes < 10 * 1024 * 1024 ? 1 : 0));
 
 /// `21 · Profile & settings` (spec §5.24).
 class ProfileScreen extends ConsumerWidget {
@@ -459,6 +460,7 @@ class DownloadsScreen extends ConsumerStatefulWidget {
 
 class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
   Map<String, int>? _sizes;
+  int _packBytes = 0;
 
   @override
   void initState() {
@@ -474,7 +476,13 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
       final b = await d.bytesOnDisk(r.id);
       if (b > 0) sizes[r.id] = b;
     }
-    if (mounted) setState(() => _sizes = sizes);
+    final packBytes = await ref.read(packRepositoryProvider).bytesOnDisk();
+    if (mounted) {
+      setState(() {
+        _sizes = sizes;
+        _packBytes = packBytes;
+      });
+    }
   }
 
   @override
@@ -487,8 +495,36 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
       body: AmbientBackground(
         child: SafeArea(
           child: YqPage(
-            header: YqTopBar(title: t.profileDownloads, subtitle: t.downloadsUsed(megabytes(t, total))),
+            header: YqTopBar(title: t.profileDownloads, subtitle: t.downloadsUsed(megabytes(t, total + _packBytes))),
             children: [
+              ...switch (ref.watch(packsCatalogueProvider).valueOrNull) {
+                final packs? when packs.isNotEmpty => [
+                    Text(t.packsTitle, style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: YqSpace.s),
+                    LiquidGlass(
+                      padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
+                      child: Column(
+                        children: [
+                          for (final p in packs)
+                            PackRow(
+                              pack: p,
+                              onRemove: () async {
+                                await ref.read(packRepositoryProvider).remove(p.id);
+                                ref.invalidate(installedPacksProvider);
+                                ref.invalidate(tafsirRepositoryProvider);
+                                ref.invalidate(downloadsBytesProvider);
+                                await _load();
+                              },
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: YqSpace.l),
+                    Text(t.downloadsAudio, style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: YqSpace.s),
+                  ],
+                _ => const <Widget>[],
+              },
               if (_sizes == null)
                 const YqSkeleton(child: YqSkeletonBox(height: 120))
               else if (_sizes!.isEmpty)

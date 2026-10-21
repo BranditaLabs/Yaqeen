@@ -1338,5 +1338,17 @@
   "downloadsNone": "No downloads yet",
   "downloadsAudio": "Recitations",
   "accountGoogle": "Google",
-  "accountApple": "Apple"
+  "accountApple": "Apple",
+  "packInstall": "Download · {size}",
+  "@packInstall": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "packInstalling": "Downloading…",
+  "packInstalled": "Installed",
+  "packChecksumFailed": "The file couldn't be verified and wasn't installed. Please try again.",
+  "packsTitle": "Books and tafsir"
 }

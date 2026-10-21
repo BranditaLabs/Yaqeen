@@ -1365,5 +1365,17 @@
   "downloadsNone": "لا توجد تنزيلات بعد",
   "downloadsAudio": "التلاوات",
   "accountGoogle": "Google",
-  "accountApple": "Apple"
+  "accountApple": "Apple",
+  "packInstall": "تحميل · {size}",
+  "@packInstall": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "packInstalling": "جارٍ التحميل…",
+  "packInstalled": "مثبّت",
+  "packChecksumFailed": "تعذّر التحقق من الملف، لم يُثبَّت. حاول مرة أخرى.",
+  "packsTitle": "الكتب والتفاسير"
 }

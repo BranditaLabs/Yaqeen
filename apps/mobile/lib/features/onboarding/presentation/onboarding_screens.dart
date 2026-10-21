@@ -25,6 +25,8 @@ import '../../prayer/domain/prayer_calculator.dart';
 import '../../prayer/presentation/city_picker_sheet.dart';
 import '../../prayer/presentation/prayer_labels.dart';
 import '../../quran/domain/quran_data.dart';
+import '../../content/domain/content_pack.dart';
+import '../../content/presentation/pack_row.dart';
 import '../data/auth_repository.dart';
 import '../data/consent_repository.dart';
 import 'session_controller.dart';
@@ -881,8 +883,10 @@ class DownloadStep extends ConsumerWidget {
     final items = [
       (t.downloadText, t.downloadBundled, true),
       (t.downloadFont, t.downloadBundled, true),
-      (t.downloadTafsir, t.downloadPending, false),
     ];
+    // Tafsir appears only once a licensed pack is in the catalogue; until then it says so.
+    final tafsir =
+        (ref.watch(packsCatalogueProvider).valueOrNull ?? const <ContentPack>[]).where((p) => p.kind == PackKind.tafsir).toList();
     return Scaffold(
       backgroundColor: YqColors.porcelain,
       body: AmbientBackground(
@@ -931,6 +935,15 @@ class DownloadStep extends ConsumerWidget {
                             color: ready ? YqColors.success : YqColors.slate400,
                           ),
                         ),
+                      if (tafsir.isEmpty)
+                        YqListRow(
+                          dense: true,
+                          title: t.downloadTafsir,
+                          subtitle: t.downloadPending,
+                          trailing: const Icon(Icons.schedule_rounded, color: YqColors.slate400),
+                        )
+                      else
+                        for (final p in tafsir) PackRow(pack: p),
                     ],
                   ),
                 ),

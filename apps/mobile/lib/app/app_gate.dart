@@ -42,7 +42,10 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
     // Every 15 minutes while in the foreground.
     _flushTimer = Timer.periodic(const Duration(minutes: 15), (_) => ref.read(outboxSyncProvider).flush());
     // Keep the local adhan/reminder schedule fresh (spec §6.5: re-plan on start).
-    WidgetsBinding.instance.addPostFrameCallback((_) => ref.read(remindersControllerProvider.notifier).replan());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(remindersControllerProvider.notifier).replan();
+      _updatePacks();
+    });
   }
 
   @override
@@ -51,6 +54,20 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
       ref.read(outboxSyncProvider).flush().ignore();
       ref.read(remoteConfigProvider.notifier).refresh().ignore();
       ref.read(remindersControllerProvider.notifier).replan().ignore();
+    }
+  }
+
+  /// Weekly (spec §6.6): installed packs with a newer version update on Wi-Fi only, in the
+  /// background; new packs are never installed without the user's tap.
+  Future<void> _updatePacks() async {
+    final packs = ref.read(packRepositoryProvider);
+    try {
+      for (final p in await packs.checkWeekly(ref.read(clockProvider)())) {
+        await packs.install(p);
+        ref.invalidate(tafsirRepositoryProvider);
+      }
+    } on Exception {
+      // Metered, offline or a bad checksum: the installed version stays; next week tries again.
     }
   }
 

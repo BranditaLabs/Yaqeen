@@ -30,7 +30,7 @@ class LocalStore {
   };
 
   /// Every collection the app writes — used by account deletion to wipe the device (spec §5.24).
-  static const collections = ['reading', 'azkar', 'favourites', 'hifz', 'listen', 'inbox', 'notifications.plan'];
+  static const collections = ['reading', 'azkar', 'favourites', 'hifz', 'listen', 'inbox', 'notifications.plan', 'packs'];
 
   Future<void> wipe() async {
     for (final c in collections) {

@@ -6,6 +6,8 @@ import '../../features/calendar/data/calendar_repository.dart';
 import '../../features/challenge/data/challenge_repository.dart';
 import '../../features/azkar/data/azkar_store.dart';
 import '../../features/content/data/content_repository.dart';
+import '../../features/content/data/pack_repository.dart';
+import '../../features/content/domain/content_pack.dart';
 import '../../features/hifz/data/hifz_repository.dart';
 import '../../features/listen/data/audio_downloads.dart';
 import '../../features/listen/data/listen_store.dart';
@@ -134,7 +136,19 @@ final quranRepositoryProvider = Provider((_) => QuranRepository());
 /// The mushaf, parsed once and kept for the whole session.
 final quranDataProvider = FutureProvider<QuranData>((ref) => ref.watch(quranRepositoryProvider).load());
 final readingRepositoryProvider = Provider((ref) => ReadingRepository(ref.watch(localStoreProvider)));
-final tafsirRepositoryProvider = Provider((_) => TafsirRepository());
+final packRepositoryProvider = Provider(
+  (ref) => PackRepository(
+    api: ref.watch(apiClientProvider),
+    cache: ref.watch(kvStoreProvider),
+    store: ref.watch(localStoreProvider),
+    root: ref.watch(filesDirProvider),
+    isUnmetered: ref.watch(connectivityProvider).isUnmetered,
+  ),
+);
+
+/// Tafsir from the installed, verified pack only; invalidate after an install to reload it.
+final tafsirRepositoryProvider =
+    Provider((ref) => TafsirRepository(packFile: () => ref.read(packRepositoryProvider).installedFile(PackKind.tafsir)));
 
 /* ------------------------------------------------------------------ audio */
 
