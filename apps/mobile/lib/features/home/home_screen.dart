@@ -149,12 +149,16 @@ class _NextPrayerCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(children: [
-                        const YqIcon(YqIcons.prayer, size: 16, tone: YqIconTone.gold),
-                        const SizedBox(width: 6),
-                        Text(t.nextPrayer,
-                            style: text.labelSmall?.copyWith(color: YqColors.goldText, fontWeight: FontWeight.w500, fontSize: 12),),
-                      ],),
+                      Row(
+                        children: [
+                          const YqIcon(YqIcons.prayer, size: 16, tone: YqIconTone.gold),
+                          const SizedBox(width: 6),
+                          Text(
+                            t.nextPrayer,
+                            style: text.labelSmall?.copyWith(color: YqColors.goldText, fontWeight: FontWeight.w500, fontSize: 12),
+                          ),
+                        ],
+                      ),
                       Text(_HomeSample.nextPrayerName, style: text.headlineLarge),
                       Text('${_HomeSample.nextPrayerTime} · ${t.adhanIn}', style: text.bodySmall?.copyWith(fontSize: 13)),
                     ],
@@ -180,15 +184,20 @@ class _NextPrayerCard extends StatelessWidget {
                           : null,
                       child: Column(
                         children: [
-                          Text(_HomeSample.prayers[i].$1,
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  color: i == _HomeSample.nextIndex ? YqColors.ink : YqColors.muted,
-                                  fontWeight: i == _HomeSample.nextIndex ? FontWeight.w700 : FontWeight.w400,),),
-                          Text(_HomeSample.prayers[i].$2,
-                              textDirection: TextDirection.ltr,
-                              style: YqText.numberSmall
-                                  .copyWith(fontSize: 12, color: i == _HomeSample.nextIndex ? YqColors.ink : YqColors.muted),),
+                          Text(
+                            _HomeSample.prayers[i].$1,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: i == _HomeSample.nextIndex ? YqColors.ink : YqColors.muted,
+                              fontWeight: i == _HomeSample.nextIndex ? FontWeight.w700 : FontWeight.w400,
+                            ),
+                          ),
+                          Text(
+                            _HomeSample.prayers[i].$2,
+                            textDirection: TextDirection.ltr,
+                            style: YqText.numberSmall
+                                .copyWith(fontSize: 12, color: i == _HomeSample.nextIndex ? YqColors.ink : YqColors.muted),
+                          ),
                         ],
                       ),
                     ),
@@ -229,17 +238,25 @@ class _ContinueReading extends StatelessWidget {
                 ),
                 boxShadow: const [BoxShadow(color: Color(0xB31F3F94), blurRadius: 18, spreadRadius: -10, offset: Offset(0, 10))],
               ),
-              child: const Text(_HomeSample.surah,
-                  style: TextStyle(
-                      fontFamily: YqFonts.display, fontFamilyFallback: YqFonts.displayFallback, fontSize: 17, color: Color(0xFFF1E2B6),),),
+              child: const Text(
+                _HomeSample.surah,
+                style: TextStyle(
+                  fontFamily: YqFonts.display,
+                  fontFamilyFallback: YqFonts.displayFallback,
+                  fontSize: 17,
+                  color: Color(0xFFF1E2B6),
+                ),
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(t.continueReading,
-                      style: text.labelSmall?.copyWith(color: YqColors.lapis, fontSize: 12, fontWeight: FontWeight.w500),),
+                  Text(
+                    t.continueReading,
+                    style: text.labelSmall?.copyWith(color: YqColors.lapis, fontSize: 12, fontWeight: FontWeight.w500),
+                  ),
                   Text('سورة ${_HomeSample.surah}', style: text.titleLarge?.copyWith(fontSize: 17)),
                   Text('الصفحة ${_HomeSample.page} · الجزء ${_HomeSample.juz}', style: text.bodySmall),
                   const SizedBox(height: 6),
@@ -272,14 +289,18 @@ class _WirdCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            const YqIcon(YqIcons.quran, size: 18),
-            const SizedBox(width: 8),
-            Text(t.dailyWird, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-          ],),
+          Row(
+            children: [
+              const YqIcon(YqIcons.quran, size: 18),
+              const SizedBox(width: 8),
+              Text(t.dailyWird, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+            ],
+          ),
           const SizedBox(height: 8),
-          Text(t.pagesOf(_HomeSample.wirdDone, _HomeSample.wirdTotal),
-              style: YqText.numberSmall.copyWith(fontSize: 15, color: YqColors.lapis),),
+          Text(
+            t.pagesOf(_HomeSample.wirdDone, _HomeSample.wirdTotal),
+            style: YqText.numberSmall.copyWith(fontSize: 15, color: YqColors.lapis),
+          ),
           const SizedBox(height: 8),
           const YqProgressLine(value: _HomeSample.wirdDone / _HomeSample.wirdTotal),
         ],
@@ -299,13 +320,18 @@ class _StreakCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            const YqIcon(YqIcons.streak, size: 18, tone: YqIconTone.gold),
-            const SizedBox(width: 8),
-            Flexible(
-                child: Text(t.streakDays(_HomeSample.streak),
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),),),
-          ],),
+          Row(
+            children: [
+              const YqIcon(YqIcons.streak, size: 18, tone: YqIconTone.gold),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  t.streakDays(_HomeSample.streak),
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 10),
           Row(
             children: [

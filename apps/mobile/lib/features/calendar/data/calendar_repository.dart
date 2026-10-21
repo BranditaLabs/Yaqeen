@@ -15,11 +15,14 @@ class CalendarRepository {
   Future<List<HijriDay>> month(int year, int month, {int personalOffset = 0, int regionalOffset = 0}) async {
     final key = 'cache.hijri.$year-$month.r$regionalOffset.p$personalOffset';
     try {
-      final json = (await api.get('/v1/calendar/hijri', query: {
-        'year': '$year',
-        'month': '$month',
-        'offset': '$personalOffset',
-      },) as Map)
+      final json = (await api.get(
+        '/v1/calendar/hijri',
+        query: {
+          'year': '$year',
+          'month': '$month',
+          'offset': '$personalOffset',
+        },
+      ) as Map)
           .cast<String, dynamic>();
       final days = (json['days'] as List).map((e) => HijriDay.fromJson((e as Map).cast<String, dynamic>())).toList();
       await cache.write(key, jsonEncode(days.map((d) => d.toJson()).toList()));

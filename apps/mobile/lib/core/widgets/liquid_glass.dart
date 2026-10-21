@@ -71,7 +71,9 @@ class LiquidGlass extends StatelessWidget {
     );
 
     if (highlight) {
+      // passthrough: the glass keeps the width its parent gives it (a loose Stack would shrink-wrap).
       surface = Stack(
+        fit: StackFit.passthrough,
         children: [
           surface,
           Positioned(

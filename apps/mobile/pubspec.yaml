@@ -37,12 +37,8 @@ dependencies:
   path_provider: ^2.1.6
   crypto: ^3.0.7
   app_tracking_transparency: ^2.0.7
-  # Phase 2 (add when wiring each adapter — see README "Native integrations"):
-  # firebase_core, firebase_messaging      → PushService
-  # flutter_local_notifications, timezone  → LocalNotificationScheduler
-  # google_sign_in, sign_in_with_apple     → AuthRepository id tokens
-  # adhan (prayer times on-device), geolocator, flutter_qiblah
-  # app_tracking_transparency, facebook_app_events, tiktok business SDK → AdSink
+  # Phase 2 (need accounts/keys — see README "Native integrations"):
+  # firebase_core, firebase_messaging → PushService · facebook_app_events, TikTok SDK → AdSink
 
 dev_dependencies:
   flutter_test:
@@ -79,6 +75,8 @@ flutter:
 
   assets:
     - assets/brand/
+    - assets/quran/
+    - assets/geo/
 
   fonts:
     - family: Tajawal

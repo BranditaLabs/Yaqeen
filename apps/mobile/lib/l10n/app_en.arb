@@ -77,5 +77,48 @@
         "type": "String"
       }
     }
-  }
+  },
+  "offlineBanner": "You're offline · working with what's on your device",
+  "updateTitle": "A newer version of Yaqeen is available",
+  "updateBody": "Update the app to keep using it safely.",
+  "updateCta": "Update now",
+  "maintenanceTitle": "We're improving Yaqeen",
+  "maintenanceContinue": "Continue offline",
+  "maintenanceDefault": "We'll be back soon. Quran, prayer times and azkar keep working on your device.",
+  "back": "Back",
+  "close": "Close",
+  "cancel": "Cancel",
+  "confirm": "Confirm",
+  "save": "Save",
+  "continueCta": "Continue",
+  "skip": "Skip",
+  "later": "Later",
+  "copied": "Copied",
+  "copy": "Copy",
+  "share": "Share",
+  "settingsTitle": "Settings",
+  "notificationsTitle": "Notifications",
+  "searchHint": "Search",
+  "clearSearch": "Clear search",
+  "soon": "Soon",
+  "on": "On",
+  "off": "Off",
+  "minutesShort": "{n} min",
+  "@minutesShort": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "pointsPlus": "+{points}",
+  "@pointsPlus": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "openSettings": "Open settings",
+  "errorSignIn": "Couldn't sign in, please try again"
 }

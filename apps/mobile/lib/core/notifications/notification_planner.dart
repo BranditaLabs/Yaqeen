@@ -88,37 +88,45 @@ abstract final class NotificationPlanner {
         }
         final pre = prefs.prePrayerMinutes;
         if (pre != null && pre > 0) {
-          out.add(PlannedNotification(
-            id: stableId(d, ReminderKind.prePrayer, p),
-            at: t.subtract(Duration(minutes: pre)),
-            kind: ReminderKind.prePrayer,
-            prayer: p,
-          ),);
+          out.add(
+            PlannedNotification(
+              id: stableId(d, ReminderKind.prePrayer, p),
+              at: t.subtract(Duration(minutes: pre)),
+              kind: ReminderKind.prePrayer,
+              prayer: p,
+            ),
+          );
         }
       }
       final fajr = day.times[Prayer.fajr];
       final asr = day.times[Prayer.asr];
       if (prefs.morningAzkar && fajr != null) {
-        out.add(PlannedNotification(
-          id: stableId(d, ReminderKind.morningAzkar),
-          at: fajr.add(Duration(minutes: prefs.morningAfterFajrMinutes)),
-          kind: ReminderKind.morningAzkar,
-        ),);
+        out.add(
+          PlannedNotification(
+            id: stableId(d, ReminderKind.morningAzkar),
+            at: fajr.add(Duration(minutes: prefs.morningAfterFajrMinutes)),
+            kind: ReminderKind.morningAzkar,
+          ),
+        );
       }
       if (prefs.eveningAzkar && asr != null) {
-        out.add(PlannedNotification(
-          id: stableId(d, ReminderKind.eveningAzkar),
-          at: asr.add(Duration(minutes: prefs.eveningAfterAsrMinutes)),
-          kind: ReminderKind.eveningAzkar,
-        ),);
+        out.add(
+          PlannedNotification(
+            id: stableId(d, ReminderKind.eveningAzkar),
+            at: asr.add(Duration(minutes: prefs.eveningAfterAsrMinutes)),
+            kind: ReminderKind.eveningAzkar,
+          ),
+        );
       }
       final wird = prefs.wirdAt;
       if (wird != null) {
-        out.add(PlannedNotification(
-          id: stableId(d, ReminderKind.wird),
-          at: d.add(Duration(minutes: wird)),
-          kind: ReminderKind.wird,
-        ),);
+        out.add(
+          PlannedNotification(
+            id: stableId(d, ReminderKind.wird),
+            at: d.add(Duration(minutes: wird)),
+            kind: ReminderKind.wird,
+          ),
+        );
       }
     }
 

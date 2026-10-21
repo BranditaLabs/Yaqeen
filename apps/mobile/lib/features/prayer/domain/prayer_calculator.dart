@@ -121,7 +121,8 @@ class PrayerParams {
   /// Umm al-Qura adds 30 minutes to Isha in Ramadan.
   final bool ramadan;
 
-  int get ishaInterval => method.ishaInterval > 0 && ramadan && method == CalcMethod.ummAlQura ? method.ishaInterval + 30 : method.ishaInterval;
+  int get ishaInterval =>
+      method.ishaInterval > 0 && ramadan && method == CalcMethod.ummAlQura ? method.ishaInterval + 30 : method.ishaInterval;
 
   (double fajr, double isha) get nightPortions => switch (highLatitude) {
         HighLatitudeRule.middleOfTheNight => (0.5, 0.5),
@@ -166,7 +167,14 @@ class PrayerDayTimes {
 
 /// Spec §6.4 seam: everything (Home, Prayer, notifications) reads times through this.
 abstract interface class PrayerTimesCalculator {
-  PrayerDayTimes compute({required int year, required int month, required int day, required double latitude, required double longitude, required PrayerParams params});
+  PrayerDayTimes compute({
+    required int year,
+    required int month,
+    required int day,
+    required double latitude,
+    required double longitude,
+    required PrayerParams params,
+  });
 }
 
 /// Fully offline calculator (port of adhan-js, see astronomy.dart). Rounds to the nearest minute.
@@ -174,7 +182,14 @@ class AstronomicalPrayerCalculator implements PrayerTimesCalculator {
   const AstronomicalPrayerCalculator();
 
   @override
-  PrayerDayTimes compute({required int year, required int month, required int day, required double latitude, required double longitude, required PrayerParams params}) {
+  PrayerDayTimes compute({
+    required int year,
+    required int month,
+    required int day,
+    required double latitude,
+    required double longitude,
+    required PrayerParams params,
+  }) {
     final m = params.method;
     final solar = SolarTime(year, month, day, latitude, longitude);
     final next = DateTime.utc(year, month, day + 1);

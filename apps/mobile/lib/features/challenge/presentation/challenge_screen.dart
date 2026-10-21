@@ -52,8 +52,10 @@ class _Enrolled extends ConsumerWidget {
         children: [
           Text(t.challengeTitle, style: YqText.display.copyWith(fontSize: 30)),
           const SizedBox(height: YqSpace.xs),
-          Text(t.dayOfTotal(summary.dayNumber, summary.challengeLengthDays),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: YqColors.muted),),
+          Text(
+            t.dayOfTotal(summary.dayNumber, summary.challengeLengthDays),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: YqColors.muted),
+          ),
           const SizedBox(height: YqSpace.m),
           YqProgressLine(value: summary.progress, color: YqColors.gold),
           const SizedBox(height: YqSpace.xl),

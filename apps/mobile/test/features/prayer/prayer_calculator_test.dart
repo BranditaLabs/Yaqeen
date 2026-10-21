@@ -54,8 +54,22 @@ void main() {
   });
 
   test('Umm al-Qura adds 30 minutes to Isha in Ramadan', () {
-    final normal = calc.compute(year: 2027, month: 2, day: 20, latitude: 21.4225, longitude: 39.8262, params: const PrayerParams(method: CalcMethod.ummAlQura));
-    final ramadan = calc.compute(year: 2027, month: 2, day: 20, latitude: 21.4225, longitude: 39.8262, params: const PrayerParams(method: CalcMethod.ummAlQura, ramadan: true));
+    final normal = calc.compute(
+      year: 2027,
+      month: 2,
+      day: 20,
+      latitude: 21.4225,
+      longitude: 39.8262,
+      params: const PrayerParams(method: CalcMethod.ummAlQura),
+    );
+    final ramadan = calc.compute(
+      year: 2027,
+      month: 2,
+      day: 20,
+      latitude: 21.4225,
+      longitude: 39.8262,
+      params: const PrayerParams(method: CalcMethod.ummAlQura, ramadan: true),
+    );
     expect(ramadan.isha.difference(normal.isha).inMinutes, 30);
     expect(normal.isha.difference(normal.maghrib).inMinutes, 90);
   });

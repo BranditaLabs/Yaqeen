@@ -114,8 +114,13 @@ class YqSegmented<T> extends StatelessWidget {
 
 /// Thin progress line (wird, journey, downloads).
 class YqProgressLine extends StatelessWidget {
-  const YqProgressLine(
-      {super.key, required this.value, this.color = YqColors.lapis, this.track = const Color(0x1A1F3F94), this.height = 3,});
+  const YqProgressLine({
+    super.key,
+    required this.value,
+    this.color = YqColors.lapis,
+    this.track = const Color(0x1A1F3F94),
+    this.height = 3,
+  });
 
   final double value;
   final Color color;

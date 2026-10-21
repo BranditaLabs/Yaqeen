@@ -1,4 +1,3 @@
-
 import 'package:flutter/animation.dart';
 
 /// Brand colours — Yaqeen Brand Identity 2026 (packages/design-tokens/tokens.json is the source).

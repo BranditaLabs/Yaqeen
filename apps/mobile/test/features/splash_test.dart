@@ -6,14 +6,19 @@ import 'package:yaqeen/features/onboarding/presentation/splash_screen.dart';
 
 void main() {
   testWidgets('light splash shows the logo mark only and moves on', (tester) async {
-    final router = GoRouter(initialLocation: '/splash', routes: [
-      GoRoute(path: '/splash', builder: (_, __) => const SplashScreen(next: '/next', hold: Duration(milliseconds: 300))),
-      GoRoute(path: '/next', builder: (_, __) => const Scaffold(body: Text('next'))),
-    ],);
-    await tester.pumpWidget(Directionality(
-      textDirection: TextDirection.rtl,
-      child: MaterialApp.router(routerConfig: router),
-    ),);
+    final router = GoRouter(
+      initialLocation: '/splash',
+      routes: [
+        GoRoute(path: '/splash', builder: (_, __) => const SplashScreen(next: '/next', hold: Duration(milliseconds: 300))),
+        GoRoute(path: '/next', builder: (_, __) => const Scaffold(body: Text('next'))),
+      ],
+    );
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.rtl,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
     await tester.pump();
     // Logo mark only (navy wings + gold diamond layers) — no wordmark, no typeset name.
     final assets = tester.widgetList<Image>(find.byType(Image)).map((i) => (i.image as AssetImage).assetName).toSet();

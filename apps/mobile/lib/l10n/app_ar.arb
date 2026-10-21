@@ -104,5 +104,48 @@
         "type": "String"
       }
     }
-  }
+  },
+  "offlineBanner": "أنت غير متصل · نعمل بما على جهازك",
+  "updateTitle": "يتوفر إصدار أحدث من يقين",
+  "updateBody": "حدّث التطبيق لتستمر في استخدامه بأمان.",
+  "updateCta": "تحديث الآن",
+  "maintenanceTitle": "نعمل على تحسين يقين",
+  "maintenanceContinue": "متابعة دون اتصال",
+  "maintenanceDefault": "سنعود قريباً بإذن الله. المصحف والمواقيت والأذكار تعمل على جهازك.",
+  "back": "رجوع",
+  "close": "إغلاق",
+  "cancel": "إلغاء",
+  "confirm": "تأكيد",
+  "save": "حفظ",
+  "continueCta": "متابعة",
+  "skip": "تخطي",
+  "later": "لاحقاً",
+  "copied": "تم النسخ",
+  "copy": "نسخ",
+  "share": "مشاركة",
+  "settingsTitle": "الإعدادات",
+  "notificationsTitle": "الإشعارات",
+  "searchHint": "بحث",
+  "clearSearch": "مسح البحث",
+  "soon": "قريباً",
+  "on": "مفعّل",
+  "off": "متوقف",
+  "minutesShort": "{n} د",
+  "@minutesShort": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "pointsPlus": "+{points}",
+  "@pointsPlus": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "openSettings": "افتح الإعدادات",
+  "errorSignIn": "تعذّر تسجيل الدخول، حاول مرة أخرى"
 }

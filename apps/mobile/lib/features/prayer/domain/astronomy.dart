@@ -15,8 +15,7 @@ abstract final class Astronomical {
 
   static double meanLunarLongitude(double t) => unwindAngle(218.3165 + 481267.8813 * t);
 
-  static double ascendingLunarNodeLongitude(double t) =>
-      unwindAngle(125.04452 - 1934.136261 * t + 0.0020708 * t * t + t * t * t / 450000);
+  static double ascendingLunarNodeLongitude(double t) => unwindAngle(125.04452 - 1934.136261 * t + 0.0020708 * t * t + t * t * t / 450000);
 
   static double meanSolarAnomaly(double t) => unwindAngle(357.52911 + 35999.05029 * t - 0.0001537 * t * t);
 
@@ -33,8 +32,7 @@ abstract final class Astronomical {
     return unwindAngle(longitude - 0.00569 - 0.00478 * math.sin(degToRad(omega)));
   }
 
-  static double meanObliquityOfTheEcliptic(double t) =>
-      23.439291 - 0.013004167 * t - 0.0000001639 * t * t + 0.0000005036 * t * t * t;
+  static double meanObliquityOfTheEcliptic(double t) => 23.439291 - 0.013004167 * t - 0.0000001639 * t * t + 0.0000005036 * t * t * t;
 
   static double apparentObliquityOfTheEcliptic(double t, double meanObliquity) =>
       meanObliquity + 0.00256 * math.cos(degToRad(125.04 - 1934.136 * t));
@@ -172,7 +170,14 @@ class SolarTime {
     final next = SolarCoordinates(jd + 1);
     final m0 = Astronomical.approximateTransit(longitude, solar.apparentSiderealTime, solar.rightAscension);
     final st = SolarTime._(latitude, longitude, solar, prev, next, m0);
-    st.transit = Astronomical.correctedTransit(m0, longitude, solar.apparentSiderealTime, solar.rightAscension, prev.rightAscension, next.rightAscension);
+    st.transit = Astronomical.correctedTransit(
+      m0,
+      longitude,
+      solar.apparentSiderealTime,
+      solar.rightAscension,
+      prev.rightAscension,
+      next.rightAscension,
+    );
     st.sunrise = st.hourAngle(-50.0 / 60.0, afterTransit: false);
     st.sunset = st.hourAngle(-50.0 / 60.0, afterTransit: true);
     return st;

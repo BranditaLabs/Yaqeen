@@ -16,51 +16,89 @@ enum ConsentKind {
 
 enum ConsentSource { onboarding, settings, systemPrompt }
 
-/// Consents are stored locally first (they gate analytics immediately, even offline)
-/// and synced to the server, which keeps the legal record.
+/// Defaults shown on the consent step (spec §5.6): reminders and challenge on; offers and ads off.
+const consentDefaults = {
+  ConsentKind.worshipReminders: true,
+  ConsentKind.challengeRewards: true,
+  ConsentKind.storeOffers: false,
+  ConsentKind.adsMeasurement: false,
+};
+
+/// Consents are stored locally first (they gate analytics immediately, even offline) and synced
+/// to the server, which keeps the legal record. Every change is an event; events that could not
+/// be sent yet (offline, or a guest not yet created on the server) are replayed in order with
+/// their original source.
 class ConsentRepository {
   ConsentRepository({required this.api, required this.store});
 
   final ApiClient api;
   final KvStore store;
   static const _key = 'consents.v1';
+  static const _pendingKey = 'consents.pending.v1';
+  static const _decidedKey = 'consents.decided';
 
   Map<ConsentKind, bool> _cache = {for (final k in ConsentKind.values) k: false};
+  bool _decided = false;
 
   bool granted(ConsentKind k) => _cache[k] ?? false;
+  Map<ConsentKind, bool> get all => Map.unmodifiable(_cache);
+
+  /// The user has passed the consent step (until then, install events wait — spec §5.3).
+  bool get decided => _decided;
 
   Future<void> load() async {
+    _decided = await store.read(_decidedKey) == '1';
     final raw = await store.read(_key);
     if (raw == null) return;
     final m = (jsonDecode(raw) as Map).cast<String, dynamic>();
     _cache = {for (final k in ConsentKind.values) k: m[k.wire] == true};
   }
 
+  static String _sourceWire(ConsentSource s) => switch (s) {
+        ConsentSource.onboarding => 'onboarding',
+        ConsentSource.settings => 'settings',
+        ConsentSource.systemPrompt => 'system_prompt',
+      };
+
   Future<void> set(ConsentKind kind, bool value, ConsentSource source) async {
     _cache = {..._cache, kind: value};
     await store.write(_key, jsonEncode({for (final e in _cache.entries) e.key.wire: e.value}));
-    try {
-      await api.put('/v1/me/consents', {
-        'kind': kind.wire,
-        'granted': value,
-        'source': switch (source) {
-          ConsentSource.onboarding => 'onboarding',
-          ConsentSource.settings => 'settings',
-          ConsentSource.systemPrompt => 'system_prompt',
-        },
-      });
-    } on OfflineException {
-      // Local state already applied; synced on next launch by [syncAll].
-    }
+    final pending = await _pending();
+    await store.write(
+      _pendingKey,
+      jsonEncode([
+        ...pending,
+        {'kind': kind.wire, 'granted': value, 'source': _sourceWire(source)},
+      ]),
+    );
+    await syncAll();
   }
 
+  Future<void> markDecided() async {
+    _decided = true;
+    await store.write(_decidedKey, '1');
+  }
+
+  Future<List<Map<String, dynamic>>> _pending() async {
+    final raw = await store.read(_pendingKey);
+    return raw == null ? [] : (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+  }
+
+  /// Sends queued consent events in order; stops (keeping the rest) when offline or signed out.
   Future<void> syncAll() async {
-    for (final k in ConsentKind.values) {
+    final pending = await _pending();
+    var sent = 0;
+    for (final e in pending) {
       try {
-        await api.put('/v1/me/consents', {'kind': k.wire, 'granted': granted(k), 'source': 'settings'});
+        await api.put('/v1/me/consents', e);
+        sent++;
       } on OfflineException {
-        return;
+        break;
+      } on ApiException catch (err) {
+        if (err.status == 401) break; // no server account yet — retried after sign-in
+        sent++; // invalid payloads won't succeed later
       }
     }
+    if (sent > 0) await store.write(_pendingKey, jsonEncode(pending.sublist(sent)));
   }
 }
