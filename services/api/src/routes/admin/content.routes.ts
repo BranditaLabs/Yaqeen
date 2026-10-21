@@ -1,8 +1,8 @@
-import { and, asc, desc, eq, gte } from 'drizzle-orm';
+import { and, asc, desc, eq, getTableColumns, gte } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { ContentStatus, ContentType, DailyTaskUpsert, ReviewDecision, UpsertContentRequest } from '@yaqeen/contracts';
-import { appConfig, contentItems, dailyTasks } from '../../db/schema.js';
+import { adminUsers, appConfig, contentItems, dailyTasks } from '../../db/schema.js';
 import { localToday } from '../../domain/points.js';
 import { audit } from '../../lib/audit.js';
 import { conflict, forbidden, notFound } from '../../lib/errors.js';
@@ -23,9 +23,11 @@ export const adminContentRoutes: FastifyPluginAsync = async (app) => {
     const conds = [];
     if (q.type) conds.push(eq(contentItems.type, q.type));
     if (q.status) conds.push(eq(contentItems.status, q.status));
+    // `editorName` feeds the «آخر تعديل» history line.
     return db
-      .select()
+      .select({ ...getTableColumns(contentItems), editorName: adminUsers.name })
       .from(contentItems)
+      .leftJoin(adminUsers, eq(adminUsers.id, contentItems.createdBy))
       .where(conds.length ? and(...conds) : undefined)
       .orderBy(desc(contentItems.updatedAt))
       .limit(200);

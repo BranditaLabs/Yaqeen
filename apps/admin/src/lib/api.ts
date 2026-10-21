@@ -42,9 +42,9 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
 /** For server actions: returns `{ error }` instead of throwing so forms can show it. */
 export async function tryApi<T>(path: string, init: { method?: string; body?: unknown } = {}) {
   try {
-    return { data: await api<T>(path, init), error: null as string | null };
+    return { data: await api<T>(path, init), error: null as string | null, code: null as string | null };
   } catch (e) {
-    if (e instanceof ApiError) return { data: null, error: e.message || e.code };
+    if (e instanceof ApiError) return { data: null, error: e.message || e.code, code: e.code };
     throw e;
   }
 }

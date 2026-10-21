@@ -1,11 +1,12 @@
-import type { AdminMe, RemoteConfig } from '@yaqeen/contracts';
+import type { AdminMe, ContentAdminRow, RemoteConfig } from '@yaqeen/contracts';
 import { ActionForm } from '@/components/action-form';
 import { AddAdminForm, HijriForm } from '@/components/settings-forms';
-import { Badge, Button, Card, CardTitle, PageHeader, Table, Td } from '@/components/ui';
+import { Badge, Button, Card, CardTitle, Notice, PageHeader, Table, Td } from '@/components/ui';
 import { api } from '@/lib/api';
-import { dateTime } from '@/lib/format';
+import { date, dateTime } from '@/lib/format';
+import { CONTENT_STATUS } from '@/lib/labels';
 import { ROLE_LABEL } from '@/lib/session';
-import { saveFlags } from './actions';
+import { proposeSplashVerse, saveFlags, saveTestDevices } from './actions';
 
 const FEATURE_LABEL: Record<string, string> = {
   challenge: 'تحدي 365 يوماً من اليقين',
@@ -13,7 +14,11 @@ const FEATURE_LABEL: Record<string, string> = {
   hifz: 'الحفظ',
   listen: 'الاستماع',
   bonuses: 'المكافآت الإضافية',
+  recite: 'التسميع (تجريبي)',
+  ramadan: 'وضع رمضان',
+  tafsirFull: 'التفسير الكامل',
 };
+const ROLLOUT_FLAGS = ['recite'];
 
 interface TeamRow { id: string; name: string; email: string; role: keyof typeof ROLE_LABEL; active: boolean; lastLoginAt: string | null }
 interface AuditRow { id: string; action: string; targetType: string; targetId: string | null; reason: string | null; createdAt: string; admin: string | null }
@@ -22,6 +27,10 @@ export default async function SettingsPage() {
   const me = await api<AdminMe>('/admin/auth/me');
   const isSuper = me.role === 'super_admin';
   const config = await api<RemoteConfig>('/admin/settings/config');
+  const canProposeVerse = isSuper || me.role === 'content_editor';
+  const verses = isSuper || me.role === 'content_editor' || me.role === 'religious_reviewer'
+    ? (await api<ContentAdminRow[]>('/admin/content?type=splash_verse')).slice(0, 5)
+    : [];
   const [team, auditRows] = isSuper
     ? await Promise.all([api<TeamRow[]>('/admin/settings/team'), api<AuditRow[]>('/admin/settings/audit')])
     : [[], []];
@@ -50,10 +59,26 @@ export default async function SettingsPage() {
             <CardTitle>الميزات والإصدارات</CardTitle>
             <ActionForm action={saveFlags.bind(null, config.features)} className="space-y-3">
               {Object.entries(config.features).map(([k, v]) => (
-                <label key={k} className="flex items-center justify-between rounded-chip bg-white/60 px-3 py-2.5 text-sm">
-                  {FEATURE_LABEL[k] ?? k}
-                  <input name={k} type="checkbox" defaultChecked={v} className="h-4 w-4 accent-[var(--yq-lapis)]" />
-                </label>
+                <div key={k} className="flex items-center justify-between gap-3 rounded-chip bg-white/60 px-3 py-2.5 text-sm">
+                  <label className="flex flex-1 items-center justify-between gap-3">
+                    {FEATURE_LABEL[k] ?? k}
+                    <input name={k} type="checkbox" defaultChecked={v} className="h-4 w-4 accent-[var(--yq-lapis)]" />
+                  </label>
+                  {ROLLOUT_FLAGS.includes(k) && (
+                    <label className="flex items-center gap-1 text-xs text-muted">
+                      لـ
+                      <input
+                        name={`rollout_${k}`}
+                        type="number"
+                        min={0}
+                        max={100}
+                        defaultValue={config.featureRollout?.[k] ?? 100}
+                        className="field num w-16 py-1 text-center"
+                      />
+                      % من المستخدمين
+                    </label>
+                  )}
+                </div>
               ))}
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -75,6 +100,44 @@ export default async function SettingsPage() {
             </ActionForm>
           </Card>
         )}
+
+        <Card>
+          <CardTitle>آية شاشة البداية</CardTitle>
+          <p dir="rtl" className="font-[family-name:var(--font-naskh)] text-2xl leading-loose text-ink">{config.splashVerse.textAr}</p>
+          <p className="mb-4 text-xs text-gold-text">{config.splashVerse.reference}</p>
+          <Notice>أي تغيير يُرسل للمراجعة الشرعية، ولا يظهر في التطبيق قبل اعتماد مراجع غير كاتبه.</Notice>
+          {canProposeVerse && (
+            <ActionForm action={proposeSplashVerse} className="mt-4 space-y-3" success="أُرسلت للمراجعة الشرعية">
+              <textarea name="textAr" required rows={2} placeholder="نص الآية بالرسم العثماني" className="field font-[family-name:var(--font-naskh)] text-xl leading-loose" />
+              <input name="reference" required placeholder="السورة: رقم الآية — الرعد: 28" className="field" />
+              <Button variant="ghost">إرسال للمراجعة</Button>
+            </ActionForm>
+          )}
+          {verses.length > 0 && (
+            <ul className="mt-4 space-y-2 text-sm">
+              {verses.map((v) => (
+                <li key={v.id} className="flex items-center justify-between gap-2 rounded-chip bg-white/60 px-3 py-2">
+                  <span className="truncate">{v.source}</span>
+                  <span className="flex items-center gap-2">
+                    <span className="text-xs text-muted">{date(v.updatedAt)}</span>
+                    <Badge tone={CONTENT_STATUS[v.status].tone}>{CONTENT_STATUS[v.status].label}</Badge>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card>
+          <CardTitle>أجهزة الاختبار</CardTitle>
+          <p className="mb-3 text-sm text-muted">
+            رموز FCM لهواتفك (من شاشة «عن يقين» في نسخة الاختبار) لاستخدام «إرسال تجريبي لجهازي» في الحملات. حتى 5 أجهزة.
+          </p>
+          <ActionForm action={saveTestDevices} className="space-y-3">
+            <textarea name="tokens" rows={3} dir="ltr" placeholder={'fcm-token-1\nfcm-token-2'} className="field text-left font-mono text-xs" />
+            <Button variant="ghost">حفظ الأجهزة</Button>
+          </ActionForm>
+        </Card>
 
         {isSuper && (
           <Card>
@@ -103,7 +166,7 @@ export default async function SettingsPage() {
               {auditRows.map((a) => (
                 <tr key={a.id}>
                   <Td className="text-muted">{dateTime(a.createdAt)}</Td>
-                  <Td>{a.admin ?? '—'}</Td>
+                  <Td>{a.admin ?? 'المستخدم'}</Td>
                   <Td>
                     <code dir="ltr" className="text-xs">{a.action}</code>
                   </Td>

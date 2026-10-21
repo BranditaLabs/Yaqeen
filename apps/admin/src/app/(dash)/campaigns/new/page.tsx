@@ -13,9 +13,9 @@ const SEGMENTS = {
 };
 
 const LINKS = {
+  redeem: 'المكافآت',
   challenge: 'التحدي',
   calendar: 'التقويم',
-  redeem: 'استبدال النقاط',
   store: 'المتجر',
   home: 'الرئيسية',
   quran: 'المصحف',
@@ -111,6 +111,11 @@ export default function NewCampaignPage() {
           {state.issues && state.issues.length > 0 && (
             <div className="mt-4"><Notice>{state.issues.join(' · ')}</Notice></div>
           )}
+          {state.testSent !== undefined && !state.error && (
+            <p className="mt-4 text-sm text-success">
+              أُرسلت التجربة إلى <span className="num">{state.testSent}</span> من أجهزتك
+            </p>
+          )}
           {state.reach !== undefined && !state.error && (
             <p className="mt-4 text-sm text-lapis">
               الوصول المتوقع: <span className="num">{new Intl.NumberFormat('en-US').format(state.reach)}</span> مستخدم
@@ -119,6 +124,7 @@ export default function NewCampaignPage() {
 
           <div className="mt-6 flex flex-wrap gap-2">
             <Button name="intent" value="preview" variant="ghost" disabled={pending}>تقدير الوصول ومراجعة النص</Button>
+            <Button name="intent" value="test" variant="ghost" disabled={pending}>إرسال تجريبي لجهازي</Button>
             <Button name="intent" value="save" disabled={pending}>جدولة الحملة</Button>
           </div>
         </Card>

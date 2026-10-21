@@ -1,7 +1,8 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { DailyTaskUpsert, ReviewDecision, UpsertContentRequest } from '@yaqeen/contracts';
+import { cookies } from 'next/headers';
+import { AdminRole, DailyTaskUpsert, ReviewDecision, UpsertContentRequest } from '@yaqeen/contracts';
 import { tryApi } from '@/lib/api';
 
 type S = { error: string | null; ok?: boolean };
@@ -49,4 +50,13 @@ export async function upsertDailyTask(_prev: S, form: FormData): Promise<S> {
   if (error) return { error };
   revalidatePath('/content');
   return { error: null, ok: true };
+}
+
+/** Dev-only «تعرض كـ» toggle (ignored in production builds). */
+export async function setPreviewRole(form: FormData) {
+  if (process.env.NODE_ENV === 'production') return;
+  const role = AdminRole.safeParse(form.get('role'));
+  const jar = await cookies();
+  if (role.success) jar.set('yq_preview_role', role.data, { httpOnly: true, sameSite: 'strict', path: '/content' });
+  revalidatePath('/content');
 }

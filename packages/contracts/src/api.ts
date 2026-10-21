@@ -353,7 +353,7 @@ export const ReviewDecision = z.object({
 });
 export type ReviewDecision = z.infer<typeof ReviewDecision>;
 
-export const ContentAdminRow = ContentItem.extend({ status: ContentStatus, reviewNote: z.string().nullable() });
+export const ContentAdminRow = ContentItem.extend({ status: ContentStatus, reviewNote: z.string().nullable(), editorName: z.string().nullable().optional() });
 export type ContentAdminRow = z.infer<typeof ContentAdminRow>;
 
 export const DailyTaskUpsert = z.object({

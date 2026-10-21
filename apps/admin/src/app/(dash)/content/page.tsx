@@ -1,11 +1,17 @@
 import Link from 'next/link';
-import type { AdminMe, ContentAdminRow, ContentStatus } from '@yaqeen/contracts';
+import { cookies } from 'next/headers';
+import type { AdminMe, AdminRole, ContentAdminRow, ContentStatus } from '@yaqeen/contracts';
 import { ActionForm } from '@/components/action-form';
 import { Badge, Button, Card, CardTitle, Notice, PageHeader } from '@/components/ui';
 import { api } from '@/lib/api';
-import { date } from '@/lib/format';
+import { date, dateTime } from '@/lib/format';
+import { ROLE_LABEL } from '@/lib/session';
 import { CONTENT_STATUS } from '@/lib/labels';
-import { createContent, review, submitForReview, upsertDailyTask } from './actions';
+import { createContent, review, setPreviewRole, submitForReview, upsertDailyTask } from './actions';
+
+const TYPE_LABEL = { dua: 'دعاء', zikr: 'ذِكر', splash_verse: 'آية البداية' } as const;
+/** «تعرض كـ» — dev only: previews the page as another role. The API still enforces the real role. */
+const PREVIEW_ENABLED = process.env.NODE_ENV !== 'production';
 
 const TABS: { key: ContentStatus | 'all'; label: string }[] = [
   { key: 'all', label: 'الكل' },
@@ -20,12 +26,30 @@ export default async function ContentPage({ searchParams }: { searchParams: Prom
   const me = await api<AdminMe>('/admin/auth/me');
   const items = await api<ContentAdminRow[]>(`/admin/content${status ? `?status=${status}` : ''}`);
   const tasks = await api<{ date: string; taskAr: string }[]>('/admin/content/daily-tasks');
-  const canEdit = me.role === 'content_editor' || me.role === 'super_admin';
-  const canReview = me.role === 'religious_reviewer' || me.role === 'super_admin';
+  const preview = PREVIEW_ENABLED ? ((await cookies()).get('yq_preview_role')?.value as AdminRole | undefined) : undefined;
+  const role: AdminRole = preview && preview in ROLE_LABEL ? preview : me.role;
+  const canEdit = role === 'content_editor' || role === 'super_admin';
+  const canReview = role === 'religious_reviewer' || role === 'super_admin';
 
   return (
     <>
-      <PageHeader title="المحتوى" subtitle="الأدعية والأذكار ومهمة اليوم. لا يُنشر نص قبل مراجعة شرعية من شخص غير كاتبه." />
+      <PageHeader
+        title="المحتوى"
+        subtitle="الأدعية والأذكار ومهمة اليوم. لا يُنشر نص قبل مراجعة شرعية من شخص غير كاتبه."
+        action={
+          PREVIEW_ENABLED && (
+            <form action={setPreviewRole} className="flex items-center gap-2 text-xs text-muted">
+              تعرض كـ
+              <select name="role" defaultValue={role} className="field w-auto py-1.5 text-xs">
+                {Object.entries(ROLE_LABEL).map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </select>
+              <button className="rounded-full border border-line bg-white/70 px-3 py-1.5">عرض</button>
+            </form>
+          )
+        }
+      />
 
       <div className="mb-4 flex flex-wrap gap-2">
         {TABS.map((t) => (
@@ -48,12 +72,16 @@ export default async function ContentPage({ searchParams }: { searchParams: Prom
             <Card key={c.id}>
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <Badge tone={CONTENT_STATUS[c.status].tone}>{CONTENT_STATUS[c.status].label}</Badge>
-                <Badge tone="blue">{c.type === 'dua' ? 'دعاء' : 'ذِكر'}</Badge>
-                <span className="text-xs text-muted">{c.category} · نسخة {c.version} · {date(c.updatedAt)}</span>
+                <Badge tone="blue">{TYPE_LABEL[c.type]}</Badge>
+                <span className="text-xs text-muted">{c.category} · نسخة <span className="num">{c.version}</span></span>
               </div>
               <h3 className="font-bold">{c.title}</h3>
               <p className="mt-2 font-[family-name:var(--font-naskh)] text-xl leading-loose text-ink">{c.textAr}</p>
+              {c.translationEn && <p dir="ltr" className="mt-1 text-left text-sm text-muted">{c.translationEn}</p>}
               <p className="mt-2 text-xs text-gold-text">المصدر: {c.source}{c.repeatCount > 1 ? ` · يُكرَّر ${c.repeatCount} مرات` : ''}</p>
+              <p className="mt-1 text-xs text-muted">
+                آخر تعديل: {c.editorName ?? '—'} · {dateTime(c.updatedAt)}
+              </p>
               {c.reviewNote && <Notice tone="red">ملاحظة المراجع: {c.reviewNote}</Notice>}
 
               <div className="mt-4 flex flex-wrap gap-2">

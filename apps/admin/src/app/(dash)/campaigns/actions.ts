@@ -2,11 +2,11 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { CampaignCreate } from '@yaqeen/contracts';
+import { CampaignCreate, CampaignTest } from '@yaqeen/contracts';
 import { tryApi } from '@/lib/api';
 import { zonedLocalToIso } from '@/lib/format';
 
-type S = { error: string | null; ok?: boolean; reach?: number; issues?: string[] };
+type S = { error: string | null; ok?: boolean; reach?: number; issues?: string[]; testSent?: number };
 
 function parse(form: FormData) {
   const scheduledAt = form.get('scheduledAt') as string;
@@ -26,6 +26,21 @@ function parse(form: FormData) {
 }
 
 export async function saveCampaign(_prev: S, form: FormData): Promise<S> {
+  if (form.get('intent') === 'test') {
+    const test = CampaignTest.safeParse({
+      titleAr: form.get('titleAr'),
+      bodyAr: form.get('bodyAr'),
+      titleEn: (form.get('titleEn') as string) || undefined,
+      bodyEn: (form.get('bodyEn') as string) || undefined,
+      deepLink: form.get('deepLink'),
+    });
+    if (!test.success) return { error: 'اكتب العنوان والنص أولاً' };
+    const res = await tryApi<{ sent: number }>('/admin/campaigns/test', { method: 'POST', body: test.data });
+    if (res.code === 'no_test_devices') return { error: 'أضف جهاز اختبار من الإعدادات أولاً' };
+    if (res.code === 'push_not_configured') return { error: 'الإشعارات غير مهيأة على الخادم (Firebase)' };
+    if (res.error || !res.data) return { error: res.error };
+    return { error: null, testSent: res.data.sent };
+  }
   const parsed = parse(form);
   if (!parsed.success) return { error: 'أكمل كل الحقول بالعربية والإنجليزية' };
 
