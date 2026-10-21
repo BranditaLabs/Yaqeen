@@ -10,6 +10,8 @@ import '../features/notifications/presentation/notification_settings_screen.dart
 import '../features/onboarding/presentation/splash_screen.dart';
 import '../features/placeholder/placeholder_screen.dart';
 import '../features/prayer/presentation/qibla_screen.dart';
+import '../features/quran/presentation/quran_index_screen.dart';
+import '../features/quran/presentation/reader_screen.dart';
 import '../features/rewards/presentation/redeem_screen.dart';
 import 'shell.dart';
 
@@ -58,11 +60,15 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
               routes: [
                 GoRoute(
                   path: '/quran',
-                  builder: (_, __) => _todo('quran'),
+                  builder: (_, __) => const QuranIndexScreen(),
                   routes: [
                     GoRoute(path: 'hifz', builder: (_, __) => _todo('hifz')),
                     GoRoute(path: 'reciters', builder: (_, __) => _todo('reciters')),
-                    GoRoute(parentNavigatorKey: rootNavigatorKey, path: 'read/:page', builder: (_, __) => _todo('read')),
+                    GoRoute(
+                      parentNavigatorKey: rootNavigatorKey,
+                      path: 'read/:page',
+                      builder: (_, s) => ReaderScreen(initialPage: (int.tryParse(s.pathParameters['page'] ?? '') ?? 1).clamp(1, 604)),
+                    ),
                     GoRoute(parentNavigatorKey: rootNavigatorKey, path: 'recite/:surah', builder: (_, __) => _todo('recite')),
                     GoRoute(parentNavigatorKey: rootNavigatorKey, path: 'listen/:surah', builder: (_, __) => _todo('listen')),
                   ],

@@ -8,6 +8,10 @@ import '../../features/onboarding/data/auth_repository.dart';
 import '../../features/onboarding/data/consent_repository.dart';
 import '../../features/prayer/data/city_repository.dart';
 import '../../features/prayer/data/prayer_repository.dart';
+import '../../features/quran/data/quran_repository.dart';
+import '../../features/quran/data/reading_repository.dart';
+import '../../features/quran/data/tafsir_repository.dart';
+import '../../features/quran/domain/quran_data.dart';
 import '../../features/rewards/data/rewards_repository.dart';
 import '../analytics/analytics.dart';
 import '../config/env.dart';
@@ -115,6 +119,13 @@ final notificationTapsProvider = StreamProvider<Uri>((_) => const Stream.empty()
 final cityRepositoryProvider = Provider((_) => CityRepository());
 final prayerRepositoryProvider = Provider((_) => const PrayerRepository());
 final inboxRepositoryProvider = Provider((ref) => InboxRepository(ref.watch(localStoreProvider), now: ref.watch(clockProvider)));
+final quranRepositoryProvider = Provider((_) => QuranRepository());
+
+/// The mushaf, parsed once and kept for the whole session.
+final quranDataProvider = FutureProvider<QuranData>((ref) => ref.watch(quranRepositoryProvider).load());
+final readingRepositoryProvider = Provider((ref) => ReadingRepository(ref.watch(localStoreProvider)));
+final tafsirRepositoryProvider = Provider((_) => TafsirRepository());
+
 final reminderServiceProvider = Provider(
   (ref) => ReminderService(
     scheduler: ref.watch(localNotificationsProvider),

@@ -438,5 +438,362 @@
         "type": "int"
       }
     }
-  }
+  },
+  "quranTitle": "القرآن الكريم",
+  "quranListen": "الاستماع",
+  "quranHifzPlan": "خطة الحفظ",
+  "quranSearchHint": "ابحث عن سورة أو رقمها",
+  "quranBrowse": "طريقة التصفح",
+  "quranSurahs": "السور",
+  "quranJuzs": "الأجزاء",
+  "quranSaved": "المحفوظات",
+  "quranMeccan": "مكية",
+  "quranMedinan": "مدنية",
+  "quranAyahCount": "{count} آية",
+  "@quranAyahCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "quranSurahMeta": "{type} · {count}",
+  "@quranSurahMeta": {
+    "placeholders": {
+      "type": {
+        "type": "String"
+      },
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "quranJuz": "الجزء {n}",
+  "@quranJuz": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "quranJuzStarts": "يبدأ من {surah} {ayah}",
+  "@quranJuzStarts": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      },
+      "ayah": {
+        "type": "int"
+      }
+    }
+  },
+  "quranHizbQuarter": "الربع {n}",
+  "@quranHizbQuarter": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "quranPageN": "الصفحة {n}",
+  "@quranPageN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "quranAyahN": "الآية {n}",
+  "@quranAyahN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "quranSurahName": "سورة {name}",
+  "@quranSurahName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "quranLastRead": "آخر قراءة",
+  "quranSavedMark": "علامة محفوظة",
+  "quranNoResults": "لا توجد نتائج",
+  "quranNoResultsHint": "جرّب اسماً آخر أو رقم السورة",
+  "quranNoBookmarks": "لا توجد علامات بعد",
+  "quranNoBookmarksHint": "اضغط مطولاً على أي آية لحفظ علامة",
+  "quranPageOf": "{page} من 604",
+  "@quranPageOf": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      }
+    }
+  },
+  "quranJuzHizb": "الجزء {juz} · الحزب {hizb}",
+  "@quranJuzHizb": {
+    "placeholders": {
+      "juz": {
+        "type": "int"
+      },
+      "hizb": {
+        "type": "int"
+      }
+    }
+  },
+  "readerExit": "الخروج إلى الفهرس",
+  "readerSettings": "إعدادات القراءة",
+  "readerLock": "قفل اللمس أثناء القراءة",
+  "readerMarkPage": "حفظ علامة على الصفحة",
+  "readerUnmarkPage": "إزالة علامة الصفحة",
+  "readerWird": "الورد",
+  "readerListen": "استماع",
+  "readerRecite": "تسميع",
+  "readerSlider": "التنقل بين الصفحات",
+  "readerHint": "المس لإظهار الأدوات · اضغط مطولاً على الآية لخياراتها · اسحب لتقليب الصفحة",
+  "readerGotIt": "حسناً",
+  "readerLocked": "الشاشة مقفلة · اضغط مطولاً لإلغاء القفل",
+  "readerKeepHolding": "استمر بالضغط…",
+  "readerPageColor": "لون الصفحة",
+  "themePaper": "ورقي",
+  "themeWhite": "أبيض",
+  "themeNight": "ليلي",
+  "readerFontSize": "حجم الخط",
+  "readerSpacing": "تباعد مريح بين الأسطر",
+  "readerKeepAwake": "إبقاء الشاشة مضاءة أثناء القراءة",
+  "readerListenMode": "وضع الاستماع",
+  "readerReciteMode": "وضع التسميع",
+  "ayahA11y": "سورة {surah}، الآية {ayah}. اضغط مطولاً للخيارات",
+  "@ayahA11y": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      },
+      "ayah": {
+        "type": "int"
+      }
+    }
+  },
+  "ayahOptions": "خيارات الآية",
+  "ayahBookmark": "علامة",
+  "ayahBookmarked": "محفوظة",
+  "ayahListen": "استماع",
+  "ayahTafsir": "تفسير",
+  "ayahShare": "مشاركة",
+  "ayahCopy": "نسخ",
+  "tafsirTitle": "التفسير الميسر",
+  "tafsirPlaceholder": "[نص التفسير الميسر لهذه الآية من مصدر المحتوى المرخّص]",
+  "ayahRefLabel": "[سورة {surah}: {ayah}]",
+  "@ayahRefLabel": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      },
+      "ayah": {
+        "type": "int"
+      }
+    }
+  },
+  "listenNowPlaying": "يُشغَّل الآن",
+  "listenBack": "رجوع إلى المصحف",
+  "listenDownloadSurah": "تنزيل السورة",
+  "listenSurahMeta": "السورة {n} · {type} · {count} آيات",
+  "@listenSurahMeta": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "type": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "listenControls": "التحكم في التشغيل",
+  "listenRepeat": "تكرار الآية",
+  "listenPrev": "الآية السابقة",
+  "listenPlay": "تشغيل",
+  "listenPause": "إيقاف مؤقت",
+  "listenNext": "الآية التالية",
+  "listenSpeed": "السرعة {speed}×",
+  "@listenSpeed": {
+    "placeholders": {
+      "speed": {
+        "type": "String"
+      }
+    }
+  },
+  "listenChangeReciter": "تغيير القارئ",
+  "listenSleepTimer": "مؤقت النوم",
+  "listenSleepEnd": "نهاية السورة",
+  "listenSleepOff": "إيقاف المؤقت",
+  "listenUnavailable": "التلاوة غير متاحة الآن. تحقق من الاتصال أو نزّل السورة.",
+  "listenNoReciter": "لا يوجد قارئ متاح بعد",
+  "recitersTitle": "اختر القارئ",
+  "recitersBack": "رجوع إلى المشغل",
+  "recitersSearch": "ابحث عن قارئ",
+  "recitersAll": "الكل",
+  "recitersDownloaded": "المحمّلة",
+  "styleMurattal": "مرتّل",
+  "styleMujawwad": "مجوّد",
+  "riwayaHafs": "حفص عن عاصم",
+  "reciterSample": "استمع لعينة من {name}",
+  "@reciterSample": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "reciterSampleStop": "إيقاف العينة",
+  "reciterDownloaded": "محمّل · المس للحذف",
+  "reciterDownloading": "جارٍ التحميل · المس للإلغاء",
+  "reciterDownloadAll": "تحميل المصحف كاملاً للاستماع دون اتصال",
+  "reciterWifiOnly": "عبر Wi-Fi فقط",
+  "recitersFooter": "التلاوات المتاحة تأتي من مصدر المحتوى المرخّص، والتحميل يتيح الاستماع دون اتصال.",
+  "recitersEmpty": "لا يوجد قارئ بهذا الاسم",
+  "recitersEmptyHint": "جرّب جزءاً من الاسم",
+  "reciteTitle": "التسميع",
+  "reciteBeta": "تجريبي",
+  "reciteModeRead": "قراءة",
+  "reciteModeListen": "استماع",
+  "reciteModeRecite": "تسميع",
+  "reciteShowAyat": "إظهار الآيات",
+  "reciteListening": "يستمع إليك",
+  "reciteStop": "إيقاف التسميع",
+  "reciteStart": "ابدأ التسميع",
+  "reciteHearReciter": "استمع إلى القارئ",
+  "reciteOk": "{count} آيات صحيحة",
+  "@reciteOk": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reciteWarn": "تنبيه: {word}",
+  "@reciteWarn": {
+    "placeholders": {
+      "word": {
+        "type": "String"
+      }
+    }
+  },
+  "reciteMicRationale": "نستمع لتلاوتك على جهازك فقط",
+  "reciteUnavailable": "نموذج التسميع غير متاح بعد على هذا الجهاز",
+  "hifzTitle": "خطة الحفظ",
+  "hifzBack": "رجوع إلى الفهرس",
+  "hifzEdit": "تعديل الخطة",
+  "hifzFinish": "الختام ≈ {date}",
+  "@hifzFinish": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "hifzToday": "حفظ اليوم",
+  "hifzRange": "سورة {surah} · الآيات {from}–{to}",
+  "@hifzRange": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      },
+      "from": {
+        "type": "int"
+      },
+      "to": {
+        "type": "int"
+      }
+    }
+  },
+  "hifzStepListen": "استمع · 3 مرات",
+  "hifzStepRepeat": "كرّر · 10 مرات",
+  "hifzStepTest": "اختبر نفسك · بإخفاء الآيات",
+  "hifzReciteNow": "سمّع الآن لتثبيت الحفظ",
+  "hifzMarkDone": "حفظت مقطع اليوم",
+  "hifzReview": "مراجعة اليوم",
+  "hifzMemorisedAgo": "حُفظت قبل {days} أيام · آخر مراجعة قبل {last} أيام",
+  "@hifzMemorisedAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      },
+      "last": {
+        "type": "int"
+      }
+    }
+  },
+  "hifzDueToday": "مستحقة اليوم",
+  "hifzNeedsWork": "تحتاج تثبيت",
+  "hifzTomorrow": "غداً",
+  "hifzInDays": "بعد {days} أيام",
+  "@hifzInDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "hifzHowWasIt": "كيف كانت المراجعة؟",
+  "hifzHard": "صعبة · غداً",
+  "hifzGood": "جيدة · {days} أيام",
+  "@hifzGood": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "hifzEasy": "متقنة · {days} يوماً",
+  "@hifzEasy": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "hifzReviewDone": "اكتملت مراجعة اليوم",
+  "hifzStrip": "آخر 14 يوماً · {days} يوم حفظ ومراجعة",
+  "@hifzStrip": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "hifzPlanSheet": "خطتي",
+  "hifzGoalAmma": "جزء عمّ",
+  "hifzGoalTabarak": "جزء تبارك",
+  "hifzGoalKahf": "سورة الكهف",
+  "hifzGoalAll": "القرآن كاملاً",
+  "hifzGoalMeta": "{surahs} سورة · {ayat} آية",
+  "@hifzGoalMeta": {
+    "placeholders": {
+      "surahs": {
+        "type": "int"
+      },
+      "ayat": {
+        "type": "int"
+      }
+    }
+  },
+  "hifzPerDay": "مقدار الحفظ الجديد يومياً",
+  "hifzPerDayValue": "{n} آيات يومياً",
+  "@hifzPerDayValue": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "hifzSavePlan": "حفظ الخطة",
+  "hifzStart": "ابدأ خطة الحفظ",
+  "hifzStartHint": "اختر هدفك ومقداراً يومياً يناسبك",
+  "hifzComplete": "أتممت خطتك، بارك الله فيك"
 }

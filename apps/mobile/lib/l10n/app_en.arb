@@ -411,5 +411,362 @@
         "type": "int"
       }
     }
-  }
+  },
+  "quranTitle": "The Holy Quran",
+  "quranListen": "Listen",
+  "quranHifzPlan": "Hifz plan",
+  "quranSearchHint": "Search a surah or its number",
+  "quranBrowse": "Browse by",
+  "quranSurahs": "Surahs",
+  "quranJuzs": "Juz",
+  "quranSaved": "Saved",
+  "quranMeccan": "Meccan",
+  "quranMedinan": "Medinan",
+  "quranAyahCount": "{count} ayat",
+  "@quranAyahCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "quranSurahMeta": "{type} · {count}",
+  "@quranSurahMeta": {
+    "placeholders": {
+      "type": {
+        "type": "String"
+      },
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "quranJuz": "Juz {n}",
+  "@quranJuz": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "quranJuzStarts": "Starts at {surah} {ayah}",
+  "@quranJuzStarts": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      },
+      "ayah": {
+        "type": "int"
+      }
+    }
+  },
+  "quranHizbQuarter": "Quarter {n}",
+  "@quranHizbQuarter": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "quranPageN": "Page {n}",
+  "@quranPageN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "quranAyahN": "Ayah {n}",
+  "@quranAyahN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "quranSurahName": "Surah {name}",
+  "@quranSurahName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "quranLastRead": "Last read",
+  "quranSavedMark": "Saved bookmark",
+  "quranNoResults": "No results",
+  "quranNoResultsHint": "Try another name or the surah number",
+  "quranNoBookmarks": "No bookmarks yet",
+  "quranNoBookmarksHint": "Long-press any ayah to save one",
+  "quranPageOf": "{page} of 604",
+  "@quranPageOf": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      }
+    }
+  },
+  "quranJuzHizb": "Juz {juz} · Hizb {hizb}",
+  "@quranJuzHizb": {
+    "placeholders": {
+      "juz": {
+        "type": "int"
+      },
+      "hizb": {
+        "type": "int"
+      }
+    }
+  },
+  "readerExit": "Back to the index",
+  "readerSettings": "Reading settings",
+  "readerLock": "Lock touch while reading",
+  "readerMarkPage": "Bookmark this page",
+  "readerUnmarkPage": "Remove page bookmark",
+  "readerWird": "Wird",
+  "readerListen": "Listen",
+  "readerRecite": "Recite",
+  "readerSlider": "Move between pages",
+  "readerHint": "Tap for tools · long-press an ayah for options · swipe to turn the page",
+  "readerGotIt": "Got it",
+  "readerLocked": "Screen locked · long-press to unlock",
+  "readerKeepHolding": "Keep holding…",
+  "readerPageColor": "Page colour",
+  "themePaper": "Paper",
+  "themeWhite": "White",
+  "themeNight": "Night",
+  "readerFontSize": "Font size",
+  "readerSpacing": "Comfortable line spacing",
+  "readerKeepAwake": "Keep the screen on while reading",
+  "readerListenMode": "Listening mode",
+  "readerReciteMode": "Recitation mode",
+  "ayahA11y": "Surah {surah}, ayah {ayah}. Long-press for options",
+  "@ayahA11y": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      },
+      "ayah": {
+        "type": "int"
+      }
+    }
+  },
+  "ayahOptions": "Ayah options",
+  "ayahBookmark": "Bookmark",
+  "ayahBookmarked": "Saved",
+  "ayahListen": "Listen",
+  "ayahTafsir": "Tafsir",
+  "ayahShare": "Share",
+  "ayahCopy": "Copy",
+  "tafsirTitle": "Al-Muyassar tafsir",
+  "tafsirPlaceholder": "[Al-Muyassar tafsir text for this ayah from the licensed source]",
+  "ayahRefLabel": "[Surah {surah}: {ayah}]",
+  "@ayahRefLabel": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      },
+      "ayah": {
+        "type": "int"
+      }
+    }
+  },
+  "listenNowPlaying": "Now playing",
+  "listenBack": "Back to the mushaf",
+  "listenDownloadSurah": "Download surah",
+  "listenSurahMeta": "Surah {n} · {type} · {count} ayat",
+  "@listenSurahMeta": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "type": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "listenControls": "Playback controls",
+  "listenRepeat": "Repeat ayah",
+  "listenPrev": "Previous ayah",
+  "listenPlay": "Play",
+  "listenPause": "Pause",
+  "listenNext": "Next ayah",
+  "listenSpeed": "Speed {speed}×",
+  "@listenSpeed": {
+    "placeholders": {
+      "speed": {
+        "type": "String"
+      }
+    }
+  },
+  "listenChangeReciter": "Change reciter",
+  "listenSleepTimer": "Sleep timer",
+  "listenSleepEnd": "End of surah",
+  "listenSleepOff": "Timer off",
+  "listenUnavailable": "Recitation unavailable. Check your connection or download the surah.",
+  "listenNoReciter": "No reciter available yet",
+  "recitersTitle": "Choose a reciter",
+  "recitersBack": "Back to the player",
+  "recitersSearch": "Search for a reciter",
+  "recitersAll": "All",
+  "recitersDownloaded": "Downloaded",
+  "styleMurattal": "Murattal",
+  "styleMujawwad": "Mujawwad",
+  "riwayaHafs": "Hafs from Asim",
+  "reciterSample": "Listen to a sample of {name}",
+  "@reciterSample": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "reciterSampleStop": "Stop sample",
+  "reciterDownloaded": "Downloaded · tap to delete",
+  "reciterDownloading": "Downloading · tap to cancel",
+  "reciterDownloadAll": "Download the full mushaf for offline listening",
+  "reciterWifiOnly": "Wi-Fi only",
+  "recitersFooter": "Recitations come from the licensed content source; downloads allow offline listening.",
+  "recitersEmpty": "No reciter with that name",
+  "recitersEmptyHint": "Try part of the name",
+  "reciteTitle": "Recitation",
+  "reciteBeta": "Beta",
+  "reciteModeRead": "Read",
+  "reciteModeListen": "Listen",
+  "reciteModeRecite": "Recite",
+  "reciteShowAyat": "Show ayat",
+  "reciteListening": "Listening",
+  "reciteStop": "Stop",
+  "reciteStart": "Start",
+  "reciteHearReciter": "Hear the reciter",
+  "reciteOk": "{count} ayat correct",
+  "@reciteOk": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reciteWarn": "Note: {word}",
+  "@reciteWarn": {
+    "placeholders": {
+      "word": {
+        "type": "String"
+      }
+    }
+  },
+  "reciteMicRationale": "We listen to your recitation on your device only",
+  "reciteUnavailable": "The recitation model isn't available on this device yet",
+  "hifzTitle": "Hifz plan",
+  "hifzBack": "Back to the index",
+  "hifzEdit": "Edit plan",
+  "hifzFinish": "Finish ≈ {date}",
+  "@hifzFinish": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "hifzToday": "Today's memorisation",
+  "hifzRange": "Surah {surah} · ayat {from}–{to}",
+  "@hifzRange": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      },
+      "from": {
+        "type": "int"
+      },
+      "to": {
+        "type": "int"
+      }
+    }
+  },
+  "hifzStepListen": "Listen · 3 times",
+  "hifzStepRepeat": "Repeat · 10 times",
+  "hifzStepTest": "Test yourself · ayat hidden",
+  "hifzReciteNow": "Recite now to fix it in memory",
+  "hifzMarkDone": "I memorised today's portion",
+  "hifzReview": "Today's review",
+  "hifzMemorisedAgo": "Memorised {days} days ago · last review {last} days ago",
+  "@hifzMemorisedAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      },
+      "last": {
+        "type": "int"
+      }
+    }
+  },
+  "hifzDueToday": "Due today",
+  "hifzNeedsWork": "Needs work",
+  "hifzTomorrow": "Tomorrow",
+  "hifzInDays": "In {days} days",
+  "@hifzInDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "hifzHowWasIt": "How was the review?",
+  "hifzHard": "Hard · tomorrow",
+  "hifzGood": "Good · {days} days",
+  "@hifzGood": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "hifzEasy": "Solid · {days} days",
+  "@hifzEasy": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "hifzReviewDone": "Today's review is done",
+  "hifzStrip": "Last 14 days · {days} days of hifz",
+  "@hifzStrip": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "hifzPlanSheet": "My plan",
+  "hifzGoalAmma": "Juz Amma",
+  "hifzGoalTabarak": "Juz Tabarak",
+  "hifzGoalKahf": "Surah Al-Kahf",
+  "hifzGoalAll": "The whole Quran",
+  "hifzGoalMeta": "{surahs} surahs · {ayat} ayat",
+  "@hifzGoalMeta": {
+    "placeholders": {
+      "surahs": {
+        "type": "int"
+      },
+      "ayat": {
+        "type": "int"
+      }
+    }
+  },
+  "hifzPerDay": "New ayat per day",
+  "hifzPerDayValue": "{n} ayat a day",
+  "@hifzPerDayValue": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "hifzSavePlan": "Save plan",
+  "hifzStart": "Start a hifz plan",
+  "hifzStartHint": "Pick a goal and a daily amount that suits you",
+  "hifzComplete": "You completed your plan — may Allah bless you"
 }
