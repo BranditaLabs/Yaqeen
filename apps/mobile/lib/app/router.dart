@@ -14,8 +14,10 @@ import '../features/listen/presentation/now_playing_screen.dart';
 import '../features/listen/presentation/reciters_screen.dart';
 import '../features/notifications/presentation/inbox_screen.dart';
 import '../features/notifications/presentation/notification_settings_screen.dart';
-import '../features/onboarding/presentation/splash_screen.dart';
-import '../features/placeholder/placeholder_screen.dart';
+import '../features/onboarding/presentation/onboarding_screens.dart';
+import '../features/onboarding/presentation/splash_gate.dart';
+import '../features/prayer/presentation/prayer_screen.dart';
+import '../features/profile/presentation/profile_screen.dart';
 import '../features/prayer/presentation/qibla_screen.dart';
 import '../features/quran/presentation/quran_index_screen.dart';
 import '../features/quran/presentation/reader_screen.dart';
@@ -26,25 +28,23 @@ import 'shell.dart';
 /// Navigator for full-screen routes (reader, recitation, player, Qibla) — above the tab bar.
 final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 
-Widget _todo(String title) => PlaceholderScreen(title: title);
-
 /// Route map (spec §4.1). Each tab is a branch so it keeps its own stack.
 /// Deep links map onto these paths in core/notifications/push_service.dart › routeForDeepLink.
 GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
       navigatorKey: rootNavigatorKey,
       initialLocation: initialLocation,
       routes: [
-        GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
+        GoRoute(path: '/splash', builder: (_, s) => SplashGate(deepLink: s.uri.queryParameters['to'])),
         GoRoute(
           path: '/onboarding',
           redirect: (_, s) => s.uri.path == '/onboarding' ? '/onboarding/welcome' : null,
           routes: [
-            GoRoute(path: 'welcome', builder: (_, __) => _todo('welcome')),
-            GoRoute(path: 'language', builder: (_, __) => _todo('language')),
-            GoRoute(path: 'prayer', builder: (_, __) => _todo('prayer')),
-            GoRoute(path: 'consent', builder: (_, __) => _todo('consent')),
-            GoRoute(path: 'goal', builder: (_, __) => _todo('goal')),
-            GoRoute(path: 'download', builder: (_, __) => _todo('download')),
+            GoRoute(path: 'welcome', builder: (_, __) => const WelcomeScreen()),
+            GoRoute(path: 'language', builder: (_, __) => const LanguageStep()),
+            GoRoute(path: 'prayer', builder: (_, __) => const PrayerStep()),
+            GoRoute(path: 'consent', builder: (_, __) => const ConsentStep()),
+            GoRoute(path: 'goal', builder: (_, __) => const GoalStep()),
+            GoRoute(path: 'download', builder: (_, __) => const DownloadStep()),
           ],
         ),
         if (kDebugMode) GoRoute(path: '/debug/gallery', builder: (_, __) => const GalleryScreen()),
@@ -107,7 +107,7 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
               routes: [
                 GoRoute(
                   path: '/prayer',
-                  builder: (_, __) => _todo('prayer'),
+                  builder: (_, __) => const PrayerScreen(),
                   routes: [
                     GoRoute(path: 'notifications', builder: (_, __) => const NotificationSettingsScreen()),
                     GoRoute(parentNavigatorKey: rootNavigatorKey, path: 'qibla', builder: (_, __) => const QiblaScreen()),
@@ -133,7 +133,15 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
             ),
             StatefulShellBranch(
               routes: [
-                GoRoute(path: '/profile', builder: (_, __) => _todo('profile')),
+                GoRoute(
+                  path: '/profile',
+                  builder: (_, __) => const ProfileScreen(),
+                  routes: [
+                    GoRoute(path: 'privacy', builder: (_, __) => const PrivacyScreen()),
+                    GoRoute(path: 'ledger', builder: (_, __) => const LedgerScreen()),
+                    GoRoute(path: 'downloads', builder: (_, __) => const DownloadsScreen()),
+                  ],
+                ),
               ],
             ),
           ],

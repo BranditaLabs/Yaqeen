@@ -1142,5 +1142,201 @@
   },
   "codeUsed": "Used",
   "codeExpired": "Expired",
-  "codeVoid": "Cancelled · points returned"
+  "codeVoid": "Cancelled · points returned",
+  "welcomeSalam": "Assalamu alaikum",
+  "welcomeTitle": "Daily tranquillity\nstarts here",
+  "welcomeBody": "Read and listen to the Quran, keep your prayers and azkar, and join a 365-day journey of Yaqeen.",
+  "welcomeBenefitQuran": "A complete mushaf with recitations and reading check",
+  "welcomeBenefitPrayer": "Accurate times, qibla and adhan alerts",
+  "welcomeBenefitPoints": "Daily points you can redeem in the Yaqeen store",
+  "welcomeGoogle": "Continue with Google",
+  "welcomeApple": "Continue with Apple",
+  "welcomeGuest": "Continue as guest",
+  "welcomeLegal": "By continuing you agree to the Terms and Privacy Policy",
+  "welcomeError": "Couldn't sign in, please try again",
+  "welcomeOffline": "Signing in needs a connection",
+  "languageOther": "العربية",
+  "stepOf": "Step {n} of 4",
+  "@stepOf": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "stepEyebrow": "0{n} / 04",
+  "@stepEyebrow": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "langTitle": "Your language and mushaf",
+  "langSub": "You can change this later in Settings.",
+  "langApp": "App language",
+  "langArabic": "Arabic",
+  "langEnglish": "English",
+  "langScript": "Mushaf script",
+  "scriptUthmani": "Uthmani script",
+  "scriptUthmaniDetail": "Madinah mushaf",
+  "scriptIndopak": "Indo-Pak script",
+  "scriptIndopakDetail": "Common in South Asia",
+  "langFontSize": "Font size",
+  "prayerSetupTitle": "Accurate times for where you are",
+  "prayerSetupSub": "We use your location only for prayer times and qibla, and keep it on your device.",
+  "prayerSetupAuto": "Located automatically",
+  "prayerSetupManual": "Choose your city",
+  "prayerSetupLocate": "Use my location",
+  "change": "Change",
+  "prayerSetupMethod": "Calculation method",
+  "prayerSetupAsr": "Asr school",
+  "prayerSetupAdhan": "Adhan alert",
+  "prayerSetupAdhanDetail": "Makkah adhan · reminder {minutes} min before",
+  "@prayerSetupAdhanDetail": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "consentTitle": "Alerts that matter\nand your privacy kept",
+  "consentSub": "Choose what reaches you. Change it any time in Settings.",
+  "consentWorship": "Worship reminders",
+  "consentWorshipDetail": "Adhan, azkar, wird and hifz review. They run on your phone, even offline.",
+  "consentChallenge": "Challenge and rewards",
+  "consentChallengeDetail": "Your 365-day progress, missed days and a balance that's enough for a reward.",
+  "consentOffers": "Yaqeen store offers",
+  "consentOffersDetail": "Discounts and new releases, at most one message a day.",
+  "consentAds": "Improve Yaqeen's ads",
+  "consentAdsDetail": "Measure our ads on Google, Meta and TikTok: installs, sign-ups and redemptions only.",
+  "consentPrivacyNote": "Your worship is never shared with any ad platform: no reading, prayer, zikr or hifz.",
+  "privacyPolicy": "Privacy policy",
+  "terms": "Terms",
+  "consentOsHint": "Your phone will then ask for notification permission",
+  "consentOsHintAtt": "Your phone will then ask for notification permission, and on iPhone for tracking",
+  "goalTitle": "Your daily wird",
+  "goalSub": "A little, constantly, is better than a lot, rarely. Choose what fits your day.",
+  "goalPage": "1 page",
+  "goalTwoPages": "2 pages",
+  "goalFourPages": "4 pages",
+  "goalJuz": "1 juz",
+  "goalReminder": "Reminder time",
+  "goalChallengeEyebrow": "Yearly challenge",
+  "goalJoin": "Join the challenge",
+  "goalChallengeBody": "Complete your wird, azkar and prayers every day and collect points for exclusive Yaqeen store discounts.",
+  "goalDailyPoints": "{points} points a day",
+  "@goalDailyPoints": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "goalRewardPoints": "{points} points = a reward",
+  "@goalRewardPoints": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "goalStart": "Start my journey",
+  "signInToKeep": "Sign in to keep your points",
+  "downloadEyebrow": "Preparing the mushaf",
+  "downloadTitle": "The Quran with you,\neven offline",
+  "downloadSub": "Text and fonts are set up once and updated weekly.",
+  "downloadText": "Mushaf text · Hafs",
+  "downloadFont": "Uthmani mushaf font",
+  "downloadTafsir": "Al-Muyassar tafsir",
+  "downloadAudio": "{reciter} recitation · optional · Wi-Fi only",
+  "@downloadAudio": {
+    "placeholders": {
+      "reciter": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadReady": "Ready",
+  "downloadBundled": "Included in the app",
+  "downloadPending": "Available once the licensed source is approved",
+  "downloadStart": "Start now",
+  "downloadBackground": "Downloads continue in the background",
+  "profileTitle": "My account",
+  "profileLinked": "Linked to {provider} · sync on",
+  "@profileLinked": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "profileGuestCta": "Sign in to keep your points",
+  "profileBalance": "Points balance",
+  "profileLedger": "Points history",
+  "profileToNext": "{points} points to the next reward",
+  "@profileToNext": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "profileRewards": "Yaqeen store rewards",
+  "profileVisitStore": "Visit the store",
+  "profileSettings": "Settings",
+  "profileLanguage": "Language and mushaf",
+  "profilePrayer": "Prayer times and alerts",
+  "profilePrivacy": "Privacy and consents",
+  "profileDownloads": "Offline downloads",
+  "profileAbout": "About Yaqeen",
+  "profileContact": "Contact us",
+  "profileExport": "Export my data",
+  "profileDelete": "Delete account",
+  "profileSignOut": "Sign out",
+  "profilePending": "{count, plural, =1{1 change waiting to sync} other{{count} changes waiting to sync}}",
+  "@profilePending": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteStep1Title": "Delete your account?",
+  "deleteStep1Body": "Your account, points and codes are deleted for good after 30 days; signing in within that time cancels it. This device is wiped now.",
+  "deleteStep2Title": "Final confirmation",
+  "deleteStep2Body": "Points can't be recovered after 30 days.",
+  "deleteConfirm": "Yes, delete my account",
+  "deleteDone": "Account deletion requested",
+  "signOutConfirm": "Sign out? Your mushaf data stays on this device.",
+  "exportReady": "Your data is ready to share",
+  "ledgerTask": "Daily task",
+  "ledgerBonus": "Bonus task",
+  "ledgerMilestone": "Streak milestone",
+  "ledgerGrant": "Grant",
+  "ledgerQada": "Make-up",
+  "ledgerRedemption": "Redemption",
+  "ledgerAdjust": "Adjustment",
+  "ledgerReversal": "Refund",
+  "ledgerEmpty": "No activity yet",
+  "downloadsUsed": "{size} used",
+  "@downloadsUsed": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "megabytes": "{n} MB",
+  "@megabytes": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadsNone": "No downloads yet",
+  "downloadsAudio": "Recitations",
+  "accountGoogle": "Google",
+  "accountApple": "Apple"
 }

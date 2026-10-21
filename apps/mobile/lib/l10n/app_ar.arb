@@ -1169,5 +1169,201 @@
   },
   "codeUsed": "مُستخدم",
   "codeExpired": "منتهي",
-  "codeVoid": "ملغي · أُعيدت النقاط"
+  "codeVoid": "ملغي · أُعيدت النقاط",
+  "welcomeSalam": "السلام عليكم",
+  "welcomeTitle": "طمأنينةٌ يومية\nتبدأ من هنا",
+  "welcomeBody": "اقرأ واستمع إلى القرآن، وحافظ على صلاتك وأذكارك، ورافقنا في رحلة 365 يوماً من اليقين.",
+  "welcomeBenefitQuran": "مصحف كامل مع تلاوات وتصحيح للقراءة",
+  "welcomeBenefitPrayer": "مواقيت دقيقة وقبلة وتنبيه للأذان",
+  "welcomeBenefitPoints": "نقاط يومية تُستبدل بخصومات في متجر يقين",
+  "welcomeGoogle": "المتابعة باستخدام Google",
+  "welcomeApple": "المتابعة باستخدام Apple",
+  "welcomeGuest": "المتابعة كضيف",
+  "welcomeLegal": "بالمتابعة فإنك توافق على الشروط وسياسة الخصوصية",
+  "welcomeError": "تعذّر تسجيل الدخول، حاول مرة أخرى",
+  "welcomeOffline": "يلزم اتصال لتسجيل الدخول",
+  "languageOther": "English",
+  "stepOf": "الخطوة {n} من 4",
+  "@stepOf": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "stepEyebrow": "0{n} / 04",
+  "@stepEyebrow": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "langTitle": "لغتك ومصحفك",
+  "langSub": "يمكنك تغيير ذلك لاحقاً من الإعدادات.",
+  "langApp": "لغة التطبيق",
+  "langArabic": "العربية",
+  "langEnglish": "الإنجليزية",
+  "langScript": "رسم المصحف",
+  "scriptUthmani": "الرسم العثماني",
+  "scriptUthmaniDetail": "مصحف المدينة النبوية",
+  "scriptIndopak": "الرسم الهندي",
+  "scriptIndopakDetail": "شائع في جنوب آسيا",
+  "langFontSize": "حجم الخط",
+  "prayerSetupTitle": "مواقيت دقيقة لمكانك",
+  "prayerSetupSub": "نستخدم موقعك لحساب الصلاة والقبلة فقط، ويُحفظ على جهازك.",
+  "prayerSetupAuto": "تم تحديد موقعك تلقائياً",
+  "prayerSetupManual": "اختر مدينتك",
+  "prayerSetupLocate": "تحديد موقعي",
+  "change": "تغيير",
+  "prayerSetupMethod": "طريقة الحساب",
+  "prayerSetupAsr": "مذهب العصر",
+  "prayerSetupAdhan": "تنبيه الأذان",
+  "prayerSetupAdhanDetail": "بصوت الحرم المكي · قبل الصلاة بـ {minutes} دقائق",
+  "@prayerSetupAdhanDetail": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "consentTitle": "تنبيهات تهمّك\nوخصوصيتك محفوظة",
+  "consentSub": "اختر ما يصلك. يمكنك تغيير ذلك في أي وقت من الإعدادات.",
+  "consentWorship": "تذكيرات العبادة",
+  "consentWorshipDetail": "الأذان، الأذكار، الورد ومراجعة الحفظ. تعمل من هاتفك حتى دون إنترنت.",
+  "consentChallenge": "التحدي والمكافآت",
+  "consentChallengeDetail": "تقدمك في 365 يوماً، والأيام الفائتة، ورصيد يكفي لمكافأة.",
+  "consentOffers": "عروض متجر يقين",
+  "consentOffersDetail": "خصومات وإصدارات جديدة، بحد أقصى رسالة واحدة يومياً.",
+  "consentAds": "تحسين إعلانات يقين",
+  "consentAdsDetail": "قياس نجاح إعلاناتنا على جوجل وميتا وتيك توك: التحميل والتسجيل والاستبدال فقط.",
+  "consentPrivacyNote": "عباداتك لا تُشارك أبداً مع أي منصة إعلانية: لا قراءة ولا صلاة ولا ذكر ولا حفظ.",
+  "privacyPolicy": "سياسة الخصوصية",
+  "terms": "الشروط",
+  "consentOsHint": "سيطلب هاتفك بعدها إذن الإشعارات",
+  "consentOsHintAtt": "سيطلب هاتفك بعدها إذن الإشعارات، وعلى iPhone إذن التتبع",
+  "goalTitle": "وِردك اليومي",
+  "goalSub": "قليلٌ دائم خيرٌ من كثيرٍ منقطع. اختر ما يناسب يومك.",
+  "goalPage": "صفحة",
+  "goalTwoPages": "صفحتان",
+  "goalFourPages": "4 صفحات",
+  "goalJuz": "جزء",
+  "goalReminder": "وقت التذكير",
+  "goalChallengeEyebrow": "تحدٍّ سنوي",
+  "goalJoin": "الانضمام إلى التحدي",
+  "goalChallengeBody": "أكمل وردك وأذكارك وصلواتك كل يوم، واجمع النقاط لتستبدلها بخصومات حصرية في متجر يقين.",
+  "goalDailyPoints": "{points} نقطة يومياً",
+  "@goalDailyPoints": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "goalRewardPoints": "{points} نقطة = مكافأة",
+  "@goalRewardPoints": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "goalStart": "ابدأ رحلتي",
+  "signInToKeep": "سجّل الدخول لتحفظ نقاطك",
+  "downloadEyebrow": "تجهيز المصحف",
+  "downloadTitle": "القرآن معك\nحتى دون اتصال",
+  "downloadSub": "نحمّل النص والخطوط مرة واحدة، ونحدّثها تلقائياً كل أسبوع.",
+  "downloadText": "نص المصحف · رواية حفص",
+  "downloadFont": "خط المصحف العثماني",
+  "downloadTafsir": "التفسير الميسر",
+  "downloadAudio": "تلاوة {reciter} · اختياري · عبر Wi-Fi فقط",
+  "@downloadAudio": {
+    "placeholders": {
+      "reciter": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadReady": "جاهز",
+  "downloadBundled": "مضمَّن في التطبيق",
+  "downloadPending": "متاح بعد اعتماد المصدر المرخّص",
+  "downloadStart": "ابدأ الآن",
+  "downloadBackground": "يستمر التحميل في الخلفية",
+  "profileTitle": "حسابي",
+  "profileLinked": "مرتبط بحساب {provider} · مزامنة مفعّلة",
+  "@profileLinked": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "profileGuestCta": "سجّل الدخول لحفظ نقاطك",
+  "profileBalance": "رصيد النقاط",
+  "profileLedger": "سجل النقاط",
+  "profileToNext": "{points} نقطة حتى المكافأة التالية",
+  "@profileToNext": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "profileRewards": "مكافآت متجر يقين",
+  "profileVisitStore": "زيارة المتجر",
+  "profileSettings": "الإعدادات",
+  "profileLanguage": "اللغة والمصحف",
+  "profilePrayer": "مواقيت الصلاة والتنبيهات",
+  "profilePrivacy": "الخصوصية والموافقات",
+  "profileDownloads": "التنزيلات دون اتصال",
+  "profileAbout": "عن يقين",
+  "profileContact": "تواصل معنا",
+  "profileExport": "تصدير بياناتي",
+  "profileDelete": "حذف الحساب",
+  "profileSignOut": "تسجيل الخروج",
+  "profilePending": "{count, plural, =1{تغيير واحد بانتظار المزامنة} =2{تغييران بانتظار المزامنة} few{{count} تغييرات بانتظار المزامنة} other{{count} تغييراً بانتظار المزامنة}}",
+  "@profilePending": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteStep1Title": "حذف الحساب؟",
+  "deleteStep1Body": "تُحذف بيانات حسابك ونقاطك وأكوادك نهائياً بعد 30 يوماً، ويمكنك التراجع بتسجيل الدخول خلال هذه المدة. تُمسح بيانات هذا الجهاز الآن.",
+  "deleteStep2Title": "تأكيد نهائي",
+  "deleteStep2Body": "لن تتمكن من استرجاع النقاط بعد 30 يوماً.",
+  "deleteConfirm": "نعم، احذف حسابي",
+  "deleteDone": "تم طلب حذف الحساب",
+  "signOutConfirm": "تسجيل الخروج؟ تبقى بيانات المصحف على هذا الجهاز.",
+  "exportReady": "بياناتك جاهزة للمشاركة",
+  "ledgerTask": "مهمة يومية",
+  "ledgerBonus": "مهمة إضافية",
+  "ledgerMilestone": "مكافأة مواظبة",
+  "ledgerGrant": "منحة",
+  "ledgerQada": "قضاء",
+  "ledgerRedemption": "استبدال",
+  "ledgerAdjust": "تعديل",
+  "ledgerReversal": "استرجاع",
+  "ledgerEmpty": "لا توجد حركات بعد",
+  "downloadsUsed": "{size} مستخدمة",
+  "@downloadsUsed": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "megabytes": "{n} م.ب",
+  "@megabytes": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadsNone": "لا توجد تنزيلات بعد",
+  "downloadsAudio": "التلاوات",
+  "accountGoogle": "Google",
+  "accountApple": "Apple"
 }

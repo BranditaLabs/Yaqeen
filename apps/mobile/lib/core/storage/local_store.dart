@@ -29,6 +29,15 @@ class LocalStore {
     },
   };
 
+  /// Every collection the app writes — used by account deletion to wipe the device (spec §5.24).
+  static const collections = ['reading', 'azkar', 'favourites', 'hifz', 'listen', 'inbox', 'notifications.plan'];
+
+  Future<void> wipe() async {
+    for (final c in collections) {
+      await _kv.delete('db.$c');
+    }
+  }
+
   Future<int> get version async => int.tryParse(await _kv.read(_versionKey) ?? '') ?? 0;
 
   /// Runs pending migrations in order. Safe to call on every start.

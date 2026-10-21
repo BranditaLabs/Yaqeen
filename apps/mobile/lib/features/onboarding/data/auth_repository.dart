@@ -98,6 +98,16 @@ class AuthRepository {
     return _consume(json, provider);
   }
 
+  /// `GET /v1/me/export` — the user's own copy of their server data (PDPL, spec §6.17).
+  Future<Map<String, dynamic>> exportData() async => ((await api.get('/v1/me/export')) as Map).cast<String, dynamic>();
+
+  /// `DELETE /v1/me`: sessions end now; the server anonymises after the grace period.
+  Future<void> deleteAccount() async {
+    await api.delete('/v1/me');
+    await tokens.clear();
+    await store.delete(_key);
+  }
+
   Future<void> signOut() async {
     try {
       await api.post('/v1/auth/sign-out');

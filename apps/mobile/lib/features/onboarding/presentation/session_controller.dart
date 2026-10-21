@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/analytics/analytics.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../data/auth_repository.dart';
 
@@ -90,8 +91,24 @@ class SessionController extends Notifier<Session> {
     state = Session.none;
   }
 
-  /// After `DELETE /v1/me`: also wipes all on-device data.
-  void clear() => state = Session.none;
+  /// `DELETE /v1/me`, then wipes everything on this device (spec §5.24): tokens, caches, the local
+  /// worship store and onboarding — the next start is a first launch.
+  Future<void> deleteAccount() async {
+    await _repo.deleteAccount();
+    await ref.read(socialAuthProvider).signOut();
+    final kv = ref.read(kvStoreProvider);
+    for (final key in [
+      'cache.challenge.summary', 'cache.rewards', 'cache.redemptions', 'cache.content', 'cache.dailyTask', //
+      'consents.v1', 'consents.pending.v1', 'consents.decided', 'analytics.pending.v1', 'outbox.v1',
+    ]) {
+      await kv.delete(key);
+    }
+    await ref.read(localStoreProvider).wipe();
+    await ref.read(hifzRepositoryProvider).clear();
+    await ref.read(localNotificationsProvider).cancelAll();
+    await ref.read(settingsProvider.notifier).update((s) => AppSettings(locale: s.locale), sync: false);
+    state = Session.none;
+  }
 }
 
 final sessionProvider = NotifierProvider<SessionController, Session>(SessionController.new);
