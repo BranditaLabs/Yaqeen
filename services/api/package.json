@@ -1,0 +1,40 @@
+{
+  "name": "@yaqeen/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "tsx src/db/seed.ts",
+    "job:campaigns": "tsx src/jobs/campaign-dispatcher.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.0.0",
+    "@fastify/helmet": "^13.0.0",
+    "@fastify/rate-limit": "^10.3.0",
+    "@yaqeen/contracts": "workspace:*",
+    "adhan": "^4.4.6",
+    "drizzle-orm": "^0.45.0",
+    "fastify": "^5.6.0",
+    "fastify-plugin": "^5.1.0",
+    "firebase-admin": "^13.0.0",
+    "ioredis": "^5.8.0",
+    "jose": "^6.1.0",
+    "pg": "^8.16.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "@types/pg": "^8.15.0",
+    "drizzle-kit": "^0.31.0",
+    "tsx": "^4.20.0",
+    "typescript": "5.9.3",
+    "vitest": "^3.2.0"
+  }
+}

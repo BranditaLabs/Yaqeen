@@ -1,0 +1,30 @@
+{
+  "name": "yaqeen",
+  "private": true,
+  "description": "Yaqeen (يقين) ecosystem: mobile app, API, admin dashboard and shared packages.",
+  "packageManager": "pnpm@10.34.7",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev:api": "pnpm --filter @yaqeen/api dev",
+    "dev:admin": "pnpm --filter @yaqeen/admin dev",
+    "build": "pnpm -r --filter ./packages/** --filter ./services/** --filter ./apps/admin run build",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm -r run test",
+    "db:generate": "pnpm --filter @yaqeen/api db:generate",
+    "db:migrate": "pnpm --filter @yaqeen/api db:migrate",
+    "db:seed": "pnpm --filter @yaqeen/api db:seed",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "prettier": "^3.6.0",
+    "typescript": "5.9.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "protobufjs"
+    ]
+  }
+}

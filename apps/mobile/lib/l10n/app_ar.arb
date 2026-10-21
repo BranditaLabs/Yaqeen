@@ -1,0 +1,108 @@
+{
+  "@@locale": "ar",
+  "appName": "يقين",
+  "tagline": "حيث تبدأ السكينة",
+  "tabHome": "الرئيسية",
+  "tabQuran": "القرآن",
+  "tabPrayer": "الصلاة",
+  "tabChallenge": "التحدي",
+  "tabProfile": "حسابي",
+  "greetingEvening": "مساء الخير",
+  "nextPrayer": "الصلاة القادمة",
+  "adhanIn": "الأذان بعد",
+  "continueReading": "تابع القراءة",
+  "dailyWird": "الورد اليومي",
+  "pagesOf": "{done} / {total} صفحات",
+  "@pagesOf": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "streakDays": "{count} يوماً متتالياً",
+  "@streakDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "challengeTitle": "365 يوماً من اليقين",
+  "challengeDay": "اليوم {day} · رصيدك {points} نقطة",
+  "@challengeDay": {
+    "placeholders": {
+      "day": {
+        "type": "int"
+      },
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "servicesAzkar": "الأذكار",
+  "servicesDuas": "الأدعية",
+  "servicesQibla": "القبلة",
+  "servicesCalendar": "التقويم",
+  "comingSoon": "قيد البناء",
+  "todayTasks": "مهام اليوم",
+  "balance": "الرصيد",
+  "streak": "المواظبة",
+  "dayOfTotal": "اليوم {day} من {total}",
+  "@dayOfTotal": {
+    "placeholders": {
+      "day": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "pointsShort": "{points} نقطة",
+  "@pointsShort": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "joinChallenge": "ابدأ التحدي",
+  "joinChallengeHint": "مهام يومية بسيطة تُقرّبك، ونقاط تستبدلها هدايا من متجر يقين",
+  "accountRequired": "سجّل الدخول لتحفظ نقاطك",
+  "redeemTitle": "استبدل نقاطك",
+  "redeemCta": "استبدال",
+  "redeemCodeReady": "كودك جاهز — صالح حتى {date}",
+  "@redeemCodeReady": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "notEnoughPoints": "يلزمك {points} نقطة",
+  "@notEnoughPoints": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "savedOffline": "حُفظ وسيُزامَن عند الاتصال",
+  "retry": "إعادة المحاولة",
+  "errorGeneric": "تعذّر التحميل. تحقق من الاتصال.",
+  "nextMilestone": "مكافأة المواظبة القادمة عند {days} يوماً: +{points} نقطة",
+  "@nextMilestone": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      },
+      "points": {
+        "type": "String"
+      }
+    }
+  }
+}

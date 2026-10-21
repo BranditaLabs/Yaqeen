@@ -1,0 +1,42 @@
+# Security & privacy
+
+> Not legal advice. Have an Egyptian data-protection lawyer review this before launch.
+
+## Egypt PDPL (Law 151/2020)
+
+Enforcement is expected from about **1 November 2026** — confirm the current status and deadlines with counsel. What the codebase already does, and what still needs action:
+
+| Requirement | In code | Still to do |
+| --- | --- | --- |
+| Explicit, specific, revocable consent, in Arabic | 4 separate buckets; every change stored in `consent_events` with source + policy version | Final Arabic consent copy reviewed by counsel |
+| Right of access | `GET /v1/me/export` | Human-readable export format (optional) |
+| Right of erasure | `DELETE /v1/me` → `deletion_requested` | Job that hard-deletes after 14 days (ROADMAP) |
+| Data minimisation | Prayer times and location computed on-device; Hifz progress on-device only | — |
+| Licence / registration with the Personal Data Protection Centre | — | Apply for the controller/processor licence |
+| Cross-border transfer | — | Choose hosting region; get transfer authorisation if data leaves Egypt (Firebase, Shopify and ad SDKs are all transfers) |
+| DPO | — | Appoint a data protection officer |
+| Breach notification (72 h) | Audit log + structured logs | Incident runbook |
+
+## Sensitive data: worship activity
+
+Task completions reveal religious practice. Rules:
+
+1. **Never sent to ad platforms.** The only events ad SDKs can receive are the closed list in `packages/contracts/src/events.ts` (mirrored in `apps/mobile/lib/core/analytics/analytics.dart`), and only with `ads_measurement` consent. Adding an event needs a privacy review.
+2. **Admins see aggregates only.** `/admin/overview` returns percentages. The user detail view shows the points ledger and redemptions, not which prayers or azkar a person did.
+3. **Guests earn no points**, so no worship data is stored for anonymous users.
+
+## Ads & tracking
+
+- iOS: show the ATT prompt only after the user turned on `ads_measurement` in our own consent screen. Without ATT, SDKs run in limited mode.
+- Google Ads via Firebase Analytics, Meta App Events, TikTok Business SDK: initialise with tracking **off**, enable in `Analytics.onConsentChanged(true)`.
+- Event params are allowlisted (`value`, `currency`, `reward_id`, `day`).
+
+## Application security
+
+- App tokens and admin tokens use different secrets **and** audiences; an app token can't reach `/admin`.
+- Admin: scrypt passwords, mandatory TOTP, 8-hour sessions in httpOnly `SameSite=Strict` cookies, never readable by browser JS. Put the dashboard behind SSO/VPN or an IP allowlist too.
+- TOTP secrets are stored plain in v1 — encrypt with a KMS key before production (ROADMAP).
+- Every admin write is audited in the same DB transaction as the change.
+- Point balances can't race: per-user advisory locks around awards and redemptions; unique `(user, ref_key)` on the ledger.
+- Logs redact `authorization`, `x-admin-session`, `idToken`, `password`, `totp`.
+- Helmet headers, CORS allowlist, global and per-route rate limits.

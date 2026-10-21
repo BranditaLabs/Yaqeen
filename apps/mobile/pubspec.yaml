@@ -1,0 +1,108 @@
+name: yaqeen
+description: Yaqeen (يقين) — Quran, prayer, azkar and the 365-day challenge.
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: any
+  go_router: ^14.6.0
+  path_drawing: ^1.0.1
+  flutter_riverpod: ^2.6.1
+  http: ^1.2.2
+  shared_preferences: ^2.3.3
+  flutter_secure_storage: ^9.2.2
+  # Phase 2 (add when wiring each adapter — see README "Native integrations"):
+  # firebase_core, firebase_messaging      → PushService
+  # flutter_local_notifications, timezone  → LocalNotificationScheduler
+  # google_sign_in, sign_in_with_apple     → AuthRepository id tokens
+  # adhan (prayer times on-device), geolocator, flutter_qiblah
+  # app_tracking_transparency, facebook_app_events, tiktok business SDK → AdSink
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  # `dart run flutter_launcher_icons` and `dart run flutter_native_splash:create`
+  flutter_launcher_icons: ^0.14.1
+  flutter_native_splash: ^2.4.1
+
+# App icon — generated from packages/brand (see packages/brand/README.md)
+flutter_launcher_icons:
+  ios: true
+  image_path_ios: assets/brand/launcher/AppIcon-1024.png
+  image_path_ios_dark_transparent: assets/brand/launcher/AppIcon-1024-dark.png
+  image_path_ios_tinted_grayscale: assets/brand/launcher/AppIcon-1024-tinted.png
+  remove_alpha_ios: true
+  android: true
+  image_path_android: assets/brand/launcher/play-store-512.png
+  adaptive_icon_background: assets/brand/launcher/ic_launcher_background.png
+  adaptive_icon_foreground: assets/brand/launcher/ic_launcher_foreground.png
+  adaptive_icon_monochrome: assets/brand/launcher/ic_launcher_monochrome.png
+
+# Native splash — light porcelain + navy mark, so the hand-off to SplashScreen is seamless
+flutter_native_splash:
+  color: "#F7F9FC"
+  image: assets/brand/launcher/android12-splash-icon.png
+  android_12:
+    color: "#F7F9FC"
+    image: assets/brand/launcher/android12-splash-icon.png
+
+flutter:
+  uses-material-design: true
+  generate: true
+
+  assets:
+    - assets/brand/
+
+  fonts:
+    - family: Tajawal
+      fonts:
+        - asset: assets/fonts/Tajawal-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Tajawal-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Tajawal-Bold.ttf
+          weight: 700
+    - family: Jost
+      fonts:
+        - asset: assets/fonts/Jost-Light.ttf
+          weight: 300
+        - asset: assets/fonts/Jost-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Jost-Medium.ttf
+          weight: 500
+    - family: Amiri
+      fonts:
+        - asset: assets/fonts/Amiri-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Amiri-Bold.ttf
+          weight: 700
+    - family: AmiriQuran
+      fonts:
+        - asset: assets/fonts/AmiriQuran-Regular.ttf
+    # Brand typefaces — commercial. Un-comment when the licensed files are in assets/fonts
+    # (packages/brand/fonts/README.md). Until then YqFonts.displayFallback renders.
+    # - family: ZeyadaArabic
+    #   fonts:
+    #     - asset: assets/fonts/ZeyadaArabic-Regular.ttf
+    #       weight: 400
+    #     - asset: assets/fonts/ZeyadaArabic-Medium.ttf
+    #       weight: 500
+    #     - asset: assets/fonts/ZeyadaArabic-Bold.ttf
+    #       weight: 700
+    # - family: CanelaText
+    #   fonts:
+    #     - asset: assets/fonts/CanelaText-Regular.otf
+    #       weight: 400
+    #     - asset: assets/fonts/CanelaText-Medium.otf
+    #       weight: 500
+    #     - asset: assets/fonts/CanelaText-Bold.otf
+    #       weight: 700

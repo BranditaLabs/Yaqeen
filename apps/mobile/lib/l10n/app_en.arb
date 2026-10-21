@@ -1,0 +1,81 @@
+{
+  "@@locale": "en",
+  "appName": "Yaqeen",
+  "tagline": "Where serenity begins",
+  "tabHome": "Home",
+  "tabQuran": "Quran",
+  "tabPrayer": "Prayer",
+  "tabChallenge": "Challenge",
+  "tabProfile": "Profile",
+  "greetingEvening": "Good evening",
+  "nextPrayer": "Next prayer",
+  "adhanIn": "Adhan in",
+  "continueReading": "Continue reading",
+  "dailyWird": "Daily wird",
+  "pagesOf": "{done} / {total} pages",
+  "streakDays": "{count}-day streak",
+  "challengeTitle": "365 Days of Yaqeen",
+  "challengeDay": "Day {day} · {points} points",
+  "servicesAzkar": "Azkar",
+  "servicesDuas": "Duas",
+  "servicesQibla": "Qibla",
+  "servicesCalendar": "Calendar",
+  "comingSoon": "In progress",
+  "todayTasks": "Today's tasks",
+  "balance": "Balance",
+  "streak": "Streak",
+  "dayOfTotal": "Day {day} of {total}",
+  "@dayOfTotal": {
+    "placeholders": {
+      "day": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "pointsShort": "{points} pts",
+  "@pointsShort": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "joinChallenge": "Start the challenge",
+  "joinChallengeHint": "Small daily tasks that bring you closer — and points you redeem at the Yaqeen store",
+  "accountRequired": "Sign in to keep your points",
+  "redeemTitle": "Redeem your points",
+  "redeemCta": "Redeem",
+  "redeemCodeReady": "Your code is ready — valid until {date}",
+  "@redeemCodeReady": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "notEnoughPoints": "You need {points} points",
+  "@notEnoughPoints": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "savedOffline": "Saved — will sync when online",
+  "retry": "Retry",
+  "errorGeneric": "Couldn't load. Check your connection.",
+  "nextMilestone": "Next streak reward at {days} days: +{points} pts",
+  "@nextMilestone": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      },
+      "points": {
+        "type": "String"
+      }
+    }
+  }
+}

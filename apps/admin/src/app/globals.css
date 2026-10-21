@@ -1,0 +1,86 @@
+@import 'tailwindcss';
+@import '@yaqeen/design-tokens/tokens.css';
+
+/* Brand typefaces (commercial) — un-comment once the licensed .woff2 files are in public/fonts
+   (packages/brand/fonts/README.md). Until then the fallbacks in --yq-font-brand-* render.
+@font-face { font-family: 'ZEYADA Arabic 1'; src: url('/fonts/ZeyadaArabic-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'ZEYADA Arabic 1'; src: url('/fonts/ZeyadaArabic-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+@font-face { font-family: 'Canela Text'; src: url('/fonts/CanelaText-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Canela Text'; src: url('/fonts/CanelaText-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+*/
+
+/* Map design tokens into Tailwind's theme so classes like bg-porcelain / text-lapis work. */
+@theme {
+  --color-lapis: var(--yq-lapis);
+  --color-royal: var(--yq-royal);
+  --color-midnight: var(--yq-midnight);
+  --color-navy: var(--yq-navy);
+  --color-sky-100: var(--yq-sky100);
+  --color-sky-200: var(--yq-sky200);
+  --color-gold-200: var(--yq-gold200);
+  --color-ink: var(--yq-ink);
+  --color-muted: var(--yq-muted);
+  --color-porcelain: var(--yq-porcelain);
+  --color-ice: var(--yq-ice);
+  --color-mist: var(--yq-mist);
+  --color-sky: var(--yq-sky);
+  --color-line: var(--yq-line);
+  --color-gold: var(--yq-gold);
+  --color-gold-text: var(--yq-goldText);
+  --color-gold-light: var(--yq-goldLight);
+  --color-cream: var(--yq-cream);
+  --color-sand: var(--yq-sand);
+  --color-success: var(--yq-success);
+  --color-error: var(--yq-error);
+
+  --radius-card: var(--yq-radius-card);
+  --radius-tile: var(--yq-radius-tile);
+  --radius-chip: var(--yq-radius-chip);
+
+  --font-ui: 'Tajawal', system-ui, sans-serif;
+  --font-num: 'Jost', 'Tajawal', sans-serif;
+  --font-display: var(--yq-font-brand-ar);
+  --font-display-en: var(--yq-font-brand-en);
+  --font-naskh: 'Amiri', serif;
+}
+
+html,
+body {
+  background: var(--yq-porcelain);
+  color: var(--yq-ink);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Soft ambient light behind the glass — no geometric patterns. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(60rem 40rem at 85% -10%, rgba(143, 176, 224, 0.28), transparent 60%),
+    radial-gradient(40rem 30rem at 0% 110%, rgba(233, 212, 158, 0.22), transparent 60%);
+}
+
+@layer components {
+  .glass {
+    background: rgba(255, 255, 255, 0.62);
+    backdrop-filter: blur(24px) saturate(1.8);
+    -webkit-backdrop-filter: blur(24px) saturate(1.8);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.9) inset,
+      0 12px 32px -16px rgba(15, 26, 54, 0.18);
+  }
+  .num {
+    font-family: var(--font-num);
+    font-variant-numeric: tabular-nums;
+  }
+  .field {
+    @apply w-full rounded-chip border border-line bg-white/80 px-3 py-2.5 text-sm outline-none transition focus:border-royal focus:ring-4 focus:ring-royal/10;
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-medium text-muted;
+  }
+}
