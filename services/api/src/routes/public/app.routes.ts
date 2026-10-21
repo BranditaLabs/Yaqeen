@@ -8,6 +8,7 @@ import { BonusKind, type ChallengeCalendar, CompleteTaskRequest, ContentType, ty
 import { appConfig, contentItems, contentPacks, dailyTasks, reciters, rewards, users } from '../../db/schema.js';
 import { specialDays } from '../../domain/hijri.js';
 import { addDays, localToday } from '../../domain/points.js';
+import { sendCachedJson } from '../../lib/cache.js';
 import { badRequest } from '../../lib/errors.js';
 import { userId } from '../../plugins/auth.js';
 import { adjustmentsFor, hijriRange } from '../../services/calendar.service.js';
@@ -63,11 +64,9 @@ export const appRoutes: FastifyPluginAsync = async (app) => {
   const { db } = app.ctx;
 
   /* -------------------------------------------------------------- config */
-  app.get('/config', async (_req, reply) => {
-    const cfg = await readConfig(app);
-    reply.header('Cache-Control', 'public, max-age=300');
-    return cfg;
-  });
+  app.get('/config', async (req, reply) =>
+    sendCachedJson(req, reply, await app.ctx.cache.getJson('config', 'v1', 60, () => readConfig(app)), 300),
+  );
 
   /* ------------------------------------------------------------ calendar */
   // Gregorian month → Hijri days (UAQ + Egypt adjustments). Public so it works before sign-in.
@@ -81,9 +80,12 @@ export const appRoutes: FastifyPluginAsync = async (app) => {
       .parse(req.query);
     const from = `${q.year}-${String(q.month).padStart(2, '0')}-01`;
     const to = addDays(q.month === 12 ? `${q.year + 1}-01-01` : `${q.year}-${String(q.month + 1).padStart(2, '0')}-01`, -1);
-    const days = await hijriRange(app.ctx, from, to, { personalOffset: q.offset });
-    reply.header('Cache-Control', 'public, max-age=3600');
-    return { method: 'UAQ', offsetDays: q.offset, days };
+    const json = await app.ctx.cache.getJson('calendar', `${from}:${q.offset}`, 3600, async () => ({
+      method: 'UAQ',
+      offsetDays: q.offset,
+      days: await hijriRange(app.ctx, from, to, { personalOffset: q.offset }),
+    }));
+    return sendCachedJson(req, reply, json, 3600);
   });
 
   /* ------------------------------------------------------------- content */
@@ -94,7 +96,7 @@ export const appRoutes: FastifyPluginAsync = async (app) => {
     const conds = [eq(contentItems.status, 'published'), inArray(contentItems.type, [...SYNCED_TYPES])];
     if (q.type) conds.push(eq(contentItems.type, q.type));
     if (q.since) conds.push(gt(contentItems.updatedAt, new Date(q.since)));
-    const rows = await db
+    const load = () => db
       .select({
         id: contentItems.id,
         type: contentItems.type,
@@ -110,13 +112,13 @@ export const appRoutes: FastifyPluginAsync = async (app) => {
       .from(contentItems)
       .where(and(...conds))
       .orderBy(asc(contentItems.category), asc(contentItems.title));
-    reply.header('Cache-Control', 'public, max-age=600');
-    return rows;
+    const json = await app.ctx.cache.getJson('content', `list:${q.type ?? '*'}:${q.since ?? ''}`, 300, load);
+    return sendCachedJson(req, reply, json, 600);
   });
 
   /** Licensed recitations (catalogue changes rarely; the app caches it). */
-  app.get('/content/reciters', async (_req, reply) => {
-    const rows = await db
+  app.get('/content/reciters', async (req, reply) => {
+    const load = () => db
       .select({
         id: reciters.id,
         nameAr: reciters.nameAr,
@@ -131,13 +133,12 @@ export const appRoutes: FastifyPluginAsync = async (app) => {
       .from(reciters)
       .where(eq(reciters.active, true))
       .orderBy(asc(reciters.sortOrder), asc(reciters.nameAr));
-    reply.header('Cache-Control', 'public, max-age=3600');
-    return rows;
+    return sendCachedJson(req, reply, await app.ctx.cache.getJson('catalogue', 'reciters', 600, load), 3600);
   });
 
   /** Downloadable packs; the app verifies `sha256` before installing a pack. */
-  app.get('/content/packs', async (_req, reply) => {
-    const rows = await db
+  app.get('/content/packs', async (req, reply) => {
+    const load = () => db
       .select({
         id: contentPacks.id,
         kind: contentPacks.kind,
@@ -151,14 +152,16 @@ export const appRoutes: FastifyPluginAsync = async (app) => {
       .from(contentPacks)
       .where(eq(contentPacks.active, true))
       .orderBy(asc(contentPacks.kind), asc(contentPacks.id));
-    reply.header('Cache-Control', 'public, max-age=3600');
-    return rows;
+    return sendCachedJson(req, reply, await app.ctx.cache.getJson('catalogue', 'packs', 600, load), 3600);
   });
 
-  app.get('/daily-task', async (req) => {
+  app.get('/daily-task', async (req, reply) => {
     const date = IsoDate.default(localToday(app.ctx.now())).parse((req.query as { date?: string }).date);
-    const [t] = await db.select().from(dailyTasks).where(eq(dailyTasks.date, date));
-    return t ? { date: t.date, taskAr: t.taskAr, taskEn: t.taskEn } : null;
+    const json = await app.ctx.cache.getJson('content', `daily:${date}`, 300, async () => {
+      const [t] = await db.select().from(dailyTasks).where(eq(dailyTasks.date, date));
+      return t ? { date: t.date, taskAr: t.taskAr, taskEn: t.taskEn } : null;
+    });
+    return sendCachedJson(req, reply, json, 300);
   });
 
   /* ----------------------------------------------------------- challenge */

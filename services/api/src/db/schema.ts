@@ -125,7 +125,7 @@ export const refreshTokens = pgTable(
     revokedAt: ts('revoked_at'),
     createdAt: createdAt(),
   },
-  (t) => [uniqueIndex('refresh_tokens_hash_uq').on(t.tokenHash)],
+  (t) => [uniqueIndex('refresh_tokens_hash_uq').on(t.tokenHash), index('refresh_tokens_user_idx').on(t.userId)],
 );
 
 export const devices = pgTable(
@@ -171,7 +171,8 @@ export const consents = pgTable(
     granted: boolean('granted').notNull(),
     updatedAt: updatedAt(),
   },
-  (t) => [primaryKey({ columns: [t.userId, t.kind] })],
+  // (kind, granted) serves campaign audience queries ("everyone who allowed store offers").
+  (t) => [primaryKey({ columns: [t.userId, t.kind] }), index('consents_kind_granted_idx').on(t.kind, t.granted)],
 );
 
 /** Append-only consent history — the PDPL record of who agreed to what, when, where. */
@@ -326,7 +327,12 @@ export const redemptions = pgTable(
     expiresAt: ts('expires_at').notNull(),
     createdAt: createdAt(),
   },
-  (t) => [uniqueIndex('redemptions_code_uq').on(t.code), index('redemptions_user_idx').on(t.userId)],
+  (t) => [
+    uniqueIndex('redemptions_code_uq').on(t.code),
+    index('redemptions_user_idx').on(t.userId),
+    // Monthly caps count per reward per month inside the redeem transaction.
+    index('redemptions_reward_created_idx').on(t.rewardId, t.createdAt),
+  ],
 );
 
 /* ---------------------------------------------------------------- content */
@@ -388,7 +394,9 @@ export const contentPacks = pgTable('content_packs', {
 
 /* -------------------------------------------------------------- campaigns */
 
-export const campaigns = pgTable('campaigns', {
+export const campaigns = pgTable(
+  'campaigns',
+  {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   kind: campaignKind('kind').notNull(),
@@ -408,7 +416,10 @@ export const campaigns = pgTable('campaigns', {
   createdBy: uuid('created_by').notNull(),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
-});
+  },
+  // The dispatcher polls due campaigns every few minutes.
+  (t) => [index('campaigns_status_scheduled_idx').on(t.status, t.scheduledAt)],
+);
 
 /** One row per (campaign, user) send — used for the daily marketing cap and dedupe. */
 export const campaignDeliveries = pgTable(

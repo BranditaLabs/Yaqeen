@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'dart:math';
+
 import 'package:yaqeen/core/config/remote_config.dart';
 import 'package:yaqeen/core/config/rollout.dart';
 import 'package:yaqeen/core/network/api_client.dart';
@@ -154,6 +156,37 @@ void main() {
     expect(seen, ['PATCH /v1/me/settings', 'POST /v1/challenge/tasks/daily_task/complete', 'PUT /v1/me/consents']);
     expect(rejected, ['outside_qada_window']);
     expect(await outbox.items(), isEmpty);
+  });
+
+  test('failed flushes back off exponentially with jitter; forced flushes ignore it', () async {
+    var now = DateTime(2026, 10, 20, 9);
+    var calls = 0;
+    final api = fakeApi(MemoryKvStore(), (_) async {
+      calls++;
+      return http.Response(
+        jsonEncode({
+          'error': {'code': 'overloaded'},
+        }),
+        503,
+      );
+    });
+    final outbox = Outbox(MemoryKvStore());
+    await outbox.add(OutboxItem(id: '1', method: 'POST', path: '/x'));
+    final sync = OutboxSync(api: api, outbox: outbox, isSignedIn: () async => true, now: () => now, random: Random(1));
+    await sync.flush();
+    expect(calls, 1);
+    final first = sync.retryAfter!.difference(now);
+    expect(first, lessThanOrEqualTo(OutboxSync.baseDelay));
+    await sync.flush(); // still backing off
+    expect(calls, 1);
+    await sync.flush(force: true);
+    expect(calls, 2);
+    for (var i = 0; i < 12; i++) {
+      now = sync.retryAfter!.add(const Duration(seconds: 1));
+      await sync.flush();
+    }
+    expect(sync.retryAfter!.difference(now), lessThanOrEqualTo(OutboxSync.maxDelay));
+    expect(await outbox.length, 1); // 503 is retryable — never dropped
   });
 
   test('signed-out sync keeps the queue', () async {

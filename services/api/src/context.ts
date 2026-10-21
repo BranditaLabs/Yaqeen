@@ -4,6 +4,7 @@ import type { Db } from './db/client.js';
 import type { AlAdhanClient } from './integrations/aladhan.js';
 import type { FcmSender } from './integrations/fcm.js';
 import type { ShopifyClient } from './integrations/shopify.js';
+import type { ResponseCache } from './lib/cache.js';
 
 /** Everything a route needs, injected once (makes tests and jobs easy to wire). */
 export interface AppContext {
@@ -13,8 +14,12 @@ export interface AppContext {
   aladhan: AlAdhanClient;
   shopify: ShopifyClient;
   fcm: FcmSender;
+  /** Hot public responses (L1 memory + L2 Redis). Created by buildApp when not given. */
+  cache: ResponseCache;
   /** Injectable clock for tests. */
   now: () => Date;
+  /** True while shutting down: readiness fails so the load balancer stops routing here. */
+  draining?: () => boolean;
 }
 
 declare module 'fastify' {

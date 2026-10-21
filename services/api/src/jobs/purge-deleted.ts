@@ -21,6 +21,7 @@ import {
   users,
 } from '../db/schema.js';
 import { DELETION_GRACE_DAYS } from '../routes/public/me.routes.js';
+import { withJobLock } from './lock.js';
 
 export async function purgeDeleted(db: Db, now: Date): Promise<number> {
   const cutoff = new Date(now.getTime() - DELETION_GRACE_DAYS * 86_400_000);
@@ -45,7 +46,7 @@ export async function purgeDeleted(db: Db, now: Date): Promise<number> {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const env = loadEnv();
   const { db, pool } = createDb(env.DATABASE_URL);
-  const n = await purgeDeleted(db, new Date());
-  console.log(`[purge] anonymised ${n} account(s)`);
+  const res = await withJobLock(pool, 'purge-deleted', () => purgeDeleted(db, new Date()));
+  console.log(res.ran ? `[purge] anonymised ${res.result} account(s)` : '[purge] another run in progress — skipped');
   await pool.end();
 }

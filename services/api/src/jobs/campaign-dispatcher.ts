@@ -18,7 +18,9 @@ import { prayerMinutes } from '../domain/prayer-times.js';
 import { AlAdhanClient } from '../integrations/aladhan.js';
 import { FcmSender } from '../integrations/fcm.js';
 import { ShopifyClient } from '../integrations/shopify.js';
+import { ResponseCache } from '../lib/cache.js';
 import { segmentQuery } from '../routes/admin/campaigns.routes.js';
+import { withJobLock } from './lock.js';
 
 const DEEP_LINK_PREFIX = 'yaqeen://';
 const TIME_REASONS = new Set(['quiet_hours', 'near_prayer', 'jumuah']);
@@ -108,15 +110,17 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const env = loadEnv();
   const { db, pool } = createDb(env.DATABASE_URL);
   const redis = new Redis(env.REDIS_URL);
-  await dispatchDue({
+  const res = await withJobLock(pool, 'campaign-dispatcher', () => dispatchDue({
     env,
     db,
     redis,
+    cache: new ResponseCache(redis),
     aladhan: new AlAdhanClient(env.ALADHAN_BASE_URL, redis),
     shopify: new ShopifyClient({ shopDomain: env.SHOPIFY_SHOP_DOMAIN, adminToken: env.SHOPIFY_ADMIN_TOKEN, apiVersion: env.SHOPIFY_API_VERSION }),
     fcm: new FcmSender(env.FIREBASE_SERVICE_ACCOUNT_JSON),
     now: () => new Date(),
-  });
+  }));
+  if (!res.ran) console.log('[campaigns] another dispatcher is running — skipped');
   await pool.end();
   redis.disconnect();
 }

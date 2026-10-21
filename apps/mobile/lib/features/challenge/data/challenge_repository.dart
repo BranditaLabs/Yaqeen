@@ -99,7 +99,7 @@ class ChallengeRepository {
       if (r.$1.id == id) rejectedCode = r.$2.code;
     });
     try {
-      await sync.flush();
+      await sync.flush(force: true);
     } finally {
       await sub.cancel();
     }

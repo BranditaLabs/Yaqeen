@@ -56,7 +56,7 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     ref.listen(onlineProvider, (prev, next) {
-      if (next.valueOrNull == true && prev?.valueOrNull == false) ref.read(outboxSyncProvider).flush().ignore();
+      if (next.valueOrNull == true && prev?.valueOrNull == false) ref.read(outboxSyncProvider).flush(force: true).ignore();
     });
     final config = ref.watch(remoteConfigProvider);
     final device = ref.watch(deviceServicesProvider);

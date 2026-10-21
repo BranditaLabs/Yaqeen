@@ -81,10 +81,23 @@ class Outbox {
 /// Sends any queued request through the API client. One flush for the whole app, so challenge
 /// ticks, settings and inbox opens replay in the order they were made (spec §6.16).
 class OutboxSync {
-  OutboxSync({required this.api, required this.outbox, this.isSignedIn});
+  OutboxSync({required this.api, required this.outbox, this.isSignedIn, DateTime Function()? now, Random? random})
+      : _now = now ?? DateTime.now,
+        _random = random ?? Random();
 
   final ApiClient api;
   final Outbox outbox;
+  final DateTime Function() _now;
+  final Random _random;
+
+  /// Exponential backoff with full jitter after a failed flush (offline, 429, 5xx): 30 s → 15 min.
+  /// Jitter keeps a fleet of phones from retrying in lockstep when the API recovers.
+  static const baseDelay = Duration(seconds: 30);
+  static const maxDelay = Duration(minutes: 15);
+  int _failures = 0;
+  DateTime? _retryAfter;
+
+  DateTime? get retryAfter => _retryAfter;
 
   /// Requests need a session; skip the flush (keep the queue) while signed out.
   final Future<bool> Function()? isSignedIn;
@@ -94,11 +107,26 @@ class OutboxSync {
   /// Items the server refused for good (e.g. `outside_qada_window`) — the UI reverts and explains.
   Stream<(OutboxItem, ApiException)> get rejected => _rejected.stream;
 
-  /// Concurrent callers share one flush.
-  Future<int> flush() => _running ??= _flush().whenComplete(() => _running = null);
+  /// Concurrent callers share one flush. [force] (a user action, connectivity back) ignores backoff.
+  Future<int> flush({bool force = false}) => _running ??= _flush(force: force).whenComplete(() => _running = null);
 
-  Future<int> _flush() async {
+  Future<int> _flush({required bool force}) async {
     if (isSignedIn != null && !await isSignedIn!()) return 0;
+    if (!force && _retryAfter != null && _now().isBefore(_retryAfter!)) return 0;
+    final sent = await _send();
+    if (await outbox.length == 0) {
+      _failures = 0;
+      _retryAfter = null;
+    } else {
+      _failures++;
+      final cap = baseDelay * pow(2, _failures - 1).toInt();
+      final ceiling = cap > maxDelay ? maxDelay : cap;
+      _retryAfter = _now().add(Duration(milliseconds: (_random.nextDouble() * ceiling.inMilliseconds).round()));
+    }
+    return sent;
+  }
+
+  Future<int> _send() {
     return outbox.flush(onRejected: (item, e) => _rejected.add((item, e)), (item) async {
       switch (item.method) {
         case 'POST':

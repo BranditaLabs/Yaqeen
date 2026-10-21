@@ -1,0 +1,87 @@
+# Yaqeen API — stateless, horizontally scaled. Apply: kubectl apply -k deploy/k8s
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yaqeen-api
+  labels: { app: yaqeen-api }
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 25%, maxUnavailable: 0 } # never below capacity during a deploy
+  selector: { matchLabels: { app: yaqeen-api } }
+  template:
+    metadata:
+      labels: { app: yaqeen-api }
+    spec:
+      terminationGracePeriodSeconds: 45 # > SHUTDOWN_GRACE_MS + slowest request (30 s timeout)
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector: { matchLabels: { app: yaqeen-api } }
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: api
+          image: ghcr.io/branditalabs/yaqeen-api:latest # CI pins the commit SHA (kustomization.yaml)
+          ports: [{ name: http, containerPort: 4000 }]
+          envFrom:
+            - configMapRef: { name: yaqeen-api-config }
+            - secretRef: { name: yaqeen-api-secrets }
+          resources:
+            requests: { cpu: 500m, memory: 384Mi }
+            limits: { memory: 768Mi } # no CPU limit: throttling would turn spikes into latency
+          readinessProbe: # fails while draining → removed from the Service before shutdown
+            httpGet: { path: /ready, port: http }
+            periodSeconds: 5
+            failureThreshold: 2
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 15
+            failureThreshold: 4
+          startupProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 2
+            failureThreshold: 30
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: yaqeen-api
+spec:
+  selector: { app: yaqeen-api }
+  ports: [{ name: http, port: 80, targetPort: http }]
+---
+# One pod sustains ~2k req/s of the app mix (services/api/load). Scale on CPU early so latency
+# stays low through the daily peaks (after Fajr, around Maghrib, Friday) and campaign bursts.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: yaqeen-api
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: yaqeen-api }
+  minReplicas: 3
+  maxReplicas: 30
+  metrics:
+    - type: Resource
+      resource: { name: cpu, target: { type: Utilization, averageUtilization: 60 } }
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies: [{ type: Percent, value: 100, periodSeconds: 30 }] # double quickly on a spike
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies: [{ type: Percent, value: 20, periodSeconds: 60 }]
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: yaqeen-api
+spec:
+  minAvailable: 2
+  selector: { matchLabels: { app: yaqeen-api } }

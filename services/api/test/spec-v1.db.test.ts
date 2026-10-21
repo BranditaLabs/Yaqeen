@@ -304,6 +304,27 @@ describe.skipIf(!url)('spec v1 endpoints (Postgres)', () => {
     expect(signIn.json().user.id).not.toBe(u.id); // a fresh account; the old one is gone
   });
 
+  it('hot public reads are cached with ETags and invalidated by admin writes', async () => {
+    const root = await makeAdmin('super_admin', 'cache@yaqin-brand.com');
+    const first = await app.inject({ method: 'GET', url: '/v1/config' });
+    expect(first.headers['x-request-id']).toBeTruthy();
+    const tag = first.headers.etag as string;
+    expect(tag).toMatch(/^W\//);
+    const again = await app.inject({ method: 'GET', url: '/v1/config', headers: { 'if-none-match': tag } });
+    expect(again.statusCode).toBe(304);
+
+    const patch = await app.inject({
+      method: 'PATCH',
+      url: '/admin/settings/config',
+      headers: auth(root),
+      payload: { features: { ...first.json().features, ramadan: true } },
+    });
+    expect(patch.statusCode).toBe(200);
+    const after = await app.inject({ method: 'GET', url: '/v1/config', headers: { 'if-none-match': tag } });
+    expect(after.statusCode).toBe(200); // not served stale
+    expect(after.json().features.ramadan).toBe(true);
+  });
+
   it('a monthly cap reports reward_out_of_stock', async () => {
     const u = await makeUser('Shopper');
     await db.insert(s.pointsLedger).values({ userId: u.id, delta: 5000, reason: 'grant', refKey: 'seed:shopper' });
