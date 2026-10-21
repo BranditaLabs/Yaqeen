@@ -71,7 +71,7 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
               routes: [
                 GoRoute(
                   path: '/quran',
-                  builder: (_, __) => const QuranIndexScreen(),
+                  builder: (_, s) => QuranIndexScreen(key: ValueKey(s.uri.query), focusSearch: s.uri.queryParameters['search'] == '1'),
                   routes: [
                     GoRoute(path: 'hifz', builder: (_, __) => const HifzScreen()),
                     GoRoute(path: 'reciters', builder: (_, __) => const RecitersScreen()),

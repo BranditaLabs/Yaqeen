@@ -915,5 +915,66 @@
   "duaCatMosque": "المسجد",
   "duaCatGeneral": "أدعية عامة",
   "duaFavourites": "المفضلة",
-  "duasEmpty": "ستظهر الأدعية هنا بعد مراجعتها ونشرها"
+  "duasEmpty": "ستظهر الأدعية هنا بعد مراجعتها ونشرها",
+  "greetingMorning": "صباح الخير",
+  "guestName": "ضيف",
+  "homeSearch": "ابحث في القرآن",
+  "homeInboxA11y": "{count, plural, =0{الإشعارات} other{الإشعارات، {count} غير مقروءة}}",
+  "@homeInboxA11y": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "homePrayerNow": "حان وقت صلاة {prayer}",
+  "@homePrayerNow": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "homeHeroA11y": "الصلاة القادمة {prayer} الساعة {time}، الأذان بعد {left}",
+  "@homeHeroA11y": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      },
+      "left": {
+        "type": "String"
+      }
+    }
+  },
+  "homeListenTo": "استمع إلى سورة {surah}",
+  "@homeListenTo": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      }
+    }
+  },
+  "homeReadingMeta": "سورة {surah} · الصفحة {page} · الجزء {juz}",
+  "@homeReadingMeta": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      },
+      "page": {
+        "type": "int"
+      },
+      "juz": {
+        "type": "int"
+      }
+    }
+  },
+  "homeStartReading": "ابدأ القراءة",
+  "homeKahfSuggestion": "الجمعة: سورة الكهف",
+  "homeStreakHint": "أكمل ورد اليوم للحفاظ عليها",
+  "homeJoin": "ابدأ رحلة 365 يوماً",
+  "homeJoinHint": "مهام يومية بسيطة ونقاط تُستبدل في متجر يقين",
+  "servicesTitle": "الخدمات"
 }

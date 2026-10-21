@@ -888,5 +888,66 @@
   "duaCatMosque": "Mosque",
   "duaCatGeneral": "General",
   "duaFavourites": "Favourites",
-  "duasEmpty": "Duas appear here once reviewed and published"
+  "duasEmpty": "Duas appear here once reviewed and published",
+  "greetingMorning": "Good morning",
+  "guestName": "Guest",
+  "homeSearch": "Search the Quran",
+  "homeInboxA11y": "{count, plural, =0{Notifications} other{Notifications, {count} unread}}",
+  "@homeInboxA11y": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "homePrayerNow": "It's time for {prayer}",
+  "@homePrayerNow": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "homeHeroA11y": "Next prayer {prayer} at {time}, adhan in {left}",
+  "@homeHeroA11y": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      },
+      "left": {
+        "type": "String"
+      }
+    }
+  },
+  "homeListenTo": "Listen to {surah}",
+  "@homeListenTo": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      }
+    }
+  },
+  "homeReadingMeta": "{surah} · page {page} · juz {juz}",
+  "@homeReadingMeta": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      },
+      "page": {
+        "type": "int"
+      },
+      "juz": {
+        "type": "int"
+      }
+    }
+  },
+  "homeStartReading": "Start reading",
+  "homeKahfSuggestion": "Friday: Surat al-Kahf",
+  "homeStreakHint": "Finish today's wird to keep it",
+  "homeJoin": "Start the 365-day journey",
+  "homeJoinHint": "Simple daily tasks and points for the Yaqeen store",
+  "servicesTitle": "Services"
 }
