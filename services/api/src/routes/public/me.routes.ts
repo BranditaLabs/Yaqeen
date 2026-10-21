@@ -1,4 +1,5 @@
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { z } from 'zod';
 import type { FastifyPluginAsync } from 'fastify';
 import {
   type ConsentKind,
@@ -8,12 +9,52 @@ import {
   RegisterDeviceRequest,
   UpdateSettingsRequest,
 } from '@yaqeen/contracts';
-import { consentEvents, consents, devices, pointsLedger, redemptions, taskCompletions, users } from '../../db/schema.js';
+import {
+  campaignDeliveries,
+  campaigns,
+  consentEvents,
+  consents,
+  devices,
+  pointsLedger,
+  redemptions,
+  refreshTokens,
+  taskCompletions,
+  users,
+} from '../../db/schema.js';
+import type { Db } from '../../db/client.js';
 import { notFound } from '../../lib/errors.js';
 import { userId } from '../../plugins/auth.js';
 
 /** Bump when the privacy policy text changes; stored with every consent event. */
 export const POLICY_VERSION = '2026-10-01';
+
+/** Days between an erasure request and the purge job anonymising the account. */
+export const DELETION_GRACE_DAYS = 30;
+
+/** Everything held about a user — shared by GET /v1/me/export and the admin export. */
+export async function exportUser(db: Db, uid: string, opts: { includeWorship: boolean }) {
+  const [profile] = await db.select().from(users).where(eq(users.id, uid));
+  return {
+    profile,
+    consents: await db.select().from(consentEvents).where(eq(consentEvents.userId, uid)),
+    devices: await db
+      .select({ platform: devices.platform, appVersion: devices.appVersion, lastSeenAt: devices.lastSeenAt })
+      .from(devices)
+      .where(eq(devices.userId, uid)),
+    // Worship history goes only to the user themself — never to an admin (CLAUDE.md rule 2).
+    ...(opts.includeWorship
+      ? { taskCompletions: await db.select().from(taskCompletions).where(eq(taskCompletions.userId, uid)) }
+      : {}),
+    // The ref key names the task ("2026-10-20:task:five_prayers"), so admins get the ledger without it.
+    pointsLedger: opts.includeWorship
+      ? await db.select().from(pointsLedger).where(eq(pointsLedger.userId, uid))
+      : await db
+          .select({ id: pointsLedger.id, delta: pointsLedger.delta, reason: pointsLedger.reason, note: pointsLedger.note, createdAt: pointsLedger.createdAt })
+          .from(pointsLedger)
+          .where(eq(pointsLedger.userId, uid)),
+    redemptions: await db.select().from(redemptions).where(eq(redemptions.userId, uid)),
+  };
+}
 
 export const meRoutes: FastifyPluginAsync = async (app) => {
   const { db } = app.ctx;
@@ -88,6 +129,22 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
     return { ok: true };
   });
 
+  /** A push from a campaign was opened. Idempotent: only the first open counts. */
+  app.post('/campaigns/:id/opened', async (req) => {
+    const { id } = z.object({ id: z.uuid() }).parse(req.params);
+    const uid = userId(req);
+    const counted = await db.transaction(async (tx) => {
+      const rows = await tx
+        .update(campaignDeliveries)
+        .set({ openedAt: app.ctx.now() })
+        .where(and(eq(campaignDeliveries.campaignId, id), eq(campaignDeliveries.userId, uid), isNull(campaignDeliveries.openedAt)))
+        .returning({ c: campaignDeliveries.campaignId });
+      if (rows.length) await tx.update(campaigns).set({ openCount: sql`${campaigns.openCount} + 1` }).where(eq(campaigns.id, id));
+      return rows.length > 0;
+    });
+    return { counted };
+  });
+
   app.get('/redemptions', async (req) =>
     db.select().from(redemptions).where(eq(redemptions.userId, userId(req))).orderBy(desc(redemptions.createdAt)),
   );
@@ -103,22 +160,21 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
 
   /** PDPL right of access: everything we hold about the user, as JSON. */
   app.get('/export', async (req) => {
-    const uid = userId(req);
-    const [profile] = await db.select().from(users).where(eq(users.id, uid));
-    return {
-      exportedAt: app.ctx.now().toISOString(),
-      profile,
-      consents: await db.select().from(consentEvents).where(eq(consentEvents.userId, uid)),
-      devices: await db.select({ platform: devices.platform, appVersion: devices.appVersion, lastSeenAt: devices.lastSeenAt }).from(devices).where(eq(devices.userId, uid)),
-      taskCompletions: await db.select().from(taskCompletions).where(eq(taskCompletions.userId, uid)),
-      pointsLedger: await db.select().from(pointsLedger).where(eq(pointsLedger.userId, uid)),
-      redemptions: await db.select().from(redemptions).where(eq(redemptions.userId, uid)),
-    };
+    return { exportedAt: app.ctx.now().toISOString(), ...(await exportUser(db, userId(req), { includeWorship: true })) };
   });
 
-  /** PDPL right to erasure: mark for deletion; a job hard-deletes after the grace period. */
+  /**
+   * PDPL right to erasure: mark for deletion and end every session now; the purge job
+   * (jobs/purge-deleted.ts) anonymises the account after the grace period.
+   */
   app.delete('/', async (req, reply) => {
-    await db.update(users).set({ status: 'deletion_requested', updatedAt: app.ctx.now() }).where(eq(users.id, userId(req)));
-    return reply.status(202).send({ status: 'deletion_requested', graceDays: 14 });
+    const uid = userId(req);
+    const now = app.ctx.now();
+    await db.transaction(async (tx) => {
+      await tx.update(users).set({ status: 'deletion_requested', deletionRequestedAt: now, updatedAt: now }).where(eq(users.id, uid));
+      await tx.update(refreshTokens).set({ revokedAt: now }).where(and(eq(refreshTokens.userId, uid), isNull(refreshTokens.revokedAt)));
+      await tx.update(devices).set({ invalidatedAt: now }).where(and(eq(devices.userId, uid), isNull(devices.invalidatedAt)));
+    });
+    return reply.status(202).send({ status: 'deletion_requested', graceDays: DELETION_GRACE_DAYS });
   });
 };

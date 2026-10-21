@@ -28,7 +28,7 @@ import {
 /* ------------------------------------------------------------------ enums */
 
 export const authProvider = pgEnum('auth_provider', ['google', 'apple', 'guest']);
-export const userStatus = pgEnum('user_status', ['active', 'suspended', 'under_review', 'deletion_requested']);
+export const userStatus = pgEnum('user_status', ['active', 'suspended', 'under_review', 'deletion_requested', 'deleted']);
 export const platform = pgEnum('platform', ['ios', 'android']);
 export const consentKind = pgEnum('consent_kind', [
   'worship_reminders',
@@ -55,7 +55,8 @@ export const ledgerReason = pgEnum('ledger_reason', [
   'admin_adjustment',
   'reversal',
 ]);
-export const contentType = pgEnum('content_type', ['dua', 'zikr']);
+export const contentType = pgEnum('content_type', ['dua', 'zikr', 'splash_verse']);
+export const packKind = pgEnum('pack_kind', ['tafsir', 'font', 'audio', 'translation']);
 export const contentStatus = pgEnum('content_status', ['draft', 'pending_review', 'changes_requested', 'published']);
 export const rewardKind = pgEnum('reward_kind', ['fixed_amount', 'percentage', 'free_shipping']);
 export const redemptionStatus = pgEnum('redemption_status', ['issued', 'used', 'expired', 'void']);
@@ -87,6 +88,10 @@ export const users = pgTable('users', {
   prayerMethod: text('prayer_method').notNull().default('egypt'),
   asrSchool: text('asr_school').notNull().default('standard'),
   hijriOffsetDays: smallint('hijri_offset_days').notNull().default(0),
+  /** Set when a guest was linked into an account that already existed (POST /v1/auth/link). */
+  mergedInto: uuid('merged_into'),
+  /** When the PDPL erasure request was made; the purge job anonymises 30 days later. */
+  deletionRequestedAt: ts('deletion_requested_at'),
   lastSeenAt: ts('last_seen_at'),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
@@ -138,6 +143,21 @@ export const devices = pgTable(
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex('devices_fcm_token_uq').on(t.fcmToken), index('devices_user_idx').on(t.userId)],
+);
+
+/**
+ * One row per user per active day (any authenticated request). Feeds the DAU chart.
+ * Holds no information about what the user did — only that the app was used.
+ */
+export const userActivityDays = pgTable(
+  'user_activity_days',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    date: date('date', { mode: 'string' }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.date] }), index('user_activity_days_date_idx').on(t.date)],
 );
 
 /** Current consent state per bucket. */
@@ -334,6 +354,38 @@ export const contentItems = pgTable(
   (t) => [index('content_items_status_idx').on(t.status, t.type)],
 );
 
+/** Licensed recitations offered in the app (GET /v1/content/reciters). */
+export const reciters = pgTable('reciters', {
+  id: text('id').primaryKey(),
+  nameAr: text('name_ar').notNull(),
+  nameEn: text('name_en').notNull(),
+  /** murattal | mujawwad */
+  style: text('style').notNull().default('murattal'),
+  riwaya: text('riwaya').notNull().default('hafs'),
+  /** Per-surah MP3 base: `${baseUrl}/${surah:03}.mp3`. */
+  baseUrl: text('base_url').notNull(),
+  timingUrl: text('timing_url'),
+  sampleUrl: text('sample_url'),
+  sizeBytes: integer('size_bytes').notNull().default(0),
+  sortOrder: smallint('sort_order').notNull().default(0),
+  active: boolean('active').notNull().default(true),
+  updatedAt: updatedAt(),
+});
+
+/** Downloadable data packs (tafsir, fonts, audio) with integrity hashes (GET /v1/content/packs). */
+export const contentPacks = pgTable('content_packs', {
+  id: text('id').primaryKey(),
+  kind: packKind('kind').notNull(),
+  titleAr: text('title_ar').notNull(),
+  titleEn: text('title_en').notNull(),
+  version: integer('version').notNull(),
+  url: text('url').notNull(),
+  sha256: text('sha256').notNull(),
+  sizeBytes: integer('size_bytes').notNull(),
+  active: boolean('active').notNull().default(true),
+  updatedAt: updatedAt(),
+});
+
 /* -------------------------------------------------------------- campaigns */
 
 export const campaigns = pgTable('campaigns', {
@@ -412,6 +464,8 @@ export const adminUsers = pgTable(
     /** base32 TOTP secret. Encrypt at rest in production (KMS) — see SECURITY_PRIVACY.md. */
     totpSecret: text('totp_secret').notNull(),
     role: adminRole('role').notNull(),
+    /** FCM tokens of this admin's own phones, for "send a test to my device". */
+    testDeviceTokens: text('test_device_tokens').array().notNull().default(sql`'{}'::text[]`),
     active: boolean('active').notNull().default(true),
     lastLoginAt: ts('last_login_at'),
     createdAt: createdAt(),
@@ -423,7 +477,9 @@ export const auditLog = pgTable(
   'audit_log',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    adminId: uuid('admin_id').notNull(),
+    /** The admin who acted, or null for actions a user took on their own account (actorUserId). */
+    adminId: uuid('admin_id'),
+    actorUserId: uuid('actor_user_id'),
     action: text('action').notNull(),
     targetType: text('target_type').notNull(),
     targetId: text('target_id'),

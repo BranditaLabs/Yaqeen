@@ -33,6 +33,11 @@ export async function balance(ctx: AppContext, userId: string): Promise<number> 
   return Number(row?.total ?? 0);
 }
 
+/** "Today" in the user's own timezone. */
+export async function todayFor(ctx: AppContext, userId: string): Promise<string> {
+  return userToday(ctx, userId);
+}
+
 async function userToday(ctx: AppContext, userId: string): Promise<string> {
   const [u] = await ctx.db.select({ tz: users.timezone }).from(users).where(eq(users.id, userId));
   return localToday(ctx.now(), u?.tz ?? 'Africa/Cairo');

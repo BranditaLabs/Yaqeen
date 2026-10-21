@@ -4,7 +4,7 @@ import type { AppContext } from '../context.js';
 import { pointsLedger, redemptions, rewards } from '../db/schema.js';
 import { canAfford } from '../domain/points.js';
 import { buildDiscountRequest, generateCode } from '../domain/shopify.js';
-import { badRequest, conflict, notFound } from '../lib/errors.js';
+import { AppError, badRequest, conflict, notFound } from '../lib/errors.js';
 import { balance } from './challenge.service.js';
 
 /**
@@ -50,7 +50,7 @@ export async function redeem(ctx: AppContext, userId: string, rewardId: string):
         .select({ n: sql<string>`count(*)` })
         .from(redemptions)
         .where(and(eq(redemptions.rewardId, reward.id), gte(redemptions.createdAt, monthStart), sql`${redemptions.status} <> 'void'`));
-      if (Number(c?.n ?? 0) >= reward.monthlyCap) throw conflict('reward_cap_reached');
+      if (Number(c?.n ?? 0) >= reward.monthlyCap) throw conflict('reward_out_of_stock');
     }
 
     const [r] = await tx
@@ -90,7 +90,8 @@ export async function redeem(ctx: AppContext, userId: string, rewardId: string):
         note: 'Shopify discount creation failed',
       });
     });
-    throw err;
+    // One stable code for the app («المتجر غير متاح الآن، لم تُخصم نقاطك»); details stay in the message.
+    throw new AppError(503, 'shopify_unavailable', err instanceof Error ? err.message : 'Shopify unavailable');
   }
 
   return {

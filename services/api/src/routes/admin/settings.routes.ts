@@ -1,8 +1,8 @@
 import { desc, eq, lt } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { AdminRole, ConfigPatch, HijriAdjustRequest } from '@yaqeen/contracts';
-import { adminUsers, appConfig, auditLog, hijriAdjustments } from '../../db/schema.js';
+import { AdminRole, ConfigPatch, HijriAdjustRequest, SplashVerseUpdate } from '@yaqeen/contracts';
+import { adminUsers, appConfig, auditLog, contentItems, hijriAdjustments } from '../../db/schema.js';
 import { localToday } from '../../domain/points.js';
 import { audit } from '../../lib/audit.js';
 import { generateTotpSecret, hashPassword } from '../../lib/crypto.js';
@@ -25,6 +25,7 @@ export const adminSettingsRoutes: FastifyPluginAsync = async (app) => {
     const patch = ConfigPatch.parse(req.body);
     if (patch.hijri) throw badRequest('use_hijri_endpoint', 'Hijri offset is changed via /admin/settings/hijri');
     if (patch.points) throw badRequest('use_program_endpoint', 'Points settings are changed via /admin/rewards/program');
+    if (patch.splashVerse) throw badRequest('use_splash_verse_endpoint', 'The splash verse needs religious review: PUT /admin/settings/splash-verse');
     await db.transaction(async (tx) => {
       const before = await readConfig(app);
       for (const [key, value] of Object.entries(patch)) {
@@ -36,6 +37,33 @@ export const adminSettingsRoutes: FastifyPluginAsync = async (app) => {
       await audit(tx, req, { action: 'config.patch', targetType: 'config', before, after: patch });
     });
     return readConfig(app);
+  });
+
+  /* --------------------------------------------------------- splash verse */
+
+  /**
+   * Proposes a new splash verse. It is stored as a `splash_verse` content item in
+   * pending_review; the live verse changes only when a religious reviewer who is not the
+   * author approves it (POST /admin/content/:id/review).
+   */
+  app.put('/splash-verse', { preHandler: app.requireAdmin(['content_editor']) }, async (req) => {
+    const body = SplashVerseUpdate.parse(req.body);
+    return db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(contentItems)
+        .values({
+          type: 'splash_verse',
+          category: 'splash',
+          title: 'آية شاشة البداية',
+          textAr: body.textAr,
+          source: body.reference,
+          status: 'pending_review',
+          createdBy: adminOf(req).sub,
+        })
+        .returning();
+      await audit(tx, req, { action: 'splash_verse.propose', targetType: 'content', targetId: row!.id, after: body });
+      return row;
+    });
   });
 
   /* ---------------------------------------------------------------- hijri */

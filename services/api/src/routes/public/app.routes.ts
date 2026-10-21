@@ -1,11 +1,12 @@
 /**
  * Public app endpoints: remote config, Hijri calendar, challenge, rewards, content.
  */
-import { and, asc, eq, gt } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { BonusKind, CompleteTaskRequest, ContentType, type RemoteConfig, TaskKey } from '@yaqeen/contracts';
-import { appConfig, contentItems, dailyTasks, rewards, users } from '../../db/schema.js';
+import { BonusKind, type ChallengeCalendar, CompleteTaskRequest, ContentType, type RemoteConfig, TaskKey } from '@yaqeen/contracts';
+import { appConfig, contentItems, contentPacks, dailyTasks, reciters, rewards, users } from '../../db/schema.js';
+import { specialDays } from '../../domain/hijri.js';
 import { addDays, localToday } from '../../domain/points.js';
 import { badRequest } from '../../lib/errors.js';
 import { userId } from '../../plugins/auth.js';
@@ -17,20 +18,40 @@ import { redeem } from '../../services/rewards.service.js';
 const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 export const DEFAULT_CONFIG: RemoteConfig = {
-  features: { challenge: true, rewards: true, hifz: true, listen: true, bonuses: false },
+  features: { challenge: true, rewards: true, hifz: true, listen: true, bonuses: false, recite: false, ramadan: false, tafsirFull: false },
+  featureRollout: {},
   minVersion: { ios: '1.0.0', android: '1.0.0' },
   maintenance: { enabled: false, messageAr: '', messageEn: '' },
   splashVerse: { textAr: 'وَٱعْبُدْ رَبَّكَ حَتَّىٰ يَأْتِيَكَ ٱلْيَقِينُ', reference: 'الحجر: 99' },
   hijri: { region: 'EG', offsetDays: 0, effectiveFrom: null },
-  points: { qadaDayPoints: 80, qadaWindowDays: 7, challengeLengthDays: 365 },
+  points: { dailyTotal: 100, qadaDayPoints: 80, qadaWindowDays: 7, challengeLengthDays: 365, cheapestRewardPoints: null },
 };
+
+/** Content types the app syncs from /v1/content (the splash verse ships in /v1/config). */
+const SYNCED_TYPES = ['dua', 'zikr'] as const;
 
 export async function readConfig(app: Parameters<FastifyPluginAsync>[0]): Promise<RemoteConfig> {
   const rows = await app.ctx.db.select().from(appConfig);
   const merged: Record<string, unknown> = { ...DEFAULT_CONFIG };
-  for (const r of rows) if (r.key !== POINTS_CONFIG_KEY) merged[r.key] = r.value;
+  for (const r of rows) {
+    if (r.key === POINTS_CONFIG_KEY) continue;
+    // Stored flags are merged over the defaults so new flags appear without a migration.
+    merged[r.key] = r.key === 'features' ? { ...DEFAULT_CONFIG.features, ...(r.value as object) } : r.value;
+  }
   const ps = await getPointsSettings(app.ctx);
-  merged.points = { qadaDayPoints: ps.qadaDayPoints, qadaWindowDays: ps.qadaWindowDays, challengeLengthDays: ps.challengeLengthDays };
+  const [cheapest] = await app.ctx.db
+    .select({ cost: rewards.costPoints })
+    .from(rewards)
+    .where(eq(rewards.active, true))
+    .orderBy(asc(rewards.costPoints))
+    .limit(1);
+  merged.points = {
+    dailyTotal: ps.dailyTotal,
+    qadaDayPoints: ps.qadaDayPoints,
+    qadaWindowDays: ps.qadaWindowDays,
+    challengeLengthDays: ps.challengeLengthDays,
+    cheapestRewardPoints: cheapest?.cost ?? null,
+  };
   const adj = (await adjustmentsFor(app.ctx, app.ctx.env.HIJRI_REGION))[0];
   merged.hijri = adj
     ? { region: app.ctx.env.HIJRI_REGION, offsetDays: adj.offsetDays, effectiveFrom: `${adj.effectiveHijriYear}-${adj.effectiveHijriMonth}` }
@@ -67,8 +88,10 @@ export const appRoutes: FastifyPluginAsync = async (app) => {
 
   /* ------------------------------------------------------------- content */
   app.get('/content', async (req, reply) => {
-    const q = z.object({ type: ContentType.optional(), since: z.iso.datetime().optional() }).parse(req.query);
-    const conds = [eq(contentItems.status, 'published')];
+    const q = z
+      .object({ type: ContentType.exclude(['splash_verse']).optional(), since: z.iso.datetime().optional() })
+      .parse(req.query);
+    const conds = [eq(contentItems.status, 'published'), inArray(contentItems.type, [...SYNCED_TYPES])];
     if (q.type) conds.push(eq(contentItems.type, q.type));
     if (q.since) conds.push(gt(contentItems.updatedAt, new Date(q.since)));
     const rows = await db
@@ -88,6 +111,47 @@ export const appRoutes: FastifyPluginAsync = async (app) => {
       .where(and(...conds))
       .orderBy(asc(contentItems.category), asc(contentItems.title));
     reply.header('Cache-Control', 'public, max-age=600');
+    return rows;
+  });
+
+  /** Licensed recitations (catalogue changes rarely; the app caches it). */
+  app.get('/content/reciters', async (_req, reply) => {
+    const rows = await db
+      .select({
+        id: reciters.id,
+        nameAr: reciters.nameAr,
+        nameEn: reciters.nameEn,
+        style: reciters.style,
+        riwaya: reciters.riwaya,
+        baseUrl: reciters.baseUrl,
+        timingUrl: reciters.timingUrl,
+        sampleUrl: reciters.sampleUrl,
+        sizeBytes: reciters.sizeBytes,
+      })
+      .from(reciters)
+      .where(eq(reciters.active, true))
+      .orderBy(asc(reciters.sortOrder), asc(reciters.nameAr));
+    reply.header('Cache-Control', 'public, max-age=3600');
+    return rows;
+  });
+
+  /** Downloadable packs; the app verifies `sha256` before installing a pack. */
+  app.get('/content/packs', async (_req, reply) => {
+    const rows = await db
+      .select({
+        id: contentPacks.id,
+        kind: contentPacks.kind,
+        titleAr: contentPacks.titleAr,
+        titleEn: contentPacks.titleEn,
+        version: contentPacks.version,
+        url: contentPacks.url,
+        sha256: contentPacks.sha256,
+        sizeBytes: contentPacks.sizeBytes,
+      })
+      .from(contentPacks)
+      .where(eq(contentPacks.active, true))
+      .orderBy(asc(contentPacks.kind), asc(contentPacks.id));
+    reply.header('Cache-Control', 'public, max-age=3600');
     return rows;
   });
 
@@ -114,6 +178,36 @@ export const appRoutes: FastifyPluginAsync = async (app) => {
       const q = z.object({ from: IsoDate, to: IsoDate }).parse(req.query);
       if (q.to < q.from || addDays(q.from, 92) < q.to) throw badRequest('range_too_large', 'Max 92 days per request');
       return challenge.days(app.ctx, userId(req), q.from, q.to);
+    });
+
+    /** One Gregorian month of the merged calendar: Hijri dates + challenge statuses + special days. */
+    r.get('/challenge/calendar', async (req): Promise<ChallengeCalendar> => {
+      const { month } = z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/) }).parse(req.query);
+      const uid = userId(req);
+      const from = `${month}-01`;
+      const to = addDays(addDays(from, 32).slice(0, 8) + '01', -1);
+      const [u] = await db.select({ off: users.hijriOffsetDays }).from(users).where(eq(users.id, uid));
+      const [hijri, statuses, summary, settings] = await Promise.all([
+        hijriRange(app.ctx, from, to, { personalOffset: u?.off ?? 0 }),
+        challenge.days(app.ctx, uid, from, to),
+        challenge.summary(app.ctx, uid),
+        getPointsSettings(app.ctx),
+      ]);
+      const byDate = new Map(statuses.map((d) => [d.date, d]));
+      return {
+        month,
+        enrolled: summary.enrolled,
+        startedOn: summary.startedOn,
+        endsOn: summary.startedOn ? addDays(summary.startedOn, settings.challengeLengthDays - 1) : null,
+        today: await challenge.todayFor(app.ctx, uid),
+        dayNumber: summary.dayNumber,
+        streak: summary.streak,
+        balance: summary.balance,
+        qadaWindowDays: settings.qadaWindowDays,
+        qadaDayPoints: settings.qadaDayPoints,
+        dailyTotal: settings.dailyTotal,
+        days: hijri.map((h) => ({ ...h, challenge: byDate.get(h.gregorian) ?? null, special: specialDays(h) })),
+      };
     });
 
     r.post('/challenge/tasks/:task/complete', async (req) => {

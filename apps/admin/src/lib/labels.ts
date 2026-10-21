@@ -5,6 +5,7 @@ export const USER_STATUS: Record<AdminUserRow['status'], { label: string; tone: 
   suspended: { label: 'موقوف', tone: 'red' },
   under_review: { label: 'قيد المراجعة', tone: 'gold' },
   deletion_requested: { label: 'طلب حذف', tone: 'gray' },
+  deleted: { label: 'محذوف', tone: 'gray' },
 };
 
 export const CONTENT_STATUS: Record<ContentStatus, { label: string; tone: 'green' | 'red' | 'gold' | 'gray' | 'blue' }> = {

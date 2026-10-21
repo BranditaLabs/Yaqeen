@@ -13,7 +13,7 @@ import { randomUUID } from 'node:crypto';
 import { and, asc, desc, eq, gte, sql, type SQL } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { BonusRuleUpdate, BonusKind, GrantCreate, type GrantSegment, MilestonesUpdate, ProgramUpdate, RewardUpsert } from '@yaqeen/contracts';
+import { BonusRuleUpdate, BonusKind, GrantCreate, type GrantSegment, MilestonesUpdate, ProgramUpdate, RewardUpsert, type ShopifyStatus } from '@yaqeen/contracts';
 import type { AppContext } from '../../context.js';
 import { appConfig, bonusRules, pointGrants, redemptions, rewards, streakMilestones, taskRules, users } from '../../db/schema.js';
 import { validateTaskRules } from '../../domain/points.js';
@@ -147,6 +147,28 @@ export const adminRewardsRoutes: FastifyPluginAsync = async (app) => {
       return n;
     });
     return { id, recipients };
+  });
+
+  /* ------------------------------------------------------------- shopify */
+
+  /** Connection pill «متصل · yaqin-brand.com». Never throws: a broken connection is a status. */
+  app.get('/shopify/status', { preHandler: read }, async (): Promise<ShopifyStatus> => {
+    const shop = app.ctx.shopify;
+    const base = { configured: shop.configured, connected: false, shopName: null, domain: shop.domain || null, scopes: [] as string[] };
+    const last = () => ({ lastError: shop.lastError?.message ?? null, lastErrorAt: shop.lastError?.at.toISOString() ?? null });
+    if (!shop.configured) return { ...base, ...last() };
+    try {
+      const info = await shop.shopInfo();
+      return { configured: true, connected: true, shopName: info.shopName, domain: info.domain, scopes: info.scopes, ...last() };
+    } catch {
+      return { ...base, ...last() };
+    }
+  });
+
+  /** Collections for "+ مكافأة من منتجات Shopify". */
+  app.get('/shopify/collections', { preHandler: marketing }, async (req) => {
+    const q = z.object({ search: z.string().max(60).optional() }).parse(req.query);
+    return app.ctx.shopify.collections(q.search);
   });
 
   /* ----------------------------------------------------------- catalogue */

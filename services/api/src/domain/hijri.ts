@@ -117,3 +117,27 @@ export function fromAlAdhan(d: AlAdhanDay): HijriDay {
     hijriMonthNameAr: HIJRI_MONTHS_AR[month - 1] ?? '',
   };
 }
+
+/* ------------------------------------------------------------ special days */
+
+export type SpecialDay = 'white_day' | 'friday' | 'mon_thu' | 'ramadan' | 'eid_fitr' | 'eid_adha' | 'arafah' | 'ashura';
+
+/**
+ * Days the calendar marks with a pip (and that may carry a bonus task).
+ * `weekday` is 0 = Sunday … 5 = Friday. Eid days are not marked as fasting days.
+ */
+export function specialDays(d: Pick<HijriDay, 'hijriDay' | 'hijriMonth' | 'weekday'>): SpecialDay[] {
+  const out: SpecialDay[] = [];
+  const eidFitr = d.hijriMonth === 10 && d.hijriDay <= 3;
+  const eidAdha = d.hijriMonth === 12 && d.hijriDay >= 10 && d.hijriDay <= 13;
+  if (d.hijriMonth === 9) out.push('ramadan');
+  if (eidFitr) out.push('eid_fitr');
+  if (eidAdha) out.push('eid_adha');
+  if (d.hijriMonth === 12 && d.hijriDay === 9) out.push('arafah');
+  if (d.hijriMonth === 1 && d.hijriDay === 10) out.push('ashura');
+  // 13 Dhu al-Hijjah is a day of Tashreeq, not a white fasting day.
+  if (d.hijriDay >= 13 && d.hijriDay <= 15 && !eidAdha) out.push('white_day');
+  if (d.weekday === 5) out.push('friday');
+  if ((d.weekday === 1 || d.weekday === 4) && !eidFitr && !eidAdha) out.push('mon_thu');
+  return out;
+}

@@ -15,6 +15,13 @@
       "when": 1792464042393,
       "tag": "0001_points_program",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792544971600,
+      "tag": "0002_app_spec_v1",
+      "breakpoints": true
     }
   ]
 }

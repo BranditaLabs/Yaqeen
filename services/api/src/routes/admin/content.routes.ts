@@ -2,7 +2,7 @@ import { and, asc, desc, eq, gte } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { ContentStatus, ContentType, DailyTaskUpsert, ReviewDecision, UpsertContentRequest } from '@yaqeen/contracts';
-import { contentItems, dailyTasks } from '../../db/schema.js';
+import { appConfig, contentItems, dailyTasks } from '../../db/schema.js';
 import { localToday } from '../../domain/points.js';
 import { audit } from '../../lib/audit.js';
 import { conflict, forbidden, notFound } from '../../lib/errors.js';
@@ -99,6 +99,14 @@ export const adminContentRoutes: FastifyPluginAsync = async (app) => {
         )
         .where(eq(contentItems.id, id))
         .returning();
+      // An approved splash verse goes live in remote config in the same transaction.
+      if (body.decision === 'approve' && row!.type === 'splash_verse') {
+        const value = { textAr: row!.textAr, reference: row!.source };
+        await tx
+          .insert(appConfig)
+          .values({ key: 'splashVerse', value, updatedBy: adminOf(req).sub })
+          .onConflictDoUpdate({ target: appConfig.key, set: { value, updatedBy: adminOf(req).sub, updatedAt: now } });
+      }
       await audit(tx, req, { action: `content.review.${body.decision}`, targetType: 'content', targetId: id, reason: body.note, before: { status: before.status }, after: { status: row!.status } });
       return row;
     });

@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { and, eq, gt, isNull } from 'drizzle-orm';
+import { and, eq, gt, isNull, sql } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { SignInRequest, type SessionResponse } from '@yaqeen/contracts';
-import { authIdentities, refreshTokens, users } from '../../db/schema.js';
+import { LinkRequest, SignInRequest, type SessionResponse } from '@yaqeen/contracts';
+import { auditLog, authIdentities, pointsLedger, refreshTokens, users } from '../../db/schema.js';
 import { verifyAppleIdToken, verifyGoogleIdToken } from '../../integrations/oidc.js';
-import { badRequest, unauthorized } from '../../lib/errors.js';
+import { badRequest, conflict, unauthorized } from '../../lib/errors.js';
 import { opaqueToken, sha256 } from '../../lib/crypto.js';
 import { ACCESS_TTL_SEC, REFRESH_TTL_DAYS, signUserToken } from '../../lib/tokens.js';
 import { userId } from '../../plugins/auth.js';
@@ -28,18 +28,18 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     };
   }
 
-  /** Sign in with Google / Apple, or start as a guest (guest can be upgraded later by signing in). */
-  app.post('/sign-in', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (req) => {
+  const verify = (provider: 'google' | 'apple', idToken: string) =>
+    provider === 'google' ? verifyGoogleIdToken(idToken, env.GOOGLE_CLIENT_IDS) : verifyAppleIdToken(idToken, env.APPLE_CLIENT_IDS);
+
+  /** Sign in with Google / Apple, or start as a guest (guest can be upgraded later via /link). */
+  app.post('/sign-in', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (req) => {
     const body = SignInRequest.parse(req.body);
     let identity: { subject: string; email: string | null; name: string | null };
     if (body.provider === 'guest') {
       identity = { subject: randomUUID(), email: null, name: body.displayName ?? null };
     } else {
       if (!body.idToken) throw badRequest('id_token_required');
-      identity =
-        body.provider === 'google'
-          ? await verifyGoogleIdToken(body.idToken, env.GOOGLE_CLIENT_IDS)
-          : await verifyAppleIdToken(body.idToken, env.APPLE_CLIENT_IDS);
+      identity = await verify(body.provider, body.idToken);
       identity.name ??= body.displayName ?? null;
     }
 
@@ -50,7 +50,11 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       .where(and(eq(authIdentities.provider, body.provider), eq(authIdentities.subject, identity.subject)));
 
     if (existing) {
-      if (existing.status === 'suspended') throw unauthorized('account_suspended');
+      if (existing.status === 'suspended' || existing.status === 'deleted') throw unauthorized('account_suspended');
+      if (existing.status === 'deletion_requested') {
+        // Signing in again within the grace period cancels the erasure request.
+        await db.update(users).set({ status: 'active', deletionRequestedAt: null, updatedAt: app.ctx.now() }).where(eq(users.id, existing.id));
+      }
       return issueSession(existing);
     }
 
@@ -70,6 +74,61 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     return issueSession(user);
   });
 
+  /**
+   * Link the signed-in guest to a Google/Apple identity, keeping the guest's points.
+   *  - New identity → the guest account itself becomes the real account (same user id).
+   *  - Identity already has an account → keep that account; the guest's balance moves over
+   *    as two ledger rows (out of the guest, into the account) — never by editing a balance.
+   * Both cases run in one transaction with an audit row (actor = the user).
+   */
+  app.post('/link', { preHandler: app.requireUser, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (req) => {
+    const body = LinkRequest.parse(req.body);
+    const guestId = userId(req);
+    const [guest] = await db.select().from(users).where(eq(users.id, guestId));
+    if (!guest) throw unauthorized();
+    if (!guest.isGuest) throw conflict('not_a_guest');
+    const identity = await verify(body.provider, body.idToken);
+    const name = identity.name ?? body.displayName ?? guest.displayName;
+
+    const target = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${guestId}))`);
+      const [existing] = await tx
+        .select({ id: users.id, displayName: users.displayName, isGuest: users.isGuest, status: users.status })
+        .from(authIdentities)
+        .innerJoin(users, eq(users.id, authIdentities.userId))
+        .where(and(eq(authIdentities.provider, body.provider), eq(authIdentities.subject, identity.subject)));
+
+      if (!existing) {
+        await tx.insert(authIdentities).values({ userId: guestId, provider: body.provider, subject: identity.subject });
+        const [u] = await tx
+          .update(users)
+          .set({ isGuest: false, email: identity.email, displayName: name, updatedAt: app.ctx.now() })
+          .where(eq(users.id, guestId))
+          .returning({ id: users.id, displayName: users.displayName, isGuest: users.isGuest });
+        await tx.insert(auditLog).values({ actorUserId: guestId, action: 'auth.link', targetType: 'user', targetId: guestId, after: { provider: body.provider, merged: false }, ip: req.ip });
+        return u!;
+      }
+
+      if (existing.status === 'suspended' || existing.status === 'deleted') throw unauthorized('account_suspended');
+      const [b] = await tx
+        .select({ total: sql<string>`coalesce(sum(${pointsLedger.delta}), 0)` })
+        .from(pointsLedger)
+        .where(eq(pointsLedger.userId, guestId));
+      const points = Number(b?.total ?? 0);
+      if (points > 0) {
+        await tx.insert(pointsLedger).values([
+          { userId: guestId, delta: -points, reason: 'reversal', refKey: `merge-out:${existing.id}`, note: 'Merged into account' },
+          { userId: existing.id, delta: points, reason: 'grant', refKey: `merge:${guestId}`, note: 'Points from guest session' },
+        ]);
+      }
+      await tx.update(users).set({ mergedInto: existing.id, updatedAt: app.ctx.now() }).where(eq(users.id, guestId));
+      await tx.update(refreshTokens).set({ revokedAt: app.ctx.now() }).where(and(eq(refreshTokens.userId, guestId), isNull(refreshTokens.revokedAt)));
+      await tx.insert(auditLog).values({ actorUserId: guestId, action: 'auth.link', targetType: 'user', targetId: existing.id, after: { provider: body.provider, merged: true, points }, ip: req.ip });
+      return { id: existing.id, displayName: existing.displayName, isGuest: existing.isGuest };
+    });
+    return issueSession(target);
+  });
+
   /** Rotate refresh token (old one is revoked; reuse of a revoked token is rejected). */
   app.post('/refresh', async (req) => {
     const { refreshToken } = z.object({ refreshToken: z.string().min(20) }).parse(req.body);
@@ -86,7 +145,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       .select({ id: users.id, displayName: users.displayName, isGuest: users.isGuest, status: users.status })
       .from(users)
       .where(eq(users.id, row.userId));
-    if (!u || u.status === 'suspended') throw unauthorized('account_suspended');
+    if (!u || u.status === 'suspended' || u.status === 'deleted') throw unauthorized('account_suspended');
     return issueSession(u);
   });
 

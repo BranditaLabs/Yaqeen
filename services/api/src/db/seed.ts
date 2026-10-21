@@ -7,7 +7,7 @@
 import { loadEnv } from '../config/env.js';
 import { generateTotpSecret, hashPassword } from '../lib/crypto.js';
 import { createDb } from './client.js';
-import { adminUsers, bonusRules, contentItems, rewards, streakMilestones, taskRules } from './schema.js';
+import { adminUsers, bonusRules, contentItems, reciters, rewards, streakMilestones, taskRules } from './schema.js';
 
 const env = loadEnv();
 const { db, pool } = createDb(env.DATABASE_URL);
@@ -42,6 +42,32 @@ await db
     { days: 30, points: 200, labelAr: 'شهر من المواظبة', active: false },
     { days: 100, points: 500, labelAr: '100 يوم من اليقين', active: false },
   ])
+  .onConflictDoNothing();
+
+// Launch reciters (spec §5.14). Audio is served from our CDN once each recitation is licensed
+// (spec §10) — upload `<id>/<surah:03>.mp3` + `<id>/timings.json`, then keep `active` on.
+const CDN = process.env.AUDIO_CDN_BASE ?? 'https://cdn.yaqin-brand.com/audio';
+const launchReciters = [
+  { id: 'alafasy', nameAr: 'مشاري راشد العفاسي', nameEn: 'Mishary Rashid Alafasy', style: 'murattal', sizeBytes: 1_100_000_000 },
+  { id: 'abdulbasit', nameAr: 'عبد الباسط عبد الصمد', nameEn: 'Abdul Basit Abdul Samad', style: 'murattal', sizeBytes: 1_300_000_000 },
+  { id: 'husary', nameAr: 'محمود خليل الحصري', nameEn: 'Mahmoud Khalil Al-Husary', style: 'murattal', sizeBytes: 1_200_000_000 },
+  { id: 'minshawi', nameAr: 'محمد صديق المنشاوي', nameEn: 'Mohamed Siddiq El-Minshawi', style: 'mujawwad', sizeBytes: 1_600_000_000 },
+  { id: 'muaiqly', nameAr: 'ماهر المعيقلي', nameEn: 'Maher Al-Muaiqly', style: 'murattal', sizeBytes: 900_000_000 },
+  { id: 'shuraim', nameAr: 'سعود الشريم', nameEn: 'Saud Al-Shuraim', style: 'murattal', sizeBytes: 800_000_000 },
+  { id: 'sudais', nameAr: 'عبد الرحمن السديس', nameEn: 'Abdul Rahman Al-Sudais', style: 'murattal', sizeBytes: 850_000_000 },
+];
+await db
+  .insert(reciters)
+  .values(
+    launchReciters.map((r, i) => ({
+      ...r,
+      riwaya: 'hafs',
+      baseUrl: `${CDN}/${r.id}`,
+      timingUrl: `${CDN}/${r.id}/timings.json`,
+      sampleUrl: `${CDN}/${r.id}/001.mp3`,
+      sortOrder: i,
+    })),
+  )
   .onConflictDoNothing();
 
 const existingRewards = await db.select({ id: rewards.id }).from(rewards).limit(1);
