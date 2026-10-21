@@ -53,5 +53,5 @@ screen matches its design artboard (spacing, type, colour, RTL, states). Say exa
 
 ## Current state (keep updated)
 
-Built and tested: API (auth, consents, challenge engine, rewards → Shopify, content review, campaigns + dispatcher, remote config, Hijri + Egypt offset, admin RBAC/audit, points program fully admin-controlled) · Admin (all 6 sections) · Mobile foundation (design system, router, network, outbox, analytics gate, notification planner, hifz scheduler, splash, challenge + redeem screens, repositories).
-Not built yet: most mobile feature screens — see the status column in `docs/APP_SPEC.md §5`.
+Built and tested: API (auth + guest link, consents, challenge engine + qada days, rewards → Shopify with idempotent redeem, content review with stable categories, campaigns + dispatcher, remote config, Hijri + Egypt offset, admin RBAC/audit, points program, response cache, k8s deploy) · Admin (all sections incl. §7.2 gaps) · Mobile: every screen in `docs/APP_SPEC.md §5.1` (onboarding, home, Quran index/reader/listen/reciters/hifz, prayer/qibla/notifications/inbox, azkar, duas, challenge, calendar, redeem, profile), native iOS/Android projects.
+Waiting on owner decisions/licences (§13): Quran fonts/Indo-Pak text, tafsir pack, recitations + timings, adhan audio, ASR model for `recite`, OAuth/Shopify/FCM credentials. Placeholders stay bracketed and features stay flagged until then.

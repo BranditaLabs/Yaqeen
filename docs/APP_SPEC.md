@@ -208,32 +208,32 @@ Push payload: `data.link`, `data.campaignId` (opened → `POST /v1/me/campaigns/
 
 ### 5.1 Status board
 
-| # | Screen | Route | Status | Depends on |
+| # | Screen | Route | Status | Still open (owner decisions, §13) |
 | --- | --- | --- | --- | --- |
-| 01 | Splash | `/splash` | ✅ | brand assets |
-| 02 | Sign in | `/onboarding/welcome` | ⬜ | §6.1 auth |
-| 03 | Language & mushaf | `/onboarding/language` | ⬜ | §6.2 settings |
-| 04 | Prayer setup | `/onboarding/prayer` | ⬜ | §6.4 prayer engine |
-| 04·ب | Notifications & privacy | `/onboarding/consent` | 🟡 repo | §6.3 consent |
-| 05 | Daily goal & challenge | `/onboarding/goal` | ⬜ | §6.9 challenge |
-| 06 | Offline mushaf | `/onboarding/download` | ⬜ | §6.6 Quran data |
-| 07 | Home | `/home` | 🟡 static | everything |
-| 08 | Quran index | `/quran` | ⬜ | §6.6 |
-| 09 | Reading mode | `/quran/read/:page` | ⬜ | §6.6 |
-| 10 | Recitation check | `/quran/recite/:surah` | ⬜ (beta flag) | §6.8 |
-| 11 | Now playing | `/quran/listen/:surah` | ⬜ | §6.7 audio |
-| 12 | Choose a reciter | `/quran/reciters` | ⬜ | §6.7 |
-| 13 | Prayer times | `/prayer` | ⬜ | §6.4 |
-| 14 | Qibla | `/prayer/qibla` | ⬜ | §6.4 |
-| 15 | Adhan & notifications | `/prayer/notifications` | ⬜ | §6.5 |
-| 15·ب | Notification centre | `/home/inbox` | ⬜ | §6.5 |
-| 16 | Azkar counter | `/home/azkar` | ⬜ | §6.11 content |
-| 17 | Duas | `/home/duas` | ⬜ | §6.11 |
-| 18 | Calendar of Yaqeen | `/challenge/calendar` | 🟡 repo | §6.9, §6.10 |
-| 19 | 365 challenge | `/challenge` | 🟡 v1 | §6.9 |
-| 20 | Redeem reward | `/challenge/redeem` | 🟡 v1 | §6.12 |
-| 21 | Profile & settings | `/profile` | ⬜ | §6.13 |
-| 22 | Hifz plan | `/quran/hifz` | 🟡 domain | §6.14 |
+| 01 | Splash | `/splash` | ✅ | — |
+| 02 | Sign in | `/onboarding/welcome` | ✅ | OAuth client ids (Google, Apple Services ID) |
+| 03 | Language & mushaf | `/onboarding/language` | ✅ | Indo-Pak text licence (shown «قريباً») |
+| 04 | Prayer setup | `/onboarding/prayer` | ✅ | — |
+| 04·ب | Notifications & privacy | `/onboarding/consent` | ✅ | — |
+| 05 | Daily goal & challenge | `/onboarding/goal` | ✅ | — |
+| 06 | Offline mushaf | `/onboarding/download` | ✅ | tafsir pack licence (§10) |
+| 07 | Home | `/home` | ✅ | — |
+| 08 | Quran index | `/quran` | ✅ | — |
+| 09 | Reading mode | `/quran/read/:page` | ✅ | KFGQPC page fonts licence (Amiri Quran until then) |
+| 10 | Recitation check | `/quran/recite/:surah` | 🟡 beta flag | on-device ASR model passing the ship gate (§6.8) |
+| 11 | Now playing | `/quran/listen/:surah` | ✅ | licensed recitations + timing files in the catalogue |
+| 12 | Choose a reciter | `/quran/reciters` | ✅ | same |
+| 13 | Prayer times | `/prayer` | ✅ | — |
+| 14 | Qibla | `/prayer/qibla` | ✅ | — |
+| 15 | Adhan & notifications | `/prayer/notifications` | ✅ | licensed adhan audio (flag `ADHAN_SOUNDS`) |
+| 15·ب | Notification centre | `/home/inbox` | ✅ | — |
+| 16 | Azkar counter | `/home/azkar` | ✅ | reviewed azkar published in the dashboard (seed is export-only) |
+| 17 | Duas | `/home/duas` | ✅ | same |
+| 18 | Calendar of Yaqeen | `/challenge/calendar` | ✅ | — |
+| 19 | 365 challenge | `/challenge` | ✅ | — |
+| 20 | Redeem reward | `/challenge/redeem` | ✅ | Shopify credentials |
+| 21 | Profile & settings | `/profile` | ✅ | — |
+| 22 | Hifz plan | `/quran/hifz` | ✅ | — |
 
 Each section below uses the same headings: **Purpose · Layout · Data · Interactions · States · Analytics &
 notifications · Acceptance**. Arabic strings are the real UI copy (put them in the ARB files).

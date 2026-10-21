@@ -1,11 +1,7 @@
 # profile
 
-**Screens (design canvas):** Profile, settings (language, prayer method, Hijri ±, consents), data export & account deletion.
+**Screens:** `21 · Profile & settings` and its sub-screens — privacy & consents, points history, offline
+downloads (`presentation/profile_screen.dart`). «أكوادي» lives in `features/rewards`.
 
-**Built:** —
-
-**To build:** presentation/: profile_screen, settings_screen, privacy_screen (calls GET /v1/me/export and DELETE /v1/me)
-
-**Rule:** Consent toggles call ConsentRepository.set(..., ConsentSource.settings).
-
-Layering: `domain/` (pure Dart models + logic, unit-tested) → `data/` (repositories; API + local cache) → `presentation/` (widgets + Riverpod controllers). Presentation never calls `ApiClient` directly.
+**Rules:** the per-user view shows the points ledger and redemptions, never which worship act earned them.
+Deleting the account calls `DELETE /v1/me` and wipes this device; sign-out keeps the on-device mushaf data.
