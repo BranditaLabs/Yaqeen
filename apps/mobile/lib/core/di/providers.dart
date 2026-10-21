@@ -1,7 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/calendar/data/calendar_repository.dart';
 import '../../features/challenge/data/challenge_repository.dart';
+import '../../features/listen/data/audio_downloads.dart';
+import '../../features/listen/data/listen_store.dart';
+import '../../features/listen/data/reciter_repository.dart';
 import '../../features/notifications/data/inbox_repository.dart';
 import '../../features/notifications/data/reminder_service.dart';
 import '../../features/onboarding/data/auth_repository.dart';
@@ -21,6 +26,7 @@ import '../network/connectivity.dart';
 import '../notifications/notification_planner.dart';
 import '../notifications/push_service.dart';
 import '../offline/outbox.dart';
+import '../platform/audio_engine.dart';
 import '../platform/device_services.dart';
 import '../platform/location_service.dart';
 import '../platform/social_auth.dart';
@@ -125,6 +131,24 @@ final quranRepositoryProvider = Provider((_) => QuranRepository());
 final quranDataProvider = FutureProvider<QuranData>((ref) => ref.watch(quranRepositoryProvider).load());
 final readingRepositoryProvider = Provider((ref) => ReadingRepository(ref.watch(localStoreProvider)));
 final tafsirRepositoryProvider = Provider((_) => TafsirRepository());
+
+/* ------------------------------------------------------------------ audio */
+
+final audioEngineProvider = Provider<AudioEngine>((_) => FakeAudioEngine());
+
+/// App-private storage for downloads (`getApplicationSupportDirectory()` in `main.dart`).
+final filesDirProvider = Provider<Future<Directory> Function()>((_) {
+  Future<Directory>? dir;
+  return () => dir ??= Directory.systemTemp.createTemp('yaqeen');
+});
+final audioDownloadsProvider = Provider(
+  (ref) => AudioDownloads(root: ref.watch(filesDirProvider), isUnmetered: ref.watch(connectivityProvider).isUnmetered),
+);
+final reciterRepositoryProvider = Provider(
+  (ref) =>
+      ReciterRepository(api: ref.watch(apiClientProvider), cache: ref.watch(kvStoreProvider), downloads: ref.watch(audioDownloadsProvider)),
+);
+final listenStoreProvider = Provider((ref) => ListenStore(ref.watch(localStoreProvider)));
 
 final reminderServiceProvider = Provider(
   (ref) => ReminderService(

@@ -768,5 +768,45 @@
   "hifzSavePlan": "Save plan",
   "hifzStart": "Start a hifz plan",
   "hifzStartHint": "Pick a goal and a daily amount that suits you",
-  "hifzComplete": "You completed your plan — may Allah bless you"
+  "hifzComplete": "You completed your plan — may Allah bless you",
+  "minutesN": "{n} min",
+  "@minutesN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "reciterRow": "{style} · {riwaya}",
+  "@reciterRow": {
+    "placeholders": {
+      "style": {
+        "type": "String"
+      },
+      "riwaya": {
+        "type": "String"
+      }
+    }
+  },
+  "reciterProgress": "{done} of 114 surahs",
+  "@reciterProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "reciterDeleteTitle": "Delete {name}'s recitation?",
+  "@reciterDeleteTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "reciterDeleteBody": "You'll need a connection to listen to it again.",
+  "reciterSelected": "Selected reciter",
+  "reciterDownloadFailed": "Download paused. Tap to resume.",
+  "useMobileData": "Allow downloads on mobile data",
+  "delete": "Delete"
 }

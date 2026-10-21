@@ -27,6 +27,7 @@ import '../data/reading_repository.dart';
 import '../domain/quran_data.dart';
 import '../domain/wird.dart';
 import 'ayah_sheet.dart';
+import '../../listen/presentation/listen_controller.dart';
 import 'mushaf_page.dart';
 import 'quran_index_screen.dart';
 
@@ -147,6 +148,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final data = ref.watch(quranDataProvider);
     final colors = MushafColors.of(s.mushafTheme);
     final night = s.mushafTheme == MushafTheme.night;
+    // Highlight the ayah the player is on while recitation is playing (spec §5.13).
+    final playing = ref.watch(listenControllerProvider.select((l) => l.playing && l.sampleOf == null ? l.ref : null));
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: night ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
@@ -183,6 +186,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                         page: i + 1,
                         settings: s,
                         selected: _selected,
+                        playing: playing,
                         onAyahLongPress: _locked
                             ? null
                             : (ref0) async {
@@ -223,8 +227,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 }
 
 class _PageFrame extends StatelessWidget {
-  const _PageFrame({required this.quran, required this.page, required this.settings, this.selected, this.onAyahLongPress});
+  const _PageFrame({required this.quran, required this.page, required this.settings, this.selected, this.playing, this.onAyahLongPress});
   final QuranData quran;
+  final AyahRef? playing;
   final int page;
   final AppSettings settings;
   final AyahRef? selected;
@@ -263,6 +268,7 @@ class _PageFrame extends StatelessWidget {
                 comfortable: settings.comfortableSpacing,
                 locale: settings.locale,
                 selected: selected,
+                playing: playing,
                 onAyahLongPress: onAyahLongPress,
               ),
             ),

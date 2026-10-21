@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../features/challenge/presentation/challenge_screen.dart';
 import '../features/debug/gallery_screen.dart';
 import '../features/home/home_screen.dart';
+import '../features/listen/presentation/now_playing_screen.dart';
+import '../features/listen/presentation/reciters_screen.dart';
 import '../features/notifications/presentation/inbox_screen.dart';
 import '../features/notifications/presentation/notification_settings_screen.dart';
 import '../features/onboarding/presentation/splash_screen.dart';
@@ -63,14 +65,21 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
                   builder: (_, __) => const QuranIndexScreen(),
                   routes: [
                     GoRoute(path: 'hifz', builder: (_, __) => _todo('hifz')),
-                    GoRoute(path: 'reciters', builder: (_, __) => _todo('reciters')),
+                    GoRoute(path: 'reciters', builder: (_, __) => const RecitersScreen()),
                     GoRoute(
                       parentNavigatorKey: rootNavigatorKey,
                       path: 'read/:page',
                       builder: (_, s) => ReaderScreen(initialPage: (int.tryParse(s.pathParameters['page'] ?? '') ?? 1).clamp(1, 604)),
                     ),
                     GoRoute(parentNavigatorKey: rootNavigatorKey, path: 'recite/:surah', builder: (_, __) => _todo('recite')),
-                    GoRoute(parentNavigatorKey: rootNavigatorKey, path: 'listen/:surah', builder: (_, __) => _todo('listen')),
+                    GoRoute(
+                      parentNavigatorKey: rootNavigatorKey,
+                      path: 'listen/:surah',
+                      builder: (_, s) => NowPlayingScreen(
+                        surah: (int.tryParse(s.pathParameters['surah'] ?? '') ?? 1).clamp(1, 114),
+                        ayah: int.tryParse(s.uri.queryParameters['ayah'] ?? ''),
+                      ),
+                    ),
                   ],
                 ),
               ],

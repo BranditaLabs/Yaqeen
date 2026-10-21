@@ -97,6 +97,7 @@ class QuranData {
   static List<AyahRef> _refs(Object? list) => [for (final r in (list as List).cast<List<dynamic>>()) AyahRef(r[0] as int, r[1] as int)];
 
   static const pageCount = 604;
+  static const surahCount = 114;
   static const totalAyat = 6236;
 
   final List<Surah> surahs;

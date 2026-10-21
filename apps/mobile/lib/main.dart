@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app/app_gate.dart';
@@ -14,6 +15,7 @@ import 'features/notifications/data/reminder_service.dart';
 import 'core/settings/app_settings.dart';
 import 'core/network/connectivity.dart';
 import 'core/platform/device_services.dart';
+import 'core/platform/just_audio_engine.dart';
 import 'core/platform/location_service.dart';
 import 'core/platform/social_auth.dart';
 import 'core/settings/settings_controller.dart';
@@ -75,6 +77,7 @@ Future<void> main() async {
     adhanVoice: () => current().adhanVoice.name,
   );
   await notifier.init();
+  await JustAudioEngine.init();
 
   container = ProviderContainer(
     overrides: [
@@ -90,6 +93,8 @@ Future<void> main() async {
       connectivityProvider.overrideWithValue(PluginConnectivityMonitor()),
       localNotificationsProvider.overrideWithValue(notifier),
       notificationTapsProvider.overrideWith((_) => notifier.taps),
+      audioEngineProvider.overrideWithValue(JustAudioEngine()),
+      filesDirProvider.overrideWithValue(getApplicationSupportDirectory),
       // Phase 2: pushServiceProvider (Firebase) and adSinksProvider (ad SDKs) — see README.
     ],
   );

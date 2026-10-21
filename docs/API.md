@@ -18,7 +18,7 @@ Base URL: `API_URL` (local `http://localhost:4000`). JSON only. Schemas: `packag
 | GET | `/v1/config` | — | Remote config: `features` (+ `featureRollout` %), min versions, maintenance, splash verse, Hijri offset, `points` (incl. `dailyTotal`, `cheapestRewardPoints`). Cached 5 min |
 | GET | `/v1/calendar/hijri?year&month&offset` | — | Gregorian month → Hijri days (UAQ + Egypt adjustment + personal offset) |
 | GET | `/v1/content?type&since` | — | Published duas/azkar only; `since` for incremental sync |
-| GET | `/v1/content/reciters` | — | Active licensed recitations `{id, nameAr, nameEn, style, riwaya, baseUrl, timingUrl, sampleUrl, sizeBytes}` |
+| GET | `/v1/content/reciters` | — | Active licensed recitations `{id, nameAr, nameEn, style, riwaya, baseUrl, timingUrl, sampleUrl, sizeBytes}`. Files: `<baseUrl>/<sss>.mp3` (zero-padded surah); `timingUrl` → `{"<surah>": [[startMs, endMs], …]}` (index 0 = ayah 1). The CDN must honour `Range` (resumable downloads). |
 | GET | `/v1/content/packs` | — | Downloadable packs `{id, kind, version, url, sha256, sizeBytes}` — verify sha256 before installing |
 | GET | `/v1/daily-task?date` | — | مهمة اليوم |
 | GET | `/v1/me` | user | Profile + settings |

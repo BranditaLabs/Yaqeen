@@ -795,5 +795,45 @@
   "hifzSavePlan": "حفظ الخطة",
   "hifzStart": "ابدأ خطة الحفظ",
   "hifzStartHint": "اختر هدفك ومقداراً يومياً يناسبك",
-  "hifzComplete": "أتممت خطتك، بارك الله فيك"
+  "hifzComplete": "أتممت خطتك، بارك الله فيك",
+  "minutesN": "{n} دقيقة",
+  "@minutesN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "reciterRow": "{style} · {riwaya}",
+  "@reciterRow": {
+    "placeholders": {
+      "style": {
+        "type": "String"
+      },
+      "riwaya": {
+        "type": "String"
+      }
+    }
+  },
+  "reciterProgress": "{done} من 114 سورة",
+  "@reciterProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "reciterDeleteTitle": "حذف تلاوة {name}؟",
+  "@reciterDeleteTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "reciterDeleteBody": "ستحتاج إلى اتصال للاستماع إليها مرة أخرى.",
+  "reciterSelected": "القارئ المختار",
+  "reciterDownloadFailed": "توقف التحميل. المس للمتابعة.",
+  "useMobileData": "السماح بالتحميل عبر بيانات الجوال",
+  "delete": "حذف"
 }
