@@ -1,6 +1,7 @@
 # Builds the tafsir pack (spec §6.6, §10) from QuranEnc.com on a GitHub runner, verifies all 6,236
-# ayat, and keeps the pack as a run artifact. The text is never committed. Host the file, then set
-# the TAFSIR_PACK_* values printed in the run summary (see services/api/.env.example).
+# ayat, uploads it to Cloudflare R2 (when configured) and keeps it as a run artifact. The text is
+# never committed. Set the TAFSIR_PACK_* values printed in the run summary, then `pnpm db:seed`.
+# R2 setup: docs/CONTENT_PACKS.md.
 name: Tafsir pack
 
 on:
@@ -25,14 +26,51 @@ jobs:
         env:
           KEY: ${{ inputs.key }}
         run: python3 -I tools/tafsir/build_pack.py --out build/packs ${KEY:+--key "$KEY"}
+      - name: Upload to Cloudflare R2
+        id: r2
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          # R2 accepts only the checksums S3 requires; newer AWS CLIs add more by default.
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+          BUCKET: ${{ vars.R2_BUCKET }}
+          PUBLIC_BASE: ${{ vars.PACKS_PUBLIC_BASE_URL }}
+        run: |
+          if [ -z "$R2_ACCOUNT_ID" ] || [ -z "$BUCKET" ] || [ -z "$PUBLIC_BASE" ]; then
+            echo "::warning::R2 not configured (docs/CONTENT_PACKS.md) — pack kept as a run artifact only."
+            exit 0
+          fi
+          file=$(ls build/packs/tafsir-*.json | grep -v '\.meta\.json$' | head -1)
+          sha=$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["sha256"])' "${file%.json}.meta.json")
+          # Content-addressed and immutable: a new source version gets a new object, never an overwrite.
+          object="packs/tafsir/$(basename "${file%.json}")-${sha:0:12}.json"
+          aws s3 cp "$file" "s3://$BUCKET/$object" \
+            --endpoint-url "https://$R2_ACCOUNT_ID.r2.cloudflarestorage.com" \
+            --content-type 'application/json; charset=utf-8' \
+            --cache-control 'public, max-age=31536000, immutable' --only-show-errors
+          url="${PUBLIC_BASE%/}/$object"
+          # The app verifies sha256 itself; this checks the public URL serves the same bytes.
+          curl -fsSL "$url" | sha256sum | grep -q "^$sha " || { echo "::error::$url does not serve the uploaded pack"; exit 1; }
+          echo "url=$url" >> "$GITHUB_OUTPUT"
       - name: Summary
+        env:
+          URL: ${{ steps.r2.outputs.url }}
         run: |
           meta=$(ls build/packs/*.meta.json | head -1)
+          read -r sha size ver < <(python3 -I -c 'import json,sys; m=json.load(open(sys.argv[1])); print(m["sha256"], m["sizeBytes"], m.get("version") or "")' "$meta")
           {
             echo '### Tafsir pack'
             echo '```json'; cat "$meta"; echo '```'
-            echo 'Host the `.json` file, then set `TAFSIR_PACK_URL`, `TAFSIR_PACK_SHA256`, `TAFSIR_PACK_SIZE`,'
-            echo '`TAFSIR_PACK_VERSION` and `TAFSIR_SOURCE_VERSION` from the values above and run `pnpm db:seed`.'
+            echo 'Set these on the API (bump `TAFSIR_PACK_VERSION` on every new upload), then run `pnpm db:seed`:'
+            echo '```'
+            echo "TAFSIR_PACK_URL=${URL:-<URL where you host the .json artifact>}"
+            echo "TAFSIR_PACK_SHA256=$sha"
+            echo "TAFSIR_PACK_SIZE=$size"
+            echo "TAFSIR_SOURCE_VERSION=$ver"
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:

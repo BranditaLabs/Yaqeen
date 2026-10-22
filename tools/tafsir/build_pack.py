@@ -3,7 +3,7 @@
   python3 -I tools/tafsir/build_pack.py                      # fetch from the QuranEnc API
   python3 -I tools/tafsir/build_pack.py --from export.json    # or a QuranEnc export saved locally
   python3 -I tools/tafsir/build_pack.py --key arabic_moyassar --out build/packs
-  Or on GitHub: Actions › Tafsir pack › Run workflow (the runner can reach quranenc.com).
+  Or on GitHub: Actions › Tafsir pack › Run workflow — builds, then uploads to Cloudflare R2 (docs/CONTENT_PACKS.md).
 
 QuranEnc republishing terms (honoured by the app): no modification, addition or deletion · credit
 QuranEnc.com as publisher and source · state the version · keep the transcript information · report
