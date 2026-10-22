@@ -62,8 +62,9 @@ jobs:
         with: { channel: stable, cache: true }
       - run: flutter pub get
       - run: flutter gen-l10n
-      # Debug-signed: proves manifest, Gradle, desugaring and plugin wiring; release signing is in the store pipeline.
-      - run: flutter build apk --debug --dart-define=API_BASE_URL=https://api.yaqin-brand.com
+      # Release mode (R8 shrinking, obfuscation) signed with the debug key when no key.properties exists:
+      # proves manifest, Gradle, desugaring, R8 rules and plugin wiring. Store signing is in release-mobile.yml.
+      - run: flutter build apk --release --obfuscate --split-debug-info=build/symbols --dart-define=API_BASE_URL=https://api.yaqin-brand.com
 
   mobile-ios:
     name: Flutter iOS build (no codesign)
