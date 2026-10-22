@@ -71,6 +71,13 @@ jobs:
       # Release mode (R8 shrinking, obfuscation) signed with the debug key when no key.properties exists:
       # proves manifest, Gradle, desugaring, R8 rules and plugin wiring. Store signing is in release-mobile.yml.
       - run: flutter build apk --release --obfuscate --split-debug-info=build/symbols --dart-define=API_BASE_URL=https://api.yaqin-brand.com
+      # Installable test build (debug-signed, so it sideloads but can't go to Play): Actions › this run › Artifacts.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yaqeen-android-apk
+          path: apps/mobile/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14
+          if-no-files-found: error
 
   mobile-ios:
     name: Flutter iOS build (no codesign)
