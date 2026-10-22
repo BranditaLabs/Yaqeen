@@ -60,6 +60,12 @@ jobs:
         with: { distribution: temurin, java-version: '17' }
       - uses: subosito/flutter-action@v2
         with: { channel: stable, cache: true }
+      - name: Cap Gradle memory (hosted runner has 16 GB)
+        # The template's -Xmx8G + 4G metaspace plus the Kotlin daemon and R8 exhaust the runner, which then
+        # gets shut down mid-build. ~/.gradle/gradle.properties overrides the project file in CI only.
+        run: |
+          mkdir -p ~/.gradle
+          printf 'org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError\nkotlin.daemon.jvmargs=-Xmx2g\norg.gradle.workers.max=2\n' > ~/.gradle/gradle.properties
       - run: flutter pub get
       - run: flutter gen-l10n
       # Release mode (R8 shrinking, obfuscation) signed with the debug key when no key.properties exists:

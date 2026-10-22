@@ -62,6 +62,12 @@ jobs:
         run: |
           echo "$KS" | base64 -d > android/app/upload-keystore.jks
           printf 'storeFile=upload-keystore.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$KS_PASS" "$KEY_ALIAS" "$KEY_PASS" > android/key.properties
+      - name: Cap Gradle memory (hosted runner has 16 GB)
+        # The template's -Xmx8G + 4G metaspace plus the Kotlin daemon and R8 exhaust the runner, which then
+        # gets shut down mid-build. ~/.gradle/gradle.properties overrides the project file in CI only.
+        run: |
+          mkdir -p ~/.gradle
+          printf 'org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError\nkotlin.daemon.jvmargs=-Xmx2g\norg.gradle.workers.max=2\n' > ~/.gradle/gradle.properties
       - run: flutter pub get
       - run: flutter gen-l10n
       - run: flutter test
