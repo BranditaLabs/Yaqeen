@@ -6,11 +6,11 @@ WORKDIR /repo
 FROM base AS build
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
-COPY packages/contracts/package.json packages/contracts/
+# Whole contracts package: its `prepare` script compiles it during install.
+COPY packages/contracts packages/contracts
 COPY packages/design-tokens/package.json packages/design-tokens/
 COPY apps/admin/package.json apps/admin/
 RUN pnpm install --frozen-lockfile --filter @yaqeen/admin...
-COPY packages/contracts packages/contracts
 COPY packages/design-tokens packages/design-tokens
 COPY apps/admin apps/admin
 RUN pnpm --filter @yaqeen/contracts build && pnpm --filter @yaqeen/admin build
