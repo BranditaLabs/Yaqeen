@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../core/network/api_client.dart';
+import '../../../core/network/download_queue.dart';
 import '../../../core/network/resumable_download.dart';
 import '../../../core/storage/kv_store.dart';
 import '../../../core/storage/local_store.dart';
@@ -24,8 +25,12 @@ class PackRepository {
     required this.store,
     required this.root,
     required this.isUnmetered,
+    this.queue,
     http.Client? client,
   }) : _http = client ?? http.Client();
+
+  /// App-wide download slots (null in tests: downloads run directly).
+  final DownloadQueue? queue;
 
   final ApiClient api;
   final KvStore cache;
@@ -89,7 +94,18 @@ class PackRepository {
     if (!allowMetered && !await isUnmetered()) throw const WifiRequired();
     final dir = await _dir();
     final staging = File('${dir.path}/${pack.id}.v${pack.version}.download');
-    await downloadResumable(_http, Uri.parse(pack.url), staging, cancel: cancel, onProgress: onProgress);
+    final q = queue;
+    if (q == null) {
+      await downloadResumable(_http, Uri.parse(pack.url), staging, cancel: cancel, onProgress: onProgress);
+    } else {
+      // Shares the app-wide download slots with recitation audio.
+      await q.add(
+        'pack:${pack.id}.v${pack.version}',
+        group: 'packs',
+        run: (c, p) => downloadResumable(_http, Uri.parse(pack.url), staging, cancel: LinkedCancelToken(cancel, c), onProgress: p),
+        onProgress: onProgress,
+      );
+    }
     // Hash on a background isolate: a multi-MB pack would otherwise stall the UI thread.
     final digest = await _sha256Of(staging.path);
     if (digest != pack.sha256) {

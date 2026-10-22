@@ -25,4 +25,13 @@ class ListenStore {
 
   Future<bool> allowMetered() async => ((await _read())['metered'] as bool?) ?? false;
   Future<void> setAllowMetered(bool v) => _put('metered', v);
+
+  /// Reciters whose full download was started and not yet finished or cancelled — resumed on the
+  /// next launch after a kill or restart.
+  Future<Set<String>> downloading() async => {...((await _read())['downloading'] as List? ?? const []).cast<String>()};
+  Future<void> setDownloading(String reciterId, bool on) async {
+    final ids = await downloading();
+    on ? ids.add(reciterId) : ids.remove(reciterId);
+    await _put('downloading', ids.toList());
+  }
 }

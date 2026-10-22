@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/config/config_controller.dart';
 import '../core/notifications/push_service.dart';
+import '../features/listen/presentation/downloads_controller.dart';
 import '../features/notifications/presentation/reminders_controller.dart';
 import 'router.dart';
 import '../core/di/providers.dart';
@@ -59,6 +60,8 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
       () => ref.read(outboxSyncProvider).flush(),
       () => ref.read(remoteConfigProvider.notifier).refresh(),
       _updatePacks,
+      // Full-reciter downloads cut short by a kill or restart pick up where they stopped.
+      () => ref.read(downloadsControllerProvider.notifier).resumeInterrupted(),
     ];
     for (final task in tasks) {
       Future(task).catchError((Object _) {}).ignore();

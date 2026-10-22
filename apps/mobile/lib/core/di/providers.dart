@@ -26,6 +26,7 @@ import '../../features/rewards/data/rewards_repository.dart';
 import '../analytics/analytics.dart';
 import '../config/env.dart';
 import '../config/remote_config.dart';
+import '../network/download_queue.dart';
 import '../network/api_client.dart';
 import '../network/connectivity.dart';
 import '../notifications/notification_planner.dart';
@@ -143,6 +144,7 @@ final packRepositoryProvider = Provider(
     store: ref.watch(localStoreProvider),
     root: ref.watch(filesDirProvider),
     isUnmetered: ref.watch(connectivityProvider).isUnmetered,
+    queue: ref.watch(downloadQueueProvider),
   ),
 );
 
@@ -159,6 +161,8 @@ final filesDirProvider = Provider<Future<Directory> Function()>((_) {
   Future<Directory>? dir;
   return () => dir ??= Directory.systemTemp.createTemp('yaqeen');
 });
+/// One queue for every large download, alive for the whole session (never tied to a screen).
+final downloadQueueProvider = Provider((_) => DownloadQueue());
 final audioDownloadsProvider = Provider(
   (ref) => AudioDownloads(root: ref.watch(filesDirProvider), isUnmetered: ref.watch(connectivityProvider).isUnmetered),
 );

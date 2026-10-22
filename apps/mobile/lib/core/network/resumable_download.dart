@@ -17,6 +17,15 @@ class CancelToken {
   void cancel() => _cancelled = true;
 }
 
+/// Cancelled when either of two tokens is (e.g. the caller's and the download queue's).
+class LinkedCancelToken extends CancelToken {
+  LinkedCancelToken(this._a, this._b);
+  final CancelToken? _a;
+  final CancelToken _b;
+  @override
+  bool get isCancelled => super.isCancelled || (_a?.isCancelled ?? false) || _b.isCancelled;
+}
+
 /// Downloads [uri] into [target], resuming a previous `<target>.part` with an HTTP Range request.
 /// The finished file only appears at [target] once complete (rename), so a half file is never read.
 Future<File> downloadResumable(
