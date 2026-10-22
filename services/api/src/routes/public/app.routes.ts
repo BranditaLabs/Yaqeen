@@ -21,7 +21,8 @@ const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 export const DEFAULT_CONFIG: RemoteConfig = {
   features: { challenge: true, rewards: true, hifz: true, listen: true, bonuses: false, recite: false, ramadan: false, tafsirFull: false },
   featureRollout: {},
-  minVersion: { ios: '1.0.0', android: '1.0.0' },
+  // 0.0.0 = no forced update; only an admin-set minimum may block clients.
+  minVersion: { ios: '0.0.0', android: '0.0.0' },
   maintenance: { enabled: false, messageAr: '', messageEn: '' },
   splashVerse: { textAr: 'وَٱعْبُدْ رَبَّكَ حَتَّىٰ يَأْتِيَكَ ٱلْيَقِينُ', reference: 'الحجر: 99' },
   hijri: { region: 'EG', offsetDays: 0, effectiveFrom: null },

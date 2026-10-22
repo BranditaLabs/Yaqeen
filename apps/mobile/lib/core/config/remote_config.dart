@@ -21,8 +21,8 @@ class RemoteConfig {
   const RemoteConfig({
     this.features = defaultFeatures,
     this.featureRollout = const {},
-    this.minVersionIos = '1.0.0',
-    this.minVersionAndroid = '1.0.0',
+    this.minVersionIos = noMinimum,
+    this.minVersionAndroid = noMinimum,
     this.maintenance = false,
     this.maintenanceAr = '',
     this.maintenanceEn = '',
@@ -35,6 +35,10 @@ class RemoteConfig {
     this.challengeLengthDays = 365,
     this.cheapestRewardPoints,
   });
+
+  /// No forced update. Only a minimum an admin sets explicitly may block the app — never a missing
+  /// or default config (e.g. offline first launch, API not reachable).
+  static const noMinimum = '0.0.0';
 
   static const defaultFeatures = {
     Flags.challenge: true,
@@ -77,8 +81,8 @@ class RemoteConfig {
     return RemoteConfig(
       features: {...defaultFeatures, ...m('features').map((k, v) => MapEntry(k, v == true))},
       featureRollout: m('featureRollout').map((k, v) => MapEntry(k, (v as num).toInt())),
-      minVersionIos: (m('minVersion')['ios'] as String?) ?? '1.0.0',
-      minVersionAndroid: (m('minVersion')['android'] as String?) ?? '1.0.0',
+      minVersionIos: (m('minVersion')['ios'] as String?) ?? noMinimum,
+      minVersionAndroid: (m('minVersion')['android'] as String?) ?? noMinimum,
       maintenance: m('maintenance')['enabled'] == true,
       maintenanceAr: (m('maintenance')['messageAr'] as String?) ?? '',
       maintenanceEn: (m('maintenance')['messageEn'] as String?) ?? '',

@@ -89,6 +89,13 @@ void main() {
       expect(c.cheapestRewardPoints, 1000);
     });
 
+    test('no config or no minVersion never forces an update (fresh install, API unreachable)', () {
+      for (final c in [const RemoteConfig(), RemoteConfig.fromJson(const {})]) {
+        expect(c.needsUpdate(ios: true, appVersion: '0.1.0'), isFalse);
+        expect(c.needsUpdate(ios: false, appVersion: '0.1.0'), isFalse);
+      }
+    });
+
     test('caches for an hour and falls back to the cache offline', () async {
       var calls = 0;
       var offline = false;
