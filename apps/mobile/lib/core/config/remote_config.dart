@@ -107,15 +107,26 @@ class RemoteConfigRepository {
   Future<RemoteConfig> cached() async {
     final raw = await cache.read(_key);
     if (raw == null) return const RemoteConfig();
-    final j = (jsonDecode(raw) as Map).cast<String, dynamic>();
-    return RemoteConfig.fromJson((j['config'] as Map).cast<String, dynamic>());
+    try {
+      final j = (jsonDecode(raw) as Map).cast<String, dynamic>();
+      return RemoteConfig.fromJson((j['config'] as Map).cast<String, dynamic>());
+    } catch (_) {
+      // A corrupt cache must never block start-up: defaults now, a fresh copy on the next refresh.
+      await cache.delete(_key);
+      return const RemoteConfig();
+    }
   }
 
   /// Fresh config when the cache is older than [maxAge] (or [force]); otherwise the cache.
   /// Never throws: offline or server errors fall back to the last known config.
   Future<RemoteConfig> refresh({bool force = false}) async {
     final raw = await cache.read(_key);
-    final fetchedAt = raw == null ? null : DateTime.tryParse(((jsonDecode(raw) as Map)['fetchedAt'] as String?) ?? '');
+    DateTime? fetchedAt;
+    try {
+      fetchedAt = raw == null ? null : DateTime.tryParse(((jsonDecode(raw) as Map)['fetchedAt'] as String?) ?? '');
+    } catch (_) {
+      fetchedAt = null;
+    }
     if (!force && fetchedAt != null && _now().difference(fetchedAt) < maxAge) return cached();
     try {
       final json = (await api.get('/v1/config') as Map).cast<String, dynamic>();

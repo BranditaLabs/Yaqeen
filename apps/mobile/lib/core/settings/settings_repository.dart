@@ -18,7 +18,8 @@ class SettingsRepository {
     if (raw == null) return const AppSettings();
     try {
       return AppSettings.fromJson((jsonDecode(raw) as Map).cast<String, dynamic>());
-    } on FormatException {
+    } catch (_) {
+      // Corrupt or from an incompatible build (FormatException, TypeError): defaults, not a dead start.
       return const AppSettings();
     }
   }

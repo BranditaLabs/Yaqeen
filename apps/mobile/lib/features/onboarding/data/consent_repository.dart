@@ -50,8 +50,12 @@ class ConsentRepository {
     _decided = await store.read(_decidedKey) == '1';
     final raw = await store.read(_key);
     if (raw == null) return;
-    final m = (jsonDecode(raw) as Map).cast<String, dynamic>();
-    _cache = {for (final k in ConsentKind.values) k: m[k.wire] == true};
+    try {
+      final m = (jsonDecode(raw) as Map).cast<String, dynamic>();
+      _cache = {for (final k in ConsentKind.values) k: m[k.wire] == true};
+    } catch (_) {
+      // Unreadable: everything stays off (the privacy-safe default) until the user decides again.
+    }
   }
 
   static String _sourceWire(ConsentSource s) => switch (s) {

@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app/app_gate.dart';
+import 'app/bootstrap.dart';
 import 'app/router.dart';
 import 'core/di/providers.dart';
 import 'core/notifications/local_notifier.dart';
@@ -31,7 +32,9 @@ import 'core/time/zoned.dart';
 import 'features/onboarding/data/auth_repository.dart';
 import 'l10n/gen/app_localizations.dart';
 
-Future<void> main() async {
+void main() => Boot.guard(_start);
+
+Future<void> _start() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(
@@ -44,16 +47,18 @@ Future<void> main() async {
   );
   Zoned.ensureInitialized();
 
-  // Everything the first frame needs is read from the device — no network on the critical path.
-  final prefs = await SharedPreferences.getInstance();
-  final kv = PrefsKvStore(prefs);
+  // Everything the first frame needs is read from the device — no network, no plugin set-up on the
+  // critical path, and every step time-boxed with a safe fallback (lib/app/bootstrap.dart).
+  final KvStore kv = await Boot.step<KvStore>('prefs', () async => PrefsKvStore(await SharedPreferences.getInstance()), MemoryKvStore());
   final secure = SecureKvStore();
-  await LocalStore(kv).migrate();
-  final settings = await SettingsRepository(store: kv, outbox: Outbox(kv)).load();
-  final config = await RemoteConfigRepository(api: ApiClient(baseUrl: Env.apiBaseUrl, tokens: TokenStore(secure)), cache: kv).cached();
-  final session =
-      await AuthRepository(api: ApiClient(baseUrl: Env.apiBaseUrl, tokens: TokenStore(secure)), tokens: TokenStore(secure), store: kv)
-          .load();
+  final tokens = TokenStore(secure);
+  final api = ApiClient(baseUrl: Env.apiBaseUrl, tokens: tokens);
+  await Boot.step('migrate', () => LocalStore(kv).migrate(), null);
+  final (settings, config, session) = await (
+    Boot.step('settings', () => SettingsRepository(store: kv, outbox: Outbox(kv)).load(), const AppSettings()),
+    Boot.step('config', () => RemoteConfigRepository(api: api, cache: kv).cached(), const RemoteConfig()),
+    Boot.step('session', () => AuthRepository(api: api, tokens: tokens, store: kv).load(), Session.none),
+  ).wait;
 
   // Local notifications read the *current* settings and locale each time they are scheduled.
   late final ProviderContainer container;
@@ -76,8 +81,6 @@ Future<void> main() async {
     timezone: () => current().placeOrDefault.timezone,
     adhanVoice: () => current().adhanVoice.name,
   );
-  await notifier.init();
-  await JustAudioEngine.init();
 
   container = ProviderContainer(
     overrides: [
@@ -98,9 +101,15 @@ Future<void> main() async {
       // Phase 2: pushServiceProvider (Firebase) and adSinksProvider (ad SDKs) — see README.
     ],
   );
-  await container.read(consentRepositoryProvider).load();
+  await Boot.step('consents', container.read(consentRepositoryProvider).load, null);
   container.read(apiClientProvider).onSessionExpired = () => container.read(authRepositoryProvider).signOut();
 
+  // Plugin set-up the first frame doesn't need, in parallel. Both are idempotent and awaited again
+  // by their first real use (scheduling a reminder, playing audio).
+  Boot.afterFirstFrame({
+    'notifications': notifier.init,
+    'audio': JustAudioEngine.init,
+  });
   runApp(UncontrolledProviderScope(container: container, child: YaqeenApp(router: buildRouter(initialLocation: '/splash'))));
 }
 

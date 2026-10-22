@@ -7,3 +7,8 @@
 -keep class com.ryanheise.** { *; }
 # Flutter references Play Core (deferred components) that this app doesn't ship.
 -dontwarn com.google.android.play.core.**
+# flutter_secure_storage (EncryptedSharedPreferences → Tink).
+-keep class com.it_nomads.fluttersecurestorage.** { *; }
+-keep class com.google.crypto.tink.** { *; }
+-dontwarn com.google.errorprone.annotations.**
+-dontwarn javax.annotation.**

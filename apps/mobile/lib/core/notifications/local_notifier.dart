@@ -34,13 +34,19 @@ class PluginLocalNotifier implements LocalNotificationScheduler {
 
   final _plugin = FlutterLocalNotificationsPlugin();
   final _taps = StreamController<Uri>.broadcast();
-  bool _ready = false;
+  Future<void>? _init;
 
   /// Deep links of tapped notifications.
   Stream<Uri> get taps => _taps.stream;
 
-  Future<void> init() async {
-    if (_ready) return;
+  /// Idempotent and shared by concurrent callers; started after the first frame, so it never
+  /// delays start-up. A failure is retried on the next call.
+  Future<void> init() => _init ??= _setUp().catchError((Object e) {
+        _init = null;
+        throw e;
+      });
+
+  Future<void> _setUp() async {
     Zoned.ensureInitialized();
     await _plugin.initialize(
       settings: const InitializationSettings(
@@ -55,7 +61,6 @@ class PluginLocalNotifier implements LocalNotificationScheduler {
     final launch = await _plugin.getNotificationAppLaunchDetails();
     final link = launch?.notificationResponse?.payload;
     if (launch?.didNotificationLaunchApp == true && link != null) _taps.add(Uri.parse(link));
-    _ready = true;
   }
 
   @override

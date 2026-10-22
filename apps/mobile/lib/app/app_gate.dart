@@ -36,16 +36,33 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    ref.read(deviceServicesProvider).appVersion().then((v) {
-      if (mounted) setState(() => _appVersion = v);
-    });
+    ref.read(deviceServicesProvider).appVersion().then(
+      (v) {
+        if (mounted) setState(() => _appVersion = v);
+      },
+      onError: (Object _) {},
+    );
     // Every 15 minutes while in the foreground.
-    _flushTimer = Timer.periodic(const Duration(minutes: 15), (_) => ref.read(outboxSyncProvider).flush());
-    // Keep the local adhan/reminder schedule fresh (spec §6.5: re-plan on start).
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(remindersControllerProvider.notifier).replan();
-      _updatePacks();
-    });
+    _flushTimer = Timer.periodic(const Duration(minutes: 15), (_) => ref.read(outboxSyncProvider).flush().ignore());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _warmUp());
+  }
+
+  /// Start-up work after the first frame, all at once and each isolated: one slow or failing
+  /// task (offline, a plugin error) never delays or cancels the others.
+  void _warmUp() {
+    final tasks = <Future<void> Function()>[
+      // Parse the mushaf on a background isolate now, so Home and the reader open instantly.
+      () => ref.read(quranDataProvider.future),
+      // Keep the local adhan/reminder schedule fresh (spec §6.5: re-plan on start).
+      () => ref.read(remindersControllerProvider.notifier).replan(),
+      // Deliver anything queued offline last session.
+      () => ref.read(outboxSyncProvider).flush(),
+      () => ref.read(remoteConfigProvider.notifier).refresh(),
+      _updatePacks,
+    ];
+    for (final task in tasks) {
+      Future(task).catchError((Object _) {}).ignore();
+    }
   }
 
   @override
@@ -66,7 +83,7 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
         await packs.install(p);
         ref.invalidate(tafsirRepositoryProvider);
       }
-    } on Exception {
+    } catch (_) {
       // Metered, offline or a bad checksum: the installed version stays; next week tries again.
     }
   }

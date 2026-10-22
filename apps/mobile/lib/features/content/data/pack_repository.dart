@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
@@ -76,6 +77,9 @@ class PackRepository {
     return null;
   }
 
+  /// Static so the isolate closure captures only [path], never this repository.
+  static Future<String> _sha256Of(String path) => Isolate.run(() => sha256.convert(File(path).readAsBytesSync()).toString());
+
   Future<void> install(
     ContentPack pack, {
     CancelToken? cancel,
@@ -86,7 +90,8 @@ class PackRepository {
     final dir = await _dir();
     final staging = File('${dir.path}/${pack.id}.v${pack.version}.download');
     await downloadResumable(_http, Uri.parse(pack.url), staging, cancel: cancel, onProgress: onProgress);
-    final digest = sha256.convert(await staging.readAsBytes()).toString();
+    // Hash on a background isolate: a multi-MB pack would otherwise stall the UI thread.
+    final digest = await _sha256Of(staging.path);
     if (digest != pack.sha256) {
       await staging.delete();
       throw const PackChecksumMismatch();

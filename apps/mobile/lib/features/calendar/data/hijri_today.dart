@@ -6,7 +6,7 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../core/time/zoned.dart';
 import '../domain/hijri_day.dart';
 
-/// Today's Hijri date from the cached Umm al-Qura month (+ Egypt and personal offsets); null when
+/// Today's Hijri date from the cached Umm al-Qura month (instant; refreshed in the background) (+ Egypt and personal offsets); null when
 /// neither the network nor the cache has it — Home then simply hides the line.
 final hijriTodayProvider = FutureProvider.autoDispose<HijriDay?>((ref) async {
   final s = ref.watch(settingsProvider);
@@ -15,7 +15,7 @@ final hijriTodayProvider = FutureProvider.autoDispose<HijriDay?>((ref) async {
   try {
     final days = await ref
         .read(calendarRepositoryProvider)
-        .month(today.year, today.month, personalOffset: s.hijriOffsetDays, regionalOffset: regional);
+        .month(today.year, today.month, personalOffset: s.hijriOffsetDays, regionalOffset: regional, preferCache: true);
     final iso = Zoned.isoDate(today);
     return days.where((d) => d.gregorian == iso).firstOrNull;
   } on Exception {

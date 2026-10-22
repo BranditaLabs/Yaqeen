@@ -879,7 +879,10 @@ class DownloadStep extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
-    final quran = ref.watch(quranDataProvider).valueOrNull;
+    final quranAsync = ref.watch(quranDataProvider);
+    final quran = quranAsync.valueOrNull;
+    // A failed load must never trap the user here: say so, offer a retry, and let them continue.
+    final failed = quranAsync.hasError && quran == null;
     final items = [
       (t.downloadText, t.downloadBundled, true),
       (t.downloadFont, t.downloadBundled, true),
@@ -910,12 +913,16 @@ class DownloadStep extends ConsumerWidget {
                       fit: StackFit.expand,
                       children: [
                         CircularProgressIndicator(
-                          value: quran == null ? null : 1,
+                          value: quran != null ? 1 : (failed ? 0 : null),
                           strokeWidth: 6,
                           color: YqColors.lapis,
                           backgroundColor: YqColors.sky100,
                         ),
-                        Center(child: Text(quran == null ? '…' : '100 %', style: YqText.numeral.copyWith(fontSize: 24))),
+                        Center(
+                          child: failed
+                              ? const Icon(Icons.error_outline_rounded, color: YqColors.slate400, size: 36)
+                              : Text(quran == null ? '…' : '100 %', style: YqText.numeral.copyWith(fontSize: 24)),
+                        ),
                       ],
                     ),
                   ),
@@ -948,6 +955,10 @@ class DownloadStep extends ConsumerWidget {
                   ),
                 ),
                 const Spacer(),
+                if (failed) ...[
+                  Text(t.errorGeneric, textAlign: TextAlign.center, style: text.bodyMedium?.copyWith(color: YqColors.muted)),
+                  TextButton(onPressed: () => ref.invalidate(quranDataProvider), child: Text(t.retry)),
+                ],
                 if (quran != null)
                   Text(
                     quran.text(const AyahRef(73, 4)),
@@ -956,7 +967,7 @@ class DownloadStep extends ConsumerWidget {
                     style: YqText.quran(size: 18, height: 2, color: YqColors.ink),
                   ),
                 const SizedBox(height: YqSpace.l),
-                YqButton(label: t.downloadStart, onPressed: quran == null ? null : () => _finish(context, ref)),
+                YqButton(label: t.downloadStart, onPressed: quran == null && !failed ? null : () => _finish(context, ref)),
                 const SizedBox(height: YqSpace.xs),
                 Text(t.downloadBackground, textAlign: TextAlign.center, style: text.bodySmall),
                 const SizedBox(height: YqSpace.l),

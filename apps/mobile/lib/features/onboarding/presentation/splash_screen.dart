@@ -65,7 +65,10 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
         if (mounted) _breath.repeat(reverse: true);
       });
     }
-    _timer = Timer(widget.hold, () {
+    // The full choreography (≥ 3.8 s hold, spec §4.1) leaves when its progress line completes at
+    // 5.2 s rather than cutting it mid-way; quick launches leave after [hold].
+    final full = !reduceMotion && widget.hold >= const Duration(milliseconds: 3800);
+    _timer = Timer(full ? Duration(milliseconds: _total.toInt()) : widget.hold, () {
       if (mounted) context.go(widget.next);
     });
   }

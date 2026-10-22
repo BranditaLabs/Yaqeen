@@ -13,9 +13,12 @@ class QuranRepository {
 
   Future<QuranData> load() => _data ??= () async {
         final raw = await _bundle.loadString('assets/quran/quran.json', cache: false);
-        final json = await compute(_decode, raw);
-        return QuranData.fromJson(json);
-      }();
+        // Decode *and* build the model on a background isolate; the result moves back without a copy.
+        return compute(_parse, raw);
+      }().catchError((Object e) {
+        _data = null; // a later watch retries instead of caching the failure
+        throw e;
+      });
 
-  static Map<String, dynamic> _decode(String raw) => jsonDecode(raw) as Map<String, dynamic>;
+  static QuranData _parse(String raw) => QuranData.fromJson(jsonDecode(raw) as Map<String, dynamic>);
 }

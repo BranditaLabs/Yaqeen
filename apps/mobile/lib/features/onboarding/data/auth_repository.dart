@@ -50,7 +50,14 @@ class AuthRepository {
 
   Future<Session> load() async {
     final raw = await store.read(_key);
-    return raw == null ? Session.none : Session.fromJson((jsonDecode(raw) as Map).cast<String, dynamic>());
+    if (raw == null) return Session.none;
+    try {
+      return Session.fromJson((jsonDecode(raw) as Map).cast<String, dynamic>());
+    } catch (_) {
+      // Unreadable session: start as a guest rather than not at all.
+      await store.delete(_key);
+      return Session.none;
+    }
   }
 
   Future<void> _save(Session s) => store.write(_key, jsonEncode(s.toJson()));

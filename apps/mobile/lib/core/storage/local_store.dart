@@ -23,7 +23,11 @@ class LocalStore {
     2: (kv) async {
       final legacy = await kv.read('quran.lastRead');
       if (legacy != null) {
-        await kv.write('db.reading', jsonEncode({'lastRead': jsonDecode(legacy)}));
+        try {
+          await kv.write('db.reading', jsonEncode({'lastRead': jsonDecode(legacy)}));
+        } on FormatException {
+          // Unreadable legacy value: nothing worth carrying over.
+        }
         await kv.delete('quran.lastRead');
       }
     },
@@ -50,7 +54,13 @@ class LocalStore {
 
   Future<Object?> read(String collection) async {
     final raw = await _kv.read('db.$collection');
-    return raw == null ? null : jsonDecode(raw);
+    if (raw == null) return null;
+    try {
+      return jsonDecode(raw);
+    } on FormatException {
+      // A torn write (e.g. killed mid-save) loses that one collection, never the whole app.
+      return null;
+    }
   }
 
   Future<Map<String, dynamic>> readMap(String collection) async => ((await read(collection)) as Map?)?.cast<String, dynamic>() ?? {};
