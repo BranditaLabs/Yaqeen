@@ -129,6 +129,11 @@ class _AyahSheetState extends ConsumerState<_AyahSheet> {
                           _tafsir ?? t.tafsirPlaceholder,
                           style: theme.bodyLarge?.copyWith(color: _tafsir == null ? YqColors.muted : YqColors.ink),
                         ),
+                        // Credit every time the licensed text is shown (QuranEnc republishing terms).
+                        if (_tafsir != null) ...[
+                          const SizedBox(height: YqSpace.s),
+                          Text(t.tafsirAttribution, style: theme.bodySmall?.copyWith(color: YqColors.goldText)),
+                        ],
                       ],
                     ),
                   ),

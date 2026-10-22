@@ -227,6 +227,11 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
                       _tafsirText ?? t.tafsirPlaceholder,
                       style: text.bodyMedium?.copyWith(color: _tafsirText == null ? YqColors.muted : YqColors.ink),
                     ),
+                  if (_tafsir && _tafsirText != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: YqSpace.xs),
+                      child: Text(t.tafsirAttribution, style: text.bodySmall?.copyWith(color: YqColors.goldText)),
+                    ),
                 ],
               ),
             ),

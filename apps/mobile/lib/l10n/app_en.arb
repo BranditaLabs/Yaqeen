@@ -1350,5 +1350,6 @@
   "packInstalling": "Downloading…",
   "packInstalled": "Installed",
   "packChecksumFailed": "The file couldn't be verified and wasn't installed. Please try again.",
-  "packsTitle": "Books and tafsir"
+  "packsTitle": "Books and tafsir",
+  "tafsirAttribution": "Al-Tafsir al-Muyassar · King Fahd Complex · source: QuranEnc.com"
 }

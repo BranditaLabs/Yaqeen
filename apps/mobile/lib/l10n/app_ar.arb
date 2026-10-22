@@ -1377,5 +1377,6 @@
   "packInstalling": "جارٍ التحميل…",
   "packInstalled": "مثبّت",
   "packChecksumFailed": "تعذّر التحقق من الملف، لم يُثبَّت. حاول مرة أخرى.",
-  "packsTitle": "الكتب والتفاسير"
+  "packsTitle": "الكتب والتفاسير",
+  "tafsirAttribution": "التفسير الميسر · مجمع الملك فهد لطباعة المصحف الشريف · المصدر: QuranEnc.com"
 }

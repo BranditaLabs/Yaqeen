@@ -7,7 +7,7 @@
 import { loadEnv } from '../config/env.js';
 import { generateTotpSecret, hashPassword } from '../lib/crypto.js';
 import { createDb } from './client.js';
-import { adminUsers, bonusRules, contentItems, reciters, rewards, streakMilestones, taskRules } from './schema.js';
+import { adminUsers, bonusRules, contentItems, contentPacks, reciters, rewards, streakMilestones, taskRules } from './schema.js';
 
 const env = loadEnv();
 const { db, pool } = createDb(env.DATABASE_URL);
@@ -102,6 +102,35 @@ await db
     },
   ])
   .onConflictDoNothing();
+
+/**
+ * Tafsir pack (spec §6.6, §10): التفسير الميسر from QuranEnc.com, built unaltered by
+ * tools/tafsir/build_pack.py. Registered only when the hosted file's metadata is provided, so no
+ * pack ever points at a file that doesn't exist. TAFSIR_PACK_VERSION is an integer you bump on each
+ * rebuild (the app updates installed packs to a higher version); the source version goes in the title.
+ */
+const pack = {
+  url: process.env.TAFSIR_PACK_URL,
+  sha256: process.env.TAFSIR_PACK_SHA256,
+  size: Number(process.env.TAFSIR_PACK_SIZE ?? 0),
+  version: Number(process.env.TAFSIR_PACK_VERSION ?? 1),
+  sourceVersion: process.env.TAFSIR_SOURCE_VERSION ?? '',
+};
+if (pack.url && pack.sha256 && /^[0-9a-f]{64}$/.test(pack.sha256) && pack.size > 0) {
+  const row = {
+    id: 'tafsir-muyassar',
+    kind: 'tafsir' as const,
+    titleAr: 'التفسير الميسر',
+    titleEn: `Al-Tafsir al-Muyassar${pack.sourceVersion ? ` (QuranEnc v${pack.sourceVersion})` : ''}`,
+    version: pack.version,
+    url: pack.url,
+    sha256: pack.sha256,
+    sizeBytes: pack.size,
+    active: true,
+  };
+  await db.insert(contentPacks).values(row).onConflictDoUpdate({ target: contentPacks.id, set: row });
+  console.log(`Tafsir pack registered: v${pack.version} · ${pack.size} bytes`);
+}
 
 const email = process.env.SEED_ADMIN_EMAIL;
 const password = process.env.SEED_ADMIN_PASSWORD;

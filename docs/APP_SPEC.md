@@ -872,7 +872,7 @@ Errors `{error: {code, message}}` with stable snake_case codes (`insufficient_po
 | Mushaf page fonts | **KFGQPC** (King Fahd Complex) QCF v2 page fonts | Request written permission from KFGQPC | Request |
 | Fallback Quran font | Amiri Quran | OFL — bundled | ✅ |
 | Indo-Pak script | Tanzil / IndoPak text + font | Check licence; else ship «قريباً» | Decide |
-| Tafsir | التفسير الميسر (KFGQPC) | Permission / licensed provider (e.g. Quran.com API terms) | Request |
+| Tafsir | التفسير الميسر (King Fahd Complex) via **QuranEnc.com** | QuranEnc republishing terms: unaltered · credit QuranEnc.com and state the version · keep transcript info · report notes · follow the latest version · no inappropriate ads. Built by `tools/tafsir/build_pack.py`, credited under every tafsir display, weekly version check | Chosen · build pending network access |
 | English translation | Saheeh International | Licence from publisher | Request |
 | Recitation audio + timings | EveryAyah / Quran.com (QuranCDN) per reciter | Per-reciter permission; host on our CDN only with permission | Request |
 | Adhan audio | Licensed recordings (Makkah, Madinah, calm, takbir) | Buy/licence; ≤ 30 s cuts for iOS | Buy |

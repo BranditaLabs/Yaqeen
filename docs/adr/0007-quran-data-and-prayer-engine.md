@@ -6,6 +6,7 @@
 
 **Decision.**
 - **Quran text:** `tools/quran/build_quran.py` builds `assets/quran/quran.json` from pinned npm packages — `quran-json@3.1.2` (CC-BY-4.0, Uthmani text from QuranEnc/KFGQPC) and `quran-meta@7.0.0` (MIT, Madani page/juz/hizb boundaries). The text is never edited; a test pins the asset's SHA-256 and checks 6,236 ayat on 604 pages. Swapping to another licensed source is a rebuild, not a code change.
+- **Tafsir:** التفسير الميسر from the King Fahd Complex, distributed by QuranEnc.com under its republishing terms (unaltered, credited, versioned, kept current). `tools/tafsir/build_pack.py` builds the pack and verifies all 6,236 ayat. The file is hosted outside git and installed through the checksum-verified pack manager. altafsir.com was considered and rejected: it is a reading site with no redistribution licence.
 - **Fonts:** Amiri Quran (OFL) bundled; KFGQPC page fonts become an optional pack once licensed.
 - **Prayer times:** a pure-Dart port of the adhan-js astronomy (`features/prayer/domain`), golden-tested against the JS reference for 8 cities, both Asr schools and DST (`tools/prayer/golden.mjs`). Times are UTC instants shown in the place's IANA zone (`timezone` package), so travel and Egypt's DST are handled without the device zone.
 
