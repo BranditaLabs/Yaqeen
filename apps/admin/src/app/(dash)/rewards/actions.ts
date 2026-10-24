@@ -91,3 +91,10 @@ export async function saveReward(id: string | null, _prev: S, form: FormData): P
   revalidatePath('/rewards');
   return { error: null, ok: true };
 }
+
+/* ------------------------------------------------------------- shopify */
+
+export async function searchCollections(search: string) {
+  const q = search.trim() ? `?search=${encodeURIComponent(search.trim())}` : '';
+  return tryApi<{ id: string; title: string; productsCount: number | null }[]>(`/admin/rewards/shopify/collections${q}`);
+}

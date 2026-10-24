@@ -12,13 +12,16 @@ import {
   ContentType,
   DayStatus,
   DeepLink,
+  DUA_CATEGORIES,
   LedgerReason,
+  PackKind,
   Platform,
   PrayerMethod,
   RedemptionStatus,
   RewardKind,
   TaskKey,
   UserStatus,
+  ZIKR_CATEGORIES,
 } from './enums.js';
 
 const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD');
@@ -34,6 +37,14 @@ export const SignInRequest = z.object({
   locale: z.enum(['ar', 'en']).default('ar'),
 });
 export type SignInRequest = z.infer<typeof SignInRequest>;
+
+/** Upgrade the signed-in guest to a Google/Apple account, keeping their points. */
+export const LinkRequest = z.object({
+  provider: z.enum(['google', 'apple']),
+  idToken: z.string().min(10),
+  displayName: z.string().max(80).optional(),
+});
+export type LinkRequest = z.infer<typeof LinkRequest>;
 
 export const SessionResponse = z.object({
   accessToken: z.string(),
@@ -80,12 +91,24 @@ export type RegisterDeviceRequest = z.infer<typeof RegisterDeviceRequest>;
 
 export const RemoteConfig = z.object({
   features: z.record(z.string(), z.boolean()),
+  /**
+   * Gradual rollout per flag, 0–100. A flag that is ON is shown to a user only when
+   * `inRollout(userId, flag, pct)` (see rollout.ts — mirrored in Dart). Missing = 100.
+   */
+  featureRollout: z.record(z.string(), z.number().int().min(0).max(100)).default({}),
   minVersion: z.object({ ios: z.string(), android: z.string() }),
   maintenance: z.object({ enabled: z.boolean(), messageAr: z.string(), messageEn: z.string() }),
   splashVerse: z.object({ textAr: z.string(), reference: z.string() }),
   hijri: z.object({ region: z.string(), offsetDays: z.number().int(), effectiveFrom: z.string().nullable() }),
   /** Read-only here; edited via /admin/rewards/program. */
-  points: z.object({ qadaDayPoints: z.number().int(), qadaWindowDays: z.number().int(), challengeLengthDays: z.number().int() }),
+  points: z.object({
+    dailyTotal: z.number().int(),
+    qadaDayPoints: z.number().int(),
+    qadaWindowDays: z.number().int(),
+    challengeLengthDays: z.number().int(),
+    /** Cost of the cheapest active reward (onboarding: «1,000 نقطة = مكافأة»). null when none. */
+    cheapestRewardPoints: z.number().int().nullable(),
+  }),
 });
 export type RemoteConfig = z.infer<typeof RemoteConfig>;
 
@@ -137,8 +160,36 @@ export const ChallengeSummary = z.object({
   nextMilestone: z.object({ days: z.number().int(), points: z.number().int() }).nullable(),
   today: ChallengeDay.nullable(),
   tasks: z.array(z.object({ key: TaskKey, labelAr: z.string(), labelEn: z.string(), points: z.number().int() })),
+  /** Days kept through qada (make-up) — «2 أيام قضاء». */
+  qadaDays: z.number().int(),
 });
 export type ChallengeSummary = z.infer<typeof ChallengeSummary>;
+
+/** One cell of the merged calendar (GET /v1/challenge/calendar?month=YYYY-MM). */
+export const SpecialDay = z.enum(['white_day', 'friday', 'mon_thu', 'ramadan', 'eid_fitr', 'eid_adha', 'arafah', 'ashura']);
+export type SpecialDay = z.infer<typeof SpecialDay>;
+
+export const CalendarCell = HijriDay.extend({
+  challenge: ChallengeDay.nullable(),
+  special: z.array(SpecialDay),
+});
+export type CalendarCell = z.infer<typeof CalendarCell>;
+
+export const ChallengeCalendar = z.object({
+  month: z.string().regex(/^\d{4}-\d{2}$/),
+  enrolled: z.boolean(),
+  startedOn: IsoDate.nullable(),
+  endsOn: IsoDate.nullable(),
+  today: IsoDate,
+  dayNumber: z.number().int(),
+  streak: z.number().int(),
+  balance: z.number().int(),
+  qadaWindowDays: z.number().int(),
+  qadaDayPoints: z.number().int(),
+  dailyTotal: z.number().int(),
+  days: z.array(CalendarCell),
+});
+export type ChallengeCalendar = z.infer<typeof ChallengeCalendar>;
 
 /* ----------------------------------------------------------------- rewards */
 
@@ -173,11 +224,41 @@ export const ContentItem = z.object({
   textAr: z.string(),
   translationEn: z.string().nullable(),
   source: z.string(),
+  /** Virtue line shown under the text (with its own source inside), e.g. «من قالها حين يصبح…». */
+  virtue: z.string().nullable(),
   repeatCount: z.number().int().min(1),
+  sortOrder: z.number().int(),
+  /** Pool for «دعاء اليوم». */
+  featured: z.boolean(),
   version: z.number().int(),
   updatedAt: z.string(),
 });
 export type ContentItem = z.infer<typeof ContentItem>;
+
+export const Reciter = z.object({
+  id: z.string(),
+  nameAr: z.string(),
+  nameEn: z.string(),
+  style: z.enum(['murattal', 'mujawwad']),
+  riwaya: z.string(),
+  baseUrl: z.string(),
+  timingUrl: z.string().nullable(),
+  sampleUrl: z.string().nullable(),
+  sizeBytes: z.number().int(),
+});
+export type Reciter = z.infer<typeof Reciter>;
+
+export const ContentPack = z.object({
+  id: z.string(),
+  kind: PackKind,
+  titleAr: z.string(),
+  titleEn: z.string(),
+  version: z.number().int(),
+  url: z.string(),
+  sha256: z.string().regex(/^[0-9a-f]{64}$/),
+  sizeBytes: z.number().int(),
+});
+export type ContentPack = z.infer<typeof ContentPack>;
 
 /* ------------------------------------------------------------------- admin */
 
@@ -202,6 +283,39 @@ export const AdminOverview = z.object({
   pendingReviews: z.number().int(),
 });
 export type AdminOverview = z.infer<typeof AdminOverview>;
+
+/** Aggregates only. Buckets with fewer than K_ANONYMITY people are returned as null. */
+export const K_ANONYMITY = 20;
+
+export const OverviewRange = z.enum(['7d', '30d', '90d']);
+export type OverviewRange = z.infer<typeof OverviewRange>;
+
+export const SeriesPoint = z.object({ date: IsoDate, value: z.number().int().nullable() });
+export const OverviewSeries = z.object({ metric: z.literal('dau'), range: OverviewRange, points: z.array(SeriesPoint) });
+export type OverviewSeries = z.infer<typeof OverviewSeries>;
+
+export const OverviewFunnel = z.object({
+  steps: z.array(z.object({ days: z.number().int(), users: z.number().int().nullable() })),
+});
+export type OverviewFunnel = z.infer<typeof OverviewFunnel>;
+
+export const OverviewAdherence = z.object({
+  date: IsoDate,
+  participants: z.number().int(),
+  /** Percent of participants, or null when suppressed (participants < K_ANONYMITY). */
+  wirdPct: z.number().nullable(),
+  morningAzkarPct: z.number().nullable(),
+  prayersPct: z.number().nullable(),
+});
+export type OverviewAdherence = z.infer<typeof OverviewAdherence>;
+
+export const OverviewAlert = z.object({
+  kind: z.enum(['pending_reviews', 'daily_task_missing', 'reward_low_stock', 'moon_sighting', 'shopify_error']),
+  severity: z.enum(['info', 'warning']),
+  messageAr: z.string(),
+  href: z.string(),
+});
+export type OverviewAlert = z.infer<typeof OverviewAlert>;
 
 export const AdminUserRow = z.object({
   id: Uuid,
@@ -231,15 +345,28 @@ export const LedgerEntry = z.object({
 });
 export type LedgerEntry = z.infer<typeof LedgerEntry>;
 
-export const UpsertContentRequest = z.object({
-  type: ContentType,
-  category: z.string().min(1).max(60),
-  title: z.string().min(1).max(120),
-  textAr: z.string().min(1),
-  translationEn: z.string().nullable().optional(),
-  source: z.string().min(2).max(160),
-  repeatCount: z.number().int().min(1).default(1),
-});
+export const UpsertContentRequest = z
+  .object({
+    type: ContentType,
+    category: z.string().min(1).max(60),
+    title: z.string().min(1).max(120),
+    textAr: z.string().min(1),
+    translationEn: z.string().nullable().optional(),
+    source: z.string().min(2).max(160),
+    virtue: z.string().max(600).nullable().optional(),
+    repeatCount: z.number().int().min(1).max(1000).default(1),
+    sortOrder: z.number().int().min(0).max(999).default(0),
+    featured: z.boolean().default(false),
+  })
+  .refine(
+    (c) =>
+      c.type === 'zikr'
+        ? (ZIKR_CATEGORIES as readonly string[]).includes(c.category)
+        : c.type === 'dua'
+          ? (DUA_CATEGORIES as readonly string[]).includes(c.category)
+          : true,
+    { message: 'unknown_category', path: ['category'] },
+  );
 export type UpsertContentRequest = z.infer<typeof UpsertContentRequest>;
 
 export const ReviewDecision = z.object({
@@ -248,7 +375,7 @@ export const ReviewDecision = z.object({
 });
 export type ReviewDecision = z.infer<typeof ReviewDecision>;
 
-export const ContentAdminRow = ContentItem.extend({ status: ContentStatus, reviewNote: z.string().nullable() });
+export const ContentAdminRow = ContentItem.extend({ status: ContentStatus, reviewNote: z.string().nullable(), editorName: z.string().nullable().optional() });
 export type ContentAdminRow = z.infer<typeof ContentAdminRow>;
 
 export const DailyTaskUpsert = z.object({
@@ -257,6 +384,20 @@ export const DailyTaskUpsert = z.object({
   taskEn: z.string().min(2).max(120),
 });
 export type DailyTaskUpsert = z.infer<typeof DailyTaskUpsert>;
+
+/** "Send a test to my device" — same copy validation, admin's own test devices only. */
+export const CampaignTest = z.object({
+  titleAr: z.string().min(2).max(60),
+  bodyAr: z.string().min(2).max(140),
+  titleEn: z.string().min(2).max(60).optional(),
+  bodyEn: z.string().min(2).max(140).optional(),
+  deepLink: DeepLink,
+  locale: z.enum(['ar', 'en']).default('ar'),
+});
+export type CampaignTest = z.infer<typeof CampaignTest>;
+
+export const TestDevicesUpdate = z.object({ tokens: z.array(z.string().min(20).max(4096)).max(5) });
+export type TestDevicesUpdate = z.infer<typeof TestDevicesUpdate>;
 
 export const CampaignCreate = z.object({
   name: z.string().min(2).max(80),
@@ -353,6 +494,27 @@ export const HijriAdjustRequest = z.object({
   effectiveHijriYear: z.number().int().min(1440),
 });
 export type HijriAdjustRequest = z.infer<typeof HijriAdjustRequest>;
+
+/** Splash verse change → pending review. Goes live only after a religious reviewer (not the author) approves. */
+export const SplashVerseUpdate = z.object({
+  textAr: z.string().min(2).max(200),
+  reference: z.string().min(2).max(60),
+});
+export type SplashVerseUpdate = z.infer<typeof SplashVerseUpdate>;
+
+export const ShopifyStatus = z.object({
+  configured: z.boolean(),
+  connected: z.boolean(),
+  shopName: z.string().nullable(),
+  domain: z.string().nullable(),
+  scopes: z.array(z.string()),
+  lastError: z.string().nullable(),
+  lastErrorAt: z.string().nullable(),
+});
+export type ShopifyStatus = z.infer<typeof ShopifyStatus>;
+
+export const ShopifyCollection = z.object({ id: z.string(), title: z.string(), productsCount: z.number().int().nullable() });
+export type ShopifyCollection = z.infer<typeof ShopifyCollection>;
 
 export const ConfigPatch = RemoteConfig.partial();
 export type ConfigPatch = z.infer<typeof ConfigPatch>;

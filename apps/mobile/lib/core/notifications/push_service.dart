@@ -26,20 +26,32 @@ class NoopPushService implements PushService {
   Stream<Uri> get onOpened => const Stream.empty();
 }
 
-/// Maps `yaqeen://<target>` to a router location. Unknown targets go home.
+/// Deep-link targets (`yaqeen://<target>` and `https://yaqin-brand.com/app/<target>`, spec §4.2).
+const deepLinkRoutes = {
+  'home': '/home',
+  'quran': '/quran',
+  'prayer': '/prayer',
+  'challenge': '/challenge',
+  'calendar': '/challenge/calendar',
+  'redeem': '/challenge/redeem',
+  'azkar': '/home/azkar',
+  'duas': '/home/duas',
+  'inbox': '/home/inbox',
+  'hifz': '/quran/hifz',
+  'qibla': '/prayer/qibla',
+  'store': '/challenge/redeem',
+};
+
+/// Maps a deep link to a router location. Unknown targets go home.
 String routeForDeepLink(Uri uri) {
-  const map = {
-    'home': '/home',
-    'quran': '/quran',
-    'prayer': '/prayer',
-    'challenge': '/challenge',
-    // Calendar / azkar / hifz get their own sub-routes when those screens land.
-    'calendar': '/challenge',
-    'redeem': '/challenge/redeem',
-    'azkar': '/home',
-    'hifz': '/quran',
-    'store': '/challenge/redeem',
-  };
-  final key = uri.host.isNotEmpty ? uri.host : (uri.pathSegments.isNotEmpty ? uri.pathSegments.first : '');
-  return map[key] ?? '/home';
+  final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
+  final String key;
+  if (uri.scheme == 'yaqeen') {
+    key = uri.host.isNotEmpty ? uri.host : (segments.isNotEmpty ? segments.first : '');
+  } else {
+    // Universal link: https://yaqin-brand.com/app/<target>
+    final i = segments.indexOf('app');
+    key = i >= 0 && i + 1 < segments.length ? segments[i + 1] : '';
+  }
+  return deepLinkRoutes[key] ?? '/home';
 }

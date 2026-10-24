@@ -91,9 +91,8 @@ class YqSegmented<T> extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: value == selected ? YqColors.white : const Color(0x00FFFFFF),
                       borderRadius: BorderRadius.circular(YqRadii.pill),
-                      boxShadow: value == selected
-                          ? const [BoxShadow(color: Color(0x140F1A36), blurRadius: 8, offset: Offset(0, 2))]
-                          : null,
+                      boxShadow:
+                          value == selected ? const [BoxShadow(color: Color(0x140F1A36), blurRadius: 8, offset: Offset(0, 2))] : null,
                     ),
                     child: Text(
                       label,
@@ -115,7 +114,13 @@ class YqSegmented<T> extends StatelessWidget {
 
 /// Thin progress line (wird, journey, downloads).
 class YqProgressLine extends StatelessWidget {
-  const YqProgressLine({super.key, required this.value, this.color = YqColors.lapis, this.track = const Color(0x1A1F3F94), this.height = 3});
+  const YqProgressLine({
+    super.key,
+    required this.value,
+    this.color = YqColors.lapis,
+    this.track = const Color(0x1A1F3F94),
+    this.height = 3,
+  });
 
   final double value;
   final Color color;

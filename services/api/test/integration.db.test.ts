@@ -27,7 +27,7 @@ describe.skipIf(!url)('integration (Postgres)', () => {
   let app: FastifyInstance;
   let db: Db;
   let pool: pg.Pool;
-  const env = loadEnv({ NODE_ENV: 'test', DATABASE_URL: url ?? '' });
+  const env = loadEnv({ NODE_ENV: 'test', DATABASE_URL: url ?? 'postgres://skip@localhost:5432/skip' });
   const auth = (t: string) => ({ authorization: `Bearer ${t}` });
 
   beforeAll(async () => {
@@ -133,6 +133,7 @@ describe.skipIf(!url)('integration (Postgres)', () => {
     expect(summary.dayNumber).toBe(6);
     expect(summary.today.status).toBe('done');
     expect(summary.streak).toBe(1); // 19 Oct was missed
+    expect(summary.qadaDays).toBe(1); // 18 Oct kept by qada
 
     const days = (
       await app.inject({ method: 'GET', url: '/v1/challenge/days?from=2026-10-15&to=2026-10-21', headers: auth(u.token) })
@@ -194,7 +195,7 @@ describe.skipIf(!url)('integration (Postgres)', () => {
         method: 'POST',
         url: '/admin/content',
         headers: auth(superToken),
-        payload: { type: 'dua', category: 'عام', title: 'دعاء', textAr: 'رَبِّ زِدْنِي عِلْمًا', source: 'طه: 114' },
+        payload: { type: 'dua', category: 'general', title: 'دعاء', textAr: 'رَبِّ زِدْنِي عِلْمًا', source: 'طه: 114' },
       })
     ).json();
     await app.inject({ method: 'POST', url: `/admin/content/${created.id}/submit`, headers: auth(superToken) });
@@ -237,7 +238,7 @@ describe.skipIf(!url)('integration (Postgres)', () => {
     expect((await app.inject({ method: 'PUT', url: '/admin/rewards/milestones', headers: H, payload: [{ days: 2, points: 70, labelAr: 'يومان', active: true }] })).statusCode).toBe(200);
 
     const cfg = (await app.inject({ method: 'GET', url: '/v1/config' })).json();
-    expect(cfg.points).toEqual({ qadaDayPoints: 60, qadaWindowDays: 3, challengeLengthDays: 365 });
+    expect(cfg.points).toEqual({ dailyTotal: 120, qadaDayPoints: 60, qadaWindowDays: 3, challengeLengthDays: 365, cheapestRewardPoints: 1000 });
 
     // 2) The app follows the new rules immediately.
     const u = await makeUser('Huda');
@@ -280,9 +281,13 @@ describe.skipIf(!url)('integration (Postgres)', () => {
     const original = shopify.createDiscount;
     shopify.createDiscount = async () => 'gid://shopify/DiscountCodeNode/1';
     try {
-      const r1 = await app.inject({ method: 'POST', url: `/v1/rewards/${reward!.id}/redeem`, headers: auth(u.token) });
+      const tap = { ...auth(u.token), 'idempotency-key': 'tap-0001-abcdef' };
+      const r1 = await app.inject({ method: 'POST', url: `/v1/rewards/${reward!.id}/redeem`, headers: tap });
       expect(r1.statusCode).toBe(200);
       expect(r1.json().balanceAfter).toBe(175);
+      // A retry of the same confirm tap returns the same code and spends nothing.
+      const replay = await app.inject({ method: 'POST', url: `/v1/rewards/${reward!.id}/redeem`, headers: tap });
+      expect(replay.json()).toMatchObject({ code: r1.json().code, balanceAfter: 175 });
       const r2 = await app.inject({ method: 'POST', url: `/v1/rewards/${reward!.id}/redeem`, headers: auth(u.token) });
       expect(r2.json().error.code).toBe('user_reward_limit_reached');
     } finally {

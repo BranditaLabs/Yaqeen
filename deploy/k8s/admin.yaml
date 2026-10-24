@@ -1,0 +1,36 @@
+# Admin dashboard (internal users only) — expose it behind your VPN / IP allow-list at the ingress.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yaqeen-admin
+  labels: { app: yaqeen-admin }
+spec:
+  replicas: 2
+  strategy: { type: RollingUpdate, rollingUpdate: { maxSurge: 1, maxUnavailable: 0 } }
+  selector: { matchLabels: { app: yaqeen-admin } }
+  template:
+    metadata:
+      labels: { app: yaqeen-admin }
+    spec:
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: admin
+          image: ghcr.io/branditalabs/yaqeen-admin:latest
+          ports: [{ name: http, containerPort: 3000 }]
+          env:
+            - { name: API_URL, value: http://yaqeen-api }
+            - { name: NEXT_TELEMETRY_DISABLED, value: "1" }
+          resources:
+            requests: { cpu: 100m, memory: 192Mi }
+            limits: { memory: 512Mi }
+          readinessProbe: { httpGet: { path: /login, port: http }, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /login, port: http }, periodSeconds: 30 }
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: yaqeen-admin
+spec:
+  selector: { app: yaqeen-admin }
+  ports: [{ name: http, port: 80, targetPort: http }]

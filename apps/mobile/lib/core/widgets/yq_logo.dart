@@ -61,7 +61,15 @@ class YqLogo extends StatelessWidget {
       label: 'يقين Yaqeen',
       image: true,
       child: ExcludeSemantics(
-        child: Image.asset(asset, width: w, height: height, fit: BoxFit.contain, filterQuality: FilterQuality.medium),
+        child: Image.asset(
+          asset,
+          width: w,
+          height: height,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.medium,
+          // Decode at the drawn size (the masters are ~900 px wide) — less memory, faster first paint.
+          cacheWidth: w == null ? null : (w * MediaQuery.devicePixelRatioOf(context)).ceil(),
+        ),
       ),
     );
   }

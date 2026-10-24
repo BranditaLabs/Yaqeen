@@ -15,6 +15,34 @@
       "when": 1792464042393,
       "tag": "0001_points_program",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792544971600,
+      "tag": "0002_app_spec_v1",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792561518297,
+      "tag": "0003_scale_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792564685763,
+      "tag": "0004_content_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792565832422,
+      "tag": "0005_redeem_idempotency",
+      "breakpoints": true
     }
   ]
 }

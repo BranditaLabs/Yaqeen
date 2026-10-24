@@ -1,8 +1,12 @@
 import Link from 'next/link';
 import { Badge, Button, Card, Notice, PageHeader, Table, Td } from '@/components/ui';
 import { api } from '@/lib/api';
-import { dateTime, num } from '@/lib/format';
+import { dateTime, num, pct } from '@/lib/format';
 import { cancelCampaign } from './actions';
+
+const LINK_LABEL: Record<string, string> = {
+  redeem: 'المكافآت', challenge: 'التحدي', calendar: 'التقويم', store: 'المتجر', home: 'الرئيسية', quran: 'المصحف', azkar: 'الأذكار', hifz: 'الحفظ', prayer: 'الصلاة',
+};
 
 interface CampaignRow {
   id: string;
@@ -14,6 +18,7 @@ interface CampaignRow {
   estimatedReach: number | null;
   sentCount: number;
   openCount: number;
+  deepLink: string;
 }
 
 const KIND = { challenge: 'التحدي', rewards: 'المكافآت', offers: 'عروض المتجر' } as const;
@@ -44,11 +49,12 @@ export default async function CampaignsPage() {
         وبحد أقصى إشعار تسويقي واحد يومياً لكل مستخدم، وبموافقة مسبقة فقط.
       </Notice>
       <Card className="mt-4">
-        <Table head={['الحملة', 'النوع', 'الحالة', 'الموعد', 'الوصول المتوقع', 'أُرسلت / فُتحت', '']}>
+        <Table head={['الحملة', 'النوع', 'يفتح على', 'الحالة', 'الموعد', 'الوصول المتوقع', 'أُرسلت / فُتحت', 'نسبة الفتح', '']}>
           {rows.map((c) => (
             <tr key={c.id}>
               <Td className="font-medium">{c.name}</Td>
               <Td>{KIND[c.kind]}</Td>
+              <Td className="text-muted">{LINK_LABEL[c.deepLink] ?? c.deepLink}</Td>
               <Td>
                 <Badge tone={STATUS[c.status][1]}>{STATUS[c.status][0]}</Badge>
               </Td>
@@ -57,6 +63,7 @@ export default async function CampaignsPage() {
               <Td className="num">
                 {num(c.sentCount)} / {num(c.openCount)}
               </Td>
+              <Td className="num">{c.sentCount > 0 ? pct((100 * c.openCount) / c.sentCount) : '—'}</Td>
               <Td>
                 {(c.status === 'scheduled' || c.status === 'draft') && (
                   <form action={cancelCampaign.bind(null, c.id)}>

@@ -1,8 +1,8 @@
-import { and, asc, desc, eq, gte } from 'drizzle-orm';
+import { and, asc, desc, eq, getTableColumns, gte } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { ContentStatus, ContentType, DailyTaskUpsert, ReviewDecision, UpsertContentRequest } from '@yaqeen/contracts';
-import { contentItems, dailyTasks } from '../../db/schema.js';
+import { adminUsers, appConfig, contentItems, dailyTasks } from '../../db/schema.js';
 import { localToday } from '../../domain/points.js';
 import { audit } from '../../lib/audit.js';
 import { conflict, forbidden, notFound } from '../../lib/errors.js';
@@ -23,9 +23,11 @@ export const adminContentRoutes: FastifyPluginAsync = async (app) => {
     const conds = [];
     if (q.type) conds.push(eq(contentItems.type, q.type));
     if (q.status) conds.push(eq(contentItems.status, q.status));
+    // `editorName` feeds the «آخر تعديل» history line.
     return db
-      .select()
+      .select({ ...getTableColumns(contentItems), editorName: adminUsers.name })
       .from(contentItems)
+      .leftJoin(adminUsers, eq(adminUsers.id, contentItems.createdBy))
       .where(conds.length ? and(...conds) : undefined)
       .orderBy(desc(contentItems.updatedAt))
       .limit(200);
@@ -36,7 +38,7 @@ export const adminContentRoutes: FastifyPluginAsync = async (app) => {
     return db.transaction(async (tx) => {
       const [row] = await tx
         .insert(contentItems)
-        .values({ ...body, translationEn: body.translationEn ?? null, createdBy: adminOf(req).sub })
+        .values({ ...body, translationEn: body.translationEn ?? null, virtue: body.virtue ?? null, createdBy: adminOf(req).sub })
         .returning();
       await audit(tx, req, { action: 'content.create', targetType: 'content', targetId: row!.id, after: row });
       return row;
@@ -58,6 +60,7 @@ export const adminContentRoutes: FastifyPluginAsync = async (app) => {
         .set({
           ...body,
           translationEn: body.translationEn ?? null,
+          virtue: body.virtue ?? null,
           status: 'draft',
           version: before.version + 1,
           createdBy: adminOf(req).sub,
@@ -99,6 +102,14 @@ export const adminContentRoutes: FastifyPluginAsync = async (app) => {
         )
         .where(eq(contentItems.id, id))
         .returning();
+      // An approved splash verse goes live in remote config in the same transaction.
+      if (body.decision === 'approve' && row!.type === 'splash_verse') {
+        const value = { textAr: row!.textAr, reference: row!.source };
+        await tx
+          .insert(appConfig)
+          .values({ key: 'splashVerse', value, updatedBy: adminOf(req).sub })
+          .onConflictDoUpdate({ target: appConfig.key, set: { value, updatedBy: adminOf(req).sub, updatedAt: now } });
+      }
       await audit(tx, req, { action: `content.review.${body.decision}`, targetType: 'content', targetId: id, reason: body.note, before: { status: before.status }, after: { status: row!.status } });
       return row;
     });

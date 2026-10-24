@@ -8,9 +8,23 @@ void main() {
     'dayNumber': 48,
     'streak': 5,
     'balance': 3240,
-    'today': {'date': '2026-10-20', 'dayNumber': 48, 'status': 'today', 'points': 20, 'completedTasks': ['wird'], 'bonuses': []},
+    'today': {
+      'date': '2026-10-20',
+      'dayNumber': 48,
+      'status': 'today',
+      'points': 20,
+      'completedTasks': ['wird'],
+      'bonuses': [],
+    },
     'tasks': [
-      for (final (k, p) in [('wird', 20), ('morning_azkar', 10), ('five_prayers', 25), ('evening_azkar', 10), ('listen', 10), ('daily_task', 25)])
+      for (final (k, p) in [
+        ('wird', 20),
+        ('morning_azkar', 10),
+        ('five_prayers', 25),
+        ('evening_azkar', 10),
+        ('listen', 10),
+        ('daily_task', 25),
+      ])
         {'key': k, 'labelAr': k, 'labelEn': k, 'points': p},
     ],
   };
@@ -22,7 +36,11 @@ void main() {
   });
 
   test('reads admin-controlled length and next milestone', () {
-    final s = ChallengeSummary.fromJson({...json, 'challengeLengthDays': 100, 'nextMilestone': {'days': 7, 'points': 50}});
+    final s = ChallengeSummary.fromJson({
+      ...json,
+      'challengeLengthDays': 100,
+      'nextMilestone': {'days': 7, 'points': 50},
+    });
     expect(s.progress, closeTo(0.48, 0.001));
     expect(s.nextMilestone!.points, 50);
     expect(ChallengeSummary.fromJson(json).challengeLengthDays, 365); // older API → default

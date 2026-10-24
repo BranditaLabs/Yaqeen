@@ -1,12 +1,12 @@
 import { desc, eq, gte, sql } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { CampaignCreate, type CampaignKind, type CampaignSegment, type ConsentKind } from '@yaqeen/contracts';
+import { CampaignCreate, CampaignTest, type CampaignKind, type CampaignSegment, type ConsentKind } from '@yaqeen/contracts';
 import type { AppContext } from '../../context.js';
-import { campaigns, consents, devices, pointsLedger, users } from '../../db/schema.js';
+import { adminUsers, campaigns, consents, devices, pointsLedger, users } from '../../db/schema.js';
 import { CONSENT_FOR_KIND, lintCampaignCopy } from '../../domain/guardrails.js';
 import { audit } from '../../lib/audit.js';
-import { badRequest, conflict, notFound } from '../../lib/errors.js';
+import { AppError, badRequest, conflict, notFound } from '../../lib/errors.js';
 import { adminOf } from '../../plugins/auth.js';
 
 /**
@@ -95,11 +95,42 @@ export const adminCampaignRoutes: FastifyPluginAsync = async (app) => {
     });
   });
 
+  /**
+   * Send the draft to the admin's own registered test phones only. Bypasses the audience and
+   * timing guardrails (it is not a broadcast) but not the copy lint.
+   */
+  app.post('/test', { preHandler: marketing, config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } }, async (req) => {
+    const body = CampaignTest.parse(req.body);
+    const issues = lintCampaignCopy(body);
+    if (issues.length) throw badRequest('copy_issues', issues.join(' · '), issues);
+    const [me] = await db.select({ tokens: adminUsers.testDeviceTokens }).from(adminUsers).where(eq(adminUsers.id, adminOf(req).sub));
+    const tokens = me?.tokens ?? [];
+    if (tokens.length === 0) throw badRequest('no_test_devices', 'Register a test device first');
+    if (!app.ctx.fcm.configured) throw new AppError(503, 'push_not_configured');
+    const en = body.locale === 'en';
+    const result = await app.ctx.fcm.sendMany(
+      tokens.map((token) => ({
+        token,
+        title: `[تجربة] ${en ? (body.titleEn ?? body.titleAr) : body.titleAr}`,
+        body: en ? (body.bodyEn ?? body.bodyAr) : body.bodyAr,
+        link: `yaqeen://${body.deepLink}`,
+      })),
+    );
+    await audit(db, req, { action: 'campaign.test', targetType: 'campaign', after: { deepLink: body.deepLink, devices: tokens.length } });
+    return { sent: result.ok, invalid: result.invalidTokens.length };
+  });
+
   /** Campaigns sent in the last 30 days with open rate. */
   app.get('/stats', { preHandler: marketing }, async () => {
     const since = new Date(app.ctx.now().getTime() - 30 * 86_400_000);
     return db
-      .select({ id: campaigns.id, name: campaigns.name, sent: campaigns.sentCount, opened: campaigns.openCount })
+      .select({
+        id: campaigns.id,
+        name: campaigns.name,
+        sent: campaigns.sentCount,
+        opened: campaigns.openCount,
+        openRate: sql<number>`case when ${campaigns.sentCount} > 0 then round(100.0 * ${campaigns.openCount} / ${campaigns.sentCount}, 1)::float else null end`,
+      })
       .from(campaigns)
       .where(gte(campaigns.createdAt, since))
       .orderBy(desc(campaigns.createdAt));

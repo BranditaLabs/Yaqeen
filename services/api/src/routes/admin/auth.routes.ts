@@ -1,8 +1,9 @@
 import { eq, sql } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
-import { AdminLoginRequest } from '@yaqeen/contracts';
+import { AdminLoginRequest, TestDevicesUpdate } from '@yaqeen/contracts';
 import { adminUsers } from '../../db/schema.js';
 import { verifyPassword, verifyTotp } from '../../lib/crypto.js';
+import { audit } from '../../lib/audit.js';
 import { notFound, unauthorized } from '../../lib/errors.js';
 import { ADMIN_TTL_SEC, signAdminToken } from '../../lib/tokens.js';
 import { adminOf } from '../../plugins/auth.js';
@@ -31,12 +32,24 @@ export const adminAuthRoutes: FastifyPluginAsync = async (app) => {
     };
   });
 
-  app.get('/me', { preHandler: app.requireAdmin(['content_editor', 'religious_reviewer', 'marketing', 'support']) }, async (req) => {
+  const anyAdmin = app.requireAdmin(['content_editor', 'religious_reviewer', 'marketing', 'support']);
+
+  app.get('/me', { preHandler: anyAdmin }, async (req) => {
     const [a] = await db
-      .select({ id: adminUsers.id, name: adminUsers.name, email: adminUsers.email, role: adminUsers.role })
+      .select({ id: adminUsers.id, name: adminUsers.name, email: adminUsers.email, role: adminUsers.role, testDevices: sql<number>`cardinality(${adminUsers.testDeviceTokens})` })
       .from(adminUsers)
       .where(eq(adminUsers.id, adminOf(req).sub));
     if (!a) throw notFound('admin');
     return a;
+  });
+
+  /** FCM tokens of the admin's own phones (copied from the app's debug screen) for test sends. */
+  app.put('/me/test-devices', { preHandler: anyAdmin }, async (req) => {
+    const body = TestDevicesUpdate.parse(req.body);
+    await db.transaction(async (tx) => {
+      await tx.update(adminUsers).set({ testDeviceTokens: body.tokens }).where(eq(adminUsers.id, adminOf(req).sub));
+      await audit(tx, req, { action: 'admin.test_devices', targetType: 'admin', targetId: adminOf(req).sub, after: { count: body.tokens.length } });
+    });
+    return { ok: true, count: body.tokens.length };
   });
 };

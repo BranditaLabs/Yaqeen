@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest, preHandlerHookHandler } from 'fas
 import fp from 'fastify-plugin';
 import type { AdminRole } from '@yaqeen/contracts';
 import { forbidden, unauthorized } from '../lib/errors.js';
+import { recordActivity } from '../services/activity.service.js';
 import { type AdminClaims, type UserClaims, verifyAdminToken, verifyUserToken } from '../lib/tokens.js';
 
 declare module 'fastify' {
@@ -33,6 +34,7 @@ export const authPlugin = fp(async (app: FastifyInstance, opts: { jwtSecret: str
     } catch {
       throw unauthorized('invalid_token');
     }
+    recordActivity(app.ctx, req.user.sub);
   });
 
   app.decorate('requireAdmin', (roles: AdminRole[]) => async (req: FastifyRequest) => {

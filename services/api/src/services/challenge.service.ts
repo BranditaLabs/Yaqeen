@@ -33,6 +33,11 @@ export async function balance(ctx: AppContext, userId: string): Promise<number> 
   return Number(row?.total ?? 0);
 }
 
+/** "Today" in the user's own timezone. */
+export async function todayFor(ctx: AppContext, userId: string): Promise<string> {
+  return userToday(ctx, userId);
+}
+
 async function userToday(ctx: AppContext, userId: string): Promise<string> {
   const [u] = await ctx.db.select({ tz: users.timezone }).from(users).where(eq(users.id, userId));
   return localToday(ctx.now(), u?.tz ?? 'Africa/Cairo');
@@ -106,6 +111,7 @@ export async function summary(ctx: AppContext, userId: string): Promise<Challeng
       nextMilestone: first ? { days: first.days, points: first.points } : null,
       today: null,
       tasks,
+      qadaDays: 0,
     };
   }
 
@@ -113,6 +119,11 @@ export async function summary(ctx: AppContext, userId: string): Promise<Challeng
   const recent = await days(ctx, userId, addDays(today, -60) < enr.startedOn ? enr.startedOn : addDays(today, -60), today);
   const streak = computeStreak(new Map(recent.map((d) => [d.date, d.status])), today);
   const next = nextMilestone(milestones, streak);
+  // Days kept by qada over the whole journey (index prefix user_id → cheap).
+  const [qada] = await ctx.db
+    .select({ n: sql<number>`count(distinct ${taskCompletions.date})::int` })
+    .from(taskCompletions)
+    .where(and(eq(taskCompletions.userId, userId), eq(taskCompletions.isQada, true)));
   return {
     enrolled: true,
     startedOn: enr.startedOn,
@@ -123,6 +134,7 @@ export async function summary(ctx: AppContext, userId: string): Promise<Challeng
     nextMilestone: next ? { days: next.days, points: next.points } : null,
     today: recent.find((d) => d.date === today) ?? null,
     tasks,
+    qadaDays: qada?.n ?? 0,
   };
 }
 

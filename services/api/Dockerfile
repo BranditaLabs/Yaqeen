@@ -5,10 +5,10 @@ WORKDIR /repo
 
 FROM base AS build
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
-COPY packages/contracts/package.json packages/contracts/
+# Whole contracts package: its `prepare` script compiles it during install.
+COPY packages/contracts packages/contracts
 COPY services/api/package.json services/api/
 RUN pnpm install --frozen-lockfile --filter @yaqeen/api...
-COPY packages/contracts packages/contracts
 COPY services/api services/api
 RUN pnpm --filter @yaqeen/contracts build && pnpm --filter @yaqeen/api build
 RUN pnpm --filter @yaqeen/api deploy --prod --legacy /out

@@ -62,18 +62,26 @@ class ApiClient {
   void Function()? onSessionExpired;
 
   Future<dynamic> get(String path, {Map<String, String>? query}) => _send('GET', path, query: query);
-  Future<dynamic> post(String path, [Object? body]) => _send('POST', path, body: body);
+  Future<dynamic> post(String path, [Object? body, Map<String, String>? headers]) => _send('POST', path, body: body, headers: headers);
   Future<dynamic> put(String path, [Object? body]) => _send('PUT', path, body: body);
   Future<dynamic> patch(String path, [Object? body]) => _send('PATCH', path, body: body);
   Future<dynamic> delete(String path) => _send('DELETE', path);
 
-  Future<dynamic> _send(String method, String path, {Object? body, Map<String, String>? query, bool retried = false}) async {
+  Future<dynamic> _send(
+    String method,
+    String path, {
+    Object? body,
+    Map<String, String>? query,
+    Map<String, String>? headers,
+    bool retried = false,
+  }) async {
     final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
     final token = await tokens.accessToken;
     final req = http.Request(method, uri)
       ..headers['Accept'] = 'application/json'
       ..headers['Accept-Language'] = 'ar';
     if (token != null) req.headers['Authorization'] = 'Bearer $token';
+    if (headers != null) req.headers.addAll(headers);
     if (body != null) {
       req.headers['Content-Type'] = 'application/json';
       req.body = jsonEncode(body);
@@ -91,7 +99,7 @@ class ApiClient {
     }
 
     if (res.statusCode == 401 && !retried && path != '/v1/auth/refresh' && await _refresh()) {
-      return _send(method, path, body: body, query: query, retried: true);
+      return _send(method, path, body: body, query: query, headers: headers, retried: true);
     }
     if (res.statusCode == 204 || res.body.isEmpty) return null;
 

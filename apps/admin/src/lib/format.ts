@@ -22,3 +22,10 @@ export function zonedLocalToIso(local: string, timeZone = 'Africa/Cairo'): strin
   const first = asUtc - offsetAt(asUtc);
   return new Date(asUtc - offsetAt(first)).toISOString();
 }
+
+const longDf = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Cairo' });
+/** «الثلاثاء 20 أكتوبر 2026 · 9 جمادى الأولى 1448» (spec §7.3). */
+export function longDate(d: Date, hijri?: { hijriDay: number; hijriMonthNameAr: string; hijriYear: number } | null) {
+  const g = longDf.format(d).replace('،', '');
+  return hijri ? `${g} · ${hijri.hijriDay} ${hijri.hijriMonthNameAr} ${hijri.hijriYear}` : g;
+}

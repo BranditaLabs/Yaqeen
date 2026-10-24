@@ -1,12 +1,13 @@
 import Link from 'next/link';
-import type { AdminMe, PointsSettings, StreakMilestone, TaskRuleInput } from '@yaqeen/contracts';
+import type { AdminMe, PointsSettings, ShopifyStatus, StreakMilestone, TaskRuleInput } from '@yaqeen/contracts';
 import { ActionForm } from '@/components/action-form';
+import { CollectionPicker } from '@/components/collection-picker';
 import { GrantForm } from '@/components/grant-form';
 import { MilestonesEditor } from '@/components/milestones-editor';
 import { ProgramEditor } from '@/components/program-editor';
 import { Badge, Button, Card, CardTitle, Kpi, Notice, PageHeader, Table, Td } from '@/components/ui';
 import { api } from '@/lib/api';
-import { date, dateTime, num } from '@/lib/format';
+import { date, dateTime, num, pct } from '@/lib/format';
 import { saveBonus, saveReward } from './actions';
 
 interface Program {
@@ -94,7 +95,7 @@ function RewardFields({ r }: { r?: RewardRow }) {
       </div>
       <div className="md:col-span-3">
         <label className="label">تقتصر على مجموعات Shopify (اختياري)</label>
-        <input name="collections" defaultValue={r?.shopifyCollectionIds.join(', ')} placeholder="gid://shopify/Collection/…" dir="ltr" className="field text-left" />
+        <CollectionPicker initial={r?.shopifyCollectionIds ?? []} />
       </div>
       <label className="flex items-center gap-2 text-sm">
         <input name="active" type="checkbox" defaultChecked={r?.active ?? true} className="h-4 w-4 accent-[var(--yq-lapis)]" /> متاحة في التطبيق
@@ -109,20 +110,30 @@ export default async function RewardsPage({ searchParams }: { searchParams: Prom
   const me = await api<AdminMe>('/admin/auth/me');
   const isSuper = me.role === 'super_admin';
   const canEditCatalogue = isSuper || me.role === 'marketing';
-  const program = await api<Program>('/admin/rewards/program');
+  const [program, shopify, recent] = await Promise.all([
+    api<Program>('/admin/rewards/program'),
+    api<ShopifyStatus>('/admin/rewards/shopify/status'),
+    api<RedemptionRow[]>('/admin/rewards/redemptions'),
+  ]);
 
   const issued = ['task', 'qada', 'bonus', 'milestone', 'grant'].reduce((s, k) => s + (program.totals[k] ?? 0), 0);
   const redeemed = -(program.totals.redemption ?? 0) - (program.totals.reversal ?? 0);
+  const codes = recent.filter((r) => r.status !== 'void');
+  const used = codes.filter((r) => r.status === 'used').length;
 
   return (
     <>
-      <PageHeader title="النقاط والمكافآت" subtitle="كل قواعد النقاط وكتالوج الهدايا من مكان واحد. كل تغيير يُسجَّل في سجل المراجعة." />
+      <PageHeader
+        title="النقاط والمكافآت"
+        subtitle="كل قواعد النقاط وكتالوج الهدايا من مكان واحد. كل تغيير يُسجَّل في سجل المراجعة."
+        action={<ShopifyPill s={shopify} />}
+      />
 
       <div className="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Kpi label="نقاط مُنحت (الكل)" value={num(issued)} />
-        <Kpi label="نقاط استُبدلت" value={num(Math.max(0, redeemed))} />
-        <Kpi label="نقاط اليوم الكامل" value={num(program.settings.dailyTotal)} hint={`قضاء حتى ${num(program.settings.qadaDayPoints)} خلال ${program.settings.qadaWindowDays} أيام`} />
-        <Kpi label="مدة التحدي" value={`${num(program.settings.challengeLengthDays)} يوم`} />
+        <Kpi label="نقاط مُنحت" value={num(issued)} hint={`اليوم الكامل ${num(program.settings.dailyTotal)} · قضاء حتى ${num(program.settings.qadaDayPoints)}`} />
+        <Kpi label="نقاط استُبدلت" value={num(Math.max(0, redeemed))} hint={`${num(codes.length)} كوداً في آخر 200 استبدال`} />
+        <Kpi label="نسبة استخدام الأكواد" value={codes.length ? pct((100 * used) / codes.length) : '—'} hint="تُحدَّث عند ربط طلبات Shopify" />
+        <Kpi label="مبيعات من الأكواد" value="—" hint="المرحلة الثانية: ربط Webhook الطلبات" />
       </div>
 
       <nav className="mb-4 flex gap-2 overflow-x-auto pb-1">
@@ -274,5 +285,26 @@ async function Log() {
       </Table>
       {rows.length === 0 && <p className="py-6 text-center text-sm text-muted">لا توجد استبدالات</p>}
     </Card>
+  );
+}
+
+function ShopifyPill({ s }: { s: ShopifyStatus }) {
+  if (!s.configured) return <Badge tone="gray">Shopify غير مُعد</Badge>;
+  if (!s.connected) {
+    return (
+      <span title={s.lastError ?? ''}>
+        <Badge tone="red">تعذّر الاتصال · <span dir="ltr">{s.domain}</span></Badge>
+      </span>
+    );
+  }
+  const missing = !s.scopes.includes('write_discounts');
+  return (
+    <span className="flex items-center gap-2">
+      <Badge tone="green">
+        متصل · <span dir="ltr">{s.domain}</span>
+      </Badge>
+      {missing && <Badge tone="gold">ينقص صلاحية write_discounts</Badge>}
+      {s.lastError && <span className="text-xs text-error" title={s.lastError}>آخر خطأ {s.lastErrorAt ? dateTime(s.lastErrorAt) : ''}</span>}
+    </span>
   );
 }

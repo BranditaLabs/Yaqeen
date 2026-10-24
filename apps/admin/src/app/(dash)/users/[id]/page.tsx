@@ -15,6 +15,8 @@ interface UserDetail {
   city: string | null;
   joinedAt: string;
   lastSeenAt: string | null;
+  deletionRequestedAt: string | null;
+  deletionDueAt: string | null;
   balance: number;
   ledger: LedgerEntry[];
   redemptions: { id: string; code: string; status: string; costPoints: number; createdAt: string }[];
@@ -31,6 +33,10 @@ const REASON: Record<LedgerEntry['reason'], string> = {
   reversal: 'استرجاع',
 };
 
+function daysUntil(iso: string): number {
+  return Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000));
+}
+
 export default async function UserDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const u = await api<UserDetail>(`/admin/users/${id}`);
@@ -40,16 +46,37 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
       <PageHeader
         title={u.displayName ?? 'مستخدم'}
         subtitle={`${u.emailMasked ?? 'بدون بريد'} · انضم ${date(u.joinedAt)}`}
-        action={<Link href="/users" className="text-sm text-lapis">→ كل المستخدمين</Link>}
+        action={
+          <div className="flex items-center gap-3">
+            {/* Plain link: the route handler streams a file download (audited by the API). */}
+            <a href={`/users/${u.id}/export`} className="inline-flex min-h-11 items-center rounded-full border border-line bg-white/70 px-5 text-sm hover:bg-white">
+              تصدير بيانات المستخدم
+            </a>
+            <Link href="/users" className="text-sm text-lapis">→ كل المستخدمين</Link>
+          </div>
+        }
       />
+      {u.status === 'deletion_requested' && u.deletionDueAt && (
+        <div className="mb-4">
+          <Notice tone="red">
+            طلب المستخدم حذف حسابه في {date(u.deletionRequestedAt!)} — يُحذف نهائياً بعد{' '}
+            <span className="num">{num(daysUntil(u.deletionDueAt))}</span> يوماً ({date(u.deletionDueAt)}). تسجيل دخوله مجدداً يلغي الطلب.
+          </Notice>
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-3">
         <Kpi label="الرصيد" value={num(u.balance)} />
         <Kpi label="آخر ظهور" value={u.lastSeenAt ? date(u.lastSeenAt) : '—'} />
         <Card>
           <p className="text-xs font-medium text-muted">الحالة</p>
-          <div className="mt-3">
+          <div className="mt-3 flex items-center gap-2">
             <Badge tone={STATUS[u.status].tone}>{STATUS[u.status].label}</Badge>
+            {u.deletionDueAt && u.status === 'deletion_requested' && (
+              <span className="text-xs text-error">
+                بعد <span className="num">{num(daysUntil(u.deletionDueAt))}</span> يوماً
+              </span>
+            )}
           </div>
         </Card>
       </div>

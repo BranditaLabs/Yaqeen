@@ -104,5 +104,1279 @@
         "type": "String"
       }
     }
-  }
+  },
+  "offlineBanner": "أنت غير متصل · نعمل بما على جهازك",
+  "updateTitle": "يتوفر إصدار أحدث من يقين",
+  "updateBody": "حدّث التطبيق لتستمر في استخدامه بأمان.",
+  "updateCta": "تحديث الآن",
+  "maintenanceTitle": "نعمل على تحسين يقين",
+  "maintenanceContinue": "متابعة دون اتصال",
+  "maintenanceDefault": "سنعود قريباً بإذن الله. المصحف والمواقيت والأذكار تعمل على جهازك.",
+  "back": "رجوع",
+  "close": "إغلاق",
+  "cancel": "إلغاء",
+  "confirm": "تأكيد",
+  "save": "حفظ",
+  "continueCta": "متابعة",
+  "skip": "تخطي",
+  "later": "لاحقاً",
+  "copied": "تم النسخ",
+  "copy": "نسخ",
+  "share": "مشاركة",
+  "settingsTitle": "الإعدادات",
+  "notificationsTitle": "الإشعارات",
+  "searchHint": "بحث",
+  "clearSearch": "مسح البحث",
+  "soon": "قريباً",
+  "on": "مفعّل",
+  "off": "متوقف",
+  "minutesShort": "{n} د",
+  "@minutesShort": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "pointsPlus": "+{points}",
+  "@pointsPlus": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "openSettings": "افتح الإعدادات",
+  "errorSignIn": "تعذّر تسجيل الدخول، حاول مرة أخرى",
+  "prayerFajr": "الفجر",
+  "prayerSunrise": "الشروق",
+  "prayerDhuhr": "الظهر",
+  "prayerJumuah": "الجمعة",
+  "prayerAsr": "العصر",
+  "prayerMaghrib": "المغرب",
+  "prayerIsha": "العشاء",
+  "notifAdhanTitle": "حان وقت صلاة {prayer}",
+  "@notifAdhanTitle": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "notifSunriseTitle": "الشروق",
+  "notifAdhanBody": "{time} · {place}",
+  "@notifAdhanBody": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "notifPreTitle": "{prayer} بعد {minutes} دقائق",
+  "@notifPreTitle": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "notifPreBody": "استعد للصلاة · {time}",
+  "@notifPreBody": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "notifMorningTitle": "أذكار الصباح",
+  "notifMorningBody": "دقائق من السكينة لبداية يومك",
+  "notifEveningTitle": "أذكار المساء",
+  "notifEveningBody": "دقائق من السكينة قبل المغرب",
+  "notifWirdTitle": "وِردك اليومي",
+  "notifWirdBody": "صفحاتك بانتظارك",
+  "notifKahfTitle": "سورة الكهف",
+  "notifKahfBody": "جمعة مباركة · وقت طيب لقراءة سورة الكهف",
+  "notifWirdMissingTitle": "وِرد اليوم لم يكتمل بعد",
+  "notifWirdMissingBody": "صفحة واحدة قبل العشاء تكفي لتبقى على الطريق",
+  "notifHifzTitle": "مراجعة الحفظ",
+  "notifHifzBody": "لديك مراجعة مستحقة اليوم",
+  "channelAdhan": "الأذان",
+  "channelReminders": "التذكيرات",
+  "channelChallenge": "التحدي والمكافآت",
+  "channelOffers": "عروض متجر يقين",
+  "prayerTitle": "مواقيت الصلاة",
+  "prayerToday": "مواقيت اليوم",
+  "prayerIn": "بعد {time}",
+  "@prayerIn": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerNow": "حان وقت صلاة {prayer}",
+  "@prayerNow": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerAlertOn": "تنبيه {prayer} مفعل",
+  "@prayerAlertOn": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerAlertOff": "تنبيه {prayer} متوقف",
+  "@prayerAlertOff": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerModeSheet": "تنبيه {prayer}",
+  "@prayerModeSheet": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "alertAdhan": "أذان",
+  "alertNotify": "تنبيه",
+  "alertSilent": "صامت",
+  "alertModeA11y": "{prayer}، الوضع الحالي {mode}. المس للتغيير",
+  "@alertModeA11y": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      },
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerNotificationsLink": "التنبيهات والأذان",
+  "prayerPrevDay": "اليوم السابق",
+  "prayerNextDay": "اليوم التالي",
+  "prayerTravelPrompt": "هل انتقلت إلى {city}؟",
+  "@prayerTravelPrompt": {
+    "placeholders": {
+      "city": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerTravelUpdate": "تحديث المواقيت",
+  "methodEgypt": "الهيئة المصرية العامة للمساحة",
+  "methodMwl": "رابطة العالم الإسلامي",
+  "methodUmmAlQura": "أم القرى",
+  "methodKarachi": "جامعة العلوم الإسلامية بكراتشي",
+  "methodIsna": "الجمعية الإسلامية لأمريكا الشمالية",
+  "methodDubai": "دبي",
+  "methodKuwait": "الكويت",
+  "methodQatar": "قطر",
+  "methodSingapore": "سنغافورة",
+  "methodTurkey": "رئاسة الشؤون الدينية التركية",
+  "methodMwlDetail": "الفجر 18° · العشاء 17°",
+  "methodUmmAlQuraDetail": "المملكة العربية السعودية",
+  "methodRecommended": "الموصى بها لموقعك",
+  "asrStandard": "الجمهور",
+  "asrHanafi": "الحنفي",
+  "qiblaCardTitle": "اتجاه القبلة {degrees}°",
+  "@qiblaCardTitle": {
+    "placeholders": {
+      "degrees": {
+        "type": "String"
+      }
+    }
+  },
+  "qiblaCardFrom": "من الشمال باتجاه {direction}",
+  "@qiblaCardFrom": {
+    "placeholders": {
+      "direction": {
+        "type": "String"
+      }
+    }
+  },
+  "qiblaOpen": "افتح بوصلة القبلة",
+  "dirN": "الشمال",
+  "dirNE": "الشمال الشرقي",
+  "dirE": "الشرق",
+  "dirSE": "الجنوب الشرقي",
+  "dirS": "الجنوب",
+  "dirSW": "الجنوب الغربي",
+  "dirW": "الغرب",
+  "dirNW": "الشمال الغربي",
+  "qiblaTitle": "القبلة",
+  "qiblaDistance": "{city} · ≈ {km} كم",
+  "@qiblaDistance": {
+    "placeholders": {
+      "city": {
+        "type": "String"
+      },
+      "km": {
+        "type": "String"
+      }
+    }
+  },
+  "qiblaReadout": "القبلة على {qibla}° من الشمال · اتجاهك {heading}°",
+  "@qiblaReadout": {
+    "placeholders": {
+      "qibla": {
+        "type": "String"
+      },
+      "heading": {
+        "type": "String"
+      }
+    }
+  },
+  "qiblaTurnRight": "استدر يميناً",
+  "qiblaTurnLeft": "استدر يساراً",
+  "qiblaAligned": "أنت في اتجاه القبلة",
+  "qiblaCalibrate": "معايرة البوصلة",
+  "qiblaCalibrateHint": "حرّك هاتفك على شكل الرقم 8 عدة مرات بعيداً عن المعادن والمغناطيس.",
+  "qiblaNeedsCalibration": "البوصلة تحتاج معايرة",
+  "qiblaCalibrated": "البوصلة معايرة",
+  "qiblaCamera": "عرض بالكاميرا",
+  "qiblaNoCompass": "لا تتوفر بوصلة في هذا الجهاز. اتجاه القبلة {qibla}° من الشمال.",
+  "@qiblaNoCompass": {
+    "placeholders": {
+      "qibla": {
+        "type": "String"
+      }
+    }
+  },
+  "qiblaA11y": "بوصلة القبلة، الفرق {diff} درجة",
+  "@qiblaA11y": {
+    "placeholders": {
+      "diff": {
+        "type": "String"
+      }
+    }
+  },
+  "locationTitle": "الموقع",
+  "locationChange": "تغيير",
+  "locationAuto": "تم تحديد موقعك تلقائياً",
+  "locationManual": "اخترتها من القائمة",
+  "locationUseMine": "استخدم موقعي الحالي",
+  "locationSearch": "ابحث عن مدينة",
+  "locationDenied": "لم نتمكن من تحديد موقعك. اختر مدينتك من القائمة.",
+  "locationNoResults": "لا توجد مدينة بهذا الاسم",
+  "notifSettingsTitle": "الأذان والتنبيهات",
+  "notifEachPrayer": "تنبيه كل صلاة",
+  "notifVoice": "صوت الأذان",
+  "voiceMakkah": "أذان الحرم المكي",
+  "voiceMakkahDetail": "الأذان كاملاً",
+  "voiceMadinah": "أذان المسجد النبوي",
+  "voiceCalm": "أذان هادئ",
+  "voiceTakbir": "التكبير فقط",
+  "voiceTakbirDetail": "مناسب للعمل",
+  "voicePreview": "معاينة",
+  "voicePreviewStop": "إيقاف المعاينة",
+  "voicePending": "تُضاف التسجيلات المرخّصة قريباً — حالياً صوت التنبيه الافتراضي",
+  "notifBefore": "التذكير قبل الأذان",
+  "notifBeforeNone": "بدون",
+  "notifOther": "تذكيرات أخرى",
+  "notifMorning": "أذكار الصباح",
+  "notifMorningDetail": "بعد الفجر بـ 30 دقيقة",
+  "notifEvening": "أذكار المساء",
+  "notifEveningDetail": "بعد العصر",
+  "notifKahf": "سورة الكهف",
+  "notifKahfDetail": "كل جمعة · 10:00 ص",
+  "notifWird": "الورد اليومي",
+  "notifWirdDetail": "إذا لم يكتمل قبل العشاء",
+  "notifHifz": "مراجعة الحفظ",
+  "notifHifzDetail": "عند استحقاق سورة للمراجعة",
+  "notifChallengeSection": "التحدي والمكافآت والعروض",
+  "notifChallenge": "تقدم التحدي",
+  "notifChallengeDetail": "الاستمرارية والأيام الفائتة",
+  "notifRewards": "المكافآت المتاحة",
+  "notifRewardsDetail": "عندما يكفي رصيدك لمكافأة",
+  "notifOffers": "عروض متجر يقين",
+  "notifOffersDetail": "رسالة واحدة يومياً على الأكثر · بموافقتك",
+  "notifQuiet": "الساعات الهادئة",
+  "notifQuietDetail": "من بعد العشاء حتى الفجر · الأذان مستثنى",
+  "notifQuietFrom": "من",
+  "notifQuietTo": "إلى",
+  "notifFooter": "تعمل التنبيهات دون اتصال بالإنترنت، وتُحسب المواقيت على جهازك وفق طريقة {method}.",
+  "@notifFooter": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "notifPermissionTitle": "الإشعارات متوقفة",
+  "notifPermissionBody": "فعّل الإشعارات ليصلك الأذان والتذكيرات.",
+  "notifExactAlarms": "قد تتأخر التنبيهات بضع دقائق: اسمح بالتنبيهات الدقيقة من إعدادات الهاتف.",
+  "inboxTitle": "الإشعارات",
+  "inboxReadAll": "قراءة الكل",
+  "inboxAll": "الكل",
+  "inboxWorship": "العبادات",
+  "inboxChallenge": "التحدي",
+  "inboxOffers": "العروض",
+  "inboxToday": "اليوم",
+  "inboxYesterday": "أمس",
+  "inboxEarlier": "سابقاً",
+  "inboxEmpty": "لا إشعارات هنا",
+  "inboxEmptyHint": "ستظهر هنا تذكيراتك وعروض المتجر",
+  "homeBellA11y": "الإشعارات، {count} غير مقروءة",
+  "@homeBellA11y": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "quranTitle": "القرآن الكريم",
+  "quranListen": "الاستماع",
+  "quranHifzPlan": "خطة الحفظ",
+  "quranSearchHint": "ابحث عن سورة أو رقمها",
+  "quranBrowse": "طريقة التصفح",
+  "quranSurahs": "السور",
+  "quranJuzs": "الأجزاء",
+  "quranSaved": "المحفوظات",
+  "quranMeccan": "مكية",
+  "quranMedinan": "مدنية",
+  "quranAyahCount": "{count} آية",
+  "@quranAyahCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "quranSurahMeta": "{type} · {count}",
+  "@quranSurahMeta": {
+    "placeholders": {
+      "type": {
+        "type": "String"
+      },
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "quranJuz": "الجزء {n}",
+  "@quranJuz": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "quranJuzStarts": "يبدأ من {surah} {ayah}",
+  "@quranJuzStarts": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      },
+      "ayah": {
+        "type": "int"
+      }
+    }
+  },
+  "quranHizbQuarter": "الربع {n}",
+  "@quranHizbQuarter": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "quranPageN": "الصفحة {n}",
+  "@quranPageN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "quranAyahN": "الآية {n}",
+  "@quranAyahN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "quranSurahName": "سورة {name}",
+  "@quranSurahName": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "quranLastRead": "آخر قراءة",
+  "quranSavedMark": "علامة محفوظة",
+  "quranNoResults": "لا توجد نتائج",
+  "quranNoResultsHint": "جرّب اسماً آخر أو رقم السورة",
+  "quranNoBookmarks": "لا توجد علامات بعد",
+  "quranNoBookmarksHint": "اضغط مطولاً على أي آية لحفظ علامة",
+  "quranPageOf": "{page} من 604",
+  "@quranPageOf": {
+    "placeholders": {
+      "page": {
+        "type": "int"
+      }
+    }
+  },
+  "quranJuzHizb": "الجزء {juz} · الحزب {hizb}",
+  "@quranJuzHizb": {
+    "placeholders": {
+      "juz": {
+        "type": "int"
+      },
+      "hizb": {
+        "type": "int"
+      }
+    }
+  },
+  "readerExit": "الخروج إلى الفهرس",
+  "readerSettings": "إعدادات القراءة",
+  "readerLock": "قفل اللمس أثناء القراءة",
+  "readerMarkPage": "حفظ علامة على الصفحة",
+  "readerUnmarkPage": "إزالة علامة الصفحة",
+  "readerWird": "الورد",
+  "readerListen": "استماع",
+  "readerRecite": "تسميع",
+  "readerSlider": "التنقل بين الصفحات",
+  "readerHint": "المس لإظهار الأدوات · اضغط مطولاً على الآية لخياراتها · اسحب لتقليب الصفحة",
+  "readerGotIt": "حسناً",
+  "readerLocked": "الشاشة مقفلة · اضغط مطولاً لإلغاء القفل",
+  "readerKeepHolding": "استمر بالضغط…",
+  "readerPageColor": "لون الصفحة",
+  "themePaper": "ورقي",
+  "themeWhite": "أبيض",
+  "themeNight": "ليلي",
+  "readerFontSize": "حجم الخط",
+  "readerSpacing": "تباعد مريح بين الأسطر",
+  "readerKeepAwake": "إبقاء الشاشة مضاءة أثناء القراءة",
+  "readerListenMode": "وضع الاستماع",
+  "readerReciteMode": "وضع التسميع",
+  "ayahA11y": "سورة {surah}، الآية {ayah}. اضغط مطولاً للخيارات",
+  "@ayahA11y": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      },
+      "ayah": {
+        "type": "int"
+      }
+    }
+  },
+  "ayahOptions": "خيارات الآية",
+  "ayahBookmark": "علامة",
+  "ayahBookmarked": "محفوظة",
+  "ayahListen": "استماع",
+  "ayahTafsir": "تفسير",
+  "ayahShare": "مشاركة",
+  "ayahCopy": "نسخ",
+  "tafsirTitle": "التفسير الميسر",
+  "tafsirPlaceholder": "[نص التفسير الميسر لهذه الآية من مصدر المحتوى المرخّص]",
+  "ayahRefLabel": "[سورة {surah}: {ayah}]",
+  "@ayahRefLabel": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      },
+      "ayah": {
+        "type": "int"
+      }
+    }
+  },
+  "listenNowPlaying": "يُشغَّل الآن",
+  "listenBack": "رجوع إلى المصحف",
+  "listenDownloadSurah": "تنزيل السورة",
+  "listenSurahMeta": "السورة {n} · {type} · {count} آيات",
+  "@listenSurahMeta": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "type": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "listenControls": "التحكم في التشغيل",
+  "listenRepeat": "تكرار الآية",
+  "listenPrev": "الآية السابقة",
+  "listenPlay": "تشغيل",
+  "listenPause": "إيقاف مؤقت",
+  "listenNext": "الآية التالية",
+  "listenSpeed": "السرعة {speed}×",
+  "@listenSpeed": {
+    "placeholders": {
+      "speed": {
+        "type": "String"
+      }
+    }
+  },
+  "listenChangeReciter": "تغيير القارئ",
+  "listenSleepTimer": "مؤقت النوم",
+  "listenSleepEnd": "نهاية السورة",
+  "listenSleepOff": "إيقاف المؤقت",
+  "listenUnavailable": "التلاوة غير متاحة الآن. تحقق من الاتصال أو نزّل السورة.",
+  "listenNoReciter": "لا يوجد قارئ متاح بعد",
+  "recitersTitle": "اختر القارئ",
+  "recitersBack": "رجوع إلى المشغل",
+  "recitersSearch": "ابحث عن قارئ",
+  "recitersAll": "الكل",
+  "recitersDownloaded": "المحمّلة",
+  "styleMurattal": "مرتّل",
+  "styleMujawwad": "مجوّد",
+  "riwayaHafs": "حفص عن عاصم",
+  "reciterSample": "استمع لعينة من {name}",
+  "@reciterSample": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "reciterSampleStop": "إيقاف العينة",
+  "reciterDownloaded": "محمّل · المس للحذف",
+  "reciterDownloading": "جارٍ التحميل · المس للإلغاء",
+  "reciterDownloadAll": "تحميل المصحف كاملاً للاستماع دون اتصال",
+  "reciterWifiOnly": "عبر Wi-Fi فقط",
+  "recitersFooter": "التلاوات المتاحة تأتي من مصدر المحتوى المرخّص، والتحميل يتيح الاستماع دون اتصال.",
+  "recitersEmpty": "لا يوجد قارئ بهذا الاسم",
+  "recitersEmptyHint": "جرّب جزءاً من الاسم",
+  "reciteTitle": "التسميع",
+  "reciteBeta": "تجريبي",
+  "reciteModeRead": "قراءة",
+  "reciteModeListen": "استماع",
+  "reciteModeRecite": "تسميع",
+  "reciteShowAyat": "إظهار الآيات",
+  "reciteListening": "يستمع إليك",
+  "reciteStop": "إيقاف التسميع",
+  "reciteStart": "ابدأ التسميع",
+  "reciteHearReciter": "استمع إلى القارئ",
+  "reciteOk": "{count, plural, =1{آية واحدة صحيحة} =2{آيتان صحيحتان} few{{count} آيات صحيحة} other{{count} آية صحيحة}}",
+  "@reciteOk": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reciteWarn": "تنبيه: {word}",
+  "@reciteWarn": {
+    "placeholders": {
+      "word": {
+        "type": "String"
+      }
+    }
+  },
+  "reciteMicRationale": "نستمع لتلاوتك على جهازك فقط",
+  "reciteUnavailable": "نموذج التسميع غير متاح بعد على هذا الجهاز",
+  "hifzTitle": "خطة الحفظ",
+  "hifzBack": "رجوع إلى الفهرس",
+  "hifzEdit": "تعديل الخطة",
+  "hifzFinish": "الختام ≈ {date}",
+  "@hifzFinish": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "hifzToday": "حفظ اليوم",
+  "hifzRange": "سورة {surah} · الآيات {from}–{to}",
+  "@hifzRange": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      },
+      "from": {
+        "type": "int"
+      },
+      "to": {
+        "type": "int"
+      }
+    }
+  },
+  "hifzStepListen": "استمع · 3 مرات",
+  "hifzStepRepeat": "كرّر · 10 مرات",
+  "hifzStepTest": "اختبر نفسك · بإخفاء الآيات",
+  "hifzReciteNow": "سمّع الآن لتثبيت الحفظ",
+  "hifzMarkDone": "حفظت مقطع اليوم",
+  "hifzReview": "مراجعة اليوم",
+  "hifzMemorisedAgo": "حُفظت قبل {days} أيام · آخر مراجعة قبل {last} أيام",
+  "@hifzMemorisedAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      },
+      "last": {
+        "type": "int"
+      }
+    }
+  },
+  "hifzDueToday": "مستحقة اليوم",
+  "hifzNeedsWork": "تحتاج تثبيت",
+  "hifzTomorrow": "غداً",
+  "hifzInDays": "بعد {days} أيام",
+  "@hifzInDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "hifzHowWasIt": "كيف كانت المراجعة؟",
+  "hifzHard": "صعبة · غداً",
+  "hifzGood": "جيدة · {days} أيام",
+  "@hifzGood": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "hifzEasy": "متقنة · {days} يوماً",
+  "@hifzEasy": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "hifzReviewDone": "اكتملت مراجعة اليوم",
+  "hifzStrip": "آخر 14 يوماً · {days} يوم حفظ ومراجعة",
+  "@hifzStrip": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "hifzPlanSheet": "خطتي",
+  "hifzGoalAmma": "جزء عمّ",
+  "hifzGoalTabarak": "جزء تبارك",
+  "hifzGoalKahf": "سورة الكهف",
+  "hifzGoalAll": "القرآن كاملاً",
+  "hifzGoalMeta": "{surahs} سورة · {ayat} آية",
+  "@hifzGoalMeta": {
+    "placeholders": {
+      "surahs": {
+        "type": "int"
+      },
+      "ayat": {
+        "type": "int"
+      }
+    }
+  },
+  "hifzPerDay": "مقدار الحفظ الجديد يومياً",
+  "hifzPerDayValue": "{n} آيات يومياً",
+  "@hifzPerDayValue": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "hifzSavePlan": "حفظ الخطة",
+  "hifzStart": "ابدأ خطة الحفظ",
+  "hifzStartHint": "اختر هدفك ومقداراً يومياً يناسبك",
+  "hifzComplete": "أتممت خطتك، بارك الله فيك",
+  "minutesN": "{n} دقيقة",
+  "@minutesN": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "reciterRow": "{style} · {riwaya}",
+  "@reciterRow": {
+    "placeholders": {
+      "style": {
+        "type": "String"
+      },
+      "riwaya": {
+        "type": "String"
+      }
+    }
+  },
+  "reciterProgress": "{done} من 114 سورة",
+  "@reciterProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "reciterDeleteTitle": "حذف تلاوة {name}؟",
+  "@reciterDeleteTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "reciterDeleteBody": "ستحتاج إلى اتصال للاستماع إليها مرة أخرى.",
+  "reciterSelected": "القارئ المختار",
+  "reciterDownloadFailed": "توقف التحميل. المس للمتابعة.",
+  "useMobileData": "السماح بالتحميل عبر بيانات الجوال",
+  "delete": "حذف",
+  "azkarMorning": "أذكار الصباح",
+  "azkarEvening": "أذكار المساء",
+  "azkarAfterPrayer": "بعد الصلاة",
+  "azkarSleep": "النوم",
+  "azkarTitleAfterPrayer": "أذكار بعد الصلاة",
+  "azkarTitleSleep": "أذكار النوم",
+  "azkarKinds": "نوع الأذكار",
+  "azkarSettings": "الإعدادات: الاهتزاز والصوت",
+  "azkarPosition": "الذكر {n} من {total}",
+  "@azkarPosition": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "azkarTapHint": "اضغط في أي مكان على البطاقة للعدّ",
+  "azkarNext": "تقبّل الله · انتقل للذكر التالي",
+  "azkarSetDone": "تقبّل الله، اكتملت الأذكار",
+  "azkarRest": "باقي الأذكار",
+  "azkarCount": "{count} / {total}",
+  "@azkarCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "azkarCounterA11y": "العدّاد {count} من {total}، اضغط للعد",
+  "@azkarCounterA11y": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "azkarReset": "إعادة العدّ",
+  "azkarEmpty": "ستظهر الأذكار هنا بعد مراجعتها ونشرها",
+  "contentOfflineHint": "اتصل بالإنترنت مرة واحدة لتنزيل المحتوى المراجَع",
+  "azkarHaptics": "الاهتزاز مع كل عدّة",
+  "azkarSound": "صوت نقرة خفيف",
+  "duasTitle": "الأدعية",
+  "duaOfTheDay": "دعاء اليوم",
+  "duaShare": "مشاركة الدعاء",
+  "duaFavAdd": "إضافة إلى المفضلة",
+  "duaFavRemove": "إزالة من المفضلة",
+  "duaSections": "الأقسام",
+  "duaCount": "{count, plural, =0{لا يوجد بعد} =1{دعاء واحد} =2{دعاءان} few{{count} أدعية} other{{count} دعاءً}}",
+  "@duaCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "duaFavCount": "{count, plural, =0{لا يوجد بعد} other{{count} محفوظ}}",
+  "@duaFavCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "duaCatWorry": "الهم والحزن",
+  "duaCatTravel": "السفر",
+  "duaCatFood": "الطعام",
+  "duaCatSleep": "النوم",
+  "duaCatMosque": "المسجد",
+  "duaCatGeneral": "أدعية عامة",
+  "duaFavourites": "المفضلة",
+  "duasEmpty": "ستظهر الأدعية هنا بعد مراجعتها ونشرها",
+  "greetingMorning": "صباح الخير",
+  "guestName": "ضيف",
+  "homeSearch": "ابحث في القرآن",
+  "homeInboxA11y": "{count, plural, =0{الإشعارات} other{الإشعارات، {count} غير مقروءة}}",
+  "@homeInboxA11y": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "homePrayerNow": "حان وقت صلاة {prayer}",
+  "@homePrayerNow": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "homeHeroA11y": "الصلاة القادمة {prayer} الساعة {time}، الأذان بعد {left}",
+  "@homeHeroA11y": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      },
+      "left": {
+        "type": "String"
+      }
+    }
+  },
+  "homeListenTo": "استمع إلى سورة {surah}",
+  "@homeListenTo": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      }
+    }
+  },
+  "homeReadingMeta": "سورة {surah} · الصفحة {page} · الجزء {juz}",
+  "@homeReadingMeta": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      },
+      "page": {
+        "type": "int"
+      },
+      "juz": {
+        "type": "int"
+      }
+    }
+  },
+  "homeStartReading": "ابدأ القراءة",
+  "homeKahfSuggestion": "الجمعة: سورة الكهف",
+  "homeStreakHint": "أكمل ورد اليوم للحفاظ عليها",
+  "homeJoin": "ابدأ رحلة 365 يوماً",
+  "homeJoinHint": "مهام يومية بسيطة ونقاط تُستبدل في متجر يقين",
+  "servicesTitle": "الخدمات",
+  "challengeCalendar": "تقويم اليقين",
+  "challengeQadaDays": "{count, plural, =0{لا أيام قضاء} =1{يوم قضاء واحد} =2{يوما قضاء} few{{count} أيام قضاء} other{{count} يوم قضاء}}",
+  "@challengeQadaDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "challengeTodayProgress": "{done} من {total}",
+  "@challengeTodayProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "challengePointsLabel": "{points} نقطة",
+  "@challengePointsLabel": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "taskPrivate": "خاص بك",
+  "taskAuto": "يُحتسب تلقائياً",
+  "taskOpen": "افتح",
+  "tickDayClosed": "انتهى هذا اليوم، ولم تُحتسب المهمة",
+  "tickQadaPassed": "انتهت مهلة القضاء لهذا اليوم",
+  "tickFailed": "تعذّر احتساب المهمة الآن، سنحاول لاحقاً",
+  "milestoneTitle": "بارك الله فيك",
+  "milestoneBody": "{days} يوماً من اليقين · +{points}",
+  "@milestoneBody": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      },
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "milestoneOk": "الحمد لله",
+  "redeemCardTitle": "مكافأة متجر يقين",
+  "redeemCardHint": "{points} نقطة لكل مكافأة",
+  "@redeemCardHint": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "challengeSignIn": "سجّل الدخول لتبدأ التحدي وتجمع النقاط",
+  "signIn": "تسجيل الدخول",
+  "calendarBack": "رجوع إلى التحدي",
+  "calendarJourney": "رحلة 365 يوماً",
+  "calendarStarted": "بدأت {start} · تنتهي ≈ {end}",
+  "@calendarStarted": {
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
+  "calendarPrev": "الشهر السابق",
+  "calendarNext": "الشهر التالي",
+  "calDone": "مكتمل",
+  "calPartial": "جزئي",
+  "calQada": "قضاء",
+  "calMissed": "فائت",
+  "calToday": "اليوم",
+  "calFuture": "قادم",
+  "calOutside": "خارج الرحلة",
+  "calWhiteDays": "الأيام البيض",
+  "calFriday": "الجمعة",
+  "calMonThu": "الإثنين/الخميس",
+  "calRamadan": "رمضان",
+  "calEidFitr": "عيد الفطر",
+  "calEidAdha": "عيد الأضحى",
+  "calArafah": "يوم عرفة",
+  "calAshura": "عاشوراء",
+  "calSat": "سبت",
+  "calSun": "أحد",
+  "calMon": "إثنين",
+  "calTue": "ثلاثاء",
+  "calWed": "أربعاء",
+  "calThu": "خميس",
+  "calFri": "جمعة",
+  "calScore": "{status} · {points} / {total}",
+  "@calScore": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      },
+      "points": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "calMakeUp": "قضاء هذا اليوم الآن · يحافظ على رحلتك",
+  "calMakeUpHint": "اضغط على المهام التي أتممتها لهذا اليوم",
+  "calFinishToday": "أكمل مهام اليوم",
+  "calFooter": "الهجري من تقويم أم القرى عبر AlAdhan · تعديل ±1 يوم من الإعدادات",
+  "calBonusWhite": "الأيام البيض · مهمة صيام إضافية",
+  "calBonusMonThu": "صيام الإثنين والخميس · مهمة إضافية",
+  "calBonusKahf": "الجمعة · سورة الكهف",
+  "calCellA11y": "{hijri}، {greg}، {status}",
+  "@calCellA11y": {
+    "placeholders": {
+      "hijri": {
+        "type": "String"
+      },
+      "greg": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "redeemBalance": "رصيدك الحالي {points} نقطة",
+  "@redeemBalance": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "redeemChoose": "اختر مكافأة",
+  "redeemAvailable": "متاح",
+  "redeemShort": "ينقصك {points}",
+  "@redeemShort": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "redeemNote": "النقاط تُكتسب من مهام التحدي اليومية. لكل كود استخدام واحد ولا يُستبدل نقداً.",
+  "redeemConfirmTitle": "تأكيد الاستبدال",
+  "redeemReward": "المكافأة",
+  "redeemDeducted": "النقاط المخصومة",
+  "redeemAfter": "الرصيد بعد الاستبدال",
+  "redeemLoading": "جارٍ إنشاء الكود…",
+  "redeemSuccess": "بارك الله لك",
+  "redeemSuccessBody": "هذا كود {reward}، صالح لاستخدام واحد في متجر يقين.",
+  "@redeemSuccessBody": {
+    "placeholders": {
+      "reward": {
+        "type": "String"
+      }
+    }
+  },
+  "redeemEmailed": "يصلك الكود أيضاً على بريدك · صالح حتى {date}",
+  "@redeemEmailed": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "redeemShop": "تسوّق الآن",
+  "redeemBack": "العودة إلى المكافآت",
+  "redeemErrInsufficient": "رصيدك لا يكفي بعد",
+  "redeemErrOutOfStock": "نفدت هذه المكافأة",
+  "redeemErrMonthly": "وصلت للحد الشهري لهذه المكافأة",
+  "redeemErrStore": "المتجر غير متاح الآن، لم تُخصم نقاطك",
+  "redeemErrAccount": "سجّل الدخول لاستبدال النقاط",
+  "redeemErrOffline": "الاستبدال يحتاج اتصالاً بالإنترنت",
+  "redeemErrInProgress": "جارٍ إنشاء كودك، حاول بعد لحظات",
+  "myCodes": "أكوادي",
+  "codesEmpty": "لا توجد أكواد بعد",
+  "codeActive": "صالح حتى {date}",
+  "@codeActive": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "codeUsed": "مُستخدم",
+  "codeExpired": "منتهي",
+  "codeVoid": "ملغي · أُعيدت النقاط",
+  "welcomeSalam": "السلام عليكم",
+  "welcomeTitle": "طمأنينةٌ يومية\nتبدأ من هنا",
+  "welcomeBody": "اقرأ واستمع إلى القرآن، وحافظ على صلاتك وأذكارك، ورافقنا في رحلة 365 يوماً من اليقين.",
+  "welcomeBenefitQuran": "مصحف كامل مع تلاوات وتصحيح للقراءة",
+  "welcomeBenefitPrayer": "مواقيت دقيقة وقبلة وتنبيه للأذان",
+  "welcomeBenefitPoints": "نقاط يومية تُستبدل بخصومات في متجر يقين",
+  "welcomeGoogle": "المتابعة باستخدام Google",
+  "welcomeApple": "المتابعة باستخدام Apple",
+  "welcomeGuest": "المتابعة كضيف",
+  "welcomeLegal": "بالمتابعة فإنك توافق على الشروط وسياسة الخصوصية",
+  "welcomeError": "تعذّر تسجيل الدخول، حاول مرة أخرى",
+  "welcomeOffline": "يلزم اتصال لتسجيل الدخول",
+  "languageOther": "English",
+  "stepOf": "الخطوة {n} من 4",
+  "@stepOf": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "stepEyebrow": "0{n} / 04",
+  "@stepEyebrow": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "langTitle": "لغتك ومصحفك",
+  "langSub": "يمكنك تغيير ذلك لاحقاً من الإعدادات.",
+  "langApp": "لغة التطبيق",
+  "langArabic": "العربية",
+  "langEnglish": "الإنجليزية",
+  "langScript": "رسم المصحف",
+  "scriptUthmani": "الرسم العثماني",
+  "scriptUthmaniDetail": "مصحف المدينة النبوية",
+  "scriptIndopak": "الرسم الهندي",
+  "scriptIndopakDetail": "شائع في جنوب آسيا",
+  "langFontSize": "حجم الخط",
+  "prayerSetupTitle": "مواقيت دقيقة لمكانك",
+  "prayerSetupSub": "نستخدم موقعك لحساب الصلاة والقبلة فقط، ويُحفظ على جهازك.",
+  "prayerSetupAuto": "تم تحديد موقعك تلقائياً",
+  "prayerSetupManual": "اختر مدينتك",
+  "prayerSetupLocate": "تحديد موقعي",
+  "change": "تغيير",
+  "prayerSetupMethod": "طريقة الحساب",
+  "prayerSetupAsr": "مذهب العصر",
+  "prayerSetupAdhan": "تنبيه الأذان",
+  "prayerSetupAdhanDetail": "بصوت الحرم المكي · قبل الصلاة بـ {minutes} دقائق",
+  "@prayerSetupAdhanDetail": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "consentTitle": "تنبيهات تهمّك\nوخصوصيتك محفوظة",
+  "consentSub": "اختر ما يصلك. يمكنك تغيير ذلك في أي وقت من الإعدادات.",
+  "consentWorship": "تذكيرات العبادة",
+  "consentWorshipDetail": "الأذان، الأذكار، الورد ومراجعة الحفظ. تعمل من هاتفك حتى دون إنترنت.",
+  "consentChallenge": "التحدي والمكافآت",
+  "consentChallengeDetail": "تقدمك في 365 يوماً، والأيام الفائتة، ورصيد يكفي لمكافأة.",
+  "consentOffers": "عروض متجر يقين",
+  "consentOffersDetail": "خصومات وإصدارات جديدة، بحد أقصى رسالة واحدة يومياً.",
+  "consentAds": "تحسين إعلانات يقين",
+  "consentAdsDetail": "قياس نجاح إعلاناتنا على جوجل وميتا وتيك توك: التحميل والتسجيل والاستبدال فقط.",
+  "consentPrivacyNote": "عباداتك لا تُشارك أبداً مع أي منصة إعلانية: لا قراءة ولا صلاة ولا ذكر ولا حفظ.",
+  "privacyPolicy": "سياسة الخصوصية",
+  "terms": "الشروط",
+  "consentOsHint": "سيطلب هاتفك بعدها إذن الإشعارات",
+  "consentOsHintAtt": "سيطلب هاتفك بعدها إذن الإشعارات، وعلى iPhone إذن التتبع",
+  "goalTitle": "وِردك اليومي",
+  "goalSub": "قليلٌ دائم خيرٌ من كثيرٍ منقطع. اختر ما يناسب يومك.",
+  "goalPage": "صفحة",
+  "goalTwoPages": "صفحتان",
+  "goalFourPages": "4 صفحات",
+  "goalJuz": "جزء",
+  "goalReminder": "وقت التذكير",
+  "goalChallengeEyebrow": "تحدٍّ سنوي",
+  "goalJoin": "الانضمام إلى التحدي",
+  "goalChallengeBody": "أكمل وردك وأذكارك وصلواتك كل يوم، واجمع النقاط لتستبدلها بخصومات حصرية في متجر يقين.",
+  "goalDailyPoints": "{points} نقطة يومياً",
+  "@goalDailyPoints": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "goalRewardPoints": "{points} نقطة = مكافأة",
+  "@goalRewardPoints": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "goalStart": "ابدأ رحلتي",
+  "signInToKeep": "سجّل الدخول لتحفظ نقاطك",
+  "downloadEyebrow": "تجهيز المصحف",
+  "downloadTitle": "القرآن معك\nحتى دون اتصال",
+  "downloadSub": "نحمّل النص والخطوط مرة واحدة، ونحدّثها تلقائياً كل أسبوع.",
+  "downloadText": "نص المصحف · رواية حفص",
+  "downloadFont": "خط المصحف العثماني",
+  "downloadTafsir": "التفسير الميسر",
+  "downloadAudio": "تلاوة {reciter} · اختياري · عبر Wi-Fi فقط",
+  "@downloadAudio": {
+    "placeholders": {
+      "reciter": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadReady": "جاهز",
+  "downloadBundled": "مضمَّن في التطبيق",
+  "downloadPending": "متاح بعد اعتماد المصدر المرخّص",
+  "downloadStart": "ابدأ الآن",
+  "downloadBackground": "يستمر التحميل في الخلفية",
+  "profileTitle": "حسابي",
+  "profileLinked": "مرتبط بحساب {provider} · مزامنة مفعّلة",
+  "@profileLinked": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "profileGuestCta": "سجّل الدخول لحفظ نقاطك",
+  "profileBalance": "رصيد النقاط",
+  "profileLedger": "سجل النقاط",
+  "profileToNext": "{points} نقطة حتى المكافأة التالية",
+  "@profileToNext": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "profileRewards": "مكافآت متجر يقين",
+  "profileVisitStore": "زيارة المتجر",
+  "profileSettings": "الإعدادات",
+  "profileLanguage": "اللغة والمصحف",
+  "profilePrayer": "مواقيت الصلاة والتنبيهات",
+  "profilePrivacy": "الخصوصية والموافقات",
+  "profileDownloads": "التنزيلات دون اتصال",
+  "profileAbout": "عن يقين",
+  "profileContact": "تواصل معنا",
+  "profileExport": "تصدير بياناتي",
+  "profileDelete": "حذف الحساب",
+  "profileSignOut": "تسجيل الخروج",
+  "profilePending": "{count, plural, =1{تغيير واحد بانتظار المزامنة} =2{تغييران بانتظار المزامنة} few{{count} تغييرات بانتظار المزامنة} other{{count} تغييراً بانتظار المزامنة}}",
+  "@profilePending": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteStep1Title": "حذف الحساب؟",
+  "deleteStep1Body": "تُحذف بيانات حسابك ونقاطك وأكوادك نهائياً بعد 30 يوماً، ويمكنك التراجع بتسجيل الدخول خلال هذه المدة. تُمسح بيانات هذا الجهاز الآن.",
+  "deleteStep2Title": "تأكيد نهائي",
+  "deleteStep2Body": "لن تتمكن من استرجاع النقاط بعد 30 يوماً.",
+  "deleteConfirm": "نعم، احذف حسابي",
+  "deleteDone": "تم طلب حذف الحساب",
+  "signOutConfirm": "تسجيل الخروج؟ تبقى بيانات المصحف على هذا الجهاز.",
+  "exportReady": "بياناتك جاهزة للمشاركة",
+  "ledgerTask": "مهمة يومية",
+  "ledgerBonus": "مهمة إضافية",
+  "ledgerMilestone": "مكافأة مواظبة",
+  "ledgerGrant": "منحة",
+  "ledgerQada": "قضاء",
+  "ledgerRedemption": "استبدال",
+  "ledgerAdjust": "تعديل",
+  "ledgerReversal": "استرجاع",
+  "ledgerEmpty": "لا توجد حركات بعد",
+  "downloadsUsed": "{size} مستخدمة",
+  "@downloadsUsed": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "megabytes": "{n} م.ب",
+  "@megabytes": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadsNone": "لا توجد تنزيلات بعد",
+  "downloadsAudio": "التلاوات",
+  "accountGoogle": "Google",
+  "accountApple": "Apple",
+  "packInstall": "تحميل · {size}",
+  "@packInstall": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "packInstalling": "جارٍ التحميل…",
+  "packInstalled": "مثبّت",
+  "packChecksumFailed": "تعذّر التحقق من الملف، لم يُثبَّت. حاول مرة أخرى.",
+  "packsTitle": "الكتب والتفاسير",
+  "tafsirAttribution": "التفسير الميسر · مجمع الملك فهد لطباعة المصحف الشريف · المصدر: QuranEnc.com"
 }

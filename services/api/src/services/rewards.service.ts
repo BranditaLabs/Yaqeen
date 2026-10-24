@@ -4,7 +4,7 @@ import type { AppContext } from '../context.js';
 import { pointsLedger, redemptions, rewards } from '../db/schema.js';
 import { canAfford } from '../domain/points.js';
 import { buildDiscountRequest, generateCode } from '../domain/shopify.js';
-import { badRequest, conflict, notFound } from '../lib/errors.js';
+import { AppError, badRequest, conflict, notFound } from '../lib/errors.js';
 import { balance } from './challenge.service.js';
 
 /**
@@ -14,7 +14,7 @@ import { balance } from './challenge.service.js';
  * lock so two taps can't overspend), then Shopify is called. If Shopify fails, the debit
  * is reversed with a compensating ledger row and the redemption is voided.
  */
-export async function redeem(ctx: AppContext, userId: string, rewardId: string): Promise<Redemption> {
+export async function redeem(ctx: AppContext, userId: string, rewardId: string, idempotencyKey?: string): Promise<Redemption> {
   const [reward] = await ctx.db.select().from(rewards).where(eq(rewards.id, rewardId));
   if (!reward || !reward.active) throw notFound('reward');
 
@@ -24,6 +24,17 @@ export async function redeem(ctx: AppContext, userId: string, rewardId: string):
 
   const redemption = await ctx.db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${userId}))`);
+    if (idempotencyKey) {
+      const [prev] = await tx
+        .select()
+        .from(redemptions)
+        .where(and(eq(redemptions.userId, userId), eq(redemptions.idempotencyKey, idempotencyKey)));
+      if (prev) {
+        // Same tap retried: the first request may still be talking to Shopify.
+        if (!prev.shopifyDiscountId) throw conflict('redemption_in_progress');
+        return { ...prev, replay: true as const };
+      }
+    }
     const [b] = await tx
       .select({ total: sql<string>`coalesce(sum(${pointsLedger.delta}), 0)` })
       .from(pointsLedger)
@@ -50,12 +61,12 @@ export async function redeem(ctx: AppContext, userId: string, rewardId: string):
         .select({ n: sql<string>`count(*)` })
         .from(redemptions)
         .where(and(eq(redemptions.rewardId, reward.id), gte(redemptions.createdAt, monthStart), sql`${redemptions.status} <> 'void'`));
-      if (Number(c?.n ?? 0) >= reward.monthlyCap) throw conflict('reward_cap_reached');
+      if (Number(c?.n ?? 0) >= reward.monthlyCap) throw conflict('reward_out_of_stock');
     }
 
     const [r] = await tx
       .insert(redemptions)
-      .values({ userId, rewardId: reward.id, code, costPoints: reward.costPoints, expiresAt })
+      .values({ userId, rewardId: reward.id, code, costPoints: reward.costPoints, expiresAt, idempotencyKey: idempotencyKey ?? null })
       .returning();
     await tx.insert(pointsLedger).values({
       userId,
@@ -63,8 +74,19 @@ export async function redeem(ctx: AppContext, userId: string, rewardId: string):
       reason: 'redemption',
       refKey: `redemption:${r!.id}`,
     });
-    return r!;
+    return { ...r!, replay: false as const };
   });
+
+  if (redemption.replay) {
+    return {
+      id: redemption.id,
+      rewardId: redemption.rewardId,
+      code: redemption.code,
+      status: redemption.status,
+      expiresAt: redemption.expiresAt.toISOString(),
+      balanceAfter: await balance(ctx, userId),
+    };
+  }
 
   try {
     const discountId = await ctx.shopify.createDiscount(
@@ -81,7 +103,8 @@ export async function redeem(ctx: AppContext, userId: string, rewardId: string):
     await ctx.db.update(redemptions).set({ shopifyDiscountId: discountId }).where(eq(redemptions.id, redemption.id));
   } catch (err) {
     await ctx.db.transaction(async (tx) => {
-      await tx.update(redemptions).set({ status: 'void' }).where(eq(redemptions.id, redemption.id));
+      // Free the key so the user can simply try again once the store is back.
+      await tx.update(redemptions).set({ status: 'void', idempotencyKey: null }).where(eq(redemptions.id, redemption.id));
       await tx.insert(pointsLedger).values({
         userId,
         delta: reward.costPoints,
@@ -90,7 +113,8 @@ export async function redeem(ctx: AppContext, userId: string, rewardId: string):
         note: 'Shopify discount creation failed',
       });
     });
-    throw err;
+    // One stable code for the app («المتجر غير متاح الآن، لم تُخصم نقاطك»); details stay in the message.
+    throw new AppError(503, 'shopify_unavailable', err instanceof Error ? err.message : 'Shopify unavailable');
   }
 
   return {

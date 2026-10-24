@@ -7,7 +7,7 @@ export type AdminRole = z.infer<typeof AdminRole>;
 export const AuthProvider = z.enum(['google', 'apple', 'guest']);
 export type AuthProvider = z.infer<typeof AuthProvider>;
 
-export const UserStatus = z.enum(['active', 'suspended', 'under_review', 'deletion_requested']);
+export const UserStatus = z.enum(['active', 'suspended', 'under_review', 'deletion_requested', 'deleted']);
 export type UserStatus = z.infer<typeof UserStatus>;
 
 /**
@@ -30,8 +30,25 @@ export type DayStatus = z.infer<typeof DayStatus>;
 export const LedgerReason = z.enum(['task', 'bonus', 'milestone', 'grant', 'qada', 'redemption', 'admin_adjustment', 'reversal']);
 export type LedgerReason = z.infer<typeof LedgerReason>;
 
-export const ContentType = z.enum(['dua', 'zikr']);
+/** `splash_verse` goes through the same review workflow but is served via /v1/config, not /v1/content. */
+export const ContentType = z.enum(['dua', 'zikr', 'splash_verse']);
 export type ContentType = z.infer<typeof ContentType>;
+
+/** Stable category keys — the app maps them to tabs/sections; admins pick from these (spec §5.19, §5.20). */
+export const ZIKR_CATEGORIES = ['morning', 'evening', 'after_prayer', 'sleep'] as const;
+export const DUA_CATEGORIES = ['worry', 'travel', 'food', 'sleep', 'mosque', 'general'] as const;
+export const CONTENT_CATEGORY_LABELS: Record<string, string> = {
+  morning: 'أذكار الصباح',
+  evening: 'أذكار المساء',
+  after_prayer: 'أذكار بعد الصلاة',
+  sleep: 'النوم',
+  worry: 'الهم والحزن',
+  travel: 'السفر',
+  food: 'الطعام',
+  mosque: 'المسجد',
+  general: 'أدعية عامة',
+  splash: 'آية البداية',
+};
 
 export const ContentStatus = z.enum(['draft', 'pending_review', 'changes_requested', 'published']);
 export type ContentStatus = z.infer<typeof ContentStatus>;
@@ -62,3 +79,10 @@ export type PrayerMethod = z.infer<typeof PrayerMethod>;
 
 export const AsrSchool = z.enum(['standard', 'hanafi']);
 export type AsrSchool = z.infer<typeof AsrSchool>;
+
+export const PackKind = z.enum(['tafsir', 'font', 'audio', 'translation']);
+export type PackKind = z.infer<typeof PackKind>;
+
+/** Feature flags the app reads from /v1/config. Unknown keys are ignored by the app. */
+export const FEATURE_FLAGS = ['challenge', 'rewards', 'hifz', 'listen', 'bonuses', 'recite', 'ramadan', 'tafsirFull'] as const;
+export type FeatureFlag = (typeof FEATURE_FLAGS)[number];

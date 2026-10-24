@@ -8,6 +8,7 @@ import { challengeDayNumber, localToday } from '../../domain/points.js';
 import { audit } from '../../lib/audit.js';
 import { maskEmail } from '../../lib/crypto.js';
 import { badRequest, notFound } from '../../lib/errors.js';
+import { DELETION_GRACE_DAYS, exportUser } from '../public/me.routes.js';
 import { adminOf } from '../../plugins/auth.js';
 
 export const adminUsersRoutes: FastifyPluginAsync = async (app) => {
@@ -85,10 +86,28 @@ export const adminUsersRoutes: FastifyPluginAsync = async (app) => {
       city: u.city,
       joinedAt: u.createdAt,
       lastSeenAt: u.lastSeenAt,
+      deletionRequestedAt: u.deletionRequestedAt,
+      deletionDueAt: u.deletionRequestedAt ? new Date(u.deletionRequestedAt.getTime() + DELETION_GRACE_DAYS * 86_400_000) : null,
       balance: ledger.length ? Number((await db.select({ s: sql<string>`sum(${pointsLedger.delta})` }).from(pointsLedger).where(eq(pointsLedger.userId, id)))[0]?.s ?? 0) : 0,
       ledger: ledger.map((l) => ({ id: l.id, delta: l.delta, reason: l.reason, note: l.note, createdAt: l.createdAt })),
       redemptions: reds,
     };
+  });
+
+  /**
+   * PDPL access request handled by support: account, consents, ledger, redemptions.
+   * Worship history is deliberately left out — only the user can export that, from the app.
+   */
+  app.get('/:id/export', { preHandler: write }, async (req, reply) => {
+    const { id } = z.object({ id: z.uuid() }).parse(req.params);
+    const [u] = await db.select({ id: users.id }).from(users).where(eq(users.id, id));
+    if (!u) throw notFound('user');
+    const data = await db.transaction(async (tx) => {
+      await audit(tx, req, { action: 'user.export', targetType: 'user', targetId: id });
+      return exportUser(db, id, { includeWorship: false });
+    });
+    reply.header('Content-Disposition', `attachment; filename="yaqeen-user-${id.slice(0, 8)}.json"`);
+    return { exportedAt: app.ctx.now().toISOString(), exportedBy: 'support', worshipHistory: 'excluded — available to the user in the app', ...data };
   });
 
   /** Manual points adjustment — reason is mandatory and the action is audited. */

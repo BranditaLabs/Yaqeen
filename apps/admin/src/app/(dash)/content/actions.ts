@@ -1,7 +1,8 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { DailyTaskUpsert, ReviewDecision, UpsertContentRequest } from '@yaqeen/contracts';
+import { cookies } from 'next/headers';
+import { AdminRole, DailyTaskUpsert, ReviewDecision, UpsertContentRequest } from '@yaqeen/contracts';
 import { tryApi } from '@/lib/api';
 
 type S = { error: string | null; ok?: boolean };
@@ -15,8 +16,14 @@ export async function createContent(_prev: S, form: FormData): Promise<S> {
     translationEn: (form.get('translationEn') as string) || null,
     source: form.get('source'),
     repeatCount: Number(form.get('repeatCount') || 1),
+    virtue: (form.get('virtue') as string) || null,
+    sortOrder: Number(form.get('sortOrder') || 0),
+    featured: form.get('featured') === '1',
   });
-  if (!parsed.success) return { error: 'أكمل الحقول المطلوبة — المصدر إلزامي' };
+  if (!parsed.success) {
+    const badCategory = parsed.error.issues.some((i) => i.message === 'unknown_category');
+    return { error: badCategory ? 'التصنيف لا يناسب النوع — اختر تصنيف أذكار للذِّكر وتصنيف أدعية للدعاء' : 'أكمل الحقول المطلوبة — المصدر إلزامي' };
+  }
   const created = await tryApi<{ id: string }>('/admin/content', { method: 'POST', body: parsed.data });
   if (created.error || !created.data) return { error: created.error };
   if (form.get('submit') === '1') {
@@ -49,4 +56,13 @@ export async function upsertDailyTask(_prev: S, form: FormData): Promise<S> {
   if (error) return { error };
   revalidatePath('/content');
   return { error: null, ok: true };
+}
+
+/** Dev-only «تعرض كـ» toggle (ignored in production builds). */
+export async function setPreviewRole(form: FormData) {
+  if (process.env.NODE_ENV === 'production') return;
+  const role = AdminRole.safeParse(form.get('role'));
+  const jar = await cookies();
+  if (role.success) jar.set('yq_preview_role', role.data, { httpOnly: true, sameSite: 'strict', path: '/content' });
+  revalidatePath('/content');
 }

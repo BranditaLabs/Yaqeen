@@ -1,0 +1,63 @@
+# Migrations run once per release, before the new API pods roll out (CI applies this first and
+# waits for completion). Drizzle migrations are transactional and recorded, so re-runs are no-ops.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: yaqeen-migrate
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: ghcr.io/branditalabs/yaqeen-api:latest
+          command: ["node", "dist/db/migrate.js"]
+          envFrom: [{ secretRef: { name: yaqeen-api-secrets } }]
+---
+# Campaign dispatcher every 10 minutes. It holds a Postgres advisory lock, so an overlapping or
+# manual run skips instead of double-sending.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: yaqeen-campaigns
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 300
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 540
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: dispatcher
+              image: ghcr.io/branditalabs/yaqeen-api:latest
+              command: ["node", "dist/jobs/campaign-dispatcher.js"]
+              envFrom:
+                - configMapRef: { name: yaqeen-api-config }
+                - secretRef: { name: yaqeen-api-secrets }
+---
+# PDPL erasure: anonymise accounts 30 days after a deletion request (03:17 Cairo-ish, off-peak).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: yaqeen-purge
+spec:
+  schedule: "17 1 * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: purge
+              image: ghcr.io/branditalabs/yaqeen-api:latest
+              command: ["node", "dist/jobs/purge-deleted.js"]
+              envFrom:
+                - configMapRef: { name: yaqeen-api-config }
+                - secretRef: { name: yaqeen-api-secrets }

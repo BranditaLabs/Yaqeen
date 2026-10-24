@@ -11,13 +11,19 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:migrate:prod": "node dist/db/migrate.js",
     "db:seed": "tsx src/db/seed.ts",
-    "job:campaigns": "tsx src/jobs/campaign-dispatcher.ts"
+    "job:campaigns": "tsx src/jobs/campaign-dispatcher.ts",
+    "job:purge": "tsx src/jobs/purge-deleted.ts",
+    "content:export": "tsx src/scripts/export-content-seed.ts",
+    "load": "tsx load/run.ts"
   },
   "dependencies": {
+    "@fastify/compress": "^9.2.2",
     "@fastify/cors": "^11.0.0",
     "@fastify/helmet": "^13.0.0",
     "@fastify/rate-limit": "^10.3.0",
+    "@fastify/under-pressure": "^9.2.1",
     "@yaqeen/contracts": "workspace:*",
     "adhan": "^4.4.6",
     "drizzle-orm": "^0.45.0",
@@ -30,8 +36,10 @@
     "zod": "^4.1.0"
   },
   "devDependencies": {
+    "@types/autocannon": "^7.12.7",
     "@types/node": "^22.18.0",
     "@types/pg": "^8.15.0",
+    "autocannon": "^8.0.0",
     "drizzle-kit": "^0.31.0",
     "tsx": "^4.20.0",
     "typescript": "5.9.3",

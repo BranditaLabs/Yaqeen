@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { AdminRole, HijriAdjustRequest } from '@yaqeen/contracts';
+import { AdminRole, HijriAdjustRequest, SplashVerseUpdate, TestDevicesUpdate } from '@yaqeen/contracts';
 import { tryApi } from '@/lib/api';
 
 type S = { error: string | null; ok?: boolean; preview?: { firstOfMonths: { gregorian: string; hijriMonthNameAr: string; hijriYear: number }[]; warnings: string[] }; secret?: string };
@@ -14,9 +14,35 @@ export async function saveFlags(current: Record<string, boolean>, _prev: S, form
     messageEn: String(form.get('maintenanceEn') ?? ''),
   };
   const minVersion = { ios: String(form.get('minIos')), android: String(form.get('minAndroid')) };
-  const { error } = await tryApi('/admin/settings/config', { method: 'PATCH', body: { features, maintenance, minVersion } });
+  const pctOf = (k: string) => Math.min(100, Math.max(0, Math.round(Number(form.get(`rollout_${k}`) ?? 100))));
+  const featureRollout = Object.fromEntries(ROLLOUT_FLAGS.map((k) => [k, pctOf(k)]));
+  const { error } = await tryApi('/admin/settings/config', { method: 'PATCH', body: { features, featureRollout, maintenance, minVersion } });
   if (error) return { error };
   revalidatePath('/settings');
+  return { error: null, ok: true };
+}
+
+/** Flags rolled out gradually (stable bucketing by user id — see packages/contracts/src/rollout.ts). */
+const ROLLOUT_FLAGS = ['recite'];
+
+export async function proposeSplashVerse(_prev: S, form: FormData): Promise<S> {
+  const parsed = SplashVerseUpdate.safeParse({ textAr: String(form.get('textAr') ?? '').trim(), reference: String(form.get('reference') ?? '').trim() });
+  if (!parsed.success) return { error: 'اكتب الآية ومرجعها (السورة: رقم الآية)' };
+  const { error } = await tryApi('/admin/settings/splash-verse', { method: 'PUT', body: parsed.data });
+  if (error) return { error };
+  revalidatePath('/settings');
+  return { error: null, ok: true };
+}
+
+export async function saveTestDevices(_prev: S, form: FormData): Promise<S> {
+  const tokens = String(form.get('tokens') ?? '')
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const parsed = TestDevicesUpdate.safeParse({ tokens });
+  if (!parsed.success) return { error: 'حتى 5 رموز FCM، كل رمز في سطر' };
+  const { error } = await tryApi('/admin/auth/me/test-devices', { method: 'PUT', body: parsed.data });
+  if (error) return { error };
   return { error: null, ok: true };
 }
 
