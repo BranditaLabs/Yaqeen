@@ -1408,5 +1408,20 @@
         "type": "String"
       }
     }
+  },
+  "homeDayTitle": "Your day",
+  "homeNow": "Now",
+  "homeAzkarOpen": "Open now",
+  "homeNextTag": "Next",
+  "homeDayA11y": "{name}, {time}",
+  "@homeDayA11y": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
   }
 }

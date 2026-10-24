@@ -131,10 +131,13 @@ class LiquidGlass extends StatelessWidget {
 
 /// Tappable glass card with a gentle press-scale and haptic tick.
 class GlassTap extends StatefulWidget {
-  const GlassTap({super.key, required this.child, required this.onTap, this.semanticLabel});
+  const GlassTap({super.key, required this.child, required this.onTap, this.onLongPress, this.semanticLabel});
 
   final Widget child;
   final VoidCallback? onTap;
+
+  /// Handled by the same detector as [onTap], so a hold never also counts as a tap.
+  final VoidCallback? onLongPress;
   final String? semanticLabel;
 
   @override
@@ -159,6 +162,12 @@ class _GlassTapState extends State<GlassTap> {
             : () {
                 HapticFeedback.selectionClick();
                 widget.onTap!();
+              },
+        onLongPress: widget.onLongPress == null
+            ? null
+            : () {
+                setState(() => _down = false);
+                widget.onLongPress!();
               },
         child: AnimatedScale(
           scale: _down ? 0.98 : 1,

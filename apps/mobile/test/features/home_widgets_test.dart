@@ -15,7 +15,7 @@ import 'package:yaqeen/core/widgets/liquid_glass.dart';
 import 'package:yaqeen/core/widgets/yq_icon.dart';
 import 'package:yaqeen/features/home/data/tasbeeh_controller.dart';
 import 'package:yaqeen/features/home/home_screen.dart';
-import 'package:yaqeen/features/home/widgets/home_tiles.dart';
+import 'package:yaqeen/features/home/widgets/orbs.dart';
 import 'package:yaqeen/features/quran/domain/quran_data.dart';
 
 import '../helpers/fonts.dart';
@@ -35,12 +35,12 @@ void main() {
         overrides: [initialSettingsProvider.overrideWithValue(const AppSettings(place: Place.cairo)), ...overrides],
       );
 
-  group('Qibla tile', () {
+  group('Qibla orb', () {
     testWidgets('live: follows the compass and says when the phone faces the Qibla', (tester) async {
       final headings = StreamController<HeadingReading>();
       addTearDown(headings.close);
       await tester
-          .pumpWidget(tile(const QiblaTile(), overrides: [compassServiceProvider.overrideWithValue(FakeCompassService(headings.stream))]));
+          .pumpWidget(tile(const QiblaOrb(), overrides: [compassServiceProvider.overrideWithValue(FakeCompassService(headings.stream))]));
       // Cairo → Kaaba ≈ 136°.
       headings.add(const HeadingReading(100));
       await tester.pumpAndSettle();
@@ -55,10 +55,10 @@ void main() {
     });
 
     testWidgets('no compass: shows the bearing from north', (tester) async {
-      await tester.pumpWidget(tile(const QiblaTile(), overrides: [compassServiceProvider.overrideWithValue(FakeCompassService())]));
+      await tester.pumpWidget(tile(const QiblaOrb(), overrides: [compassServiceProvider.overrideWithValue(FakeCompassService())]));
       await tester.pumpAndSettle();
-      expect(find.text('136°'), findsOneWidget);
-      expect(find.textContaining('من الشمال باتجاه'), findsOneWidget);
+      expect(find.text('136°'), findsOneWidget); // centre of the orb
+      expect(find.text('136° من الشمال'), findsOneWidget); // status: the ring's top is north
     });
 
     testWidgets('stops listening while its tab is hidden', (tester) async {
@@ -66,7 +66,7 @@ void main() {
       final headings = StreamController<HeadingReading>.broadcast(onListen: () => listeners++, onCancel: () => listeners--);
       addTearDown(headings.close);
       Widget at(bool enabled) => tile(
-            TickerMode(enabled: enabled, child: const QiblaTile()),
+            TickerMode(enabled: enabled, child: const QiblaOrb()),
             overrides: [compassServiceProvider.overrideWithValue(FakeCompassService(headings.stream))],
           );
       await tester.pumpWidget(at(true));
@@ -78,12 +78,12 @@ void main() {
     });
   });
 
-  testWidgets('tasbeeh tile: tap counts, the count persists, hold resets', (tester) async {
+  testWidgets('tasbeeh orb: tap counts, the count persists, hold resets', (tester) async {
     final kv = MemoryKvStore();
-    await tester.pumpWidget(tile(const TasbeehTile(), kv: kv));
+    await tester.pumpWidget(tile(const TasbeehOrb(), kv: kv));
     await tester.pump();
     for (var i = 0; i < 34; i++) {
-      await tester.tap(find.byType(TasbeehTile));
+      await tester.tap(find.byType(TasbeehOrb));
       await tester.pump(const Duration(milliseconds: 20));
     }
     await tester.pumpAndSettle();
@@ -92,7 +92,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500)); // debounced save
     expect(kv.data[TasbeehController.key], '34');
 
-    await tester.longPress(find.byType(TasbeehTile));
+    await tester.longPress(find.byType(TasbeehOrb));
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 3)); // toast gone, save done
     expect(find.text('0'), findsOneWidget);
@@ -101,7 +101,7 @@ void main() {
 
   testWidgets('a saved count is restored on start', (tester) async {
     final kv = MemoryKvStore()..data[TasbeehController.key] = '99';
-    await tester.pumpWidget(tile(const TasbeehTile(), kv: kv));
+    await tester.pumpWidget(tile(const TasbeehOrb(), kv: kv));
     await tester.pumpAndSettle();
     expect(find.text('99'), findsOneWidget);
     expect(find.text('الدورة 4'), findsOneWidget);
@@ -111,7 +111,7 @@ void main() {
   for (final locale in ['ar', 'en']) {
     testWidgets('home golden ($locale)', (tester) async {
       debugDisableShadows = false;
-      tester.view.physicalSize = const Size(390 * 3, 1480 * 3);
+      tester.view.physicalSize = const Size(390 * 3, 1960 * 3);
       tester.view.devicePixelRatio = 3;
       addTearDown(tester.view.reset);
       final kv = MemoryKvStore()..data[TasbeehController.key] = '21';

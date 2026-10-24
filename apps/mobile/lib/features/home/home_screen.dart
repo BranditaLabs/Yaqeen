@@ -9,6 +9,7 @@ import '../../core/format.dart';
 import '../../core/settings/settings_controller.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/theme/typography.dart';
+import '../../core/time/zoned.dart';
 import '../../core/widgets/ambient_background.dart';
 import '../../core/widgets/controls.dart';
 import '../../core/widgets/liquid_glass.dart';
@@ -20,22 +21,26 @@ import '../calendar/data/hijri_today.dart';
 import '../challenge/presentation/challenge_controller.dart';
 import '../notifications/presentation/inbox_screen.dart';
 import '../onboarding/presentation/session_controller.dart';
+import '../prayer/domain/prayer_calculator.dart';
 import '../prayer/domain/prayer_clock.dart';
 import '../prayer/presentation/prayer_labels.dart';
 import '../quran/domain/quran_data.dart';
 import '../quran/presentation/quran_index_screen.dart';
 import '../quran/presentation/reader_screen.dart';
-import 'widgets/home_tiles.dart';
-import 'widgets/liquid_orb.dart';
+import 'widgets/day_journey.dart';
+import 'widgets/orbs.dart';
 import 'widgets/sky_arc.dart';
 
-/// `07 · Home` (spec §5.9) — today at a glance, structured as:
+/// `07 · Home` (spec §5.9) — "your day as a living canvas":
 ///
-/// 1. **Sky** — an edge-to-edge header (under the status bar) holding the greeting and the live
-///    day arc: next prayer, countdown, the five prayers. The sky follows the time of day.
-/// 2. **Continue** — one swipeable, snapping rail for what to resume now: reading, the azkar of the
-///    hour, the challenge. Three stacked cards become one row.
-/// 3. **Tools** — a bento grid of working widgets: a tall live Qibla tile; tasbeeh and wird.
+/// 1. **Sky stage** — edge to edge under the status bar: the greeting, then the moment itself —
+///    next prayer in large type, the countdown, and the sun (a crescent at night) travelling the
+///    day's arc under a sky that follows the time of day.
+/// 2. **Complications** — three living orbs: Qibla (the Kaaba orbits the ring and reaches the top
+///    when you face it), a misbaha you tap to count, and the wird filling like water.
+/// 3. **Your day** — one vertical journey: Fajr → morning azkar → Dhuhr → Asr → evening azkar →
+///    Maghrib → Isha. Past moments recede; a «now» marker carries what to do now (continue
+///    reading); azkar glow while their window is open; the challenge closes the day.
 /// 4. **Services** — the rest, one tap away.
 ///
 /// Everything but the challenge numbers is local, so the screen never waits on the network.
@@ -46,7 +51,6 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
-    final challenge = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.challenge)));
     return AmbientBackground(
       child: RefreshIndicator(
         color: YqColors.lapis,
@@ -59,26 +63,18 @@ class HomeScreen extends ConsumerWidget {
           slivers: [
             const SliverToBoxAdapter(child: _Reveal(order: 0, child: _Sky())),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(YqSpace.gutter, YqSpace.xl, YqSpace.gutter, YqSpace.m),
-              sliver: SliverToBoxAdapter(child: _Reveal(order: 1, child: _SectionTitle(t.homeContinueTitle))),
-            ),
-            SliverToBoxAdapter(
-              child: _Reveal(
-                order: 2,
-                child: _ContinueRail(cards: [const _ContinueReading(), const _AzkarNow(), if (challenge) const _ChallengeCard()]),
-              ),
-            ),
-            SliverPadding(
               padding: const EdgeInsets.fromLTRB(YqSpace.gutter, YqSpace.xl, YqSpace.gutter, 140),
               sliver: SliverList.list(
                 children: [
-                  _Reveal(order: 3, child: _SectionTitle(t.homeToolsTitle)),
+                  const _Reveal(order: 1, child: _Complications()),
+                  const SizedBox(height: YqSpace.xxl),
+                  _Reveal(order: 2, child: _SectionTitle(t.homeDayTitle)),
                   const SizedBox(height: YqSpace.m),
-                  const _Reveal(order: 4, child: _Bento()),
-                  const SizedBox(height: YqSpace.xl),
-                  _Reveal(order: 5, child: _SectionTitle(t.servicesTitle)),
+                  const _Reveal(order: 3, child: _Journey()),
+                  const SizedBox(height: YqSpace.l),
+                  _Reveal(order: 4, child: _SectionTitle(t.servicesTitle)),
                   const SizedBox(height: YqSpace.m),
-                  const _Reveal(order: 6, child: _Services()),
+                  const _Reveal(order: 5, child: _Services()),
                 ],
               ),
             ),
@@ -120,100 +116,6 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsetsDirectional.only(start: 4),
         child: Semantics(header: true, child: Text(title, style: Theme.of(context).textTheme.titleMedium)),
-      );
-}
-
-/// Swipeable, snapping row of "resume" cards with page dots. Each card fills the rail height.
-class _ContinueRail extends StatefulWidget {
-  const _ContinueRail({required this.cards});
-  final List<Widget> cards;
-
-  @override
-  State<_ContinueRail> createState() => _ContinueRailState();
-}
-
-class _ContinueRailState extends State<_ContinueRail> {
-  static const _height = 124.0;
-  final _pages = PageController(viewportFraction: 0.88);
-
-  @override
-  void dispose() {
-    _pages.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AppLocalizations.of(context);
-    final n = widget.cards.length;
-    return Column(
-      children: [
-        SizedBox(
-          height: _height,
-          child: PageView.builder(
-            controller: _pages,
-            padEnds: false,
-            itemCount: n,
-            itemBuilder: (context, i) => Padding(
-              padding: EdgeInsetsDirectional.only(start: YqSpace.gutter, end: i == n - 1 ? YqSpace.gutter : 0),
-              child: Semantics(label: t.homeRailPage(YqFormat.number(i + 1), YqFormat.number(n)), child: widget.cards[i]),
-            ),
-          ),
-        ),
-        if (n > 1) ...[
-          const SizedBox(height: YqSpace.s),
-          ExcludeSemantics(
-            child: AnimatedBuilder(
-              animation: _pages,
-              builder: (context, _) {
-                final page = _pages.hasClients && _pages.position.haveDimensions ? (_pages.page ?? 0) : 0.0;
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    for (var i = 0; i < n; i++)
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 3),
-                        width: 6 + 12 * (1 - (page - i).abs()).clamp(0.0, 1.0),
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: Color.lerp(YqColors.mist, YqColors.lapis, (1 - (page - i).abs()).clamp(0.0, 1.0)),
-                          borderRadius: BorderRadius.circular(YqRadii.pill),
-                        ),
-                      ),
-                  ],
-                );
-              },
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-/// Tools as a bento grid: a tall live Qibla tile beside tasbeeh over wird.
-class _Bento extends StatelessWidget {
-  const _Bento();
-
-  static const _tall = 300.0;
-  static const _tasbeeh = homeTileHeight;
-
-  @override
-  Widget build(BuildContext context) => const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(child: QiblaTile(height: _tall)),
-          SizedBox(width: YqSpace.m),
-          Expanded(
-            child: Column(
-              children: [
-                TasbeehTile(height: _tasbeeh),
-                SizedBox(height: YqSpace.m),
-                SizedBox(height: _tall - _tasbeeh - YqSpace.m, child: _WirdTile()),
-              ],
-            ),
-          ),
-        ],
       );
 }
 
@@ -338,9 +240,9 @@ class _Sky extends ConsumerWidget {
         return AnimatedContainer(
           duration: YqMotion.slow,
           curve: YqMotion.ease,
-          padding: EdgeInsets.fromLTRB(YqSpace.gutter, MediaQuery.paddingOf(context).top + YqSpace.m, YqSpace.gutter, YqSpace.l),
+          padding: EdgeInsets.fromLTRB(YqSpace.gutter, MediaQuery.paddingOf(context).top + YqSpace.m, YqSpace.gutter, YqSpace.xl),
           decoration: BoxDecoration(
-            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(36)),
+            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(40)),
             gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: skyColors(phase)),
             boxShadow: const [BoxShadow(color: Color(0x240F1A36), blurRadius: 30, spreadRadius: -12, offset: Offset(0, 12))],
           ),
@@ -348,7 +250,7 @@ class _Sky extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const _Header(),
-              const SizedBox(height: YqSpace.xl),
+              const SizedBox(height: YqSpace.xxl),
               Semantics(
                 button: true,
                 container: true,
@@ -358,44 +260,36 @@ class _Sky extends ConsumerWidget {
                 child: GlassTap(
                   onTap: () => context.go('/prayer'),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  t.nextPrayer,
-                                  style: text.labelSmall?.copyWith(color: YqColors.goldText, fontWeight: FontWeight.w600, fontSize: 12),
-                                ),
-                                Text(
-                                  moment.isPrayerTime ? t.homePrayerNow(name) : name,
-                                  style: text.headlineLarge?.copyWith(fontSize: moment.isPrayerTime ? 24 : 36, height: 1.2),
-                                ),
-                                if (!moment.isPrayerTime) Text('$at · ${t.adhanIn}', style: text.bodySmall?.copyWith(fontSize: 13)),
-                              ],
-                            ),
-                          ),
-                          if (!moment.isPrayerTime)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 16),
-                              child: RepaintBoundary(
-                                child: YqCountdown(
-                                  target: moment.at,
-                                  now: () => clock().toUtc(),
-                                  style: YqText.numeral.copyWith(fontSize: 30, fontWeight: FontWeight.w500, color: YqColors.ink, height: 1),
-                                ),
-                              ),
-                            ),
-                        ],
+                      Text(
+                        t.nextPrayer,
+                        style: text.labelSmall
+                            ?.copyWith(color: YqColors.goldText, fontWeight: FontWeight.w700, fontSize: 12, letterSpacing: 0.6),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
+                      Text(
+                        moment.isPrayerTime ? t.homePrayerNow(name) : name,
+                        textAlign: TextAlign.center,
+                        style: text.headlineLarge
+                            ?.copyWith(fontSize: moment.isPrayerTime ? 30 : 58, height: 1.15, fontWeight: FontWeight.w700),
+                      ),
+                      if (!moment.isPrayerTime) ...[
+                        Text('$at · ${t.adhanIn}', style: text.bodySmall?.copyWith(fontSize: 13)),
+                        const SizedBox(height: 6),
+                        RepaintBoundary(
+                          child: YqCountdown(
+                            target: moment.at,
+                            now: () => clock().toUtc(),
+                            style: YqText.numeral
+                                .copyWith(fontSize: 46, fontWeight: FontWeight.w300, color: YqColors.ink, height: 1, letterSpacing: 1),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 6),
                       RepaintBoundary(
                         child: SizedBox(
-                          height: 72,
+                          height: 92,
+                          width: double.infinity,
                           child: TweenAnimationBuilder<double>(
                             tween: Tween(end: position),
                             duration: YqMotion.slow,
@@ -410,26 +304,14 @@ class _Sky extends ConsumerWidget {
                         children: [
                           for (final p in obligatory)
                             Expanded(
-                              child: Column(
-                                children: [
-                                  Text(
-                                    prayerLabel(t, p, friday: friday),
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: p == shown ? YqColors.ink : YqColors.muted,
-                                      fontWeight: p == shown ? FontWeight.w700 : FontWeight.w400,
-                                    ),
-                                  ),
-                                  Text(
-                                    YqFormat.time(repo.local(s, times.of(p)), s.locale, suffix: false),
-                                    textDirection: TextDirection.ltr,
-                                    style: YqText.numberSmall.copyWith(
-                                      fontSize: 12,
-                                      color: p == shown ? YqColors.ink : YqColors.muted,
-                                      fontWeight: p == shown ? FontWeight.w500 : FontWeight.w400,
-                                    ),
-                                  ),
-                                ],
+                              child: Text(
+                                prayerLabel(t, p, friday: friday),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: p == shown ? YqColors.ink : YqColors.muted,
+                                  fontWeight: p == shown ? FontWeight.w700 : FontWeight.w400,
+                                ),
                               ),
                             ),
                         ],
@@ -440,6 +322,101 @@ class _Sky extends ConsumerWidget {
               ),
             ],
           ),
+        );
+      },
+    );
+  }
+}
+
+/// The three living orbs, evenly spaced.
+class _Complications extends ConsumerWidget {
+  const _Complications();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(settingsProvider);
+    final wird = ref.watch(todayWirdProvider).valueOrNull;
+    final today = ref.watch(prayerRepositoryProvider).today(s, ref.watch(clockProvider)());
+    final done = wird != null && wird.date == Zoned.isoDate(today) ? wird.count : 0;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Expanded(child: QiblaOrb()),
+        const Expanded(child: TasbeehOrb()),
+        Expanded(child: WirdOrb(done: done, goal: s.wirdGoalPages)),
+      ],
+    );
+  }
+}
+
+/// «Your day»: the five prayers and the two azkar windows in order, with the «now» marker
+/// carrying what to resume. Re-plans every 30 s (the marker moves as moments pass).
+class _Journey extends ConsumerWidget {
+  const _Journey();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(context);
+    final s = ref.watch(settingsProvider);
+    final repo = ref.watch(prayerRepositoryProvider);
+    final clock = ref.watch(clockProvider);
+    final challenge = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.challenge)));
+    final ramadan = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.ramadan)));
+
+    return YqTicker(
+      now: clock,
+      interval: const Duration(seconds: 30),
+      builder: (context, now) {
+        final today = repo.today(s, now);
+        final friday = today.weekday == DateTime.friday;
+        final times = repo.forDate(s, today, ramadan: ramadan);
+        final instant = now.toUtc();
+        String at(DateTime utc) => YqFormat.time(repo.local(s, utc), s.locale);
+
+        final next = obligatory.where((p) => times.of(p).isAfter(instant)).firstOrNull;
+        final morningOpen = !instant.isBefore(times.fajr) && instant.isBefore(times.dhuhr);
+        final eveningOpen = !instant.isBefore(times.asr) && instant.isBefore(times.isha);
+
+        DayMoment prayer(PrayerName p) => DayMoment(
+              time: at(times.of(p)),
+              title: prayerLabel(t, p, friday: friday),
+              icon: p == PrayerName.fajr || p == PrayerName.isha ? YqIcons.prayer : YqIcons.adhan,
+              kind: MomentKind.prayer,
+              highlight: p == next,
+              tag: p == next ? t.homeNextTag : null,
+            );
+        DayMoment azkar(bool morning, DateTime from, bool open) => DayMoment(
+              time: at(from),
+              title: morning ? t.azkarMorning : t.azkarEvening,
+              subtitle: open ? t.homeAzkarHint : null,
+              icon: YqIcons.azkar,
+              kind: MomentKind.azkar,
+              highlight: open,
+              tag: open ? t.homeAzkarOpen : null,
+              onTap: () => context.push('/home/azkar?set=${morning ? 'morning' : 'evening'}'),
+            );
+
+        // (moment, when it starts) in the day's order; azkar follow their opening prayer.
+        final entries = <(DayMoment, DateTime)>[
+          (prayer(PrayerName.fajr), times.fajr),
+          (azkar(true, times.fajr, morningOpen), times.fajr),
+          (prayer(PrayerName.dhuhr), times.dhuhr),
+          (prayer(PrayerName.asr), times.asr),
+          (azkar(false, times.asr, eveningOpen), times.asr),
+          (prayer(PrayerName.maghrib), times.maghrib),
+          (prayer(PrayerName.isha), times.isha),
+        ];
+        // «Now» sits after everything that has started (an open azkar window stays above it).
+        final nowIndex = entries.where((e) => !e.$2.isAfter(instant)).length;
+
+        return DayTimeline(
+          moments: [for (final e in entries) e.$1],
+          nowIndex: nowIndex,
+          nowTime: at(instant),
+          nowLabel: t.homeNow,
+          nowChild: const _ContinueReading(),
+          trailing: challenge ? const _ChallengeCard() : null,
         );
       },
     );
@@ -535,116 +512,6 @@ class _ContinueReading extends ConsumerWidget {
   }
 }
 
-/// Today's wird as a glass orb that fills like water as pages are read.
-class _WirdTile extends ConsumerWidget {
-  const _WirdTile();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = AppLocalizations.of(context);
-    final s = ref.watch(settingsProvider);
-    final wird = ref.watch(todayWirdProvider).valueOrNull;
-    final today = ref.watch(prayerRepositoryProvider).today(s, ref.watch(clockProvider)());
-    final iso = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-    final done = wird != null && wird.date == iso ? wird.count : 0;
-    final goal = s.wirdGoalPages;
-    final shown = done.clamp(0, goal);
-    final complete = goal > 0 && done >= goal;
-    return GlassTap(
-      onTap: () => context.go('/quran'),
-      semanticLabel: '${t.dailyWird}، ${t.pagesOf(shown, goal)}',
-      child: LiquidGlass(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            LiquidOrb(level: goal == 0 ? 0 : done / goal, size: 50, complete: complete, child: const YqIcon(YqIcons.quran, size: 18)),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    t.dailyWird,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: AlignmentDirectional.centerStart,
-                    child:
-                        Text(t.pagesOf(shown, goal), maxLines: 1, style: YqText.numberSmall.copyWith(fontSize: 13, color: YqColors.lapis)),
-                  ),
-                  Text(
-                    complete ? t.homeWirdDone : t.homeWirdLeft(YqFormat.number(goal - shown)),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11, color: complete ? YqColors.success : YqColors.muted),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The azkar that fit the time of day: morning from Fajr until Dhuhr, evening after.
-class _AzkarNow extends ConsumerWidget {
-  const _AzkarNow();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = AppLocalizations.of(context);
-    final s = ref.watch(settingsProvider);
-    final repo = ref.watch(prayerRepositoryProvider);
-    final now = ref.watch(clockProvider)().toUtc();
-    final times = repo.forDate(s, repo.today(s, now));
-    final morning = !now.isBefore(times.fajr) && now.isBefore(times.dhuhr);
-    final title = morning ? t.azkarMorning : t.azkarEvening;
-    return GlassTap(
-      onTap: () => context.push('/home/azkar?set=${morning ? 'morning' : 'evening'}'),
-      semanticLabel: title,
-      child: LiquidGlass(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: SizedBox(
-          height: double.infinity,
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: morning ? const [Color(0xFFFFF3D6), YqColors.goldLight] : const [YqColors.sky100, YqColors.sky400],
-                  ),
-                ),
-                child: Center(child: YqIcon(YqIcons.azkar, size: 22, tone: morning ? YqIconTone.gold : YqIconTone.active)),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: Theme.of(context).textTheme.titleMedium),
-                    Text(t.homeAzkarHint, style: const TextStyle(fontSize: 12, color: YqColors.muted)),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right_rounded, color: YqColors.muted),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ChallengeCard extends ConsumerWidget {
   const _ChallengeCard();
 
@@ -662,7 +529,6 @@ class _ChallengeCard extends ConsumerWidget {
         tone: GlassTone.gold,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: SizedBox(
-          height: double.infinity,
           child: Row(
             children: [
               const YqIcon(YqIcons.challenge, size: 28, tone: YqIconTone.gold),

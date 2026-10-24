@@ -1435,5 +1435,20 @@
         "type": "String"
       }
     }
+  },
+  "homeDayTitle": "يومك",
+  "homeNow": "الآن",
+  "homeAzkarOpen": "متاحة الآن",
+  "homeNextTag": "التالية",
+  "homeDayA11y": "{name}، {time}",
+  "@homeDayA11y": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
   }
 }
