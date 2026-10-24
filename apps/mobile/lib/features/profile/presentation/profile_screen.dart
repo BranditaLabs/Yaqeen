@@ -64,8 +64,8 @@ class ProfileScreen extends ConsumerWidget {
           subtitle: subtitle,
           titleColor: color,
           leading: icon == null ? null : YqIconTile(icon, size: 36),
-          trailing: Icon(
-            Directionality.of(context) == TextDirection.rtl ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
+          trailing: const Icon(
+            Icons.chevron_right_rounded,
             color: YqColors.muted,
           ),
           onTap: onTap,

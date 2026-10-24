@@ -57,10 +57,15 @@ void main() {
   });
 
   testWidgets('back chevron points right in RTL and left in LTR', (tester) async {
+    // One glyph in both languages: Flutter mirrors `matchTextDirection` icons in RTL itself, so
+    // picking the right-pointing glyph by hand in Arabic flipped it twice (pointing the wrong way).
+    final mirror = find.descendant(of: find.byType(Icon), matching: find.byType(Transform));
     await tester.pumpWidget(harness(const Scaffold(body: YqBackButton())));
-    expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.chevron_left_rounded), findsOneWidget);
+    expect(mirror, findsOneWidget); // drawn pointing right in Arabic
     await tester.pumpWidget(harness(const Scaffold(body: YqBackButton()), locale: 'en'));
     expect(find.byIcon(Icons.chevron_left_rounded), findsOneWidget);
+    expect(mirror, findsNothing); // pointing left in English
   });
 
   testWidgets('toast appears and goes away', (tester) async {

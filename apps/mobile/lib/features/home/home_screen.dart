@@ -157,9 +157,11 @@ class _NextPrayerCard extends ConsumerWidget {
     final clock = ref.watch(clockProvider);
     final ramadan = ref.watch(remoteConfigProvider).isOn(Flags.ramadan);
 
-    // Ticks every second only while visible; pauses in the background (YqTicker).
+    // The card re-plans every 15 s (rolls over to the next prayer); only the countdown text ticks
+    // each second, behind its own repaint boundary. Both pause off-screen and in the background.
     return YqTicker(
       now: clock,
+      interval: const Duration(seconds: 15),
       builder: (context, now) {
         final today = repo.today(s, now);
         final friday = today.weekday == DateTime.friday;
@@ -208,7 +210,9 @@ class _NextPrayerCard extends ConsumerWidget {
                       if (!moment.isPrayerTime)
                         Padding(
                           padding: const EdgeInsets.only(top: 22),
-                          child: Text(left, textDirection: TextDirection.ltr, style: YqText.numeral),
+                          child: RepaintBoundary(
+                            child: YqCountdown(target: moment.at, now: () => clock().toUtc(), style: YqText.numeral),
+                          ),
                         ),
                     ],
                   ),
@@ -461,8 +465,8 @@ class _ChallengeCard extends ConsumerWidget {
                 ],
               ),
             ),
-            Icon(
-              Directionality.of(context) == TextDirection.rtl ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
+            const Icon(
+              Icons.chevron_right_rounded,
               color: YqColors.goldText,
             ),
           ],

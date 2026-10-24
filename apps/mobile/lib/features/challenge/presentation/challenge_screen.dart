@@ -369,8 +369,8 @@ class _TaskTile extends StatelessWidget {
               Text(t.pointsPlus(YqFormat.number(task.points)), style: YqText.numberSmall.copyWith(color: YqColors.goldText)),
               if (auto && !done) ...[
                 const SizedBox(width: YqSpace.xs),
-                Icon(
-                  Directionality.of(context) == TextDirection.rtl ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
+                const Icon(
+                  Icons.chevron_right_rounded,
                   color: YqColors.muted,
                   size: 20,
                 ),

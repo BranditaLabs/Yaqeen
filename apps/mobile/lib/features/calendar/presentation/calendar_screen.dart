@@ -79,7 +79,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final t = AppLocalizations.of(context);
     final cal = ref.watch(calendarMonthProvider(_key));
     final locale = ref.watch(settingsProvider.select((s) => s.locale));
-    final rtl = Directionality.of(context) == TextDirection.rtl;
 
     return Scaffold(
       backgroundColor: YqColors.porcelain,
@@ -99,13 +98,13 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                       IconButton(
                         tooltip: t.calendarPrev,
                         onPressed: () => _shift(-1),
-                        icon: Icon(rtl ? Icons.chevron_right_rounded : Icons.chevron_left_rounded),
+                        icon: const Icon(Icons.chevron_left_rounded),
                       ),
                       Expanded(child: _MonthHeader(cal: c, locale: locale, month: _month)),
                       IconButton(
                         tooltip: t.calendarNext,
                         onPressed: () => _shift(1),
-                        icon: Icon(rtl ? Icons.chevron_left_rounded : Icons.chevron_right_rounded),
+                        icon: const Icon(Icons.chevron_right_rounded),
                       ),
                     ],
                   ),

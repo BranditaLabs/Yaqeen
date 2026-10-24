@@ -53,8 +53,10 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
           ],
         ),
         if (kDebugMode) GoRoute(path: '/debug/gallery', builder: (_, __) => const GalleryScreen()),
-        StatefulShellRoute.indexedStack(
+        StatefulShellRoute(
           builder: (context, state, shell) => AppShell(navigationShell: shell),
+          // Like indexedStack (every tab keeps its state) but cross-fades on switch.
+          navigatorContainerBuilder: (context, shell, children) => TabBranches(currentIndex: shell.currentIndex, children: children),
           branches: [
             StatefulShellBranch(
               routes: [

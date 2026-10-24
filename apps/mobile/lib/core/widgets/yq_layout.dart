@@ -17,7 +17,6 @@ class YqBackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rtl = Directionality.of(context) == TextDirection.rtl;
     return GlassIconButton(
       tooltip: label ?? MaterialLocalizations.of(context).backButtonTooltip,
       onPressed: onPressed ??
@@ -28,7 +27,7 @@ class YqBackButton extends StatelessWidget {
               context.go('/home');
             }
           },
-      icon: Icon(rtl ? Icons.chevron_right_rounded : Icons.chevron_left_rounded, color: YqColors.ink, size: 26),
+      icon: const Icon(Icons.chevron_left_rounded, color: YqColors.ink, size: 26),
     );
   }
 }
@@ -179,7 +178,6 @@ class YqListRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    final rtl = Directionality.of(context) == TextDirection.rtl;
     final row = ConstrainedBox(
       constraints: BoxConstraints(minHeight: dense ? YqSpace.touch : 56),
       child: Padding(
@@ -198,7 +196,7 @@ class YqListRow extends StatelessWidget {
               ),
             ),
             if (trailing != null) ...[const SizedBox(width: YqSpace.s), trailing!] else if (onTap != null)
-              Icon(rtl ? Icons.chevron_left_rounded : Icons.chevron_right_rounded, color: YqColors.muted),
+              const Icon(Icons.chevron_right_rounded, color: YqColors.muted),
           ],
         ),
       ),

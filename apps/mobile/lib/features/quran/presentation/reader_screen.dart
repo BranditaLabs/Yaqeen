@@ -144,10 +144,16 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
-    final s = ref.watch(settingsProvider);
+    // Only what the pages draw: other settings writes (e.g. readerHintSeen, wird counters) must not
+    // rebuild the reader and its pre-built neighbour pages.
+    final look = ref.watch(
+      settingsProvider.select(
+        (s) => (theme: s.mushafTheme, fontSize: s.quranFontSize, comfortable: s.comfortableSpacing, locale: s.locale),
+      ),
+    );
     final data = ref.watch(quranDataProvider);
-    final colors = MushafColors.of(s.mushafTheme);
-    final night = s.mushafTheme == MushafTheme.night;
+    final colors = MushafColors.of(look.theme);
+    final night = look.theme == MushafTheme.night;
     // Highlight the ayah the player is on while recitation is playing (spec §5.13).
     final playing = ref.watch(listenControllerProvider.select((l) => l.playing && l.sampleOf == null ? l.ref : null));
 
@@ -184,7 +190,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                       itemBuilder: (context, i) => _PageFrame(
                         quran: q,
                         page: i + 1,
-                        settings: s,
+                        look: look,
                         selected: _selected,
                         playing: playing,
                         onAyahLongPress: _locked
@@ -210,7 +216,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                       _chrome = false;
                     }),
                     onMark: _togglePageMark,
-                    title: q.surah(first.surah).name(s.locale),
+                    title: q.surah(first.surah).name(look.locale),
                     subtitle: t.quranJuzHizb(q.juzOf(first), q.hizbOf(first)),
                   ),
                   _BottomChrome(visible: _chrome, page: _page, quran: q, onJump: (p) => _pages.jumpToPage(p - 1)),
@@ -226,19 +232,21 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   }
 }
 
+typedef _Look = ({MushafTheme theme, double fontSize, bool comfortable, String locale});
+
 class _PageFrame extends StatelessWidget {
-  const _PageFrame({required this.quran, required this.page, required this.settings, this.selected, this.playing, this.onAyahLongPress});
+  const _PageFrame({required this.quran, required this.page, required this.look, this.selected, this.playing, this.onAyahLongPress});
   final QuranData quran;
   final AyahRef? playing;
   final int page;
-  final AppSettings settings;
+  final _Look look;
   final AyahRef? selected;
   final ValueChanged<AyahRef>? onAyahLongPress;
 
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
-    final colors = MushafColors.of(settings.mushafTheme);
+    final colors = MushafColors.of(look.theme);
     final first = quran.firstOfPage(page);
     final pad = MediaQuery.paddingOf(context);
     return ColoredBox(
@@ -263,10 +271,10 @@ class _PageFrame extends StatelessWidget {
               child: MushafPage(
                 quran: quran,
                 page: page,
-                theme: settings.mushafTheme,
-                fontSize: settings.quranFontSize,
-                comfortable: settings.comfortableSpacing,
-                locale: settings.locale,
+                theme: look.theme,
+                fontSize: look.fontSize,
+                comfortable: look.comfortable,
+                locale: look.locale,
                 selected: selected,
                 playing: playing,
                 onAyahLongPress: onAyahLongPress,
@@ -310,7 +318,6 @@ class _TopChrome extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
-    final rtl = Directionality.of(context) == TextDirection.rtl;
     return AnimatedPositioned(
       duration: YqMotion.base,
       curve: YqMotion.ease,
@@ -328,7 +335,7 @@ class _TopChrome extends StatelessWidget {
                 GlassIconButton(
                   tooltip: t.readerExit,
                   onPressed: onExit,
-                  icon: Icon(rtl ? Icons.chevron_right_rounded : Icons.chevron_left_rounded, color: YqColors.ink),
+                  icon: const Icon(Icons.chevron_left_rounded, color: YqColors.ink),
                 ),
                 const SizedBox(width: YqSpace.s),
                 Expanded(

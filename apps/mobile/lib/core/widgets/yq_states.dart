@@ -1,11 +1,9 @@
 import 'dart:async';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
 import '../../l10n/gen/app_localizations.dart';
 import '../theme/tokens.dart';
-import 'liquid_glass.dart';
 import 'yq_button.dart';
 import 'yq_icon.dart';
 
@@ -194,21 +192,16 @@ abstract final class YqToast {
               builder: (context, v, child) =>
                   Opacity(opacity: v, child: Transform.translate(offset: Offset(0, 12 * (1 - v)), child: child)),
               child: Center(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(YqRadii.pill),
-                  child: BackdropFilter(
-                    filter: ui.ImageFilter.blur(sigmaX: YqGlassConfig.enableBlur ? 14 : 0, sigmaY: YqGlassConfig.enableBlur ? 14 : 0),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: YqSpace.xl, vertical: YqSpace.m),
-                      decoration: BoxDecoration(color: const Color(0xE60A1530), borderRadius: BorderRadius.circular(YqRadii.pill)),
-                      child: Material(
-                        type: MaterialType.transparency,
-                        child: Text(
-                          message,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: YqColors.white, fontSize: 13, fontWeight: FontWeight.w500),
-                        ),
-                      ),
+                // 90% opaque: a backdrop blur behind it would be invisible but cost a full blur pass.
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: YqSpace.xl, vertical: YqSpace.m),
+                  decoration: BoxDecoration(color: const Color(0xE60A1530), borderRadius: BorderRadius.circular(YqRadii.pill)),
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: Text(
+                      message,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: YqColors.white, fontSize: 13, fontWeight: FontWeight.w500),
                     ),
                   ),
                 ),
@@ -242,30 +235,28 @@ Future<T?> showYqSheet<T>(BuildContext context, {required WidgetBuilder builder,
     builder: (context) {
       final sheet = ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: YqGlassConfig.enableBlur ? 20 : 0, sigmaY: YqGlassConfig.enableBlur ? 20 : 0),
-          child: Container(
-            decoration: const BoxDecoration(
-              gradient:
-                  LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xF5FFFFFF), Color(0xEDF3F6FB)]),
-              border: Border(top: BorderSide(color: Color(0xE6FFFFFF))),
-            ),
-            padding: EdgeInsets.fromLTRB(YqSpace.gutter, YqSpace.m, YqSpace.gutter, YqSpace.xl + MediaQuery.paddingOf(context).bottom),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 5,
-                    decoration: BoxDecoration(color: YqColors.mist, borderRadius: BorderRadius.circular(YqRadii.pill)),
-                  ),
+        // 96% opaque fill: no backdrop blur needed (it would be invisible and cost a full-screen pass).
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient:
+                LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xF5FFFFFF), Color(0xEDF3F6FB)]),
+            border: Border(top: BorderSide(color: Color(0xE6FFFFFF))),
+          ),
+          padding: EdgeInsets.fromLTRB(YqSpace.gutter, YqSpace.m, YqSpace.gutter, YqSpace.xl + MediaQuery.paddingOf(context).bottom),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 5,
+                  decoration: BoxDecoration(color: YqColors.mist, borderRadius: BorderRadius.circular(YqRadii.pill)),
                 ),
-                const SizedBox(height: YqSpace.l),
-                Flexible(child: scrollable ? SingleChildScrollView(child: builder(context)) : builder(context)),
-              ],
-            ),
+              ),
+              const SizedBox(height: YqSpace.l),
+              Flexible(child: scrollable ? SingleChildScrollView(child: builder(context)) : builder(context)),
+            ],
           ),
         ),
       );

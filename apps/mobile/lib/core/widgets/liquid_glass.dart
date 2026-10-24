@@ -15,8 +15,11 @@ enum GlassTone { clear, gold }
 
 /// The liquid-glass surface used for every card, pill and bar in Yaqeen.
 ///
-/// Translucent white, background blur, a hairline white rim, a specular
-/// highlight along the top edge and a soft drop shadow.
+/// Translucent white, a hairline white rim, a specular highlight along the top edge and a soft
+/// drop shadow. Live background blur is opt-in ([blur] > 0) and meant for fixed chrome only: a
+/// blurred card inside a scroll view re-blurs its backdrop on every scroll and transition frame,
+/// which is the most expensive thing the app could draw. Over Yaqeen's soft ambient background
+/// the frosted fill alone reads the same.
 class LiquidGlass extends StatelessWidget {
   const LiquidGlass({
     super.key,
@@ -25,7 +28,7 @@ class LiquidGlass extends StatelessWidget {
     this.padding = const EdgeInsets.all(YqSpace.l),
     this.tone = GlassTone.clear,
     this.opacity = 0.58,
-    this.blur = 12,
+    this.blur = 0,
     this.highlight = true,
     this.shadow = true,
     this.border,
@@ -37,8 +40,11 @@ class LiquidGlass extends StatelessWidget {
   final GlassTone tone;
   final double opacity;
 
-  /// Gaussian sigma. CSS blur(24px) ≈ sigma 12.
+  /// Gaussian sigma of the live backdrop blur; 0 = frosted fill only (default). CSS blur(24px) ≈
+  /// sigma 12 ([chromeBlur]).
   final double blur;
+
+  static const chromeBlur = 12.0;
   final bool highlight;
   final bool shadow;
   final BorderSide? border;

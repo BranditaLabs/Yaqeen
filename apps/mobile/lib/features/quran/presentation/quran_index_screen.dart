@@ -74,140 +74,159 @@ class _QuranIndexScreenState extends ConsumerState<QuranIndexScreen> {
           data: (q) {
             final hits = q.search(_query.text);
             final searching = _query.text.trim().isNotEmpty;
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(YqSpace.gutter, YqSpace.m, YqSpace.gutter, 140),
-              children: [
-                Row(
-                  children: [
-                    Expanded(child: Semantics(header: true, child: Text(t.quranTitle, style: YqText.display.copyWith(fontSize: 28)))),
-                    if (config.isOn(Flags.listen))
-                      GlassIconButton(
-                        tooltip: t.quranListen,
-                        onPressed: () async {
-                          final last = await ref.read(readingRepositoryProvider).lastRead();
-                          if (context.mounted) context.push('/quran/listen/${last?.surah ?? 1}');
-                        },
-                        icon: const YqIcon(YqIcons.listen, size: 20),
-                      ),
-                    if (config.isOn(Flags.hifz)) ...[
-                      const SizedBox(width: YqSpace.s),
-                      GlassIconButton(
-                        tooltip: t.quranHifzPlan,
-                        onPressed: () => context.push('/quran/hifz'),
-                        icon: const YqIcon(YqIcons.bookmark, size: 20),
-                      ),
-                    ],
+            final header = <Widget>[
+              Row(
+                children: [
+                  Expanded(child: Semantics(header: true, child: Text(t.quranTitle, style: YqText.display.copyWith(fontSize: 28)))),
+                  if (config.isOn(Flags.listen))
+                    GlassIconButton(
+                      tooltip: t.quranListen,
+                      onPressed: () async {
+                        final last = await ref.read(readingRepositoryProvider).lastRead();
+                        if (context.mounted) context.push('/quran/listen/${last?.surah ?? 1}');
+                      },
+                      icon: const YqIcon(YqIcons.listen, size: 20),
+                    ),
+                  if (config.isOn(Flags.hifz)) ...[
+                    const SizedBox(width: YqSpace.s),
+                    GlassIconButton(
+                      tooltip: t.quranHifzPlan,
+                      onPressed: () => context.push('/quran/hifz'),
+                      icon: const YqIcon(YqIcons.bookmark, size: 20),
+                    ),
                   ],
-                ),
-                const SizedBox(height: YqSpace.l),
-                TextField(
-                  controller: _query,
-                  focusNode: _focus,
-                  onChanged: (_) => setState(() {}),
-                  textInputAction: TextInputAction.search,
-                  decoration: InputDecoration(
-                    hintText: t.quranSearchHint,
-                    prefixIcon: const Padding(padding: EdgeInsets.all(12), child: YqIcon(YqIcons.search, size: 20, tone: YqIconTone.idle)),
-                    suffixIcon: searching
-                        ? IconButton(
-                            tooltip: t.clearSearch,
-                            icon: const Icon(Icons.close_rounded, color: YqColors.muted),
-                            onPressed: () => setState(_query.clear),
-                          )
-                        : null,
-                    filled: true,
-                    fillColor: const Color(0xB3FFFFFF),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(YqRadii.pill),
-                      borderSide: const BorderSide(color: Color(0xE6FFFFFF)),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(YqRadii.pill),
-                      borderSide: const BorderSide(color: Color(0xE6FFFFFF)),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: YqSpace.l),
-                if (searching)
-                  hits.isEmpty
-                      ? LiquidGlass(child: YqEmptyState(icon: YqIcons.search, title: t.quranNoResults, hint: t.quranNoResultsHint))
-                      : LiquidGlass(
-                          padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
-                          child: Column(
-                            children: [
-                              for (final h in hits.take(30))
-                                switch (h) {
-                                  SurahHit(:final surah) =>
-                                    _SurahRow(surah: surah, locale: locale, onTap: () => _openPage(surah.startPage)),
-                                  AyahHit(:final surah, :final ref, :final page) => YqListRow(
-                                      dense: true,
-                                      title: '${t.quranSurahName(surah.nameAr)} · ${t.quranAyahN(ref.ayah)}',
-                                      subtitle: t.quranPageN(page),
-                                      onTap: () => _openPage(page),
-                                    ),
-                                },
-                            ],
-                          ),
+                ],
+              ),
+              const SizedBox(height: YqSpace.l),
+              TextField(
+                controller: _query,
+                focusNode: _focus,
+                onChanged: (_) => setState(() {}),
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  hintText: t.quranSearchHint,
+                  prefixIcon: const Padding(padding: EdgeInsets.all(12), child: YqIcon(YqIcons.search, size: 20, tone: YqIconTone.idle)),
+                  suffixIcon: searching
+                      ? IconButton(
+                          tooltip: t.clearSearch,
+                          icon: const Icon(Icons.close_rounded, color: YqColors.muted),
+                          onPressed: () => setState(_query.clear),
                         )
-                else ...[
-                  _ContinueCards(q: q, locale: locale, onOpen: _openPage),
-                  const SizedBox(height: YqSpace.l),
-                  Semantics(
-                    label: t.quranBrowse,
-                    child: YqSegmented<_Browse>(
-                      segments: [(_Browse.surahs, t.quranSurahs), (_Browse.juz, t.quranJuzs), (_Browse.saved, t.quranSaved)],
-                      selected: _browse,
-                      onChanged: (b) => setState(() => _browse = b),
-                    ),
+                      : null,
+                  filled: true,
+                  fillColor: const Color(0xB3FFFFFF),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(YqRadii.pill),
+                    borderSide: const BorderSide(color: Color(0xE6FFFFFF)),
                   ),
-                  const SizedBox(height: YqSpace.m),
-                  switch (_browse) {
-                    _Browse.surahs => LiquidGlass(
-                        padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
-                        child: Column(
-                          children: [for (final s in q.surahs) _SurahRow(surah: s, locale: locale, onTap: () => _openPage(s.startPage))],
-                        ),
-                      ),
-                    _Browse.juz => LiquidGlass(
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(YqRadii.pill),
+                    borderSide: const BorderSide(color: Color(0xE6FFFFFF)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: YqSpace.l),
+              if (searching)
+                hits.isEmpty
+                    ? LiquidGlass(child: YqEmptyState(icon: YqIcons.search, title: t.quranNoResults, hint: t.quranNoResultsHint))
+                    : LiquidGlass(
                         padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
                         child: Column(
                           children: [
-                            for (var j = 1; j <= 30; j++) ...[
-                              YqListRow(
-                                dense: true,
-                                leading: _Medallion(j),
-                                title: t.quranJuz(j),
-                                subtitle: t.quranJuzStarts(q.surah(q.firstOfJuz(j).surah).name(locale), q.firstOfJuz(j).ayah),
-                                trailing: IconButton(
-                                  tooltip: t.quranHizbQuarter(j),
-                                  icon: Icon(
-                                    _expandedJuz == j ? Icons.expand_less_rounded : Icons.expand_more_rounded,
-                                    color: YqColors.muted,
+                            for (final h in hits.take(30))
+                              switch (h) {
+                                SurahHit(:final surah) => _SurahRow(surah: surah, locale: locale, onTap: () => _openPage(surah.startPage)),
+                                AyahHit(:final surah, :final ref, :final page) => YqListRow(
+                                    dense: true,
+                                    title: '${t.quranSurahName(surah.nameAr)} · ${t.quranAyahN(ref.ayah)}',
+                                    subtitle: t.quranPageN(page),
+                                    onTap: () => _openPage(page),
                                   ),
-                                  onPressed: () => setState(() => _expandedJuz = _expandedJuz == j ? null : j),
-                                ),
-                                onTap: () => _openPage(q.juzStartPage(j)),
-                              ),
-                              if (_expandedJuz == j)
-                                for (var k = (j - 1) * 8 + 1; k <= j * 8; k++)
-                                  Padding(
-                                    padding: const EdgeInsetsDirectional.only(start: 48),
-                                    child: YqListRow(
-                                      dense: true,
-                                      title: t.quranHizbQuarter(k),
-                                      subtitle:
-                                          '${q.surah(q.firstOfQuarter(k).surah).name(locale)} ${YqFormat.number(q.firstOfQuarter(k).ayah)}',
-                                      trailing: Text(YqFormat.number(q.pageOf(q.firstOfQuarter(k))), style: YqText.numberSmall),
-                                      onTap: () => _openPage(q.pageOf(q.firstOfQuarter(k))),
-                                    ),
-                                  ),
-                            ],
+                              },
                           ],
                         ),
+                      )
+              else ...[
+                _ContinueCards(q: q, locale: locale, onOpen: _openPage),
+                const SizedBox(height: YqSpace.l),
+                Semantics(
+                  label: t.quranBrowse,
+                  child: YqSegmented<_Browse>(
+                    segments: [(_Browse.surahs, t.quranSurahs), (_Browse.juz, t.quranJuzs), (_Browse.saved, t.quranSaved)],
+                    selected: _browse,
+                    onChanged: (b) => setState(() => _browse = b),
+                  ),
+                ),
+                const SizedBox(height: YqSpace.m),
+                switch (_browse) {
+                  // Built lazily below (SliverList): only the rows on screen exist.
+                  _Browse.surahs => const SizedBox.shrink(),
+                  _Browse.juz => LiquidGlass(
+                      padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
+                      child: Column(
+                        children: [
+                          for (var j = 1; j <= 30; j++) ...[
+                            YqListRow(
+                              dense: true,
+                              leading: _Medallion(j),
+                              title: t.quranJuz(j),
+                              subtitle: t.quranJuzStarts(q.surah(q.firstOfJuz(j).surah).name(locale), q.firstOfJuz(j).ayah),
+                              trailing: IconButton(
+                                tooltip: t.quranHizbQuarter(j),
+                                icon: Icon(
+                                  _expandedJuz == j ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                                  color: YqColors.muted,
+                                ),
+                                onPressed: () => setState(() => _expandedJuz = _expandedJuz == j ? null : j),
+                              ),
+                              onTap: () => _openPage(q.juzStartPage(j)),
+                            ),
+                            if (_expandedJuz == j)
+                              for (var k = (j - 1) * 8 + 1; k <= j * 8; k++)
+                                Padding(
+                                  padding: const EdgeInsetsDirectional.only(start: 48),
+                                  child: YqListRow(
+                                    dense: true,
+                                    title: t.quranHizbQuarter(k),
+                                    subtitle:
+                                        '${q.surah(q.firstOfQuarter(k).surah).name(locale)} ${YqFormat.number(q.firstOfQuarter(k).ayah)}',
+                                    trailing: Text(YqFormat.number(q.pageOf(q.firstOfQuarter(k))), style: YqText.numberSmall),
+                                    onTap: () => _openPage(q.pageOf(q.firstOfQuarter(k))),
+                                  ),
+                                ),
+                          ],
+                        ],
                       ),
-                    _Browse.saved => _Bookmarks(q: q, locale: locale, onOpen: _openPage),
-                  },
-                ],
+                    ),
+                  _Browse.saved => _Bookmarks(q: q, locale: locale, onOpen: _openPage),
+                },
+              ],
+            ];
+            final lazySurahs = !searching && _browse == _Browse.surahs;
+            return CustomScrollView(
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(YqSpace.gutter, YqSpace.m, YqSpace.gutter, 0),
+                  sliver: SliverList.list(children: header),
+                ),
+                if (lazySurahs)
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: YqSpace.gutter),
+                    sliver: DecoratedSliver(
+                      decoration: _cardDecoration,
+                      sliver: SliverPadding(
+                        padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
+                        sliver: SliverList.builder(
+                          itemCount: q.surahs.length,
+                          itemBuilder: (context, i) {
+                            final s = q.surahs[i];
+                            return _SurahRow(surah: s, locale: locale, onTap: () => _openPage(s.startPage));
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                const SliverToBoxAdapter(child: SizedBox(height: 140)),
               ],
             );
           },
@@ -390,3 +409,15 @@ class _IndexSkeleton extends StatelessWidget {
         ),
       );
 }
+
+/// The glass card look as a plain decoration, so a long list can be a lazy sliver inside it.
+final _cardDecoration = BoxDecoration(
+  borderRadius: BorderRadius.circular(YqRadii.card),
+  gradient: LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [YqColors.white.withAlpha(168), YqColors.white.withAlpha(148)],
+  ),
+  border: Border.all(color: const Color(0xE6FFFFFF)),
+  boxShadow: const [BoxShadow(color: Color(0x260F1A36), blurRadius: 30, spreadRadius: -14, offset: Offset(0, 14))],
+);

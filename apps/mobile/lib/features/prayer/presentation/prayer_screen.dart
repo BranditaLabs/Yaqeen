@@ -130,8 +130,8 @@ class _PrayerScreenState extends ConsumerState<PrayerScreen> {
                         ],
                       ),
                     ),
-                    Icon(
-                      Directionality.of(context) == TextDirection.rtl ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
+                    const Icon(
+                      Icons.chevron_right_rounded,
                       color: YqColors.muted,
                     ),
                   ],
@@ -145,12 +145,12 @@ class _PrayerScreenState extends ConsumerState<PrayerScreen> {
                 IconButton(
                   tooltip: t.prayerPrevDay,
                   onPressed: () => _pages.previousPage(duration: YqMotion.base, curve: YqMotion.ease),
-                  icon: Icon(Directionality.of(context) == TextDirection.rtl ? Icons.chevron_right_rounded : Icons.chevron_left_rounded),
+                  icon: const Icon(Icons.chevron_left_rounded),
                 ),
                 IconButton(
                   tooltip: t.prayerNextDay,
                   onPressed: () => _pages.nextPage(duration: YqMotion.base, curve: YqMotion.ease),
-                  icon: Icon(Directionality.of(context) == TextDirection.rtl ? Icons.chevron_left_rounded : Icons.chevron_right_rounded),
+                  icon: const Icon(Icons.chevron_right_rounded),
                 ),
               ],
             ),
@@ -245,38 +245,41 @@ class _DayTimes extends ConsumerWidget {
     final clock = ref.watch(clockProvider);
     final times = repo.forDate(s, date);
     final friday = date.weekday == DateTime.friday;
-    return YqTicker(
-      now: clock,
-      interval: const Duration(seconds: 1),
-      builder: (context, now) {
-        final moment = isToday ? repo.moment(s, now) : null;
-        return LiquidGlass(
-          padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.m),
-          child: Column(
-            children: [
-              for (final p in displayOrder)
-                _PrayerRow(
-                  prayer: p,
-                  label: prayerLabel(AppLocalizations.of(context), p, friday: friday),
-                  time: YqFormat.time(repo.local(s, times.of(p)), s.locale),
-                  next: moment?.next == p && repo.local(s, moment!.at).day == date.day ? moment.at.difference(now.toUtc()) : null,
-                ),
-            ],
-          ),
-        );
-      },
-    );
+    Widget card(DateTime now) {
+      final moment = isToday ? repo.moment(s, now) : null;
+      return LiquidGlass(
+        padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.m),
+        child: Column(
+          children: [
+            for (final p in displayOrder)
+              _PrayerRow(
+                prayer: p,
+                label: prayerLabel(AppLocalizations.of(context), p, friday: friday),
+                time: YqFormat.time(repo.local(s, times.of(p)), s.locale),
+                nextAt: moment?.next == p && repo.local(s, moment!.at).day == date.day ? moment.at : null,
+                now: clock,
+              ),
+          ],
+        ),
+      );
+    }
+
+    // Other days never change; today re-plans every 15 s (rolls over to the next prayer) while only
+    // the countdown text itself ticks each second (_PrayerRow).
+    if (!isToday) return card(clock());
+    return YqTicker(now: clock, interval: const Duration(seconds: 15), builder: (context, now) => card(now));
   }
 }
 
 class _PrayerRow extends ConsumerWidget {
-  const _PrayerRow({required this.prayer, required this.label, required this.time, this.next});
+  const _PrayerRow({required this.prayer, required this.label, required this.time, required this.now, this.nextAt});
   final PrayerName prayer;
   final String label;
   final String time;
+  final DateTime Function() now;
 
-  /// Time left when this is the next prayer.
-  final Duration? next;
+  /// When this is the next prayer: its time (the row shows a live countdown to it).
+  final DateTime? nextAt;
 
   Future<void> _setMode(WidgetRef ref, AlertMode mode) =>
       ref.read(settingsProvider.notifier).update((s) => s.copyWith(alertModes: {...s.alertModes, prayer: mode}), sync: false);
@@ -309,7 +312,7 @@ class _PrayerRow extends ConsumerWidget {
     final t = AppLocalizations.of(context);
     final mode = ref.watch(settingsProvider.select((s) => s.alertModes[prayer]!));
     final on = mode != AlertMode.silent;
-    final highlighted = next != null;
+    final highlighted = nextAt != null;
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: YqSpace.m),
@@ -336,10 +339,15 @@ class _PrayerRow extends ConsumerWidget {
           if (highlighted)
             Padding(
               padding: const EdgeInsetsDirectional.only(end: YqSpace.m),
-              child: Text(
-                t.prayerIn(YqCountdown.format(next!)),
-                textDirection: Directionality.of(context),
-                style: YqText.numberSmall.copyWith(color: YqColors.lapis),
+              child: RepaintBoundary(
+                child: YqTicker(
+                  now: now,
+                  builder: (context, n) => Text(
+                    t.prayerIn(YqCountdown.format(nextAt!.difference(n.toUtc()))),
+                    textDirection: Directionality.of(context),
+                    style: YqText.numberSmall.copyWith(color: YqColors.lapis),
+                  ),
+                ),
               ),
             ),
           Text(time, style: YqText.numberSmall.copyWith(fontSize: 16, color: YqColors.ink)),
