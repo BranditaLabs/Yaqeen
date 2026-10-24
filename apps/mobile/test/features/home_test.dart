@@ -69,4 +69,26 @@ void main() {
     expect(find.text('سورة الكهف · الصفحة 293 · الجزء 15'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
+
+  testWidgets('the page light follows the sun across the day (mirrored in RTL)', (tester) async {
+    double sunGlowX() {
+      final glow = tester
+          .widgetList<DecoratedBox>(find.descendant(of: find.byKey(const ValueKey('home-light')), matching: find.byType(DecoratedBox)))
+          .map((b) => (b.decoration as BoxDecoration).gradient)
+          .whereType<RadialGradient>()
+          .first;
+      return (glow.center as Alignment).x;
+    }
+
+    await pump(tester, DateTime.utc(2026, 10, 20, 4)); // 07:00 Cairo, after Fajr
+    await tester.pump(const Duration(seconds: 2));
+    final morning = sunGlowX();
+    await tester.pumpWidget(const SizedBox());
+    await pump(tester, DateTime.utc(2026, 10, 20, 15, 30)); // 18:30 Cairo, after Maghrib
+    await tester.pump(const Duration(seconds: 2));
+    final evening = sunGlowX();
+    // Arabic: the day starts on the right (x > 0) and moves left.
+    expect(morning, greaterThan(evening));
+    await tester.pumpWidget(const SizedBox());
+  });
 }

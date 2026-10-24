@@ -16,6 +16,7 @@ import 'package:yaqeen/core/widgets/yq_icon.dart';
 import 'package:yaqeen/features/home/data/tasbeeh_controller.dart';
 import 'package:yaqeen/features/home/home_screen.dart';
 import 'package:yaqeen/features/home/widgets/orbs.dart';
+import 'package:yaqeen/features/home/widgets/sky_arc.dart';
 import 'package:yaqeen/features/quran/domain/quran_data.dart';
 
 import '../helpers/fonts.dart';
@@ -105,6 +106,46 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('99'), findsOneWidget);
     expect(find.text('الدورة 4'), findsOneWidget);
+  });
+
+
+  group('living sky palette', () {
+    final d = DateTime.utc(2026, 10, 20);
+    DateTime h(double hours) => d.add(Duration(minutes: (hours * 60).round()));
+    final keys = skyKeyframes(
+      previousIsha: h(-5),
+      fajr: h(2.5),
+      sunrise: h(4),
+      dhuhr: h(9.7),
+      asr: h(12.9),
+      maghrib: h(15.3),
+      isha: h(16.6),
+      nextFajr: h(26.5),
+    );
+
+    test('each keyframe shows its own palette', () {
+      expect(skyPaletteAt(keys, h(2.5)), SkyPalette.dawn);
+      expect(skyPaletteAt(keys, h(12.9)), SkyPalette.golden);
+      expect(skyPaletteAt(keys, h(16.6)), SkyPalette.night);
+    });
+
+    test('between keyframes it blends continuously (no steps)', () {
+      final mid = skyPaletteAt(keys, h((12.9 + 15.3) / 2));
+      expect(mid, SkyPalette.lerp(SkyPalette.golden, SkyPalette.dusk, 0.5));
+      final a = skyPaletteAt(keys, h(13.0));
+      final b = skyPaletteAt(keys, h(13.1));
+      expect(a == b, isFalse); // six minutes later the light has moved a little
+    });
+
+    test('before Fajr it is still night, easing into dawn', () {
+      expect(skyPaletteAt(keys, h(-5)), SkyPalette.night);
+      expect(skyPaletteAt(keys, h(2.4)) == SkyPalette.night, isFalse);
+    });
+
+    test('the sun x is mirrored in RTL', () {
+      expect(skyX(0.25, rtl: false), closeTo(-0.5, 1e-9));
+      expect(skyX(0.25, rtl: true), closeTo(0.5, 1e-9));
+    });
   });
 
   // Full-screen renders of the redesigned Home (also the screenshots shared for review).

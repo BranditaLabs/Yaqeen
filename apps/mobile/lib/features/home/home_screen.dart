@@ -10,7 +10,6 @@ import '../../core/settings/settings_controller.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/theme/typography.dart';
 import '../../core/time/zoned.dart';
-import '../../core/widgets/ambient_background.dart';
 import '../../core/widgets/controls.dart';
 import '../../core/widgets/liquid_glass.dart';
 import '../../core/widgets/yq_countdown.dart';
@@ -51,7 +50,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
-    return AmbientBackground(
+    return _LivingBackground(
       child: RefreshIndicator(
         color: YqColors.lapis,
         edgeOffset: MediaQuery.paddingOf(context).top,
@@ -83,6 +82,116 @@ class HomeScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+SkyPhase _phaseAt(PrayerDayTimes times, DateTime instant) => instant.isBefore(times.fajr) || !instant.isBefore(times.isha)
+    ? SkyPhase.night
+    : instant.isBefore(times.sunrise.add(const Duration(minutes: 40)))
+        ? SkyPhase.dawn
+        : instant.isBefore(times.asr)
+            ? SkyPhase.day
+            : instant.isBefore(times.maghrib)
+                ? SkyPhase.golden
+                : SkyPhase.dusk;
+
+List<(DateTime, SkyPalette)> _keyframes(PrayerDayTimes yesterday, PrayerDayTimes today, PrayerDayTimes tomorrow) => skyKeyframes(
+      previousIsha: yesterday.isha,
+      fajr: today.fajr,
+      sunrise: today.sunrise,
+      dhuhr: today.dhuhr,
+      asr: today.asr,
+      maghrib: today.maghrib,
+      isha: today.isha,
+      nextFajr: tomorrow.fajr,
+    );
+
+/// The page's light follows the day: the background takes the sky's current tint, and its main
+/// glow sits under the sun's position on the arc, drifting across the screen as the day moves
+/// (mirrored in RTL). Re-plans every 30 s and eases each change over ~1 s; otherwise still.
+class _LivingBackground extends ConsumerWidget {
+  const _LivingBackground({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(settingsProvider);
+    final repo = ref.watch(prayerRepositoryProvider);
+    final clock = ref.watch(clockProvider);
+    final ramadan = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.ramadan)));
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+
+    final light = YqTicker(
+      now: clock,
+      interval: const Duration(seconds: 30),
+      builder: (context, now) {
+        final instant = now.toUtc();
+        final today = repo.today(s, now);
+        final times = repo.forDate(s, today, ramadan: ramadan);
+        final yesterday = repo.forDate(s, DateTime(today.year, today.month, today.day - 1), ramadan: ramadan);
+        final tomorrow = repo.forDate(s, DateTime(today.year, today.month, today.day + 1), ramadan: ramadan);
+        final palette = skyPaletteAt(_keyframes(yesterday, times, tomorrow), instant);
+        final position = skyPosition([for (final p in obligatory) times.of(p)], yesterday.isha, tomorrow.fajr, instant);
+        return TweenAnimationBuilder<SkyPalette>(
+          tween: SkyPaletteTween(end: palette),
+          duration: const Duration(milliseconds: 1000),
+          curve: Curves.easeInOut,
+          builder: (context, p, _) => TweenAnimationBuilder<double>(
+            tween: Tween(end: skyX(position, rtl: rtl)),
+            duration: const Duration(milliseconds: 1000),
+            curve: Curves.easeInOut,
+            builder: (context, x, _) => _LightPainter.paint(palette: p, sunX: x),
+          ),
+        );
+      },
+    );
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Positioned.fill(child: RepaintBoundary(child: light)),
+        child,
+      ],
+    );
+  }
+}
+
+/// The background layers for one palette and sun position.
+abstract final class _LightPainter {
+  static Widget paint({required SkyPalette palette, required double sunX}) => DecoratedBox(
+        key: const ValueKey('home-light'),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color.lerp(YqColors.porcelain, palette.bottom, 0.45)!, YqColors.porcelain, YqColors.porcelain],
+            stops: const [0, 0.55, 1],
+          ),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Main glow under the sun.
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment(sunX, -0.72),
+                  radius: 0.95,
+                  colors: [palette.glow.withValues(alpha: 0.42), palette.glow.withValues(alpha: 0)],
+                ),
+              ),
+            ),
+            // A fainter counter-light lower on the opposite side, so the page never reads flat.
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment(-sunX * 0.8, 0.55),
+                  radius: 0.9,
+                  colors: [palette.top.withValues(alpha: 0.5), palette.top.withValues(alpha: 0)],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
 }
 
 /// Rises and fades in once, staggered by [order].
@@ -227,23 +336,16 @@ class _Sky extends ConsumerWidget {
         final tomorrow = repo.forDate(s, DateTime(today.year, today.month, today.day + 1), ramadan: ramadan);
         final position = skyPosition(prayers, yesterday.isha, tomorrow.fajr, instant);
         final nextIndex = prayers.where((x) => !x.isAfter(instant)).length;
-        final phase = instant.isBefore(times.fajr) || !instant.isBefore(times.isha)
-            ? SkyPhase.night
-            : instant.isBefore(times.sunrise.add(const Duration(minutes: 40)))
-                ? SkyPhase.dawn
-                : instant.isBefore(times.asr)
-                    ? SkyPhase.day
-                    : instant.isBefore(times.maghrib)
-                        ? SkyPhase.golden
-                        : SkyPhase.dusk;
+        final phase = _phaseAt(times, instant);
+        final palette = skyPaletteAt(_keyframes(yesterday, times, tomorrow), instant);
 
         return AnimatedContainer(
-          duration: YqMotion.slow,
-          curve: YqMotion.ease,
+          duration: const Duration(milliseconds: 900),
+          curve: Curves.easeInOut,
           padding: EdgeInsets.fromLTRB(YqSpace.gutter, MediaQuery.paddingOf(context).top + YqSpace.m, YqSpace.gutter, YqSpace.xl),
           decoration: BoxDecoration(
             borderRadius: const BorderRadius.vertical(bottom: Radius.circular(40)),
-            gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: skyColors(phase)),
+            gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [palette.top, palette.bottom]),
             boxShadow: const [BoxShadow(color: Color(0x240F1A36), blurRadius: 30, spreadRadius: -12, offset: Offset(0, 12))],
           ),
           child: Column(

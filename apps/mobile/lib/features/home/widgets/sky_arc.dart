@@ -7,14 +7,80 @@ import '../../../core/theme/tokens.dart';
 /// Time of day, for the hero's sky colours and the sun/moon.
 enum SkyPhase { dawn, day, golden, dusk, night }
 
-/// Sky gradient per phase, from the brand tints only.
-List<Color> skyColors(SkyPhase p) => switch (p) {
-      SkyPhase.dawn => const [YqColors.gold100, YqColors.sky100],
-      SkyPhase.day => const [YqColors.white, YqColors.sky200],
-      SkyPhase.golden => const [YqColors.cream, YqColors.sand],
-      SkyPhase.dusk => const [YqColors.sand, YqColors.gold300],
-      SkyPhase.night => const [YqColors.sky200, YqColors.lapis100],
-    };
+/// The sky's colours at one moment: gradient [top] → [bottom], and the [glow] the page's light
+/// takes. Brand tints only.
+@immutable
+class SkyPalette {
+  const SkyPalette(this.top, this.bottom, this.glow);
+  final Color top;
+  final Color bottom;
+  final Color glow;
+
+  static SkyPalette lerp(SkyPalette a, SkyPalette b, double t) =>
+      SkyPalette(Color.lerp(a.top, b.top, t)!, Color.lerp(a.bottom, b.bottom, t)!, Color.lerp(a.glow, b.glow, t)!);
+
+  static const night = SkyPalette(YqColors.lapis100, YqColors.sky200, YqColors.lapis300);
+  static const dawn = SkyPalette(YqColors.gold100, YqColors.sky100, YqColors.goldLight);
+  static const morning = SkyPalette(YqColors.white, YqColors.sky200, YqColors.sky400);
+  static const noon = SkyPalette(YqColors.white, YqColors.sky100, YqColors.sky200);
+  static const golden = SkyPalette(YqColors.cream, YqColors.sand, YqColors.goldLight);
+  static const dusk = SkyPalette(YqColors.sand, YqColors.gold300, YqColors.gold300);
+
+  @override
+  bool operator ==(Object other) => other is SkyPalette && other.top == top && other.bottom == bottom && other.glow == glow;
+
+  @override
+  int get hashCode => Object.hash(top, bottom, glow);
+}
+
+/// Eases between palettes (implicit animations).
+class SkyPaletteTween extends Tween<SkyPalette> {
+  SkyPaletteTween({super.begin, super.end});
+  @override
+  SkyPalette lerp(double t) => SkyPalette.lerp(begin ?? end!, end ?? begin!, t);
+}
+
+/// The sky for [now], blended continuously between keyframes anchored to the real prayer times:
+/// night (Isha) → dawn (Fajr) → morning (sunrise + 40 min) → noon (Dhuhr) → golden (Asr) →
+/// dusk (Maghrib) → night (Isha). Changes minute by minute, never in steps.
+SkyPalette skyPaletteAt(List<(DateTime, SkyPalette)> keys, DateTime now) {
+  if (!now.isAfter(keys.first.$1)) return keys.first.$2;
+  for (var i = 0; i < keys.length - 1; i++) {
+    final (a, pa) = keys[i];
+    final (b, pb) = keys[i + 1];
+    if (now.isBefore(b)) {
+      final span = b.difference(a).inSeconds;
+      final t = span <= 0 ? 1.0 : now.difference(a).inSeconds / span;
+      return SkyPalette.lerp(pa, pb, Curves.easeInOut.transform(t.clamp(0.0, 1.0)));
+    }
+  }
+  return keys.last.$2;
+}
+
+/// Keyframes for one day: [previousIsha, fajr, sunrise, dhuhr, asr, maghrib, isha, nextFajr] instants.
+List<(DateTime, SkyPalette)> skyKeyframes({
+  required DateTime previousIsha,
+  required DateTime fajr,
+  required DateTime sunrise,
+  required DateTime dhuhr,
+  required DateTime asr,
+  required DateTime maghrib,
+  required DateTime isha,
+  required DateTime nextFajr,
+}) =>
+    [
+      (previousIsha, SkyPalette.night),
+      (fajr, SkyPalette.dawn),
+      (sunrise.add(const Duration(minutes: 40)), SkyPalette.morning),
+      (dhuhr, SkyPalette.noon),
+      (asr, SkyPalette.golden),
+      (maghrib, SkyPalette.dusk),
+      (isha, SkyPalette.night),
+      (nextFajr, SkyPalette.dawn),
+    ];
+
+/// Horizontal alignment (−1 … 1) of a point at [position] along the arc, mirrored in RTL.
+double skyX(double position, {required bool rtl}) => (rtl ? 1 - position : position) * 2 - 1;
 
 /// Position along the arc (0 = start edge … 1 = end edge) for [now], with the five prayers as
 /// evenly spaced stations at (i + 0.5) / 5 — the same x as the prayer labels in the row below.
