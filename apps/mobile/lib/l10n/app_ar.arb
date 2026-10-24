@@ -1423,5 +1423,17 @@
   "dirShortE": "ق",
   "dirShortS": "ج",
   "dirShortW": "غ",
-  "homeQiblaKaaba": "الكعبة"
+  "homeQiblaKaaba": "الكعبة",
+  "homeContinueTitle": "تابع من حيث توقفت",
+  "homeRailPage": "البطاقة {index} من {count}",
+  "@homeRailPage": {
+    "placeholders": {
+      "index": {
+        "type": "String"
+      },
+      "count": {
+        "type": "String"
+      }
+    }
+  }
 }

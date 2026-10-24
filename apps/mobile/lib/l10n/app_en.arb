@@ -1396,5 +1396,17 @@
   "dirShortE": "E",
   "dirShortS": "S",
   "dirShortW": "W",
-  "homeQiblaKaaba": "Kaaba"
+  "homeQiblaKaaba": "Kaaba",
+  "homeContinueTitle": "Pick up where you left off",
+  "homeRailPage": "Card {index} of {count}",
+  "@homeRailPage": {
+    "placeholders": {
+      "index": {
+        "type": "String"
+      },
+      "count": {
+        "type": "String"
+      }
+    }
+  }
 }

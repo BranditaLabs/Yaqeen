@@ -29,7 +29,10 @@ const homeTileHeight = 184.0;
 /// updates are throttled to visible changes, so it costs nothing in the background. Devices
 /// without a compass get the bearing from north instead. Tap → the full Qibla screen.
 class QiblaTile extends ConsumerStatefulWidget {
-  const QiblaTile({super.key});
+  const QiblaTile({super.key, this.height = homeTileHeight});
+
+  /// Tall tiles (≥ 260) also show the bearing large and the distance to the Kaaba.
+  final double height;
 
   @override
   ConsumerState<QiblaTile> createState() => _QiblaTileState();
@@ -128,11 +131,35 @@ class _QiblaTileState extends ConsumerState<QiblaTile> with WidgetsBindingObserv
           tone: aligned ? GlassTone.gold : GlassTone.clear,
           padding: const EdgeInsets.all(14),
           child: SizedBox(
-            height: homeTileHeight - 28,
+            height: widget.height - 28,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _TileTitle(icon: YqIcons.qibla, title: t.qiblaTitle, tag: '${YqFormat.number(bearing.round())}°', live: heading != null),
+                _TileTitle(
+                  icon: YqIcons.qibla,
+                  title: t.qiblaTitle,
+                  // Tall tiles show the bearing large below, so the chip only marks the live compass.
+                  tag: widget.height >= 260 ? (heading == null ? null : t.homeQiblaLive) : '${YqFormat.number(bearing.round())}°',
+                  live: heading != null,
+                ),
+                if (widget.height >= 260) ...[
+                  const Spacer(),
+                  Text(
+                    '${YqFormat.number(bearing.round())}°',
+                    textDirection: TextDirection.ltr,
+                    style: YqText.numeral
+                        .copyWith(fontSize: 40, fontWeight: FontWeight.w500, color: aligned ? YqColors.goldText : YqColors.ink, height: 1),
+                  ),
+                  Text(
+                    t.qiblaDistance(
+                      place.name(ref.watch(settingsProvider.select((s) => s.locale))),
+                      YqFormat.number(distanceToKaabaKm(place.lat, place.lng).round()),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11, color: YqColors.muted),
+                  ),
+                ],
                 const Spacer(),
                 // Horizon tape: a heading ruler that slides as the phone turns; the Kaaba marker
                 // drifts to the centre line when you face it.
@@ -305,7 +332,8 @@ class _HorizonPainter extends CustomPainter {
 /// Tasbeeh widget: tap the tile to count, hold to reset. A ring fills every 33, with a firmer
 /// haptic at each completed round. The count lives on the device (tasbeehProvider).
 class TasbeehTile extends ConsumerWidget {
-  const TasbeehTile({super.key});
+  const TasbeehTile({super.key, this.height = homeTileHeight});
+  final double height;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -328,7 +356,7 @@ class TasbeehTile extends ConsumerWidget {
           child: LiquidGlass(
             padding: const EdgeInsets.all(14),
             child: SizedBox(
-              height: homeTileHeight - 28,
+              height: height - 28,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

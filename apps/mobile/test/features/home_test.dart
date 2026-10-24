@@ -47,8 +47,15 @@ void main() {
     expect(find.text('3:53 م · الأذان بعد'), findsOneWidget);
     expect(find.text('00:53:00'), findsOneWidget);
     expect(find.text('ابدأ القراءة'), findsOneWidget);
-    expect(find.text('ابدأ رحلة 365 يوماً'), findsOneWidget);
     expect(find.text('0 / 2 صفحات'), findsOneWidget);
+    // The continue rail is a swipeable row: reading → azkar → challenge. In RTL the next card
+    // comes in from the left, so swipe towards the right.
+    final rail = find.byType(PageView);
+    for (var i = 0; i < 2; i++) {
+      await tester.fling(rail, const Offset(300, 0), 1500);
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
+    }
+    expect(find.text('ابدأ رحلة 365 يوماً'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 
