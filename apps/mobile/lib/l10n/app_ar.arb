@@ -1378,5 +1378,50 @@
   "packInstalled": "مثبّت",
   "packChecksumFailed": "تعذّر التحقق من الملف، لم يُثبَّت. حاول مرة أخرى.",
   "packsTitle": "الكتب والتفاسير",
-  "tafsirAttribution": "التفسير الميسر · مجمع الملك فهد لطباعة المصحف الشريف · المصدر: QuranEnc.com"
+  "tafsirAttribution": "التفسير الميسر · مجمع الملك فهد لطباعة المصحف الشريف · المصدر: QuranEnc.com",
+  "homeToolsTitle": "أدوات اليوم",
+  "homeQiblaLive": "بوصلة مباشرة",
+  "homeQiblaStatic": "من الشمال",
+  "tasbeehTitle": "المسبحة",
+  "tasbeehHint": "انقر للعدّ · اضغط مطوّلاً للتصفير",
+  "tasbeehRound": "الدورة {round}",
+  "@tasbeehRound": {
+    "placeholders": {
+      "round": {
+        "type": "String"
+      }
+    }
+  },
+  "tasbeehA11y": "المسبحة، العدد {count}. انقر للعد، واضغط مطولاً للتصفير",
+  "@tasbeehA11y": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "tasbeehResetDone": "صُفّرت المسبحة",
+  "homeAzkarHint": "ابدأ الآن · يُحفظ تقدّمك",
+  "homeDayProgress": "مضى {percent}٪ من الوقت حتى الأذان",
+  "@homeDayProgress": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "homeWirdLeft": "{count} متبقية",
+  "@homeWirdLeft": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "homeWirdDone": "اكتمل وردك",
+  "dirShortN": "ش",
+  "dirShortE": "ق",
+  "dirShortS": "ج",
+  "dirShortW": "غ",
+  "homeQiblaKaaba": "الكعبة"
 }

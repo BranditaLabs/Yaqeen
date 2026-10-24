@@ -1351,5 +1351,50 @@
   "packInstalled": "Installed",
   "packChecksumFailed": "The file couldn't be verified and wasn't installed. Please try again.",
   "packsTitle": "Books and tafsir",
-  "tafsirAttribution": "Al-Tafsir al-Muyassar · King Fahd Complex · source: QuranEnc.com"
+  "tafsirAttribution": "Al-Tafsir al-Muyassar · King Fahd Complex · source: QuranEnc.com",
+  "homeToolsTitle": "Today's tools",
+  "homeQiblaLive": "Live compass",
+  "homeQiblaStatic": "From north",
+  "tasbeehTitle": "Tasbeeh",
+  "tasbeehHint": "Tap to count · hold to reset",
+  "tasbeehRound": "Round {round}",
+  "@tasbeehRound": {
+    "placeholders": {
+      "round": {
+        "type": "String"
+      }
+    }
+  },
+  "tasbeehA11y": "Tasbeeh, count {count}. Tap to count, hold to reset",
+  "@tasbeehA11y": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "tasbeehResetDone": "Counter reset",
+  "homeAzkarHint": "Start now · your progress is saved",
+  "homeDayProgress": "{percent}% of the time to adhan has passed",
+  "@homeDayProgress": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "homeWirdLeft": "{count} left",
+  "@homeWirdLeft": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "homeWirdDone": "Wird complete",
+  "dirShortN": "N",
+  "dirShortE": "E",
+  "dirShortS": "S",
+  "dirShortW": "W",
+  "homeQiblaKaaba": "Kaaba"
 }

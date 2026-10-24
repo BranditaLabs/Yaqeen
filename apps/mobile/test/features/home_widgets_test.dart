@@ -1,0 +1,168 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:yaqeen/core/di/providers.dart';
+import 'package:yaqeen/core/platform/location_service.dart';
+import 'package:yaqeen/core/settings/app_settings.dart';
+import 'package:yaqeen/core/storage/kv_store.dart';
+import 'package:yaqeen/core/time/zoned.dart';
+import 'package:yaqeen/core/widgets/floating_tab_bar.dart';
+import 'package:yaqeen/core/widgets/liquid_glass.dart';
+import 'package:yaqeen/core/widgets/yq_icon.dart';
+import 'package:yaqeen/features/home/data/tasbeeh_controller.dart';
+import 'package:yaqeen/features/home/home_screen.dart';
+import 'package:yaqeen/features/home/widgets/home_tiles.dart';
+import 'package:yaqeen/features/quran/domain/quran_data.dart';
+
+import '../helpers/fonts.dart';
+import '../helpers/harness.dart';
+
+void main() {
+  final q = QuranData.fromJson(jsonDecode(File('assets/quran/quran.json').readAsStringSync()) as Map<String, dynamic>);
+  setUpAll(() async {
+    Zoned.ensureInitialized();
+    await loadAppFonts();
+  });
+  setUp(() => YqGlassConfig.enableBlur = false);
+
+  Widget tile(Widget child, {List<Override> overrides = const [], MemoryKvStore? kv}) => harness(
+        Scaffold(body: Center(child: SizedBox(width: 180, child: child))),
+        kv: kv,
+        overrides: [initialSettingsProvider.overrideWithValue(const AppSettings(place: Place.cairo)), ...overrides],
+      );
+
+  group('Qibla tile', () {
+    testWidgets('live: follows the compass and says when the phone faces the Qibla', (tester) async {
+      final headings = StreamController<HeadingReading>();
+      addTearDown(headings.close);
+      await tester
+          .pumpWidget(tile(const QiblaTile(), overrides: [compassServiceProvider.overrideWithValue(FakeCompassService(headings.stream))]));
+      // Cairo → Kaaba ≈ 136°.
+      headings.add(const HeadingReading(100));
+      await tester.pumpAndSettle();
+      expect(find.text('استدر يميناً'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('بوصلة مباشرة')), findsOneWidget); // live dot, announced
+      headings.add(const HeadingReading(136));
+      await tester.pumpAndSettle();
+      expect(find.text('أنت في اتجاه القبلة'), findsOneWidget);
+      headings.add(const HeadingReading(200));
+      await tester.pumpAndSettle();
+      expect(find.text('استدر يساراً'), findsOneWidget);
+    });
+
+    testWidgets('no compass: shows the bearing from north', (tester) async {
+      await tester.pumpWidget(tile(const QiblaTile(), overrides: [compassServiceProvider.overrideWithValue(FakeCompassService())]));
+      await tester.pumpAndSettle();
+      expect(find.text('136°'), findsOneWidget);
+      expect(find.textContaining('من الشمال باتجاه'), findsOneWidget);
+    });
+
+    testWidgets('stops listening while its tab is hidden', (tester) async {
+      var listeners = 0;
+      final headings = StreamController<HeadingReading>.broadcast(onListen: () => listeners++, onCancel: () => listeners--);
+      addTearDown(headings.close);
+      Widget at(bool enabled) => tile(
+            TickerMode(enabled: enabled, child: const QiblaTile()),
+            overrides: [compassServiceProvider.overrideWithValue(FakeCompassService(headings.stream))],
+          );
+      await tester.pumpWidget(at(true));
+      expect(listeners, 1);
+      await tester.pumpWidget(at(false));
+      expect(listeners, 0);
+      await tester.pumpWidget(at(true));
+      expect(listeners, 1);
+    });
+  });
+
+  testWidgets('tasbeeh tile: tap counts, the count persists, hold resets', (tester) async {
+    final kv = MemoryKvStore();
+    await tester.pumpWidget(tile(const TasbeehTile(), kv: kv));
+    await tester.pump();
+    for (var i = 0; i < 34; i++) {
+      await tester.tap(find.byType(TasbeehTile));
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+    await tester.pumpAndSettle();
+    expect(find.text('34'), findsOneWidget);
+    expect(find.text('الدورة 2'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 500)); // debounced save
+    expect(kv.data[TasbeehController.key], '34');
+
+    await tester.longPress(find.byType(TasbeehTile));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 3)); // toast gone, save done
+    expect(find.text('0'), findsOneWidget);
+    expect(kv.data[TasbeehController.key], '0');
+  });
+
+  testWidgets('a saved count is restored on start', (tester) async {
+    final kv = MemoryKvStore()..data[TasbeehController.key] = '99';
+    await tester.pumpWidget(tile(const TasbeehTile(), kv: kv));
+    await tester.pumpAndSettle();
+    expect(find.text('99'), findsOneWidget);
+    expect(find.text('الدورة 4'), findsOneWidget);
+  });
+
+  // Full-screen renders of the redesigned Home (also the screenshots shared for review).
+  for (final locale in ['ar', 'en']) {
+    testWidgets('home golden ($locale)', (tester) async {
+      debugDisableShadows = false;
+      tester.view.physicalSize = const Size(390 * 3, 1480 * 3);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      final kv = MemoryKvStore()..data[TasbeehController.key] = '21';
+      await tester.pumpWidget(
+        harness(
+          locale: locale,
+          kv: kv,
+          overrides: [
+            clockProvider.overrideWithValue(() => DateTime.utc(2026, 10, 20, 12)), // Tue 15:00 Cairo
+            initialSettingsProvider.overrideWithValue(AppSettings(place: Place.cairo, locale: locale)),
+            quranDataProvider.overrideWith((_) async => q),
+            // Live compass, phone pointing a little left of the Qibla (≈136°).
+            compassServiceProvider.overrideWithValue(FakeCompassService(Stream.value(const HeadingReading(126)))),
+          ],
+          Scaffold(
+            extendBody: true,
+            body: Stack(
+              children: [
+                const Positioned.fill(child: HomeScreen()),
+                Positioned(
+                  left: 20,
+                  right: 20,
+                  bottom: 26,
+                  child: Builder(
+                    builder: (context) => FloatingTabBar(
+                      currentIndex: 0,
+                      onSelect: (_) {},
+                      avatarInitial: 'أ',
+                      profileLabel: locale == 'ar' ? 'حسابي' : 'Profile',
+                      tabs: [
+                        YqTab(icon: YqIcons.home, label: locale == 'ar' ? 'الرئيسية' : 'Home'),
+                        const YqTab(icon: YqIcons.quran, label: 'quran'),
+                        const YqTab(icon: YqIcons.prayer, label: 'prayer'),
+                        const YqTab(icon: YqIcons.challenge, label: 'challenge'),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(milliseconds: 400)); // saved tasbeeh count loaded
+      try {
+        await expectLater(find.byType(Scaffold).first, matchesGoldenFile('../goldens/home_$locale.png'));
+      } finally {
+        debugDisableShadows = true;
+      }
+    });
+  }
+}

@@ -27,6 +27,7 @@ import 'core/network/api_client.dart';
 import 'core/config/env.dart';
 import 'core/storage/kv_store.dart';
 import 'core/storage/local_store.dart';
+import 'core/theme/scroll.dart';
 import 'core/theme/theme.dart';
 import 'core/time/zoned.dart';
 import 'features/onboarding/data/auth_repository.dart';
@@ -125,6 +126,7 @@ class YaqeenApp extends ConsumerWidget {
     final locale = ref.watch(settingsProvider.select((s) => s.locale));
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
+      scrollBehavior: const YqScrollBehavior(),
       onGenerateTitle: (context) => AppLocalizations.of(context).appName,
       theme: YqTheme.light(),
       locale: Locale(locale),
