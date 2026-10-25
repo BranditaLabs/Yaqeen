@@ -10,6 +10,7 @@ import '../../../core/format.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/ambient_background.dart';
+import '../../../core/widgets/yq_sky_header.dart';
 import '../../../core/widgets/controls.dart';
 import '../../../core/widgets/liquid_glass.dart';
 import '../../../core/widgets/yq_button.dart';
@@ -57,7 +58,9 @@ class ChallengeScreen extends ConsumerWidget {
 
     return AmbientBackground(
       lights: AmbientBackground.goldLights,
+      // When enrolled, the header's sky band reaches under the status bar (YqSkyHeader).
       child: SafeArea(
+        top: !(session.canEarnPoints && (state.valueOrNull?.enrolled ?? false)),
         bottom: false,
         child: !session.canEarnPoints
             ? _JoinView(guest: true, onJoin: () => context.push('/onboarding/welcome'))
@@ -178,17 +181,19 @@ class _Enrolled extends ConsumerWidget {
     return RefreshIndicator.adaptive(
       onRefresh: () => ref.refresh(challengeControllerProvider.future),
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(YqSpace.gutter, YqSpace.l, YqSpace.gutter, 140),
+        padding: const EdgeInsets.fromLTRB(YqSpace.gutter, 0, YqSpace.gutter, 140),
         children: [
-          Row(
-            children: [
-              Expanded(child: Semantics(header: true, child: Text(t.challengeTitle, style: YqText.display.copyWith(fontSize: 30)))),
-              GlassIconButton(
-                tooltip: t.challengeCalendar,
-                onPressed: () => context.push('/challenge/calendar'),
-                icon: const YqIcon(YqIcons.calendar, size: 20),
-              ),
-            ],
+          YqSkyHeader(
+            child: Row(
+              children: [
+                Expanded(child: Semantics(header: true, child: Text(t.challengeTitle, style: YqText.display.copyWith(fontSize: 30)))),
+                GlassIconButton(
+                  tooltip: t.challengeCalendar,
+                  onPressed: () => context.push('/challenge/calendar'),
+                  icon: const YqIcon(YqIcons.calendar, size: 20),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: YqSpace.l),
           LiquidGlass(

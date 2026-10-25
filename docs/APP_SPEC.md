@@ -66,6 +66,9 @@ the Yaqeen Shopify store (yaqin-brand.com — prayer rugs *السكينة الذ
 ## 2. Design system
 
 Source of truth: `packages/design-tokens/tokens.json` → Flutter `lib/core/theme/tokens.dart` · Admin `globals.css`.
+**How screens are composed — the "living canvas" (living sky, sky headers, complications, the day
+journey, motion and performance rules): [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md).** It applies to every
+mobile screen; the token tables below are its vocabulary.
 
 ### 2.1 Colour
 
@@ -117,7 +120,8 @@ Scale (pt): display 30/1.4 · title-L 19 · title-M 15 · body-L 16/1.75 · body
 | `YqLogo` | ✅ | `mark | stacked | horizontal | arabic` × `onLight | onDark`; min widths 24 / 96 |
 | `FloatingTabBar` | ✅ | 350×66 floating glass pill, 5 tabs: الرئيسية · القرآن · الصلاة · التحدي · حسابي (avatar) |
 | `YqSwitch`, `YqSegmented`, `YqProgressLine` | ✅ | Lapis on, porcelain track |
-| `AmbientBackground` | ✅ | Porcelain + 2–3 soft radial lights (`defaultLights`, `goldLights`) |
+| `AmbientBackground` | ✅ | Porcelain lit by the **living sky** (tint + glow under the sun, follows the time of day; DESIGN_SYSTEM §2); `lights:` adds accents (`goldLights`) |
+| `YqSkyHeader` | ✅ | Tab-root header as a band of the living sky, edge to edge (DESIGN_SYSTEM §3) |
 | **To build** | ⬜ | `YqButton` (primary dark pill 56 · secondary glass · text), `YqListRow`, `YqSection` (glass card with title), `YqEmptyState`, `YqErrorState`, `YqOfflineBanner`, `YqSheet` (glass bottom sheet, 28 radius, grabber), `YqChip`, `YqStepper` (onboarding 4 dashes), `YqCountdown`, `YqToast` |
 
 ### 2.5 Universal screen states (every data screen must implement)
@@ -173,6 +177,7 @@ hifz intervals, challenge model parsing/optimistic updates, splash uses artwork 
 | `/onboarding/prayer` | Prayer setup | 04 | — |
 | `/onboarding/consent` | Notifications & privacy | 04·ب | — |
 | `/onboarding/goal` | Daily goal & challenge | 05 | — |
+| `/onboarding/routine` | Daily routine «متى يناسبك؟» | 05·ب | — |
 | `/onboarding/download` | Offline mushaf | 06 | — |
 | `/home` | Home | 07 · Home | الرئيسية |
 | `/home/azkar` · `/home/duas` · `/home/inbox` | Azkar · Duas · Inbox | 16 · 17 · 15·ب | الرئيسية |
@@ -216,6 +221,7 @@ Push payload: `data.link`, `data.campaignId` (opened → `POST /v1/me/campaigns/
 | 04 | Prayer setup | `/onboarding/prayer` | ✅ | — |
 | 04·ب | Notifications & privacy | `/onboarding/consent` | ✅ | — |
 | 05 | Daily goal & challenge | `/onboarding/goal` | ✅ | — |
+| 05·ب | Daily routine | `/onboarding/routine` | ✅ | — |
 | 06 | Offline mushaf | `/onboarding/download` | ✅ | tafsir pack licence (§10); the pack manager installs it once published |
 | 07 | Home | `/home` | ✅ | — |
 | 08 | Quran index | `/quran` | ✅ | — |
@@ -353,17 +359,42 @@ CTA «متابعة» + caption «سيطلب هاتفك بعدها إذن الإ�
 
 ### 5.7 `05 · Daily goal & challenge` — `/onboarding/goal` ⬜
 
-**Layout** Stepper 4/4. H1 «وِردك اليومي», sub «قليلٌ دائم خيرٌ من كثيرٍ منقطع. اختر ما يناسب يومك.»
+**Layout** Stepper 4/5. H1 «وِردك اليومي», sub «قليلٌ دائم خيرٌ من كثيرٍ منقطع. اختر ما يناسب يومك.»
 - Goal chips (single select): صفحة · **صفحتان** (default) · 4 صفحات · جزء.
-- **وقت التذكير** row: «بعد الفجر · 6:00» (time picker).
 - **Challenge card** (gold glass): eyebrow «تحدٍّ سنوي», title «365 يوماً من اليقين», switch «الانضمام إلى التحدي» (default ON), body «أكمل وردك وأذكارك وصلواتك كل يوم، واجمع النقاط لتستبدلها بخصومات حصرية في متجر يقين.», two stats «100 نقطة يومياً» · «1,000 نقطة = مكافأة» (values from remote config `points.dailyTotal` and the cheapest reward).
 CTA «ابدأ رحلتي».
 
 **Rules**
 - Join ON + signed-in → `POST /v1/challenge/enroll` (event `challenge_join`). Join ON + guest → sheet «سجّل الدخول لتحفظ نقاطك» with Google/Apple, or «لاحقاً» (keeps guest, join later from 19).
-- Wird goal + reminder time → local settings + notification planner (`wirdAt`).
+- Wird goal → local settings. When to read is chosen on the next step (§5.7·ب).
 
 **Acceptance** [ ] Numbers come from config, not hard-coded · [ ] Guest never calls enroll.
+
+---
+
+### 5.7·ب `05·ب · Daily routine` — `/onboarding/routine` ✅
+
+**Purpose** The user anchors their habits to their day, so Home's «يومك» timeline and the reminders
+follow their life, not a fixed clock.
+
+**Layout** Stepper 5/5. H1 «متى يناسبك؟», sub «اختر وقتاً لكل عادة، وسنرتّب يومك على مواقيت الصلاة ونذكّرك في وقتها.»
+One glass card per habit with chips «بعد الفجر · بعد الظهر · بعد العصر · بعد المغرب · بعد العشاء · وقت محدد · لا»
+and today's real time as a preview («بعد الفجر · 5:48 ص»):
+- **قراءة القرآن** (required; default 15 min after Fajr),
+- **مراجعة الحفظ** (when the `hifz` flag is on; default off),
+- **ورد الذكر** (default off).
+CTA «رتّب يومي».
+
+**Rules**
+- Stored as `RoutineSlot` in local settings (`quranSlot`, `hifzSlot`, `dhikrSlot`): after a prayer + 15 min, a set
+  time, or off. **Device-only — never in the settings patch sent to the API.** Editable later under «روتيني» in
+  notification settings.
+- The planner schedules the wird, hifz and dhikr reminders at the resolved daily time (quiet hours apply).
+- Home's timeline shows each habit at its time; due from then until the next prayer; «تم» when today's wird goal is met.
+- A legacy fixed wird time (older installs) migrates as «وقت محدد».
+
+**Acceptance** [ ] Choice previews today's real time · [ ] Reminders and timeline follow the choice · [ ] Nothing
+routine-related reaches the API.
 
 ---
 
@@ -379,39 +410,48 @@ Footer verse «وَرَتِّلِ ٱلْقُرْءَانَ تَرْتِيلًا�
 
 ---
 
-### 5.9 `07 · Home` — `/home` 🟡 (static sample)
+### 5.9 `07 · Home` — `/home` ✅ ("living canvas", DESIGN_SYSTEM.md)
 
-**Purpose** Today at a glance; one tap to the most likely next action.
+**Purpose** Today at a glance as a living scene; one tap to the most likely next action.
 
-**Layout (scroll, 20 gutter, bottom padding 140 for the tab bar)**
-1. **Header**: greeting by time («صباح الخير» before Dhuhr / «مساء الخير» after) · name (bold 23) · Hijri date + city «8 جمادى الأولى 1448 · القاهرة» · glass buttons search (→ `/quran` with search focused) and bell with unread dot (→ inbox; label «الإشعارات، 3 غير مقروءة»).
-2. **Next prayer hero** (glass, radius 30): «الصلاة القادمة» · prayer name «العصر» · time «3:55 م» · «الأذان بعد 01:24:10» live countdown · row of 5 prayers with the next highlighted. Tap → `/prayer`.
-3. **Continue reading** (dark navy card, gold text): surah name in display face «الكهف» · «تابع القراءة» · «سورة الكهف · الصفحة 296 · الجزء 15» · thin progress · play button «استمع إلى سورة الكهف» (→ listen). Tap card → `/quran/read/296`.
-4. Two tiles: **الورد اليومي** «2 / 4 صفحات» with progress · **Streak** «12 يوماً متتالياً» + hint «أكمل ورد اليوم للحفاظ عليها» (gold).
-5. **Challenge card**: «365 يوماً من اليقين» · «اليوم 47 · رصيدك 3,240 نقطة» → `/challenge`.
-6. **Services grid** («الخدمات», 4): الأذكار (→ azkar) · الأدعية (→ duas) · القبلة (→ qibla) · التقويم (→ calendar).
-7. Floating tab bar (active «الرئيسية»).
+**Layout** (scroll; the sky stage runs edge to edge under the status bar; content gutter 20; bottom 140 for the tab bar)
+1. **Sky stage** — sky gradient that follows the time of day (living sky). Greeting by time («صباح الخير» before
+   Dhuhr / «مساء الخير» after) · name · Hijri date + city (Gregorian until the Hijri cache has today) · search and
+   bell (unread dot). Then «الصلاة القادمة» · prayer name large · «3:53 م · الأذان بعد» · live countdown · the
+   day arc (the sun — a crescent at night — at its real position between the five prayer stations) · station names.
+   Tap → `/prayer`.
+2. **Complications** — three orbs: **Qibla** (the Kaaba orbits the ring and reaches the top when the phone faces it;
+   gold glow + light haptic; bearing from north without a compass; tap → Qibla), **المسبحة** (33-bead misbaha:
+   tap counts, hold resets; device-only count), **الورد اليومي** (liquid fill, pages/goal; tap → Quran).
+3. **«يومك» timeline** — Fajr → morning azkar → Dhuhr → Asr → evening azkar → Maghrib → Isha, plus the user's
+   **routine** stops (§5.7·ب) at their times. Past moments recede; the next prayer is tagged «التالية»; azkar glow
+   «متاحة الآن» while open; routine stops «حان وقته» while due, «تم» when done. A «الآن» marker carries the
+   continue-reading card (Friday: Al-Kahf suggestion). The challenge card (or the «ابدأ رحلة 365 يوماً» CTA) closes the day.
+4. **Services** — الأذكار · الأدعية · التقويم · خطة الحفظ (القبلة when hifz is off).
+5. Floating tab bar.
 
 **Data**
 | Block | Source |
 | --- | --- |
 | Name | `/v1/me` (cached) or «ضيف» |
 | Hijri date | Calendar cache (§6.10) for today |
-| Prayers | Local prayer engine (§6.4) |
+| Prayers, sky, arc | Local prayer engine (§6.4) |
+| Routine | Local settings (`quranSlot`, `hifzSlot`, `dhikrSlot`) |
 | Continue reading | Local `quran.lastRead {page, surah, juz}` |
 | Wird | Local `wird.today {pagesRead, goal}` |
+| Tasbeeh | Local `home.tasbeeh` |
 | Streak / day / balance | `ChallengeSummary` (cached, optimistic) |
 | Unread | Local inbox store (§6.5) |
 
 **Rules**
-- Countdown ticks every second only while the screen is visible (pause on background).
-- At adhan time the hero flips to «حان وقت صلاة العصر» for 20 minutes, then advances.
-- Friday: continue-reading suggests الكهف if not read today (only suggestion, not a badge).
-- Guest/not enrolled: challenge card becomes «ابدأ رحلة 365 يوماً» CTA.
+- Countdown ticks every second only while visible; cards re-plan every 15–30 s; the compass runs only while visible.
+- At adhan time the stage flips to «حان وقت صلاة العصر» for 20 minutes, then advances.
+- Guest/not enrolled: the challenge card becomes «ابدأ رحلة 365 يوماً».
 
-**States** Skeleton for name/hijri; prayers never loading (local). No challenge data offline → last cached values, no error.
+**States** Prayers and the timeline never load (local). No challenge data offline → last cached values, no error.
 
-**Acceptance** [ ] Countdown correct across midnight and DST change (Egypt) · [ ] All taps route as listed · [ ] VoiceOver reads hero as one element with the label above.
+**Acceptance** [ ] Countdown correct across midnight and DST change (Egypt) · [ ] All taps route as listed ·
+[ ] VoiceOver reads the stage as one element · [ ] Timeline order follows the real times incl. the routine.
 
 ---
 

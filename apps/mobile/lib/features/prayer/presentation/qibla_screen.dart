@@ -98,7 +98,7 @@ class _QiblaScreenState extends ConsumerState<QiblaScreen> {
 
     return Scaffold(
       body: AmbientBackground(
-        lights: aligned ? AmbientBackground.goldLights : AmbientBackground.defaultLights,
+        lights: aligned ? AmbientBackground.goldLights : null,
         child: SafeArea(
           child: YqPage(
             header: YqTopBar(

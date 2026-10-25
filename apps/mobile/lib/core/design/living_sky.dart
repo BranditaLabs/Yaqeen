@@ -2,7 +2,18 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
-import '../../../core/theme/tokens.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../features/prayer/data/prayer_repository.dart';
+import '../../features/prayer/domain/prayer_calculator.dart';
+import '../../features/prayer/domain/prayer_clock.dart';
+import '../config/config_controller.dart';
+import '../config/remote_config.dart';
+import '../di/providers.dart';
+import '../settings/app_settings.dart';
+import '../settings/settings_controller.dart';
+import '../theme/tokens.dart';
+import '../widgets/yq_countdown.dart';
 
 /// Time of day, for the hero's sky colours and the sun/moon.
 enum SkyPhase { dawn, day, golden, dusk, night }
@@ -201,4 +212,70 @@ class SkyArcPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(SkyArcPainter old) => old.position != position || old.nextIndex != nextIndex || old.night != night || old.rtl != rtl;
+}
+
+// ── The living sky, app-wide (docs/DESIGN_SYSTEM.md §1) ───────────────────────────────────────
+
+/// The sky at one instant: its palette, the sun's position along the day arc (0…1) and the
+/// phase (for sun vs moon).
+@immutable
+class SkyNow {
+  const SkyNow({required this.palette, required this.position, required this.phase});
+  final SkyPalette palette;
+  final double position;
+  final SkyPhase phase;
+}
+
+SkyPhase skyPhaseAt(PrayerDayTimes times, DateTime instant) => instant.isBefore(times.fajr) || !instant.isBefore(times.isha)
+    ? SkyPhase.night
+    : instant.isBefore(times.sunrise.add(const Duration(minutes: 40)))
+        ? SkyPhase.dawn
+        : instant.isBefore(times.asr)
+            ? SkyPhase.day
+            : instant.isBefore(times.maghrib)
+                ? SkyPhase.golden
+                : SkyPhase.dusk;
+
+/// The sky for [now] at the user's place: keyframes from that day's real prayer times.
+SkyNow skyNow(AppSettings s, PrayerRepository repo, DateTime now, {bool ramadan = false}) {
+  final instant = now.toUtc();
+  final today = repo.today(s, now);
+  final times = repo.forDate(s, today, ramadan: ramadan);
+  final yesterday = repo.forDate(s, DateTime(today.year, today.month, today.day - 1), ramadan: ramadan);
+  final tomorrow = repo.forDate(s, DateTime(today.year, today.month, today.day + 1), ramadan: ramadan);
+  final keys = skyKeyframes(
+    previousIsha: yesterday.isha,
+    fajr: times.fajr,
+    sunrise: times.sunrise,
+    dhuhr: times.dhuhr,
+    asr: times.asr,
+    maghrib: times.maghrib,
+    isha: times.isha,
+    nextFajr: tomorrow.fajr,
+  );
+  return SkyNow(
+    palette: skyPaletteAt(keys, instant),
+    position: skyPosition([for (final p in obligatory) times.of(p)], yesterday.isha, tomorrow.fajr, instant),
+    phase: skyPhaseAt(times, instant),
+  );
+}
+
+/// The clock the living sky reads; the test harness pins it so screenshots are deterministic.
+final skyClockProvider = Provider<DateTime Function()>((ref) => ref.watch(clockProvider));
+
+/// Rebuilds [builder] with the current sky every [interval] (30 s by default) while visible;
+/// pauses off-screen and in the background (YqTicker). Changes are eased by the caller.
+class LivingSky extends ConsumerWidget {
+  const LivingSky({super.key, required this.builder, this.interval = const Duration(seconds: 30)});
+  final Widget Function(BuildContext context, SkyNow sky) builder;
+  final Duration interval;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(settingsProvider);
+    final repo = ref.watch(prayerRepositoryProvider);
+    final clock = ref.watch(skyClockProvider);
+    final ramadan = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.ramadan)));
+    return YqTicker(now: clock, interval: interval, builder: (context, now) => builder(context, skyNow(s, repo, now, ramadan: ramadan)));
+  }
 }

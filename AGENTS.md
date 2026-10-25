@@ -53,6 +53,14 @@ touching user privacy.
 - **Strings:** `lib/l10n/app_ar.arb` (template) + `app_en.arb`. No hard-coded user-facing text.
 - **RTL icons:** never swap `chevron_left`/`chevron_right` (or arrows) by text direction yourself. They are
   `matchTextDirection` and Flutter mirrors them. Use the LTR glyph (back = left, forward = right).
+- **Design system:** read `docs/DESIGN_SYSTEM.md` before building a screen.
+  - Every screen sits on `AmbientBackground`, which follows the living sky (`core/design/living_sky.dart`). Pass
+    `lights:` only for accents (`goldLights` on reward, challenge and calendar screens).
+  - Tab roots wrap their title row in `YqSkyHeader` as the first scroll item (gutter padding, `SafeArea(top: false)`).
+  - Pushed screens use `YqTopBar`. The reader and splash are the only exceptions.
+  - Tests pin the sky with the harness `skyClock:` so goldens are deterministic.
+- **Routine:** `quranSlot`/`hifzSlot`/`dhikrSlot` (`RoutineSlot`) drive Home's «Your day» stops and local reminders.
+  They are device-only and never go in `serverPatch()`.
 - **Performance:**
   - Live blur (`LiquidGlass(blur: …)`, `BackdropFilter`) only on fixed chrome, never on cards inside scroll views.
   - Long lists are lazy (`SliverList.builder` / `ListView.builder`).

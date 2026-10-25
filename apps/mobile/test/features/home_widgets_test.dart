@@ -16,7 +16,7 @@ import 'package:yaqeen/core/widgets/yq_icon.dart';
 import 'package:yaqeen/features/home/data/tasbeeh_controller.dart';
 import 'package:yaqeen/features/home/home_screen.dart';
 import 'package:yaqeen/features/home/widgets/orbs.dart';
-import 'package:yaqeen/features/home/widgets/sky_arc.dart';
+import 'package:yaqeen/core/design/living_sky.dart';
 import 'package:yaqeen/features/quran/domain/quran_data.dart';
 
 import '../helpers/fonts.dart';

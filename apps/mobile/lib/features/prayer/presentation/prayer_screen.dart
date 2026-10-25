@@ -10,6 +10,7 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/ambient_background.dart';
+import '../../../core/widgets/yq_sky_header.dart';
 import '../../../core/widgets/liquid_glass.dart';
 import '../../../core/widgets/yq_countdown.dart';
 import '../../../core/widgets/yq_icon.dart';
@@ -78,29 +79,33 @@ class _PrayerScreenState extends ConsumerState<PrayerScreen> {
     final bearing = qiblaBearing(place.lat, place.lng);
 
     return AmbientBackground(
+      // The header's sky band reaches under the status bar (YqSkyHeader).
       child: SafeArea(
+        top: false,
         bottom: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(YqSpace.gutter, YqSpace.m, YqSpace.gutter, 140),
+          padding: const EdgeInsets.fromLTRB(YqSpace.gutter, 0, YqSpace.gutter, 140),
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Semantics(header: true, child: Text(t.prayerTitle, style: YqText.display.copyWith(fontSize: 28))),
-                      Text(
-                        '${YqFormat.weekdayDayMonth(date, s.locale)} · ${methodLabel(t, s.method)}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
+            YqSkyHeader(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Semantics(header: true, child: Text(t.prayerTitle, style: YqText.display.copyWith(fontSize: 28))),
+                        Text(
+                          '${YqFormat.weekdayDayMonth(date, s.locale)} · ${methodLabel(t, s.method)}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: YqSpace.s),
-                _LocationChip(label: place.name(s.locale), onTap: _changePlace),
-              ],
+                  const SizedBox(width: YqSpace.s),
+                  _LocationChip(label: place.name(s.locale), onTap: _changePlace),
+                ],
+              ),
             ),
             if (_moved case final moved?) ...[
               const SizedBox(height: YqSpace.m),

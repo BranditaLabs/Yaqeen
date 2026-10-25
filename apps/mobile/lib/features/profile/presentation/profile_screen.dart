@@ -14,6 +14,7 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/ambient_background.dart';
+import '../../../core/widgets/yq_sky_header.dart';
 import '../../../core/widgets/controls.dart';
 import '../../../core/widgets/liquid_glass.dart';
 import '../../../core/widgets/yq_button.dart';
@@ -72,39 +73,45 @@ class ProfileScreen extends ConsumerWidget {
         );
 
     return AmbientBackground(
+      // The header's sky band reaches under the status bar (YqSkyHeader).
       child: SafeArea(
+        top: false,
         bottom: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(YqSpace.gutter, YqSpace.m, YqSpace.gutter, 140),
+          padding: const EdgeInsets.fromLTRB(YqSpace.gutter, 0, YqSpace.gutter, 140),
           children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: YqColors.lapis,
-                  child: Text(
-                    name.isEmpty ? '' : String.fromCharCode(name.runes.first),
-                    style: const TextStyle(fontFamily: YqFonts.naskh, fontSize: 26, fontWeight: FontWeight.w700, color: YqColors.white),
+            YqSkyHeader(
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 30,
+                    backgroundColor: YqColors.lapis,
+                    child: Text(
+                      name.isEmpty ? '' : String.fromCharCode(name.runes.first),
+                      style: const TextStyle(fontFamily: YqFonts.naskh, fontSize: 26, fontWeight: FontWeight.w700, color: YqColors.white),
+                    ),
                   ),
-                ),
-                const SizedBox(width: YqSpace.m),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(name, style: text.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-                      if (provider != null && session.canEarnPoints)
-                        Text(t.profileLinked(provider), style: text.bodySmall)
-                      else
-                        GestureDetector(
-                          onTap: () => showSignInSheet(context),
-                          child:
-                              Text(t.profileGuestCta, style: text.bodySmall?.copyWith(color: YqColors.lapis, fontWeight: FontWeight.w700)),
-                        ),
-                    ],
+                  const SizedBox(width: YqSpace.m),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name, style: text.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+                        if (provider != null && session.canEarnPoints)
+                          Text(t.profileLinked(provider), style: text.bodySmall)
+                        else
+                          GestureDetector(
+                            onTap: () => showSignInSheet(context),
+                            child: Text(
+                              t.profileGuestCta,
+                              style: text.bodySmall?.copyWith(color: YqColors.lapis, fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             if (pending > 0) ...[
               const SizedBox(height: YqSpace.s),

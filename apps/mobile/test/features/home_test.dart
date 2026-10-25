@@ -28,6 +28,7 @@ void main() {
     await tester.pumpWidget(
       harness(
         const Scaffold(body: HomeScreen()),
+        skyClock: () => now,
         overrides: [
           clockProvider.overrideWithValue(() => now),
           initialSettingsProvider.overrideWithValue(const AppSettings(place: Place.cairo)),
@@ -73,7 +74,7 @@ void main() {
   testWidgets('the page light follows the sun across the day (mirrored in RTL)', (tester) async {
     double sunGlowX() {
       final glow = tester
-          .widgetList<DecoratedBox>(find.descendant(of: find.byKey(const ValueKey('home-light')), matching: find.byType(DecoratedBox)))
+          .widgetList<DecoratedBox>(find.descendant(of: find.byKey(const ValueKey('sky-light')), matching: find.byType(DecoratedBox)))
           .map((b) => (b.decoration as BoxDecoration).gradient)
           .whereType<RadialGradient>()
           .first;

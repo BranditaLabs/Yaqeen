@@ -14,6 +14,7 @@ import '../../../core/widgets/controls.dart';
 import '../../../core/widgets/liquid_glass.dart';
 import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_layout.dart';
+import '../../../core/widgets/yq_sky_header.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../data/reading_repository.dart';
@@ -66,36 +67,40 @@ class _QuranIndexScreenState extends ConsumerState<QuranIndexScreen> {
     final locale = ref.watch(settingsProvider.select((s) => s.locale));
 
     return AmbientBackground(
+      // The header's sky band reaches under the status bar; the other states keep the safe area.
       child: SafeArea(
+        top: false,
         bottom: false,
         child: data.when(
-          loading: () => const _IndexSkeleton(),
-          error: (_, __) => YqErrorState(onRetry: () => ref.invalidate(quranDataProvider)),
+          loading: () => const SafeArea(child: _IndexSkeleton()),
+          error: (_, __) => SafeArea(child: YqErrorState(onRetry: () => ref.invalidate(quranDataProvider))),
           data: (q) {
             final hits = q.search(_query.text);
             final searching = _query.text.trim().isNotEmpty;
             final header = <Widget>[
-              Row(
-                children: [
-                  Expanded(child: Semantics(header: true, child: Text(t.quranTitle, style: YqText.display.copyWith(fontSize: 28)))),
-                  if (config.isOn(Flags.listen))
-                    GlassIconButton(
-                      tooltip: t.quranListen,
-                      onPressed: () async {
-                        final last = await ref.read(readingRepositoryProvider).lastRead();
-                        if (context.mounted) context.push('/quran/listen/${last?.surah ?? 1}');
-                      },
-                      icon: const YqIcon(YqIcons.listen, size: 20),
-                    ),
-                  if (config.isOn(Flags.hifz)) ...[
-                    const SizedBox(width: YqSpace.s),
-                    GlassIconButton(
-                      tooltip: t.quranHifzPlan,
-                      onPressed: () => context.push('/quran/hifz'),
-                      icon: const YqIcon(YqIcons.bookmark, size: 20),
-                    ),
+              YqSkyHeader(
+                child: Row(
+                  children: [
+                    Expanded(child: Semantics(header: true, child: Text(t.quranTitle, style: YqText.display.copyWith(fontSize: 28)))),
+                    if (config.isOn(Flags.listen))
+                      GlassIconButton(
+                        tooltip: t.quranListen,
+                        onPressed: () async {
+                          final last = await ref.read(readingRepositoryProvider).lastRead();
+                          if (context.mounted) context.push('/quran/listen/${last?.surah ?? 1}');
+                        },
+                        icon: const YqIcon(YqIcons.listen, size: 20),
+                      ),
+                    if (config.isOn(Flags.hifz)) ...[
+                      const SizedBox(width: YqSpace.s),
+                      GlassIconButton(
+                        tooltip: t.quranHifzPlan,
+                        onPressed: () => context.push('/quran/hifz'),
+                        icon: const YqIcon(YqIcons.bookmark, size: 20),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
               const SizedBox(height: YqSpace.l),
               TextField(
@@ -206,7 +211,7 @@ class _QuranIndexScreenState extends ConsumerState<QuranIndexScreen> {
             return CustomScrollView(
               slivers: [
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(YqSpace.gutter, YqSpace.m, YqSpace.gutter, 0),
+                  padding: const EdgeInsets.symmetric(horizontal: YqSpace.gutter),
                   sliver: SliverList.list(children: header),
                 ),
                 if (lazySurahs)
