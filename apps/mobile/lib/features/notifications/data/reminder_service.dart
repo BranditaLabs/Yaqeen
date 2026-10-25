@@ -35,6 +35,13 @@ class ReminderService {
         PrayerName.isha => Prayer.isha,
       };
 
+  /// The routine slot as the planner's daily time (null = off).
+  static SlotTime? _slot(RoutineSlot r) => switch (r.kind) {
+        SlotKind.off => null,
+        SlotKind.at => SlotTime.at(r.minutes),
+        SlotKind.afterPrayer => SlotTime.after(_prayer(r.prayer!), r.minutes),
+      };
+
   static PrayerAlert _alert(AlertMode m) => switch (m) {
         AlertMode.adhan => PrayerAlert.adhan,
         AlertMode.notify => PrayerAlert.notify,
@@ -46,7 +53,9 @@ class ReminderService {
         prePrayerMinutes: s.preReminderMinutes,
         morningAzkar: s.morningAzkar,
         eveningAzkar: s.eveningAzkar,
-        wirdAt: s.wirdReminderMinutes,
+        wird: _slot(s.quranSlot),
+        dhikr: _slot(s.dhikrSlot),
+        hifz: _slot(s.hifzSlot) ?? const SlotTime.at(9 * 60),
         kahfFriday: s.kahfFriday,
         wirdMissing: s.wirdMissing && !wirdDone,
         hifzDueDates: s.hifzDue ? hifzDue : const {},
@@ -157,6 +166,7 @@ class NotificationCopy {
       ReminderKind.kahfFriday => (t.notifKahfTitle, t.notifKahfBody),
       ReminderKind.wirdMissing => (t.notifWirdMissingTitle, t.notifWirdMissingBody),
       ReminderKind.hifzDue => (t.notifHifzTitle, t.notifHifzBody),
+      ReminderKind.dhikr => (t.notifDhikrTitle, t.notifDhikrBody),
     };
   }
 }

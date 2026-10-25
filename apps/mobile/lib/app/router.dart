@@ -49,6 +49,7 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
             GoRoute(path: 'prayer', builder: (_, __) => const PrayerStep()),
             GoRoute(path: 'consent', builder: (_, __) => const ConsentStep()),
             GoRoute(path: 'goal', builder: (_, __) => const GoalStep()),
+            GoRoute(path: 'routine', builder: (_, __) => const RoutineStep()),
             GoRoute(path: 'download', builder: (_, __) => const DownloadStep()),
           ],
         ),

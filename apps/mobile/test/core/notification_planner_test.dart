@@ -23,7 +23,7 @@ void main() {
   test('never exceeds the iOS budget and keeps the earliest reminders', () {
     final plan = NotificationPlanner.plan(
       days: days(14),
-      prefs: const ReminderPrefs(prePrayerMinutes: 10, wirdAt: 21 * 60),
+      prefs: const ReminderPrefs(prePrayerMinutes: 10, wird: SlotTime.at(21 * 60)),
       now: now,
     );
     expect(plan.items.length, NotificationPlanner.iosLimit);

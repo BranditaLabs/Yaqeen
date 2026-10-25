@@ -1183,7 +1183,7 @@
   "welcomeError": "تعذّر تسجيل الدخول، حاول مرة أخرى",
   "welcomeOffline": "يلزم اتصال لتسجيل الدخول",
   "languageOther": "English",
-  "stepOf": "الخطوة {n} من 4",
+  "stepOf": "الخطوة {n} من 5",
   "@stepOf": {
     "placeholders": {
       "n": {
@@ -1191,7 +1191,7 @@
       }
     }
   },
-  "stepEyebrow": "0{n} / 04",
+  "stepEyebrow": "0{n} / 05",
   "@stepEyebrow": {
     "placeholders": {
       "n": {
@@ -1450,5 +1450,39 @@
         "type": "String"
       }
     }
-  }
+  },
+  "notifDhikrTitle": "وقت ذكرك",
+  "notifDhikrBody": "دقائق مع المسبحة",
+  "routineTitle": "متى يناسبك؟",
+  "routineSub": "اختر وقتاً لكل عادة، وسنرتّب يومك على مواقيت الصلاة ونذكّرك في وقتها.",
+  "routineCta": "رتّب يومي",
+  "habitQuran": "قراءة القرآن",
+  "habitHifz": "مراجعة الحفظ",
+  "habitDhikr": "ورد الذكر",
+  "slotAfter": "بعد {prayer}",
+  "@slotAfter": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "slotAt": "وقت محدد",
+  "slotOff": "لا",
+  "slotOffPreview": "غير مفعّل",
+  "slotPreview": "{when} · {time}",
+  "@slotPreview": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "routineSettingsTitle": "روتيني",
+  "homeRoutineQuran": "وردك من القرآن",
+  "homeRoutineDue": "حان وقته",
+  "homeRoutineDone": "تم"
 }

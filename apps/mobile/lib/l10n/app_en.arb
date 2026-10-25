@@ -1156,7 +1156,7 @@
   "welcomeError": "Couldn't sign in, please try again",
   "welcomeOffline": "Signing in needs a connection",
   "languageOther": "العربية",
-  "stepOf": "Step {n} of 4",
+  "stepOf": "Step {n} of 5",
   "@stepOf": {
     "placeholders": {
       "n": {
@@ -1164,7 +1164,7 @@
       }
     }
   },
-  "stepEyebrow": "0{n} / 04",
+  "stepEyebrow": "0{n} / 05",
   "@stepEyebrow": {
     "placeholders": {
       "n": {
@@ -1423,5 +1423,39 @@
         "type": "String"
       }
     }
-  }
+  },
+  "notifDhikrTitle": "Time for your dhikr",
+  "notifDhikrBody": "A few minutes with your tasbeeh",
+  "routineTitle": "When suits you?",
+  "routineSub": "Pick a time for each habit — we'll arrange your day around the prayers and remind you then.",
+  "routineCta": "Arrange my day",
+  "habitQuran": "Reading Quran",
+  "habitHifz": "Hifz review",
+  "habitDhikr": "Dhikr session",
+  "slotAfter": "After {prayer}",
+  "@slotAfter": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "slotAt": "Set time",
+  "slotOff": "Off",
+  "slotOffPreview": "Off",
+  "slotPreview": "{when} · {time}",
+  "@slotPreview": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "routineSettingsTitle": "My routine",
+  "homeRoutineQuran": "Your Quran wird",
+  "homeRoutineDue": "Due now",
+  "homeRoutineDone": "Done"
 }

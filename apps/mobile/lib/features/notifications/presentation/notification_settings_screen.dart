@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/config_controller.dart';
+import '../../../core/config/remote_config.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/format.dart';
 import '../../../core/notifications/local_notifier.dart';
@@ -18,6 +20,8 @@ import '../../onboarding/data/consent_repository.dart';
 import '../../prayer/domain/prayer_calculator.dart';
 import '../../prayer/domain/prayer_clock.dart';
 import '../../prayer/presentation/prayer_labels.dart';
+import '../../routine/domain/routine.dart';
+import '../../routine/presentation/habit_picker.dart';
 
 /// `15 · Adhan & notifications` (spec §5.17). Every change re-plans the local schedule.
 class NotificationSettingsScreen extends ConsumerStatefulWidget {
@@ -108,6 +112,24 @@ class _NotificationSettingsScreenState extends ConsumerState<NotificationSetting
           child: YqPage(
             header: YqTopBar(title: t.notifSettingsTitle),
             children: [
+              // The routine first: when each habit happens drives the Home timeline and these reminders.
+              Padding(
+                padding: const EdgeInsetsDirectional.only(start: 4, bottom: YqSpace.s),
+                child: Text(t.routineSettingsTitle, style: Theme.of(context).textTheme.titleMedium),
+              ),
+              HabitSlotCard(
+                habit: Habit.quran,
+                slot: s.quranSlot,
+                allowOff: false,
+                onChanged: (v) => _update((x) => x.copyWith(quranSlot: v)),
+              ),
+              if (ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.hifz)))) ...[
+                const SizedBox(height: YqSpace.m),
+                HabitSlotCard(habit: Habit.hifz, slot: s.hifzSlot, onChanged: (v) => _update((x) => x.copyWith(hifzSlot: v))),
+              ],
+              const SizedBox(height: YqSpace.m),
+              HabitSlotCard(habit: Habit.dhikr, slot: s.dhikrSlot, onChanged: (v) => _update((x) => x.copyWith(dhikrSlot: v))),
+              const SizedBox(height: YqSpace.xl),
               YqSection(
                 title: t.notifEachPrayer,
                 child: Column(

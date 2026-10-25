@@ -6,7 +6,7 @@ import '../../../core/theme/typography.dart';
 import '../../../core/widgets/liquid_glass.dart';
 import '../../../core/widgets/yq_icon.dart';
 
-enum MomentKind { prayer, azkar }
+enum MomentKind { prayer, azkar, routine }
 
 /// One stop on the day's timeline.
 class DayMoment {

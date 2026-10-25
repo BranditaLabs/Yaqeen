@@ -277,7 +277,7 @@ class YqChip extends StatelessWidget {
 
 /// Onboarding progress: N dashes, the first [step] filled lapis (spec §5.4).
 class YqStepper extends StatelessWidget {
-  const YqStepper({super.key, required this.step, this.total = 4, required this.semanticLabel});
+  const YqStepper({super.key, required this.step, this.total = 5, required this.semanticLabel});
 
   final int step;
   final int total;

@@ -13,6 +13,7 @@ const onboardingRoutes = [
   '/onboarding/prayer',
   '/onboarding/consent',
   '/onboarding/goal',
+  '/onboarding/routine',
   '/onboarding/download',
 ];
 

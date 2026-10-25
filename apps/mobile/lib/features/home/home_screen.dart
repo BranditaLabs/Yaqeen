@@ -26,6 +26,8 @@ import '../prayer/presentation/prayer_labels.dart';
 import '../quran/domain/quran_data.dart';
 import '../quran/presentation/quran_index_screen.dart';
 import '../quran/presentation/reader_screen.dart';
+import '../routine/domain/routine.dart';
+import '../routine/presentation/habit_picker.dart';
 import 'widgets/day_journey.dart';
 import 'widgets/orbs.dart';
 import 'widgets/sky_arc.dart';
@@ -465,6 +467,7 @@ class _Journey extends ConsumerWidget {
     final clock = ref.watch(clockProvider);
     final challenge = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.challenge)));
     final ramadan = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.ramadan)));
+    final hifzOn = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.hifz)));
 
     return YqTicker(
       now: clock,
@@ -509,6 +512,54 @@ class _Journey extends ConsumerWidget {
           (prayer(PrayerName.maghrib), times.maghrib),
           (prayer(PrayerName.isha), times.isha),
         ];
+
+        // The user's routine (onboarding «متى يناسبك؟»): each habit at its resolved time, due from
+        // then until the next prayer.
+        final tzName = s.placeOrDefault.timezone;
+        DateTime nextPrayerAfter(DateTime t) =>
+            obligatory.map(times.of).where((x) => x.isAfter(t)).firstOrNull ?? t.add(const Duration(hours: 3));
+        void habit(Habit h, RoutineSlot slot, {required String title, String? subtitle, bool done = false, required VoidCallback onTap}) {
+          final at = resolveSlot(slot, times, tzName);
+          if (at == null) return;
+          final due = !done && !instant.isBefore(at) && instant.isBefore(nextPrayerAfter(at));
+          entries.add(
+            (
+              DayMoment(
+                time: YqFormat.time(repo.local(s, at), s.locale),
+                title: title,
+                subtitle: subtitle,
+                icon: habitIcon(h),
+                kind: MomentKind.routine,
+                highlight: due,
+                tag: done ? t.homeRoutineDone : (due ? t.homeRoutineDue : null),
+                onTap: onTap,
+              ),
+              at,
+            ),
+          );
+        }
+
+        final wird = ref.watch(todayWirdProvider).valueOrNull;
+        final pages = wird != null && wird.date == Zoned.isoDate(today) ? wird.count : 0;
+        final lastPage = ref.watch(lastReadProvider).valueOrNull?.page;
+        habit(
+          Habit.quran,
+          s.quranSlot,
+          title: t.homeRoutineQuran,
+          subtitle: t.pagesOf(pages.clamp(0, s.wirdGoalPages), s.wirdGoalPages),
+          done: s.wirdGoalPages > 0 && pages >= s.wirdGoalPages,
+          onTap: () => lastPage == null ? context.go('/quran') : context.push('/quran/read/$lastPage'),
+        );
+        if (hifzOn) habit(Habit.hifz, s.hifzSlot, title: t.habitHifz, onTap: () => context.push('/quran/hifz'));
+        habit(Habit.dhikr, s.dhikrSlot, title: t.habitDhikr, onTap: () => context.push('/home/azkar'));
+        // Stable sort by time: at the same minute a prayer stays before what follows it.
+        final indexed = [for (var i = 0; i < entries.length; i++) (i, entries[i])]..sort((a, b) {
+            final c = a.$2.$2.compareTo(b.$2.$2);
+            return c != 0 ? c : a.$1.compareTo(b.$1);
+          });
+        entries
+          ..clear()
+          ..addAll(indexed.map((e) => e.$2));
         // «Now» sits after everything that has started (an open azkar window stays above it).
         final nowIndex = entries.where((e) => !e.$2.isAfter(instant)).length;
 

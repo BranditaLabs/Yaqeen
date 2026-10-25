@@ -1,4 +1,7 @@
 import '../../features/prayer/domain/prayer_calculator.dart';
+import 'routine_slot.dart';
+
+export 'routine_slot.dart';
 
 /// How a prayer alerts: full adhan, a plain notification, or nothing (spec §5.17).
 enum AlertMode { adhan, notify, silent }
@@ -76,7 +79,9 @@ class AppSettings {
     this.azkarSound = false,
     this.volumeKeysCount = false,
     this.wirdGoalPages = 2,
-    this.wirdReminderMinutes = 6 * 60,
+    this.quranSlot = defaultQuranSlot,
+    this.hifzSlot = RoutineSlot.off,
+    this.dhikrSlot = RoutineSlot.off,
     this.hijriOffsetDays = 0,
     this.onboardingStep = 0,
     this.onboardingCompletedAt,
@@ -92,6 +97,9 @@ class AppSettings {
     PrayerName.maghrib: AlertMode.adhan,
     PrayerName.isha: AlertMode.notify,
   };
+
+  /// Quran reading a quarter of an hour after Fajr until the user picks their own time.
+  static const defaultQuranSlot = RoutineSlot.afterPrayer(PrayerName.fajr);
 
   /// Font sizes for S / M / L / XL (spec §5.4).
   static const fontSizes = [22.0, 26.0, 30.0, 34.0];
@@ -127,8 +135,11 @@ class AppSettings {
   final bool volumeKeysCount;
   final int wirdGoalPages;
 
-  /// Daily wird reminder, minutes since midnight.
-  final int wirdReminderMinutes;
+  /// The daily routine (routine step, spec §5.2): when the user reads Quran, reviews hifz and
+  /// does a dhikr session. Drives the Home timeline and the local reminders. Device-only.
+  final RoutineSlot quranSlot;
+  final RoutineSlot hifzSlot;
+  final RoutineSlot dhikrSlot;
   final int hijriOffsetDays;
   final int onboardingStep;
   final DateTime? onboardingCompletedAt;
@@ -169,7 +180,9 @@ class AppSettings {
     bool? azkarSound,
     bool? volumeKeysCount,
     int? wirdGoalPages,
-    int? wirdReminderMinutes,
+    RoutineSlot? quranSlot,
+    RoutineSlot? hifzSlot,
+    RoutineSlot? dhikrSlot,
     int? hijriOffsetDays,
     int? onboardingStep,
     DateTime? onboardingCompletedAt,
@@ -203,7 +216,9 @@ class AppSettings {
         azkarSound: azkarSound ?? this.azkarSound,
         volumeKeysCount: volumeKeysCount ?? this.volumeKeysCount,
         wirdGoalPages: wirdGoalPages ?? this.wirdGoalPages,
-        wirdReminderMinutes: wirdReminderMinutes ?? this.wirdReminderMinutes,
+        quranSlot: quranSlot ?? this.quranSlot,
+        hifzSlot: hifzSlot ?? this.hifzSlot,
+        dhikrSlot: dhikrSlot ?? this.dhikrSlot,
         hijriOffsetDays: hijriOffsetDays ?? this.hijriOffsetDays,
         onboardingStep: onboardingStep ?? this.onboardingStep,
         onboardingCompletedAt: onboardingCompletedAt ?? this.onboardingCompletedAt,
@@ -238,7 +253,9 @@ class AppSettings {
         'azkarSound': azkarSound,
         'volumeKeysCount': volumeKeysCount,
         'wirdGoalPages': wirdGoalPages,
-        'wirdReminderMinutes': wirdReminderMinutes,
+        'quranSlot': quranSlot.toJson(),
+        'hifzSlot': hifzSlot.toJson(),
+        'dhikrSlot': dhikrSlot.toJson(),
         'hijriOffsetDays': hijriOffsetDays,
         'onboardingStep': onboardingStep,
         'onboardingCompletedAt': onboardingCompletedAt?.toIso8601String(),
@@ -282,7 +299,15 @@ class AppSettings {
       azkarSound: pick('azkarSound', d.azkarSound),
       volumeKeysCount: pick('volumeKeysCount', d.volumeKeysCount),
       wirdGoalPages: pick('wirdGoalPages', d.wirdGoalPages),
-      wirdReminderMinutes: pick('wirdReminderMinutes', d.wirdReminderMinutes),
+      // Before the routine existed the wird had a fixed clock time; a changed one is kept as such.
+      quranSlot: RoutineSlot.fromJson(
+        j['quranSlot'],
+        j['wirdReminderMinutes'] is int && j['wirdReminderMinutes'] != 6 * 60
+            ? RoutineSlot.at((j['wirdReminderMinutes'] as int).clamp(0, 24 * 60 - 1))
+            : d.quranSlot,
+      ),
+      hifzSlot: RoutineSlot.fromJson(j['hifzSlot'], d.hifzSlot),
+      dhikrSlot: RoutineSlot.fromJson(j['dhikrSlot'], d.dhikrSlot),
       hijriOffsetDays: pick('hijriOffsetDays', d.hijriOffsetDays),
       onboardingStep: pick('onboardingStep', d.onboardingStep),
       onboardingCompletedAt: DateTime.tryParse(j['onboardingCompletedAt'] as String? ?? ''),

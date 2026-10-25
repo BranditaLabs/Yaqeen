@@ -82,6 +82,7 @@ void main() {
         GoRoute(path: '/onboarding/prayer', builder: (_, __) => const PrayerStep()),
         GoRoute(path: '/onboarding/consent', builder: (_, __) => const ConsentStep()),
         GoRoute(path: '/onboarding/goal', builder: (_, __) => const GoalStep()),
+        GoRoute(path: '/onboarding/routine', builder: (_, __) => const RoutineStep()),
         GoRoute(path: '/onboarding/download', builder: (_, __) => const DownloadStep()),
         GoRoute(path: '/home', builder: (_, __) => const Scaffold(body: Text('HOME'))),
       ],
@@ -170,7 +171,22 @@ void main() {
     await frames();
     expect(calls.where((c) => c.contains('/challenge/enroll')), isEmpty);
 
-    // 06 — reading works offline from the bundled text.
+    // 06 — routine: when each habit happens; choices stay on the device and drive the timeline.
+    expect(find.text('متى يناسبك؟'), findsOneWidget);
+    // Default: Quran 15 min after Fajr, previewed with today's real time («بعد الفجر · 5:48 ص»).
+    expect(find.textContaining(RegExp(r'^بعد الفجر · \d{1,2}:\d{2} ص$')), findsOneWidget);
+    await tester.tap(find.text('بعد المغرب').first); // Quran → after Maghrib
+    await tester.pumpAndSettle();
+    expect(find.textContaining('بعد المغرب ·'), findsOneWidget);
+    await tester.tap(find.text('بعد العشاء').last); // dhikr → after Isha
+    await tester.pumpAndSettle();
+    expect(kv.data['settings.v1'], contains('"quranSlot":{"k":"after","p":"maghrib","m":15}'));
+    expect(kv.data['settings.v1'], contains('"dhikrSlot":{"k":"after","p":"isha","m":15}'));
+    expect(kv.data['settings.v1'], isNot(contains('quranSlot":{"k":"off')));
+    await tester.tap(find.text('رتّب يومي'));
+    await tester.pumpAndSettle();
+
+    // 07 — reading works offline from the bundled text.
     expect(find.text('القرآن معك\nحتى دون اتصال'), findsOneWidget);
     await tester.tap(find.text('ابدأ الآن'));
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));

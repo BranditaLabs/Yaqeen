@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/analytics/analytics.dart';
 import '../../../core/config/config_controller.dart';
+import '../../../core/config/remote_config.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/format.dart';
 import '../../../core/settings/app_settings.dart';
@@ -19,6 +20,8 @@ import '../../../core/widgets/yq_layout.dart';
 import '../../../core/widgets/yq_logo.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
+import '../../routine/domain/routine.dart';
+import '../../routine/presentation/habit_picker.dart';
 import '../../challenge/presentation/challenge_controller.dart';
 import '../../notifications/presentation/reminders_controller.dart';
 import '../../prayer/domain/prayer_calculator.dart';
@@ -761,20 +764,7 @@ class _GoalStepState extends ConsumerState<GoalStep> {
     if (!mounted) return;
     setState(() => _busy = false);
     _saveStep(ref, 5);
-    context.go('/onboarding/download');
-  }
-
-  Future<void> _pickTime() async {
-    final s = ref.read(settingsProvider);
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay(hour: s.wirdReminderMinutes ~/ 60, minute: s.wirdReminderMinutes % 60),
-    );
-    if (picked != null) {
-      await ref
-          .read(settingsProvider.notifier)
-          .update((x) => x.copyWith(wirdReminderMinutes: picked.hour * 60 + picked.minute), sync: false);
-    }
+    context.go('/onboarding/routine');
   }
 
   @override
@@ -807,15 +797,6 @@ class _GoalStepState extends ConsumerState<GoalStep> {
         ),
         const SizedBox(height: YqSpace.m),
         LiquidGlass(
-          child: YqListRow(
-            title: t.goalReminder,
-            trailing:
-                Text(YqFormat.minutesOfDay(s.wirdReminderMinutes, s.locale), style: YqText.numberSmall.copyWith(color: YqColors.lapis)),
-            onTap: _pickTime,
-          ),
-        ),
-        const SizedBox(height: YqSpace.m),
-        LiquidGlass(
           tone: GlassTone.gold,
           padding: const EdgeInsets.all(YqSpace.xl),
           child: Column(
@@ -845,6 +826,47 @@ class _GoalStepState extends ConsumerState<GoalStep> {
             ],
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// Step 5 — «متى يناسبك؟»: when the user reads Quran, reviews hifz and does a dhikr session.
+/// Each habit anchors to a prayer (or a set time); Home's «Your day» timeline and the local
+/// reminders follow it. Stays on the device.
+class RoutineStep extends ConsumerWidget {
+  const RoutineStep({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(context);
+    final s = ref.watch(settingsProvider);
+    final hifz = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.hifz)));
+    void set(AppSettings Function(AppSettings) f) => ref.read(settingsProvider.notifier).update(f, sync: false);
+
+    return _Step(
+      step: 5,
+      title: t.routineTitle,
+      sub: t.routineSub,
+      cta: t.routineCta,
+      onCta: () {
+        ref.read(remindersControllerProvider.notifier).replan().ignore();
+        _saveStep(ref, 6);
+        context.go('/onboarding/download');
+      },
+      children: [
+        HabitSlotCard(
+          habit: Habit.quran,
+          slot: s.quranSlot,
+          allowOff: false,
+          onChanged: (v) => set((x) => x.copyWith(quranSlot: v)),
+        ),
+        if (hifz) ...[
+          const SizedBox(height: YqSpace.m),
+          HabitSlotCard(habit: Habit.hifz, slot: s.hifzSlot, onChanged: (v) => set((x) => x.copyWith(hifzSlot: v))),
+        ],
+        const SizedBox(height: YqSpace.m),
+        HabitSlotCard(habit: Habit.dhikr, slot: s.dhikrSlot, onChanged: (v) => set((x) => x.copyWith(dhikrSlot: v))),
       ],
     );
   }

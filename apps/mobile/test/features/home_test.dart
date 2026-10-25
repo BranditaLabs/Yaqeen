@@ -47,7 +47,7 @@ void main() {
     expect(find.text('3:53 م · الأذان بعد'), findsOneWidget);
     expect(find.text('00:53:00'), findsOneWidget);
     expect(find.text('ابدأ القراءة'), findsOneWidget);
-    expect(find.text('0 / 2 صفحات'), findsOneWidget);
+    expect(find.text('0 / 2 صفحات'), findsNWidgets(2)); // wird orb + the Quran stop in «Your day»
     // «Your day»: the challenge closes the timeline.
     await tester.scrollUntilVisible(find.text('ابدأ رحلة 365 يوماً'), 300, scrollable: find.byType(Scrollable).first);
     expect(find.text('ابدأ رحلة 365 يوماً'), findsOneWidget);
