@@ -177,7 +177,8 @@ class SkyArcPainter extends CustomPainter {
             ..color = YqColors.goldText,
         );
       } else {
-        canvas.drawCircle(c, 3.5, Paint()..color = passed ? (night ? YqColors.lapis500 : YqColors.gold) : const Color(0xFFFFFFFF));
+        canvas.drawCircle(
+            c, 3.5, Paint()..color = passed ? (night ? YqColors.lapis500 : YqColors.gold) : const Color(0xFFFFFFFF),);
         if (!passed) {
           canvas.drawCircle(
             c,
@@ -202,8 +203,8 @@ class SkyArcPainter extends CustomPainter {
         o,
         18,
         Paint()
-          ..shader =
-              const RadialGradient(colors: [Color(0x80E9D49E), Color(0x00E9D49E)]).createShader(Rect.fromCircle(center: o, radius: 18)),
+          ..shader = const RadialGradient(colors: [Color(0x80E9D49E), Color(0x00E9D49E)])
+              .createShader(Rect.fromCircle(center: o, radius: 18)),
       );
       canvas.drawCircle(o, 7.5, Paint()..color = YqColors.gold);
       canvas.drawCircle(o, 4.5, Paint()..color = YqColors.goldLight);
@@ -211,7 +212,8 @@ class SkyArcPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(SkyArcPainter old) => old.position != position || old.nextIndex != nextIndex || old.night != night || old.rtl != rtl;
+  bool shouldRepaint(SkyArcPainter old) =>
+      old.position != position || old.nextIndex != nextIndex || old.night != night || old.rtl != rtl;
 }
 
 // ── The living sky, app-wide (docs/DESIGN_SYSTEM.md §1) ───────────────────────────────────────
@@ -276,6 +278,88 @@ class LivingSky extends ConsumerWidget {
     final repo = ref.watch(prayerRepositoryProvider);
     final clock = ref.watch(skyClockProvider);
     final ramadan = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.ramadan)));
-    return YqTicker(now: clock, interval: interval, builder: (context, now) => builder(context, skyNow(s, repo, now, ramadan: ramadan)));
+    return YqTicker(
+        now: clock, interval: interval, builder: (context, now) => builder(context, skyNow(s, repo, now, ramadan: ramadan)),);
   }
+}
+
+/// The day arc with its five prayer stations and their names underneath: the sun (a crescent at
+/// night) eases along it to [position]. Used by Home's stage and the Prayer screen.
+class DayArc extends StatelessWidget {
+  const DayArc({
+    super.key,
+    required this.position,
+    required this.nextIndex,
+    required this.night,
+    required this.labels,
+    required this.current,
+    this.height = 92,
+  });
+
+  final double position;
+  final int nextIndex;
+  final bool night;
+
+  /// The five station names, in order.
+  final List<String> labels;
+
+  /// The emphasised station (the shown prayer).
+  final int current;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    return Column(
+      children: [
+        RepaintBoundary(
+          child: SizedBox(
+            height: height,
+            width: double.infinity,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(end: position),
+              duration: YqMotion.slow,
+              curve: Curves.easeOutCubic,
+              builder: (context, v, _) => CustomPaint(
+                painter: SkyArcPainter(position: v, nextIndex: nextIndex, night: night, rtl: rtl),
+              ),
+            ),
+          ),
+        ),
+        Row(
+          children: [
+            for (var i = 0; i < labels.length; i++)
+              Expanded(
+                child: Text(
+                  labels[i],
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: i == current ? YqColors.ink : YqColors.muted,
+                    fontWeight: i == current ? FontWeight.w700 : FontWeight.w400,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// [DayArc] inputs for [now]: the sun's position, the next station and night, from the real
+/// prayer times (with yesterday's Isha and tomorrow's Fajr closing the night).
+({double position, int nextIndex, bool night}) dayArcAt(AppSettings s, PrayerRepository repo, DateTime now,
+    {bool ramadan = false,}) {
+  final today = repo.today(s, now);
+  final times = repo.forDate(s, today, ramadan: ramadan);
+  final instant = now.toUtc();
+  final prayers = [for (final p in obligatory) times.of(p)];
+  final yesterday = repo.forDate(s, DateTime(today.year, today.month, today.day - 1), ramadan: ramadan);
+  final tomorrow = repo.forDate(s, DateTime(today.year, today.month, today.day + 1), ramadan: ramadan);
+  return (
+    position: skyPosition(prayers, yesterday.isha, tomorrow.fajr, instant),
+    nextIndex: prayers.where((x) => !x.isAfter(instant)).length,
+    night: skyPhaseAt(times, instant) == SkyPhase.night,
+  );
 }

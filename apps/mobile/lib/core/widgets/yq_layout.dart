@@ -326,3 +326,26 @@ class YqPage extends StatelessWidget {
     );
   }
 }
+
+/// A glass group of rows separated by hairlines (settings, codes, links).
+class YqGroup extends StatelessWidget {
+  const YqGroup({super.key, required this.children, this.gold = false});
+  final List<Widget> children;
+  final bool gold;
+
+  @override
+  Widget build(BuildContext context) {
+    return LiquidGlass(
+      tone: gold ? GlassTone.gold : GlassTone.clear,
+      padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.xs),
+      child: Column(
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) const YqDivider(),
+            children[i],
+          ],
+        ],
+      ),
+    );
+  }
+}

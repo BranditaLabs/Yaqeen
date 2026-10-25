@@ -28,10 +28,12 @@ import '../quran/presentation/quran_index_screen.dart';
 import '../quran/presentation/reader_screen.dart';
 import '../routine/domain/routine.dart';
 import '../routine/presentation/habit_picker.dart';
-import 'widgets/day_journey.dart';
 import 'widgets/orbs.dart';
 import '../../core/design/living_sky.dart';
 import '../../core/widgets/ambient_background.dart';
+import '../../core/widgets/yq_rise.dart';
+import '../../core/widgets/yq_stage.dart';
+import '../../core/widgets/yq_timeline.dart';
 
 /// `07 · Home` (spec §5.9) — "your day as a living canvas":
 ///
@@ -63,48 +65,25 @@ class HomeScreen extends ConsumerWidget {
         },
         child: CustomScrollView(
           slivers: [
-            const SliverToBoxAdapter(child: _Reveal(order: 0, child: _Sky())),
+            const SliverToBoxAdapter(child: YqRise(order: 0, child: _Sky())),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(YqSpace.gutter, YqSpace.xl, YqSpace.gutter, 140),
               sliver: SliverList.list(
                 children: [
-                  const _Reveal(order: 1, child: _Complications()),
+                  const YqRise(order: 1, child: _Complications()),
                   const SizedBox(height: YqSpace.xxl),
-                  _Reveal(order: 2, child: _SectionTitle(t.homeDayTitle)),
+                  YqRise(order: 2, child: _SectionTitle(t.homeDayTitle)),
                   const SizedBox(height: YqSpace.m),
-                  const _Reveal(order: 3, child: _Journey()),
+                  const YqRise(order: 3, child: _Journey()),
                   const SizedBox(height: YqSpace.l),
-                  _Reveal(order: 4, child: _SectionTitle(t.servicesTitle)),
+                  YqRise(order: 4, child: _SectionTitle(t.servicesTitle)),
                   const SizedBox(height: YqSpace.m),
-                  const _Reveal(order: 5, child: _Services()),
+                  const YqRise(order: 5, child: _Services()),
                 ],
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// Rises and fades in once, staggered by [order].
-class _Reveal extends StatelessWidget {
-  const _Reveal({required this.order, required this.child});
-  final int order;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) return child;
-    final start = (order * 0.07).clamp(0.0, 0.6);
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 700),
-      curve: Interval(start, (start + 0.5).clamp(0.0, 1.0), curve: Curves.easeOutCubic),
-      child: child,
-      builder: (context, v, child) => Opacity(
-        opacity: v,
-        child: Transform.translate(offset: Offset(0, 14 * (1 - v)), child: child),
       ),
     );
   }
@@ -154,7 +133,8 @@ class _Header extends ConsumerWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               switch (hijri) {
-                AsyncData(value: final h?) => Text('${h.hijriDay} ${h.monthNameAr} ${h.hijriYear} · $place', style: text.bodySmall),
+                AsyncData(value: final h?) =>
+                  Text('${h.hijriDay} ${h.monthNameAr} ${h.hijriYear} · $place', style: text.bodySmall),
                 AsyncLoading() => const YqSkeleton(child: YqSkeletonBox(width: 160, height: 12)),
                 _ => Text('${YqFormat.weekdayDayMonth(repo.local(s, now.toUtc()), s.locale)} · $place', style: text.bodySmall),
               },
@@ -208,40 +188,21 @@ class _Sky extends ConsumerWidget {
     final repo = ref.watch(prayerRepositoryProvider);
     final clock = ref.watch(clockProvider);
     final ramadan = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.ramadan)));
-    final rtl = Directionality.of(context) == TextDirection.rtl;
-
     return YqTicker(
       now: clock,
       interval: const Duration(seconds: 15),
       builder: (context, now) {
         final today = repo.today(s, now);
         final friday = today.weekday == DateTime.friday;
-        final times = repo.forDate(s, today, ramadan: ramadan);
         final moment = repo.moment(s, now, ramadan: ramadan);
         final shown = moment.current ?? moment.next;
         final name = prayerLabel(t, shown, friday: friday);
         final at = YqFormat.time(repo.local(s, moment.current != null ? moment.currentAt! : moment.at), s.locale);
         final left = YqCountdown.format(moment.at.difference(now.toUtc()));
 
-        final instant = now.toUtc();
-        final prayers = [for (final p in obligatory) times.of(p)];
-        final yesterday = repo.forDate(s, DateTime(today.year, today.month, today.day - 1), ramadan: ramadan);
-        final tomorrow = repo.forDate(s, DateTime(today.year, today.month, today.day + 1), ramadan: ramadan);
-        final position = skyPosition(prayers, yesterday.isha, tomorrow.fajr, instant);
-        final nextIndex = prayers.where((x) => !x.isAfter(instant)).length;
-        final sky = skyNow(s, repo, now, ramadan: ramadan);
-        final phase = sky.phase;
-        final palette = sky.palette;
+        final arc = dayArcAt(s, repo, now, ramadan: ramadan);
 
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 900),
-          curve: Curves.easeInOut,
-          padding: EdgeInsets.fromLTRB(YqSpace.gutter, MediaQuery.paddingOf(context).top + YqSpace.m, YqSpace.gutter, YqSpace.xl),
-          decoration: BoxDecoration(
-            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(40)),
-            gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [palette.top, palette.bottom]),
-            boxShadow: const [BoxShadow(color: Color(0x240F1A36), blurRadius: 30, spreadRadius: -12, offset: Offset(0, 12))],
-          ),
+        return YqStage(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -276,41 +237,18 @@ class _Sky extends ConsumerWidget {
                           child: YqCountdown(
                             target: moment.at,
                             now: () => clock().toUtc(),
-                            style: YqText.numeral
-                                .copyWith(fontSize: 46, fontWeight: FontWeight.w300, color: YqColors.ink, height: 1, letterSpacing: 1),
+                            style: YqText.numeral.copyWith(
+                                fontSize: 46, fontWeight: FontWeight.w300, color: YqColors.ink, height: 1, letterSpacing: 1,),
                           ),
                         ),
                       ],
                       const SizedBox(height: 6),
-                      RepaintBoundary(
-                        child: SizedBox(
-                          height: 92,
-                          width: double.infinity,
-                          child: TweenAnimationBuilder<double>(
-                            tween: Tween(end: position),
-                            duration: YqMotion.slow,
-                            curve: Curves.easeOutCubic,
-                            builder: (context, v, _) => CustomPaint(
-                              painter: SkyArcPainter(position: v, nextIndex: nextIndex, night: phase == SkyPhase.night, rtl: rtl),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          for (final p in obligatory)
-                            Expanded(
-                              child: Text(
-                                prayerLabel(t, p, friday: friday),
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: p == shown ? YqColors.ink : YqColors.muted,
-                                  fontWeight: p == shown ? FontWeight.w700 : FontWeight.w400,
-                                ),
-                              ),
-                            ),
-                        ],
+                      DayArc(
+                        position: arc.position,
+                        nextIndex: arc.nextIndex,
+                        night: arc.night,
+                        labels: [for (final p in obligatory) prayerLabel(t, p, friday: friday)],
+                        current: obligatory.indexOf(shown),
                       ),
                     ],
                   ),
@@ -375,27 +313,27 @@ class _Journey extends ConsumerWidget {
         final morningOpen = !instant.isBefore(times.fajr) && instant.isBefore(times.dhuhr);
         final eveningOpen = !instant.isBefore(times.asr) && instant.isBefore(times.isha);
 
-        DayMoment prayer(PrayerName p) => DayMoment(
+        YqStop prayer(PrayerName p) => YqStop(
               time: at(times.of(p)),
               title: prayerLabel(t, p, friday: friday),
               icon: p == PrayerName.fajr || p == PrayerName.isha ? YqIcons.prayer : YqIcons.adhan,
-              kind: MomentKind.prayer,
               highlight: p == next,
               tag: p == next ? t.homeNextTag : null,
             );
-        DayMoment azkar(bool morning, DateTime from, bool open) => DayMoment(
+        YqStop azkar(bool morning, DateTime from, bool open) => YqStop(
               time: at(from),
               title: morning ? t.azkarMorning : t.azkarEvening,
               subtitle: open ? t.homeAzkarHint : null,
               icon: YqIcons.azkar,
-              kind: MomentKind.azkar,
+              style: StopStyle.pill,
+              goldTag: true,
               highlight: open,
               tag: open ? t.homeAzkarOpen : null,
               onTap: () => context.push('/home/azkar?set=${morning ? 'morning' : 'evening'}'),
             );
 
         // (moment, when it starts) in the day's order; azkar follow their opening prayer.
-        final entries = <(DayMoment, DateTime)>[
+        final entries = <(YqStop, DateTime)>[
           (prayer(PrayerName.fajr), times.fajr),
           (azkar(true, times.fajr, morningOpen), times.fajr),
           (prayer(PrayerName.dhuhr), times.dhuhr),
@@ -410,18 +348,19 @@ class _Journey extends ConsumerWidget {
         final tzName = s.placeOrDefault.timezone;
         DateTime nextPrayerAfter(DateTime t) =>
             obligatory.map(times.of).where((x) => x.isAfter(t)).firstOrNull ?? t.add(const Duration(hours: 3));
-        void habit(Habit h, RoutineSlot slot, {required String title, String? subtitle, bool done = false, required VoidCallback onTap}) {
+        void habit(Habit h, RoutineSlot slot,
+            {required String title, String? subtitle, bool done = false, required VoidCallback onTap,}) {
           final at = resolveSlot(slot, times, tzName);
           if (at == null) return;
           final due = !done && !instant.isBefore(at) && instant.isBefore(nextPrayerAfter(at));
           entries.add(
             (
-              DayMoment(
+              YqStop(
                 time: YqFormat.time(repo.local(s, at), s.locale),
                 title: title,
                 subtitle: subtitle,
                 icon: habitIcon(h),
-                kind: MomentKind.routine,
+                style: StopStyle.pill,
                 highlight: due,
                 tag: done ? t.homeRoutineDone : (due ? t.homeRoutineDue : null),
                 onTap: onTap,
@@ -455,8 +394,8 @@ class _Journey extends ConsumerWidget {
         // «Now» sits after everything that has started (an open azkar window stays above it).
         final nowIndex = entries.where((e) => !e.$2.isAfter(instant)).length;
 
-        return DayTimeline(
-          moments: [for (final e in entries) e.$1],
+        return YqTimeline(
+          stops: [for (final e in entries) e.$1],
           nowIndex: nowIndex,
           nowTime: at(instant),
           nowLabel: t.homeNow,
@@ -487,8 +426,8 @@ class _ContinueReading extends ConsumerWidget {
     final page = kahf ? quran.surah(18).startPage : (last?.page ?? 1);
     final first = quran.firstOfPage(page);
     final surah = quran.surah(kahf ? 18 : first.surah);
-    final surahPages =
-        (surah.number < QuranData.surahCount ? quran.surah(surah.number + 1).startPage : QuranData.pageCount + 1) - surah.startPage;
+    final surahPages = (surah.number < QuranData.surahCount ? quran.surah(surah.number + 1).startPage : QuranData.pageCount + 1) -
+        surah.startPage;
     final progress = surahPages <= 0 ? 0.0 : ((page - surah.startPage + 1) / surahPages).clamp(0.0, 1.0);
     final surahName = surah.name(s.locale);
 
@@ -523,7 +462,8 @@ class _ContinueReading extends ConsumerWidget {
                       height: 1.3,
                     ),
                   ),
-                  Text(t.homeReadingMeta(surahName, page, quran.juzOf(first)), style: text.bodySmall?.copyWith(color: YqColors.gold200)),
+                  Text(t.homeReadingMeta(surahName, page, quran.juzOf(first)),
+                      style: text.bodySmall?.copyWith(color: YqColors.gold200),),
                   const SizedBox(height: 8),
                   YqProgressLine(value: progress, color: YqColors.gold, track: const Color(0x33E9D49E)),
                 ],

@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
-import '../../../core/theme/tokens.dart';
+import '../theme/tokens.dart';
 
 /// A glass orb filled to [level] (0…1) with a calm wave surface. The level eases on change; the
 /// wave is still (no per-frame animation), so it costs nothing while scrolling.
@@ -60,8 +60,8 @@ class _OrbPainter extends CustomPainter {
       canvas.drawPath(
         wave,
         Paint()
-          ..shader =
-              LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: colors).createShader(Offset.zero & size),
+          ..shader = LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: colors)
+              .createShader(Offset.zero & size),
       );
       canvas.restore();
     }

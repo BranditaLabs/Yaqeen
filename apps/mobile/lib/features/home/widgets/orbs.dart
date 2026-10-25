@@ -13,70 +13,15 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/liquid_glass.dart';
+import '../../../core/widgets/yq_orb.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../prayer/domain/qibla.dart';
 import '../data/tasbeeh_controller.dart';
-import 'liquid_orb.dart';
+import '../../../core/widgets/liquid_orb.dart';
 
 /// Diameter of a Home complication orb.
-const orbSize = 100.0;
-
-/// Glass disc + title + one-line status: the shared frame of the three Home complications.
-class _OrbFrame extends StatelessWidget {
-  const _OrbFrame({required this.disc, required this.title, required this.status, this.glow = false, this.statusColor});
-
-  final Widget disc;
-  final String title;
-  final String status;
-  final bool glow;
-  final Color? statusColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        AnimatedContainer(
-          duration: YqMotion.base,
-          width: orbSize,
-          height: orbSize,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: glow ? const [YqColors.cream, YqColors.sand] : const [Color(0xE6FFFFFF), Color(0xA6FFFFFF)],
-            ),
-            border: Border.all(color: const Color(0xF2FFFFFF), width: 1.2),
-            boxShadow: [
-              BoxShadow(
-                color: glow ? const Color(0x59C6A867) : const Color(0x260F1A36),
-                blurRadius: glow ? 28 : 22,
-                spreadRadius: glow ? -4 : -10,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: RepaintBoundary(child: Padding(padding: const EdgeInsets.all(6), child: disc)),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: YqColors.ink),
-        ),
-        Text(
-          status,
-          maxLines: 2,
-          textAlign: TextAlign.center,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: 11, height: 1.3, color: statusColor ?? YqColors.muted),
-        ),
-      ],
-    );
-  }
-}
+const orbSize = YqOrb.defaultSize;
 
 /// Qibla complication — no compass rose: the Kaaba orbits the ring and reaches the top (where the
 /// phone points) when you face it, then the orb glows gold with one light haptic.
@@ -182,7 +127,7 @@ class _QiblaOrbState extends ConsumerState<QiblaOrb> with WidgetsBindingObserver
       label: '${t.qiblaCardTitle(YqFormat.number(bearing.round()))}، $status${live ? '، ${t.homeQiblaLive}' : ''}',
       child: GlassTap(
         onTap: () => context.push('/prayer/qibla'),
-        child: _OrbFrame(
+        child: YqOrb(
           title: t.qiblaTitle,
           status: status,
           glow: aligned,
@@ -294,8 +239,8 @@ class _QiblaOrbitPainter extends CustomPainter {
         k,
         16,
         Paint()
-          ..shader =
-              const RadialGradient(colors: [Color(0xB3E9D49E), Color(0x00E9D49E)]).createShader(Rect.fromCircle(center: k, radius: 16)),
+          ..shader = const RadialGradient(colors: [Color(0xB3E9D49E), Color(0x00E9D49E)])
+              .createShader(Rect.fromCircle(center: k, radius: 16)),
       );
     }
     final box = RRect.fromRectAndRadius(Rect.fromCenter(center: k, width: 13, height: 14), const Radius.circular(2.5));
@@ -305,7 +250,8 @@ class _QiblaOrbitPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_QiblaOrbitPainter old) => old.angle != angle || old.aligned != aligned || old.live != live || old.north != north;
+  bool shouldRepaint(_QiblaOrbitPainter old) =>
+      old.angle != angle || old.aligned != aligned || old.live != live || old.north != north;
 }
 
 /// Misbaha complication: tap to count, hold to reset. 33 beads around the orb fill gold, with a
@@ -330,7 +276,7 @@ class TasbeehOrb extends ConsumerWidget {
       child: GlassTap(
         onTap: () => _count(ref),
         onLongPress: () => _reset(context, ref),
-        child: _OrbFrame(
+        child: YqOrb(
           title: t.tasbeehTitle,
           status: t.tasbeehRound(YqFormat.number(round)),
           disc: KeyedSubtree(
@@ -443,7 +389,7 @@ class WirdOrb extends ConsumerWidget {
     return GlassTap(
       onTap: () => context.go('/quran'),
       semanticLabel: '${t.dailyWird}، ${t.pagesOf(shown, goal)}',
-      child: _OrbFrame(
+      child: YqOrb(
         title: t.dailyWird,
         status: complete ? t.homeWirdDone : t.pagesOf(shown, goal),
         statusColor: complete ? YqColors.success : null,
