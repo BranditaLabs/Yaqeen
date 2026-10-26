@@ -34,7 +34,7 @@ erDiagram
 | `bonus_rules` | White days / Mon–Thu fasting / Friday Kahf. Disabled until approved. |
 | `task_completions` | Unique `(user, date, task)` and `(user, client_event_id)`. `is_qada` for make-ups. |
 | `points_ledger` | **Append-only.** Unique `(user, ref_key)` makes awards idempotent. `ref_key` patterns: `YYYY-MM-DD:task:<task>`, `YYYY-MM-DD:bonus:<kind>`, `milestone:<days>`, `grant:<grantId>`, `redemption:<id>`, `reversal:redemption:<id>`, `admin:<adminId>:<uuid>`. |
-| `public_profiles` | Opt-in «بطاقة يقين» (NFC/QR). Unique lower-case `handle`; `published` false by default and set false on an erasure request or by support; `links`/`show` JSON; `views` = human page opens (a counter, no visitor data). The page computes level (lifetime points), streak and badges (`milestone:*` ledger rows) at read time. |
+| `public_profiles` | Opt-in «بطاقة يقين» (NFC/QR). Unique lower-case `handle`; `published` false by default and set false on an erasure request or by support; `links`/`show` JSON; `views` = human page opens (a counter, no visitor data). The page computes level (lifetime points), streak and badges (`milestone:*` ledger rows) at read time; the journey timeline is derived the same way (no new table). |
 | `rewards` / `redemptions` | Catalogue (cost, value, validity days, monthly cap, per-user monthly limit) and issued Shopify codes. |
 | `content_items` | Duas / azkar with workflow `draft → pending_review → published / changes_requested`. |
 | `daily_tasks` | One "مهمة اليوم" per date. |

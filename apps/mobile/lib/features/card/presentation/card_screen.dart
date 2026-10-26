@@ -28,6 +28,7 @@ import '../../onboarding/presentation/sign_in_sheet.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../../rewards/domain/reward.dart';
 import '../domain/public_card.dart';
+import 'journey_widgets.dart';
 
 final myCardProvider = FutureProvider.autoDispose((ref) => ref.watch(cardRepositoryProvider).mine());
 
@@ -357,6 +358,7 @@ class _CardScreenState extends ConsumerState<CardScreen> {
           _toggle(t.cardShowChallenge, d.show.challengeDay, (v) => d.show.copyWith(challengeDay: v)),
           _toggle(t.cardShowBadges, d.show.badges, (v) => d.show.copyWith(badges: v)),
           _toggle(t.cardShowSince, d.show.memberSince, (v) => d.show.copyWith(memberSince: v)),
+          _toggle(t.cardShowTimeline, d.show.timeline, (v) => d.show.copyWith(timeline: v)),
         ],
       ),
       const SizedBox(height: YqSpace.s),
@@ -420,18 +422,20 @@ class _CardPreview extends ConsumerWidget {
     final locale = Localizations.localeOf(context).languageCode;
     // Published: the server's numbers. Not yet: the level from the points history on the device.
     final view = saved.published ? ref.watch(cardViewProvider(saved.handle)).valueOrNull : null;
+    final journey = ref.watch(myJourneyProvider).valueOrNull;
     final ledger = ref.watch(ledgerProvider).valueOrNull ?? const <LedgerEntry>[];
-    final level = view?.level ?? levelFor(ledger.where((e) => e.delta > 0).fold(0, (s, e) => s + e.delta));
+    final level = view?.level ?? journey?.level ?? levelFor(ledger.where((e) => e.delta > 0).fold(0, (s, e) => s + e.delta));
+    // The owner's own milestones — exactly what the public rail shows once switched on.
+    final events = card.show.timeline ? (journey?.events ?? const <JourneyEvent>[]).take(3).toList() : const <JourneyEvent>[];
     final night = card.theme == CardLook.night;
     final ink = night ? YqColors.white : YqColors.ink;
     final muted = night ? const Color(0xFFC3C8D3) : YqColors.muted;
     final initial = card.displayName.trim().isEmpty ? '·' : String.fromCharCode(card.displayName.trim().runes.first);
 
     final chips = <Widget>[
-      if (card.show.streak && view?.streak != null) _Stat(value: YqFormat.number(view!.streak!), label: t.cardShowStreak, night: night),
-      if (card.show.challengeDay && view?.challengeDay != null)
-        _Stat(value: YqFormat.number(view!.challengeDay!), label: t.cardShowChallenge, night: night),
-      if (card.show.badges && view?.badges != null) _Stat(value: YqFormat.number(view!.badges!.length), label: t.cardShowBadges, night: night),
+      if (card.show.streak && view?.streak != null) _Stat(value: view!.streak!, label: t.cardShowStreak, night: night),
+      if (card.show.challengeDay && view?.challengeDay != null) _Stat(value: view!.challengeDay!, label: t.cardShowChallenge, night: night),
+      if (card.show.badges && view?.badges != null) _Stat(value: view!.badges!.length, label: t.cardShowBadges, night: night),
     ];
 
     return AnimatedContainer(
@@ -501,6 +505,17 @@ class _CardPreview extends ConsumerWidget {
             Text(card.bio.trim(), textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, height: 1.6, color: muted)),
           ],
           if (chips.isNotEmpty) ...[const SizedBox(height: YqSpace.m), Row(children: [for (final c in chips) Expanded(child: c)])],
+          AnimatedSize(
+            duration: YqMotion.slow,
+            curve: YqMotion.ease,
+            alignment: Alignment.topCenter,
+            child: events.isEmpty
+                ? const SizedBox(width: double.infinity)
+                : Padding(
+                    padding: const EdgeInsets.only(top: YqSpace.l),
+                    child: JourneyRail(key: ValueKey(card.theme), events: events, night: night, dense: true),
+                  ),
+          ),
           if (card.links.isNotEmpty) ...[
             const SizedBox(height: YqSpace.m),
             Wrap(spacing: 6, runSpacing: 6, alignment: WrapAlignment.center, children: [for (final l in card.links) _Mono(kind: l.kind, size: 30)]),
@@ -515,14 +530,14 @@ class _CardPreview extends ConsumerWidget {
 
 class _Stat extends StatelessWidget {
   const _Stat({required this.value, required this.label, required this.night});
-  final String value;
+  final int value;
   final String label;
   final bool night;
 
   @override
   Widget build(BuildContext context) => Column(
         children: [
-          Text(value, style: YqMoment.numeral(size: 26, color: night ? YqColors.white : YqColors.ink)),
+          CountUp(value: value, style: YqMoment.numeral(size: 26, color: night ? YqColors.white : YqColors.ink)),
           Text(label, textAlign: TextAlign.center, maxLines: 2, style: TextStyle(fontSize: 10.5, color: night ? const Color(0xFFC3C8D3) : YqColors.muted)),
         ],
       );

@@ -54,12 +54,22 @@ class SocialLink {
 }
 
 class CardVisibility {
-  const CardVisibility({this.level = true, this.streak = false, this.challengeDay = false, this.badges = false, this.memberSince = false});
+  const CardVisibility({
+    this.level = true,
+    this.streak = false,
+    this.challengeDay = false,
+    this.badges = false,
+    this.memberSince = false,
+    this.timeline = false,
+  });
   final bool level;
   final bool streak;
   final bool challengeDay;
   final bool badges;
   final bool memberSince;
+
+  /// The journey milestones (joined, challenge days, levels, badges) — never worship detail.
+  final bool timeline;
 
   factory CardVisibility.fromJson(Map<String, dynamic> j) => CardVisibility(
         level: j['level'] as bool? ?? true,
@@ -67,15 +77,25 @@ class CardVisibility {
         challengeDay: j['challengeDay'] as bool? ?? false,
         badges: j['badges'] as bool? ?? false,
         memberSince: j['memberSince'] as bool? ?? false,
+        timeline: j['timeline'] as bool? ?? false,
       );
-  Map<String, dynamic> toJson() => {'level': level, 'streak': streak, 'challengeDay': challengeDay, 'badges': badges, 'memberSince': memberSince};
+  Map<String, dynamic> toJson() => {
+        'level': level,
+        'streak': streak,
+        'challengeDay': challengeDay,
+        'badges': badges,
+        'memberSince': memberSince,
+        'timeline': timeline,
+      };
 
-  CardVisibility copyWith({bool? level, bool? streak, bool? challengeDay, bool? badges, bool? memberSince}) => CardVisibility(
+  CardVisibility copyWith({bool? level, bool? streak, bool? challengeDay, bool? badges, bool? memberSince, bool? timeline}) =>
+      CardVisibility(
         level: level ?? this.level,
         streak: streak ?? this.streak,
         challengeDay: challengeDay ?? this.challengeDay,
         badges: badges ?? this.badges,
         memberSince: memberSince ?? this.memberSince,
+        timeline: timeline ?? this.timeline,
       );
 
   @override
@@ -85,9 +105,10 @@ class CardVisibility {
       other.streak == streak &&
       other.challengeDay == challengeDay &&
       other.badges == badges &&
-      other.memberSince == memberSince;
+      other.memberSince == memberSince &&
+      other.timeline == timeline;
   @override
-  int get hashCode => Object.hash(level, streak, challengeDay, badges, memberSince);
+  int get hashCode => Object.hash(level, streak, challengeDay, badges, memberSince, timeline);
 }
 
 /// The owner's card (GET/PUT /v1/me/public-profile). [url] and [views] come from the server.
@@ -222,12 +243,20 @@ CardLevel levelFor(int lifetimePoints) {
 
 /// The public view (GET /v1/public/profiles/:handle) — what a scanner sees.
 class CardView {
-  const CardView({required this.level, required this.streak, required this.challengeDay, required this.challengeOf, required this.badges});
+  const CardView({
+    required this.level,
+    required this.streak,
+    required this.challengeDay,
+    required this.challengeOf,
+    required this.badges,
+    this.timeline,
+  });
   final CardLevel? level;
   final int? streak;
   final int? challengeDay;
   final int? challengeOf;
   final List<int>? badges;
+  final List<JourneyEvent>? timeline;
 
   factory CardView.fromJson(Map<String, dynamic> j) {
     final l = j['level'] as Map?;
@@ -245,8 +274,87 @@ class CardView {
       challengeDay: (c?['day'] as num?)?.toInt(),
       challengeOf: (c?['of'] as num?)?.toInt(),
       badges: (j['badges'] as List?)?.map((e) => (e as num).toInt()).toList(),
+      timeline: (j['timeline'] as List?) == null
+          ? null
+          : [
+              for (final e in j['timeline'] as List)
+                if (JourneyEvent.tryParse((e as Map).cast<String, dynamic>()) case final ev?) ev,
+            ],
     );
   }
+}
+
+/* ---------------------------------------------------------------- journey */
+
+enum JourneyKind { joined, challengeStart, challengeDay, level, badge }
+
+/// A dated milestone (contracts `JourneyEvent`). [value]: level number, challenge day or badge days.
+class JourneyEvent {
+  const JourneyEvent(this.kind, this.date, [this.value]);
+  final JourneyKind kind;
+  final DateTime date;
+  final int? value;
+
+  static const _kinds = {
+    'joined': JourneyKind.joined,
+    'challenge_start': JourneyKind.challengeStart,
+    'challenge_day': JourneyKind.challengeDay,
+    'level': JourneyKind.level,
+    'badge': JourneyKind.badge,
+  };
+
+  /// Unknown kinds (a newer server) are skipped by the caller.
+  static JourneyEvent? tryParse(Map<String, dynamic> j) {
+    final kind = _kinds[j['kind']];
+    final date = DateTime.tryParse(j['date'] as String? ?? '');
+    if (kind == null || date == null) return null;
+    return JourneyEvent(kind, date, (j['value'] as num?)?.toInt());
+  }
+
+  /// The big moments get the gold mark.
+  bool get golden => kind == JourneyKind.level || kind == JourneyKind.badge;
+}
+
+/// GET /v1/me/journey — the owner's private journey for the Profile tab.
+class MyJourney {
+  const MyJourney({
+    required this.lifetimePoints,
+    required this.level,
+    required this.streak,
+    required this.challengeDay,
+    required this.challengeOf,
+    required this.events,
+  });
+  final int lifetimePoints;
+  final CardLevel level;
+  final int streak;
+  final int? challengeDay;
+  final int challengeOf;
+  final List<JourneyEvent> events;
+
+  factory MyJourney.fromJson(Map<String, dynamic> j) {
+    final l = (j['level'] as Map).cast<String, dynamic>();
+    return MyJourney(
+      lifetimePoints: (j['lifetimePoints'] as num).toInt(),
+      level: CardLevel(
+        level: (l['level'] as num).toInt(),
+        nameAr: l['nameAr'] as String,
+        nameEn: l['nameEn'] as String,
+        progress: (l['progress'] as num).toDouble(),
+        nextAt: (l['nextAt'] as num?)?.toInt(),
+      ),
+      streak: (j['streak'] as num?)?.toInt() ?? 0,
+      challengeDay: (j['challengeDay'] as num?)?.toInt(),
+      challengeOf: (j['challengeOf'] as num?)?.toInt() ?? 365,
+      events: [
+        for (final e in (j['events'] as List? ?? const []))
+          if (JourneyEvent.tryParse((e as Map).cast<String, dynamic>()) case final ev?) ev,
+      ],
+    );
+  }
+
+  /// Points still needed for the next level (null at the top).
+  int? get toNext => level.nextAt == null ? null : level.nextAt! - lifetimePoints;
 }
 
 /* ------------------------------------------------------------------- NFC */

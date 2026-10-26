@@ -1567,5 +1567,57 @@
   "cardNfcBuy": "Get a Yaqeen NFC tag",
   "cardNfcStart": "Start writing",
   "cardQrTitle": "Scan to open my card",
-  "challengeStreakRestart": "Start again — make-up days are open"
+  "challengeStreakRestart": "Start again — make-up days are open",
+  "cardShowTimeline": "Your journey (dated milestones)",
+  "journeyTitle": "Your journey in Yaqeen",
+  "journeyJoined": "Joined Yaqeen",
+  "journeyChallengeStart": "Started the 365-day journey",
+  "journeyChallengeDay": "Day {day} of the 365-day journey",
+  "@journeyChallengeDay": {
+    "placeholders": {
+      "day": {
+        "type": "String"
+      }
+    }
+  },
+  "journeyLevel": "Reached “{name}”",
+  "@journeyLevel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "journeyBadge": "{days, plural, =1{1-day streak badge} other{{days}-day streak badge}}",
+  "@journeyBadge": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "journeyLifetime": "{points} points earned in all",
+  "@journeyLifetime": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "journeyToNext": "{points} points to “{name}”",
+  "@journeyToNext": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "journeyTop": "You've reached the top level",
+  "journeyShowAll": "The whole journey",
+  "journeyShowLess": "Show less",
+  "journeyEmpty": "Your journey starts today; every milestone lands here.",
+  "journeyPrivate": "Private to you. Shown on your card only if you switch it on."
 }

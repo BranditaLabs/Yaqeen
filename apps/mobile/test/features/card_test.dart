@@ -13,10 +13,29 @@ import 'package:yaqeen/core/widgets/controls.dart';
 import 'package:yaqeen/core/widgets/liquid_glass.dart';
 import 'package:yaqeen/features/card/domain/public_card.dart';
 import 'package:yaqeen/features/card/presentation/card_screen.dart';
+import 'package:yaqeen/features/card/presentation/journey_widgets.dart';
 import 'package:yaqeen/features/onboarding/data/auth_repository.dart';
 
 import '../helpers/fonts.dart';
 import '../helpers/harness.dart';
+
+/// What GET /v1/me/journey returns (contracts `MyJourney`).
+Map<String, Object?> journeyJson() => {
+      'lifetimePoints': 1250,
+      'level': {'level': 2, 'nameAr': 'على الطريق', 'nameEn': 'On the path', 'progress': 0.5, 'nextAt': 2000},
+      'streak': 4,
+      'challengeDay': 47,
+      'challengeOf': 365,
+      'events': [
+        {'kind': 'level', 'date': '2026-10-01', 'value': 2},
+        {'kind': 'challenge_day', 'date': '2026-09-30', 'value': 30},
+        {'kind': 'something_new', 'date': '2026-09-20', 'value': 1},
+        {'kind': 'badge', 'date': '2026-09-08', 'value': 7},
+        {'kind': 'challenge_start', 'date': '2026-09-01', 'value': 1},
+        {'kind': 'joined', 'date': '2026-08-31', 'value': null},
+        {'kind': 'badge', 'date': '2026-08-30', 'value': 3},
+      ],
+    };
 
 /// What GET /v1/me/public-profile returns (shape of contracts `PublicProfileSettings`).
 Map<String, Object?> cardJson({bool published = false}) => {
@@ -84,6 +103,22 @@ void main() {
       expect(body.containsKey('views'), isFalse);
     });
 
+    test('journey parses, skipping kinds a newer server may add', () {
+      final j = MyJourney.fromJson(journeyJson());
+      expect(j.events.map((e) => e.kind), [
+        JourneyKind.level,
+        JourneyKind.challengeDay,
+        JourneyKind.badge,
+        JourneyKind.challengeStart,
+        JourneyKind.joined,
+        JourneyKind.badge,
+      ]);
+      expect(j.toNext, 750);
+      expect(j.events.first.golden, isTrue);
+      expect(const CardVisibility().timeline, isFalse); // off unless the user switches it on
+      expect(CardVisibility.fromJson(const {}).toJson()['timeline'], false);
+    });
+
     test('NDEF URI payload uses the https:// abbreviation', () {
       final p = uriRecordPayload('https://id.test/u/ahmed');
       expect(p.first, 0x04);
@@ -120,6 +155,7 @@ void main() {
               headers: h,
             );
           }
+          if (p == '/v1/me/journey') return http.Response(jsonEncode(journeyJson()), 200, headers: h);
           if (p == '/v1/me/ledger') return http.Response('[]', 200, headers: h);
           return http.Response('{}', 404, headers: h);
         });
@@ -190,6 +226,41 @@ void main() {
       ]);
       expect(find.text('منشورة'), findsOneWidget);
       await tester.pump(const Duration(seconds: 3)); // the «saved» toast
+    });
+
+    testWidgets('the journey switch previews the milestones and saves the choice', (tester) async {
+      tall(tester);
+      await tester.pumpWidget(harness(const CardScreen(), overrides: await overrides()));
+      await settle(tester);
+      expect(find.text('الانضمام إلى يقين'), findsNothing);
+      // Switches: publish, level, streak, challenge day, badges, member since, journey.
+      await tester.tap(find.byType(YqSwitch).at(6));
+      await settle(tester);
+      expect(find.text('مستوى «على الطريق»'), findsOneWidget); // newest three in the preview
+      expect(find.text('اليوم 30 من رحلة 365'), findsOneWidget);
+      expect(find.text('الانضمام إلى يقين'), findsNothing);
+      await tester.tap(find.text('حفظ البطاقة'));
+      await settle(tester);
+      final body = jsonDecode(requests.singleWhere((r) => r.method == 'PUT').body) as Map<String, dynamic>;
+      expect((body['show'] as Map)['timeline'], true);
+      await tester.pump(const Duration(seconds: 3));
+    });
+
+    testWidgets('Profile journey: level, lifetime points and the whole rail on demand', (tester) async {
+      tall(tester);
+      await tester.pumpWidget(harness(const Scaffold(body: SingleChildScrollView(child: JourneySection())), overrides: await overrides()));
+      await settle(tester);
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.text('على الطريق'), findsOneWidget);
+      expect(find.text('1,250 نقطة منذ البداية'), findsOneWidget);
+      expect(find.text('750 نقطة إلى «مواظب»'), findsOneWidget);
+      expect(find.text('وسام المواظبة · 7 أيام'), findsOneWidget);
+      expect(find.text('وسام المواظبة · 3 أيام'), findsNothing); // sixth: behind «the whole journey»
+      await tester.tap(find.text('الرحلة كاملة'));
+      await settle(tester);
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.text('وسام المواظبة · 3 أيام'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('الانضمام إلى يقين، 31 أغسطس 2026')), findsOneWidget);
     });
 
     testWidgets('a bad handle blocks saving and says why', (tester) async {

@@ -24,7 +24,7 @@ Task completions reveal religious practice. Rules:
 1. **Never sent to ad platforms.** The only events ad SDKs can receive are the closed list in `packages/contracts/src/events.ts` (mirrored in `apps/mobile/lib/core/analytics/analytics.dart`), and only with `ads_measurement` consent. Adding an event needs a privacy review.
 2. **Admins see aggregates only.** `/admin/overview` returns percentages. The user detail view shows the points ledger and redemptions, not which prayers or azkar a person did.
 3. **Guests earn no points**, so no worship data is stored for anonymous users.
-4. **Public cards (بطاقة يقين) never show worship.** A card is unpublished until the user publishes it and shows only the fields they switch on: level (from lifetime points), streak length, challenge day, streak-milestone badges, member-since. Never prayers, azkar, pages or tasks. Guests can't publish; an erasure request or a suspension hides it at once; support can hide an abusive card (audited). The page is `noindex`, has no scripts or trackers, and keeps only an open counter.
+4. **Public cards (بطاقة يقين) never show worship.** A card is unpublished until the user publishes it and shows only the fields they switch on: level (from lifetime points), streak length, challenge day, streak-milestone badges, member-since, a dated journey timeline (joined, challenge start/day 30–365, levels reached, badges). Never prayers, azkar, pages or tasks. Guests can't publish; an erasure request or a suspension hides it at once; support can hide an abusive card (audited). The page is `noindex`, has no scripts or trackers, and keeps only an open counter.
 
 ## Ads & tracking
 

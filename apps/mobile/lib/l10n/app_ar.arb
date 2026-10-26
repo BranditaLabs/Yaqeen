@@ -1594,5 +1594,57 @@
   "cardNfcBuy": "اطلب وسم يقين من المتجر",
   "cardNfcStart": "ابدأ الكتابة",
   "cardQrTitle": "امسح لفتح بطاقتي",
-  "challengeStreakRestart": "ابدأ من جديد، والقضاء متاح"
+  "challengeStreakRestart": "ابدأ من جديد، والقضاء متاح",
+  "cardShowTimeline": "رحلتك (محطّات بتواريخها)",
+  "journeyTitle": "رحلتك في يقين",
+  "journeyJoined": "الانضمام إلى يقين",
+  "journeyChallengeStart": "بداية رحلة 365 يوماً",
+  "journeyChallengeDay": "اليوم {day} من رحلة 365",
+  "@journeyChallengeDay": {
+    "placeholders": {
+      "day": {
+        "type": "String"
+      }
+    }
+  },
+  "journeyLevel": "مستوى «{name}»",
+  "@journeyLevel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "journeyBadge": "{days, plural, =1{وسام المواظبة · يوم واحد} =2{وسام المواظبة · يومان} few{وسام المواظبة · {days} أيام} many{وسام المواظبة · {days} يوماً} other{وسام المواظبة · {days} يوم}}",
+  "@journeyBadge": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "journeyLifetime": "{points} نقطة منذ البداية",
+  "@journeyLifetime": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "journeyToNext": "{points} نقطة إلى «{name}»",
+  "@journeyToNext": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "journeyTop": "بلغت أعلى مستوى",
+  "journeyShowAll": "الرحلة كاملة",
+  "journeyShowLess": "عرض أقل",
+  "journeyEmpty": "رحلتك تبدأ اليوم، وكل محطة تُسجَّل هنا.",
+  "journeyPrivate": "خاصة بك. تظهر على بطاقتك فقط إن فعّلتها."
 }

@@ -24,6 +24,7 @@ import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_layout.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
+import '../../card/presentation/journey_widgets.dart';
 import '../../challenge/presentation/challenge_controller.dart';
 import '../../content/presentation/pack_row.dart';
 import '../../onboarding/data/auth_repository.dart';
@@ -176,6 +177,7 @@ class ProfileScreen extends ConsumerWidget {
           ),
           const SizedBox(height: YqSpace.xl),
         ],
+        if (session.canEarnPoints) const JourneySection(),
         const _CardTeaser(),
         const SizedBox(height: YqSpace.xl),
         YqHeading(t.profileSettings),

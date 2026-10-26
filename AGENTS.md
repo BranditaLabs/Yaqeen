@@ -60,7 +60,7 @@ touching user privacy.
   - Tab bar = the living dock (`FloatingTabBar`).
   - Shadows under translucent glass go through `OuterShadow` (never a plain `BoxShadow` under a see-through fill).
   - Loading states are shaped like the content: `YqSkeletonOrbs`, `YqSkeletonRows`, `YqSkeletonText`, `YqSkeletonBox.circle`.
-- **Public card (بطاقة يقين):** opt-in; shows only switched-on fields and never worship detail (CLAUDE.md rules 1–2). Server page in `services/api/src/web/profile-page.ts` (escape every user string; https links only); app in `features/card`; NFC behind `core/platform/nfc_writer.dart`.
+- **Public card (بطاقة يقين):** opt-in; shows only switched-on fields and never worship detail (CLAUDE.md rules 1–2). Server page in `services/api/src/web/profile-page.ts` (escape every user string; https links only); app in `features/card` (journey: `journey_widgets.dart`, Profile tab `JourneySection`); NFC behind `core/platform/nfc_writer.dart`.
   - Tests pin the sky with the harness `skyClock:` so goldens are deterministic.
 - **Routine:** `quranSlot`/`hifzSlot`/`dhikrSlot` (`RoutineSlot`) drive Home's «Your day» stops and local reminders.
   They are device-only and never go in `serverPatch()`.

@@ -672,6 +672,16 @@ badges and member-since. It is also Yaqeen's front door for whoever scans it.
   (`/get-app` → Play / App Store) and «تسوّق من متجر يقين» (store, UTM `yaqeen_card/nfc/<handle>`).
   Themes **sky · gold · night**; Arabic/English by the visitor's browser. Missing/hidden cards show
   a friendly 404 that still invites to the app and the store.
+- **Journey timeline** (switch «رحلتك», off by default): dated milestones, newest first — joined
+  Yaqeen, started the 365-day journey, challenge days 30 · 100 · 200 · 300 · 365, each level reached
+  (the day the running total of earned points crossed it), each streak badge. Neutral phrases only
+  («اليوم 30 من رحلة 365», «وسام المواظبة · 7 أيام» — Arabic counted-noun agreement); never which
+  prayers, azkar or tasks. The full private journey is on the **Profile tab** (`JourneySection`:
+  level ring, lifetime points counting up, points to the next level, the rail; «الرحلة كاملة»).
+- **Motion** (page): digits roll in, the level ring draws then a glint runs round it, badges spring,
+  the timeline thread draws while its dots pop, links rise, the CTA has a slow sheen, sparkles
+  twinkle; scroll-driven reveal where `animation-timeline` is supported. App: numbers count up, the
+  rail draws itself, looks cross-fade. All of it off with reduced motion.
 - **Levels** come from lifetime points (sum of positive ledger rows) — spending never lowers a level;
   names describe the journey: بداية الطريق · على الطريق · مواظب · ثابت · راسخ · منارة
   (0 · 500 · 2,000 · 5,000 · 12,000 · 25,000). No leaderboard, no change to points economics.
@@ -683,7 +693,7 @@ badges and member-since. It is also Yaqeen's front door for whoever scans it.
   suspension hides it at once; support can hide an abusive card (audited); only an open counter is
   kept. Deep link `yaqeen://card` → `/profile/card`.
 - **Acceptance** [x] nothing public until published · [x] only switched-on fields appear · [x] unsafe
-  links never render · [x] NFC writes the URL and reports locked/small tags · [x] works in ar/en.
+  links never render · [x] journey shows only when switched on, newest first · [x] NFC writes the URL and reports locked/small tags · [x] works in ar/en.
 
 ## 6. Cross-cutting functions
 

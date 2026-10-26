@@ -30,7 +30,7 @@ const COPY = {
     challenge: 'رحلة 365 يوماً',
     dayOf: (d: number, of: number) => `اليوم ${d} من ${of}`,
     badges: 'أوسمة المواظبة',
-    badge: (d: number) => `${d} يوماً`,
+    badge: (d: number) => arDays(d),
     since: (m: string) => `في يقين منذ ${m}`,
     journey: 'الرحلة في يقين',
     event: (e: JourneyEvent): string =>
@@ -39,7 +39,7 @@ const COPY = {
         challenge_start: 'بداية رحلة 365 يوماً',
         challenge_day: `اليوم ${e.value} من رحلة 365`,
         level: `مستوى «${LEVELS[(e.value ?? 1) - 1]?.ar ?? ''}»`,
-        badge: `وسام ${e.value} يوماً متتالياً`,
+        badge: `وسام المواظبة · ${arDays(e.value ?? 0)}`,
       })[e.kind],
     links: 'تواصل',
     ctaEyebrow: 'من يقين',
@@ -111,6 +111,16 @@ export function pickLang(query: string | undefined, acceptLanguage: string | und
 const n = (v: number) => new Intl.NumberFormat('en-US').format(v);
 
 /** A number whose digits roll up into place, staggered (CSS only; screen readers get the label). */
+/** Arabic counted «day»: يوم واحد · يومان · 3–10 أيام · 11–99 يوماً · 100 يوم. */
+export function arDays(d: number): string {
+  const r = d % 100;
+  if (d === 1) return 'يوم واحد';
+  if (d === 2) return 'يومان';
+  if (r >= 3 && r <= 10) return `${d} أيام`;
+  if (r >= 11 && r <= 99) return `${d} يوماً`;
+  return `${d} يوم`;
+}
+
 function rolling(v: number): string {
   const text = n(v);
   const digits = Array.from(text)

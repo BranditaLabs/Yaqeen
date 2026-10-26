@@ -24,4 +24,7 @@ class CardRepository {
       rethrow;
     }
   }
+
+  /// The owner's private journey: level, lifetime points and every dated milestone.
+  Future<MyJourney> journey() async => MyJourney.fromJson((await api.get('/v1/me/journey') as Map).cast<String, dynamic>());
 }

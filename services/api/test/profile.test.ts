@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { levelFor, PublicProfileUpdate, socialUrl, type PublicProfileView } from '@yaqeen/contracts';
-import { escapeHtml, pickLang, renderNotFoundPage, renderProfilePage } from '../src/web/profile-page.js';
+import { arDays, escapeHtml, pickLang, renderNotFoundPage, renderProfilePage } from '../src/web/profile-page.js';
 
 const links = { getApp: 'https://x.test/get-app?ref=ahmed', store: 'https://store.test/?utm_source=yaqeen_card', self: 'https://x.test/u/ahmed', image: 'https://x.test/u/assets/icon.png' };
 
@@ -109,7 +109,7 @@ describe('page', () => {
     expect(html).toContain('class="journey');
     expect(html).toContain('مستوى «مواظب»');
     expect(html).toContain('اليوم 30 من رحلة 365');
-    expect(html).toContain('وسام 7 يوماً متتالياً');
+    expect(html).toContain('وسام المواظبة · 7 أيام');
     expect(html).toContain('الانضمام إلى يقين');
     expect(html).toContain('datetime="2026-10-20"');
     expect(html.indexOf('مستوى «مواظب»')).toBeLessThan(html.indexOf('الانضمام إلى يقين'));
@@ -123,6 +123,12 @@ describe('page', () => {
     const html = renderNotFoundPage('ar', links);
     expect(html).toContain('هذه البطاقة غير متاحة');
     expect(html).toContain('تسوّق من متجر يقين');
+  });
+
+  it('counts days the Arabic way', () => {
+    expect([1, 2, 3, 7, 10, 11, 30, 99, 100, 103, 111, 365].map(arDays)).toEqual([
+      'يوم واحد', 'يومان', '3 أيام', '7 أيام', '10 أيام', '11 يوماً', '30 يوماً', '99 يوماً', '100 يوم', '103 أيام', '111 يوماً', '365 يوماً',
+    ]);
   });
 
   it('escapeHtml covers attribute breakers', () => {

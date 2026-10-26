@@ -30,6 +30,7 @@ Base URL: `API_URL` (local `http://localhost:4000`). JSON only. Schemas: `packag
 | GET | `/v1/me/export` | user | PDPL data access — everything held about the user |
 | GET · PUT | `/v1/me/public-profile` | user (PUT: not guest) | «بطاقة يقين» settings: handle, name, bio, ≤ 8 links, visibility switches, theme; GET returns a suggested draft before the first save, plus `url` and `views`. Errors `handle_taken` (409), `handle_reserved`, `account_required` |
 | GET | `/v1/me/public-profile/available?handle=` | user | `{available}` |
+| GET | `/v1/me/journey` | user | Private journey (`MyJourney`): `lifetimePoints`, `level {…, nextAt}`, `streak`, `challengeDay`, `challengeOf`, `events[] {kind: joined·challenge_start·challenge_day·level·badge, date, value}` newest first. The public view adds `timeline` (≤ 12 events) only when `show.timeline` is on |
 | GET | `/v1/public/profiles/:handle` | public | What a scanner sees (cached 60 s): level, streak, challenge day, badges, member since — each only if switched on; never worship detail. 404 when unpublished |
 | GET | `/u/:handle` | public | The card as a script-free HTML page (Arabic/English by browser) with the get-the-app and store CTAs; counts human opens |
 | GET | `/get-app` | public | Smart redirect to Google Play / the App Store by user agent (store site otherwise) |
