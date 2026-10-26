@@ -1,5 +1,5 @@
 # Build from the repo root:  docker build -f services/api/Dockerfile -t yaqeen-api .
-FROM node:22-alpine AS base
+FROM node:26-alpine AS base
 RUN corepack enable && corepack prepare pnpm@10.34.7 --activate
 WORKDIR /repo
 
@@ -13,7 +13,7 @@ COPY services/api services/api
 RUN pnpm --filter @yaqeen/contracts build && pnpm --filter @yaqeen/api build
 RUN pnpm --filter @yaqeen/api deploy --prod --legacy /out
 
-FROM node:22-alpine AS runtime
+FROM node:26-alpine AS runtime
 # The commit this image was built from: the Sentry release and a deploy marker in logs.
 ARG GIT_SHA=dev
 # tsc output is plain readable JS; source maps make stack traces (logs and Sentry) point at the .ts lines.
