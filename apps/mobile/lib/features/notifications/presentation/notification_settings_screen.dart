@@ -9,12 +9,13 @@ import '../../../core/notifications/local_notifier.dart';
 import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
-import '../../../core/widgets/ambient_background.dart';
 import '../../../core/widgets/controls.dart';
 import '../../../core/widgets/yq_button.dart';
 import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_layout.dart';
+import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/yq_states.dart';
+import '../../../core/widgets/yq_timeline.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../onboarding/data/consent_repository.dart';
 import '../../prayer/domain/prayer_calculator.dart';
@@ -107,11 +108,14 @@ class _NotificationSettingsScreenState extends ConsumerState<NotificationSetting
         );
 
     return Scaffold(
-      body: AmbientBackground(
-        child: SafeArea(
-          child: YqPage(
-            header: YqTopBar(title: t.notifSettingsTitle),
+      body: YqCanvas(
+            bottom: YqSpace.xxl,
+            stage: YqStage(compact: true, child: YqStageBar(back: true, title: t.notifSettingsTitle)),
             children: [
+              // Today as the reminders will play out — it rearranges as anything below changes.
+              YqHeading(t.notifTodayTitle),
+              const _TodayReminders(),
+              const SizedBox(height: YqSpace.xl),
               // The routine first: when each habit happens drives the Home timeline and these reminders.
               Padding(
                 padding: const EdgeInsetsDirectional.only(start: 4, bottom: YqSpace.s),
@@ -283,8 +287,58 @@ class _NotificationSettingsScreenState extends ConsumerState<NotificationSetting
                 ),
               ),
             ],
+      ),
+    );
+  }
+}
+
+/// Today's reminders as a journey: each prayer with its alert, the azkar windows and the routine
+/// at their times; what has passed recedes. Read-only — the controls are below.
+class _TodayReminders extends ConsumerWidget {
+  const _TodayReminders();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(context);
+    final s = ref.watch(settingsProvider);
+    final repo = ref.watch(prayerRepositoryProvider);
+    final now = ref.watch(clockProvider)();
+    final times = repo.forDate(s, repo.today(s, now));
+    final hifzOn = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.hifz)));
+    String at(DateTime utc) => YqFormat.time(repo.local(s, utc), s.locale);
+    final entries = <(YqStop, DateTime)>[
+      for (final p in displayOrder)
+        (
+          YqStop(
+            time: at(times.of(p)),
+            title: prayerLabel(t, p),
+            trailing: Text(
+              alertLabel(t, s.alertModes[p]!),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: s.alertModes[p] == AlertMode.silent ? YqColors.slate400 : YqColors.lapis,
+              ),
+            ),
           ),
+          times.of(p),
         ),
+      if (s.morningAzkar) (YqStop(time: at(times.fajr), title: t.azkarMorning, icon: YqIcons.azkar, style: StopStyle.pill), times.fajr),
+      if (s.eveningAzkar) (YqStop(time: at(times.asr), title: t.azkarEvening, icon: YqIcons.azkar, style: StopStyle.pill), times.asr),
+    ];
+    for (final (h, slot) in [(Habit.quran, s.quranSlot), if (hifzOn) (Habit.hifz, s.hifzSlot), (Habit.dhikr, s.dhikrSlot)]) {
+      final when = resolveSlot(slot, times, s.placeOrDefault.timezone);
+      if (when != null) entries.add((YqStop(time: at(when), title: habitLabel(t, h), icon: habitIcon(h), style: StopStyle.pill), when));
+    }
+    final indexed = [for (var i = 0; i < entries.length; i++) (i, entries[i])]..sort((a, b) {
+        final c = a.$2.$2.compareTo(b.$2.$2);
+        return c != 0 ? c : a.$1.compareTo(b.$1);
+      });
+    final instant = now.toUtc();
+    return ExcludeSemantics(
+      child: YqTimeline(
+        pastIndex: indexed.where((e) => !e.$2.$2.isAfter(instant)).length,
+        stops: [for (final e in indexed) e.$2.$1],
       ),
     );
   }

@@ -68,31 +68,58 @@ still apply:
 - the **Quran reader**, which uses mushaf paper/white/night themes for reading comfort;
 - the **splash**, which keeps the brand choreography.
 
-## 3. Headers
+## 3. The screen pattern: stage → complications → journey
 
-**Home: the sky stage** (`_Sky` in `features/home/home_screen.dart`).
-- Edge to edge under the status bar, with 40-pt lower corners.
-- Contents: greeting · «الصلاة القادمة» · prayer name at 58 pt bold · adhan time · countdown in Jost
-  Light 46 · the day arc (sun or crescent, five stations) · station names.
+Every screen is a `YqCanvas` (`core/widgets/yq_stage.dart`):
+1. **`YqStage`**, the living-sky stage, edge to edge under the status bar.
+   - Tab roots use the full stage (40-pt corners); pushed screens use `compact: true` (32-pt).
+   - `gold: true` warms the light on reward screens (Challenge, Calendar, Redeem).
+   - It holds a `YqStageBar` (back · title · actions; `large` on tab roots) and **one large moment**
+     (`YqMoment`: gold eyebrow, the value in the display face or Jost Light, a caption).
+2. **Complications**: up to three `YqOrb`s in a `YqOrbRow`, each a live instrument that works in place.
+3. **The journey or list**: a `YqTimeline` for anything ordered in time; `YqGroup`s for settings;
+   lazy slivers (`slivers:`) for long lists.
+4. A **`footer:`** pins the primary action above the system inset (onboarding, success, recite).
 
-**Tab roots: `YqSkyHeader`** (`core/widgets/yq_sky_header.dart`).
-- A band of the same sky (32-pt lower corners) around the screen's own title row.
-- Used on Quran, Prayer, Challenge and Profile.
-- Put it first in a scroll view whose padding is the gutter; the parent `SafeArea` uses
-  `top: false`.
+Content rises in once (`YqRise`, staggered 70 ms). Screen readers get it at once.
 
-**Pushed screens:** `YqTopBar` (back · title · actions) on the living ground.
+| Screen | Stage moment | Complications | Journey / body |
+| --- | --- | --- | --- |
+| Home | next prayer · countdown · day arc | Qibla orbit · misbaha · liquid wird | «Your day» |
+| Prayer | next prayer · countdown · day arc | Qibla · daylight (liquid) · alerts (ring) | six prayers with bells |
+| Qibla | turn guidance | the full-screen orbit | calibrate · camera |
+| Quran | continue reading + khatma line + search | wird · khatma ring · listen | saved strip · lazy surahs |
+| Challenge | gold ring: day N, points | today · streak · make-up | tasks with gold checks |
+| Profile | identity medallion | balance · rewards ring / language · downloads | settings groups |
+| Calendar | Hijri month, stepping | journey ring · streak · balance | luminous day discs; day sheet timeline |
+| Redeem | balance | — | rewards with affordability rings |
+| Azkar | set tabs | the misbaha (beads = count) | the rest of the set |
+| Duas | dua of the day (fav · share) | sections as orbs | — |
+| Hifz | plan as liquid orb · goal · finish | — | listen → repeat → test; reviews |
+| Now playing | surah name · reciter | orbit scrubber around the play pill | controls · chips |
+| Reciters | selected voice ringed by offline progress | — | voices with download rings |
+| Recite | mode tabs | mic orb ringed by progress (footer) | text · results |
+| Onboarding | step title; Welcome/Prayer show the day arc | — | the step; Routine previews «your day» live |
+| Notifications | — | — | today's reminders timeline, then settings |
+| Inbox | filters | — | each day as a timeline; unread glows |
+
+**Exceptions:** the Quran reader (mushaf themes) and the splash.
 
 ## 4. Components
 
 | Component | Where | Use |
 | --- | --- | --- |
-| `LiquidGlass` / `GlassTap` | core/widgets | The surface for content. Live blur only on fixed chrome (`blur:`); cards in scroll views use the frosted fill. `GlassTap` handles tap **and** long-press in one detector. |
-| Orb (complication) | features/home/widgets/orbs.dart | A 100-pt glass disc, title and one status line. Glows gold when its goal is met (Qibla aligned). Three per row at most. |
-| `DayTimeline` | features/home/widgets/day_journey.dart | Prayers (text rows), azkar and routine stops (glass pills), the «now» marker with a child, and a trailing card. Past moments are slate, the next prayer is lapis with a «التالية» tag, open windows glow gold. |
-| `HabitSlotCard` | features/routine/presentation | Picks a habit's time: after a prayer, a set time, or off, with today's real time as a preview. |
-| `FloatingTabBar` | core/widgets | One glass lens slides under the active tab; tabs cross-fade (`TabBranches`). |
-| Sky arc painter | core/design/living_sky.dart | The day arc. Travelled path in gold (lapis at night), stations, sun or crescent. |
+| `YqCanvas`, `YqStage`, `YqStageBar`, `YqMoment`, `YqHeading` | core/widgets/yq_stage.dart | The screen pattern above. |
+| `YqOrb` / `YqOrbRow` | core/widgets/yq_orb.dart | A 100-pt glass disc + title + one status line; gold glow when its goal is met; `YqOrb.number` for a numeral disc. |
+| `YqRing` | core/widgets/yq_ring.dart | An eased progress ring (lapis, or gold for worship/reward goals); sweeps with the reading direction. |
+| `LiquidOrb` | core/widgets/liquid_orb.dart | Fill level as still liquid (wird, daylight, hifz plan, download). |
+| `MisbahaPainter` | core/widgets/yq_misbaha.dart | Beads that turn gold as they are counted (Home orb, Azkar). |
+| `YqTimeline` / `YqStop` | core/widgets/yq_timeline.dart | The journey rail: line or pill stops, `done` (gold check), `highlight`, `trailing` controls, live `detail`, an optional «now» marker. |
+| `YqGroup` | core/widgets/yq_layout.dart | A glass group of rows with hairlines. |
+| `DayArc` / `dayArcAt` | core/design/living_sky.dart | The day's arc with the sun at its real position. |
+| `LiquidGlass` / `GlassTap` | core/widgets | The content surface; live blur only on fixed chrome. |
+| `FloatingTabBar` | core/widgets | The **living dock**: porcelain glass, an ink lens lit by the current sky under the active tab (gold label), a hairline day thread with the sun's position, the profile initial. |
+| `HabitSlotCard` | features/routine/presentation | Picks a habit's time. |
 
 ## 5. Motion
 

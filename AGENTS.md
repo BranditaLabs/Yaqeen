@@ -56,8 +56,8 @@ touching user privacy.
 - **Design system:** read `docs/DESIGN_SYSTEM.md` before building a screen.
   - Every screen sits on `AmbientBackground`, which follows the living sky (`core/design/living_sky.dart`). Pass
     `lights:` only for accents (`goldLights` on reward, challenge and calendar screens).
-  - Tab roots wrap their title row in `YqSkyHeader` as the first scroll item (gutter padding, `SafeArea(top: false)`).
-  - Pushed screens use `YqTopBar`. The reader and splash are the only exceptions.
+  - Every screen is a `YqCanvas`: a `YqStage` (living sky; `compact` on pushed screens, `gold` on reward screens) with a `YqStageBar` and one `YqMoment`, then up to three `YqOrb`s, then a `YqTimeline` / `YqGroup`s / lazy `slivers`. The reader and splash are the only exceptions (DESIGN_SYSTEM §3).
+  - Tab bar = the living dock (`FloatingTabBar`).
   - Tests pin the sky with the harness `skyClock:` so goldens are deterministic.
 - **Routine:** `quranSlot`/`hifzSlot`/`dhikrSlot` (`RoutineSlot`) drive Home's «Your day» stops and local reminders.
   They are device-only and never go in `serverPatch()`.

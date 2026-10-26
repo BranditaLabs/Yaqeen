@@ -121,6 +121,10 @@ void main() {
   });
 
   testWidgets('notification settings: tapping a mode cycles adhan → notify → silent', (tester) async {
+    // Tall view: the per-prayer modes sit below today's reminders and the routine.
+    tester.view.physicalSize = const Size(390 * 3, 2600 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
     final scheduler = NoopLocalNotificationScheduler();
     await tester.pumpWidget(
       harness(

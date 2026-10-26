@@ -121,7 +121,7 @@ Scale (pt): display 30/1.4 · title-L 19 · title-M 15 · body-L 16/1.75 · body
 | `FloatingTabBar` | ✅ | 350×66 floating glass pill, 5 tabs: الرئيسية · القرآن · الصلاة · التحدي · حسابي (avatar) |
 | `YqSwitch`, `YqSegmented`, `YqProgressLine` | ✅ | Lapis on, porcelain track |
 | `AmbientBackground` | ✅ | Porcelain lit by the **living sky** (tint + glow under the sun, follows the time of day; DESIGN_SYSTEM §2); `lights:` adds accents (`goldLights`) |
-| `YqSkyHeader` | ✅ | Tab-root header as a band of the living sky, edge to edge (DESIGN_SYSTEM §3) |
+| `YqCanvas` / `YqStage` / `YqOrb` / `YqRing` / `YqTimeline` / `YqGroup` | ✅ | The living-canvas screen kit — every screen is stage → complications → journey (DESIGN_SYSTEM §3–4) |
 | **To build** | ⬜ | `YqButton` (primary dark pill 56 · secondary glass · text), `YqListRow`, `YqSection` (glass card with title), `YqEmptyState`, `YqErrorState`, `YqOfflineBanner`, `YqSheet` (glass bottom sheet, 28 radius, grabber), `YqChip`, `YqStepper` (onboarding 4 dashes), `YqCountdown`, `YqToast` |
 
 ### 2.5 Universal screen states (every data screen must implement)

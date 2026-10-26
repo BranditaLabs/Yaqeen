@@ -1494,5 +1494,6 @@
     }
   },
   "challengeStreak": "Streak",
-  "challengeQada": "Make-up"
+  "challengeQada": "Make-up",
+  "notifTodayTitle": "Today's reminders"
 }
