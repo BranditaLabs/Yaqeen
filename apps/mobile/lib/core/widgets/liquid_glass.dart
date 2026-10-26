@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme/tokens.dart';
+import 'outer_shadow.dart';
 
 /// Global switch: blur is expensive on low-end Android. Set to false at
 /// startup (e.g. from a device-tier check) to fall back to frosted fills.
@@ -112,18 +113,17 @@ class LiquidGlass extends StatelessWidget {
     );
 
     if (!shadow) return clipped;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: shape,
-        boxShadow: [
-          BoxShadow(
-            color: tone == GlassTone.gold ? const Color(0x337C6127) : const Color(0x260F1A36),
-            blurRadius: 30,
-            spreadRadius: -14,
-            offset: const Offset(0, 14),
-          ),
-        ],
-      ),
+    // Outside the glass only: under a translucent fill a plain shadow shows through as a grey patch.
+    return OuterShadow(
+      borderRadius: shape,
+      shadows: [
+        BoxShadow(
+          color: tone == GlassTone.gold ? const Color(0x337C6127) : const Color(0x260F1A36),
+          blurRadius: 30,
+          spreadRadius: -14,
+          offset: const Offset(0, 14),
+        ),
+      ],
       child: clipped,
     );
   }

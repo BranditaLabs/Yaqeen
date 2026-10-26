@@ -506,9 +506,11 @@ class _IndexSkeleton extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              YqSkeletonBox(height: 120, radius: YqRadii.card),
-              SizedBox(height: 16),
-              YqSkeletonBox(height: 400, radius: YqRadii.card),
+              YqSkeletonOrbs(),
+              SizedBox(height: YqSpace.xl),
+              YqSkeletonBox(height: 46, radius: YqRadii.pill),
+              SizedBox(height: YqSpace.m),
+              YqSkeletonRows(rows: 8, leading: 36),
             ],
           ),
         ),
@@ -523,6 +525,6 @@ final _cardDecoration = BoxDecoration(
     end: Alignment.bottomCenter,
     colors: [YqColors.white.withAlpha(168), YqColors.white.withAlpha(148)],
   ),
+  // No shadow: under the translucent fill it would show through as a grey patch.
   border: Border.all(color: const Color(0xE6FFFFFF)),
-  boxShadow: const [BoxShadow(color: Color(0x260F1A36), blurRadius: 30, spreadRadius: -14, offset: Offset(0, 14))],
 );

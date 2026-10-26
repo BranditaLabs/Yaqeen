@@ -162,7 +162,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       child: Scaffold(
         backgroundColor: night ? YqColors.nightBg : colors.page,
         body: data.when(
-          loading: () => const Center(child: YqSkeleton(child: YqSkeletonBox(height: 400, width: 300, radius: YqRadii.card))),
+          loading: () => const Padding(
+            padding: EdgeInsets.all(YqSpace.gutter),
+            child: Center(child: YqSkeleton(child: YqSkeletonText(lines: 12, lineHeight: 18))),
+          ),
           error: (_, __) => YqErrorState(onRetry: () => ref.invalidate(quranDataProvider)),
           data: (q) {
             final first = q.firstOfPage(_page);

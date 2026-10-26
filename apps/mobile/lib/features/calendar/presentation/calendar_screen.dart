@@ -124,7 +124,23 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         ),
         children: [
           ...cal.when(
-            loading: () => [const YqSkeleton(child: YqSkeletonBox(height: 360, radius: YqRadii.card))],
+            loading: () => [
+              YqSkeleton(
+                child: Column(
+                  children: [
+                    const YqSkeletonOrbs(),
+                    const SizedBox(height: YqSpace.xl),
+                    for (var r = 0; r < 5; r++)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [for (var c = 0; c < 7; c++) const Expanded(child: Center(child: YqSkeletonBox.circle(38)))],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
             error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(calendarMonthProvider(_key)))],
             data: (c) => [
               if (c.enrolled) ...[_Journey(cal: c, locale: locale), const SizedBox(height: YqSpace.xl)],

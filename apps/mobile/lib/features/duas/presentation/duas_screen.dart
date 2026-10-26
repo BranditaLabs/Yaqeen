@@ -71,7 +71,9 @@ class DuasScreen extends ConsumerWidget {
           ),
         ),
         children: content.when(
-          loading: () => [const YqSkeleton(child: YqSkeletonBox(height: 220, radius: YqRadii.hero))],
+          loading: () => [
+            const YqSkeleton(child: Column(children: [YqSkeletonOrbs(size: 88), SizedBox(height: YqSpace.l), YqSkeletonOrbs(size: 88)])),
+          ],
           error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(contentProvider))],
           data: (lib) {
             if (ofDay == null) {

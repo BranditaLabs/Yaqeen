@@ -82,10 +82,7 @@ class RedeemScreen extends ConsumerWidget {
         children: [
           YqHeading(t.redeemChoose),
           ...rewards.when(
-            loading: () => [
-              for (var i = 0; i < 3; i++)
-                const Padding(padding: EdgeInsets.only(bottom: 12), child: YqSkeleton(child: YqSkeletonBox(height: 96))),
-            ],
+            loading: () => [const YqSkeleton(child: YqSkeletonRows(rows: 3, leading: 60, trailing: true))],
             error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(rewardsProvider))],
             data: (list) => [
               for (final r in list) ...[
@@ -347,7 +344,7 @@ class CodesScreen extends ConsumerWidget {
             bottom: YqSpace.xxl,
             stage: YqStage(compact: true, child: YqStageBar(back: true, title: t.myCodes)),
             children: codes.when(
-              loading: () => [const YqSkeleton(child: YqSkeletonBox(height: 72))],
+              loading: () => [const YqSkeleton(child: YqSkeletonRows(rows: 3, leading: 0))],
               error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(codesProvider))],
               data: (list) => list.isEmpty
                   ? [LiquidGlass(child: YqEmptyState(icon: YqIcons.store, title: t.codesEmpty))]

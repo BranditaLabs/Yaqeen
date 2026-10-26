@@ -193,7 +193,7 @@ class _ReciteScreenState extends ConsumerState<ReciteScreen> {
                 onHear: () => context.push('/quran/listen/${widget.surah}?ayah=${first!.ayah}'),
               ),
         children: quran.when(
-          loading: () => [const YqSkeleton(child: YqSkeletonBox(height: 280, radius: YqRadii.card))],
+          loading: () => [const YqSkeleton(child: YqSkeletonText(lines: 6, lineHeight: 20))],
           error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(quranDataProvider))],
           data: (q) => _body(context, t, q, results, recited),
         ),

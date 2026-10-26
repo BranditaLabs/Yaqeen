@@ -104,7 +104,13 @@ class _HifzScreenState extends ConsumerState<HifzScreen> {
         children: switch ((plan, quran)) {
           (AsyncError(), _) || (_, AsyncError()) => [YqErrorState(onRetry: () => ref.invalidate(hifzControllerProvider))],
           (AsyncData(value: final p), AsyncData(value: final q)) => _body(context, t, p, q),
-          _ => [const YqSkeleton(child: YqSkeletonBox(height: 320, radius: YqRadii.card))],
+          _ => [
+              const YqSkeleton(
+                child: Column(
+                  children: [YqSkeletonText(lines: 3, lineHeight: 20), SizedBox(height: YqSpace.l), YqSkeletonRows(rows: 3, leading: 0)],
+                ),
+              ),
+            ],
         },
       ),
     );

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../design/living_sky.dart';
 import '../theme/tokens.dart';
 import 'liquid_glass.dart';
+import 'outer_shadow.dart';
 import 'yq_icon.dart';
 
 class YqTab {
@@ -110,14 +111,13 @@ class FloatingTabBar extends StatelessWidget {
       container: true,
       explicitChildNodes: true,
       child: RepaintBoundary(
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(YqRadii.pill),
-            boxShadow: const [
-              BoxShadow(color: Color(0x4D0A1530), blurRadius: 44, spreadRadius: -16, offset: Offset(0, 22)),
-              BoxShadow(color: Color(0x0F0A1530), blurRadius: 6, offset: Offset(0, 2)),
-            ],
-          ),
+        // Outside the capsule only, so the translucent glass never looks smudged.
+        child: OuterShadow(
+          borderRadius: BorderRadius.circular(YqRadii.pill),
+          shadows: const [
+            BoxShadow(color: Color(0x4D0A1530), blurRadius: 44, spreadRadius: -16, offset: Offset(0, 22)),
+            BoxShadow(color: Color(0x0F0A1530), blurRadius: 6, offset: Offset(0, 2)),
+          ],
           child: ClipRRect(
             borderRadius: BorderRadius.circular(YqRadii.pill),
             child: YqGlassConfig.enableBlur ? BackdropFilter(filter: ui.ImageFilter.blur(sigmaX: 13, sigmaY: 13), child: bar) : bar,

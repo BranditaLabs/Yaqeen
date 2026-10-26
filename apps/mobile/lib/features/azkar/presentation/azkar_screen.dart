@@ -7,6 +7,7 @@ import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/controls.dart';
 import '../../../core/widgets/liquid_glass.dart';
+import '../../../core/widgets/outer_shadow.dart';
 import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_misbaha.dart';
 import '../../../core/widgets/yq_stage.dart';
@@ -120,7 +121,19 @@ class _AzkarScreenState extends ConsumerState<AzkarScreen> {
           ),
         ),
         children: content.when(
-          loading: () => [const YqSkeleton(child: YqSkeletonBox(height: 420, radius: YqRadii.hero))],
+          loading: () => [
+            const YqSkeleton(
+              child: Column(
+                children: [
+                  YqSkeletonBox(width: 90, height: 12, radius: YqRadii.pill),
+                  SizedBox(height: YqSpace.m),
+                  YqSkeletonText(lines: 3, lineHeight: 20),
+                  SizedBox(height: YqSpace.xl),
+                  YqSkeletonBox.circle(220),
+                ],
+              ),
+            ),
+          ],
           error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(contentProvider))],
           data: (lib) => _body(context, t, lib.azkar(_set)),
         ),
@@ -207,7 +220,17 @@ class _AzkarScreenState extends ConsumerState<AzkarScreen> {
               // The misbaha: a bead turns gold with each tap; the count sits in its heart.
               SizedBox.square(
                 dimension: 220,
-                child: DecoratedBox(
+                child: OuterShadow(
+                  circle: true,
+                  shadows: [
+                    BoxShadow(
+                      color: done ? const Color(0x59C6A867) : const Color(0x260F1A36),
+                      blurRadius: 34,
+                      spreadRadius: -8,
+                      offset: const Offset(0, 14),
+                    ),
+                  ],
+                  child: DecoratedBox(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: LinearGradient(
@@ -216,14 +239,6 @@ class _AzkarScreenState extends ConsumerState<AzkarScreen> {
                       colors: done ? const [YqColors.cream, YqColors.sand] : const [Color(0xE6FFFFFF), Color(0x99FFFFFF)],
                     ),
                     border: Border.all(color: const Color(0xF2FFFFFF), width: 1.4),
-                    boxShadow: [
-                      BoxShadow(
-                        color: done ? const Color(0x59C6A867) : const Color(0x260F1A36),
-                        blurRadius: 34,
-                        spreadRadius: -8,
-                        offset: const Offset(0, 14),
-                      ),
-                    ],
                   ),
                   child: RepaintBoundary(
                     child: Padding(
@@ -250,6 +265,7 @@ class _AzkarScreenState extends ConsumerState<AzkarScreen> {
                   ),
                 ),
               ),
+                ),
               const SizedBox(height: YqSpace.m),
               AnimatedSwitcher(
                 duration: YqMotion.fast,

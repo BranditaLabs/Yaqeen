@@ -367,11 +367,24 @@ class _Skeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => const YqCanvas(
         lights: AmbientBackground.goldLights,
-        stage: YqStage(gold: true, child: YqSkeleton(child: YqSkeletonBox(height: 260, radius: YqRadii.hero))),
+        stage: YqStage(
+          gold: true,
+          child: YqSkeleton(
+            child: Column(
+              children: [
+                SizedBox(height: 44, child: Align(alignment: AlignmentDirectional.centerStart, child: YqSkeletonBox(width: 180, height: 24))),
+                SizedBox(height: YqSpace.xl),
+                YqSkeletonBox.circle(176),
+                SizedBox(height: YqSpace.m),
+                YqSkeletonBox(width: 140, height: 26, radius: YqRadii.pill),
+              ],
+            ),
+          ),
+        ),
         children: [
-          YqSkeleton(child: YqSkeletonBox(height: 56)),
-          SizedBox(height: YqSpace.s),
-          YqSkeleton(child: YqSkeletonBox(height: 56)),
+          YqSkeleton(child: YqSkeletonOrbs()),
+          SizedBox(height: YqSpace.xxl),
+          YqSkeleton(child: YqSkeletonRows(rows: 4, leading: 0, trailing: true)),
         ],
       );
 }

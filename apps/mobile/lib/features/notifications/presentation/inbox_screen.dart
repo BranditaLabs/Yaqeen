@@ -116,15 +116,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
             ),
           ),
           items.when(
-            loading: () => const YqSkeleton(
-              child: Column(
-                children: [
-                  YqSkeletonBox(height: 72, radius: YqRadii.tile),
-                  SizedBox(height: 8),
-                  YqSkeletonBox(height: 72, radius: YqRadii.tile),
-                ],
-              ),
-            ),
+            loading: () => const YqSkeleton(child: YqSkeletonRows(rows: 4, leading: 40)),
             error: (_, __) => YqErrorState(onRetry: () => ref.invalidate(inboxProvider)),
             data: (all) {
               final list = all.where((i) => _filter == null || i.category == _filter).toList();

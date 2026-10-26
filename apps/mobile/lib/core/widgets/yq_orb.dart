@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import 'liquid_glass.dart';
+import 'outer_shadow.dart';
 
 /// A complication (docs/DESIGN_SYSTEM.md §4): a glass disc with a live instrument inside, a title
 /// and one status line. Glows gold when its goal is met. Three per row at most ([YqOrbRow]).
@@ -45,7 +46,17 @@ class YqOrb extends StatelessWidget {
   Widget build(BuildContext context) {
     final frame = Column(
       children: [
-        AnimatedContainer(
+        OuterShadow(
+          circle: true,
+          shadows: [
+            BoxShadow(
+              color: glow ? const Color(0x59C6A867) : const Color(0x260F1A36),
+              blurRadius: glow ? 28 : 22,
+              spreadRadius: glow ? -4 : -10,
+              offset: const Offset(0, 10),
+            ),
+          ],
+          child: AnimatedContainer(
           duration: YqMotion.base,
           width: size,
           height: size,
@@ -57,16 +68,9 @@ class YqOrb extends StatelessWidget {
               colors: glow ? const [YqColors.cream, YqColors.sand] : const [Color(0xE6FFFFFF), Color(0xA6FFFFFF)],
             ),
             border: Border.all(color: const Color(0xF2FFFFFF), width: 1.2),
-            boxShadow: [
-              BoxShadow(
-                color: glow ? const Color(0x59C6A867) : const Color(0x260F1A36),
-                blurRadius: glow ? 28 : 22,
-                spreadRadius: glow ? -4 : -10,
-                offset: const Offset(0, 10),
-              ),
-            ],
           ),
           child: RepaintBoundary(child: Padding(padding: const EdgeInsets.all(6), child: disc)),
+          ),
         ),
         const SizedBox(height: 8),
         Text(

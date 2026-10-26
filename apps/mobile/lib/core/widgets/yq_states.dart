@@ -103,15 +103,18 @@ class YqOfflineBanner extends StatelessWidget {
 class YqSkeleton extends StatefulWidget {
   const YqSkeleton({super.key, required this.child});
 
-  /// Layout made of [YqSkeletonBox]es.
+  /// Layout made of [YqSkeletonBox]es (or the prefabs below), shaped like the real content.
   final Widget child;
+
+  /// One sweep. Everything inside one [YqSkeleton] shimmers as a single surface.
+  static const period = Duration(milliseconds: 1600);
 
   @override
   State<YqSkeleton> createState() => _YqSkeletonState();
 }
 
 class _YqSkeletonState extends State<YqSkeleton> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
+  late final AnimationController _c = AnimationController(vsync: this, duration: YqSkeleton.period);
 
   @override
   void didChangeDependencies() {
@@ -132,39 +135,177 @@ class _YqSkeletonState extends State<YqSkeleton> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
+    // The light sweeps with the reading direction (right → left in Arabic), eased so it glides in
+    // and lingers rather than ticking across at constant speed.
+    final rtl = Directionality.of(context) == TextDirection.rtl;
     return Semantics(
       label: MaterialLocalizations.of(context).refreshIndicatorSemanticLabel,
       child: ExcludeSemantics(
-        child: AnimatedBuilder(
-          animation: _c,
-          builder: (context, child) => ShaderMask(
-            blendMode: BlendMode.srcATop,
-            shaderCallback: (rect) => LinearGradient(
-              begin: Alignment(-1 + 3 * _c.value - 1, 0),
-              end: Alignment(-1 + 3 * _c.value, 0),
-              colors: const [Color(0x00FFFFFF), Color(0x8CFFFFFF), Color(0x00FFFFFF)],
-            ).createShader(rect),
-            child: child,
+        child: RepaintBoundary(
+          child: AnimatedBuilder(
+            animation: _c,
+            builder: (context, child) {
+              final t = Curves.easeInOutSine.transform(_c.value);
+              final x = -2.2 + 4.4 * t; // band centre travels from beyond one edge to beyond the other
+              final c = rtl ? -x : x;
+              return ShaderMask(
+                blendMode: BlendMode.srcATop,
+                shaderCallback: (rect) => LinearGradient(
+                  begin: Alignment(c - 1.1, -0.25),
+                  end: Alignment(c + 1.1, 0.25),
+                  colors: const [Color(0x00FFFFFF), Color(0x66FFFFFF), Color(0xD9FFFFFF), Color(0x66FFFFFF), Color(0x00FFFFFF)],
+                  stops: const [0, 0.32, 0.5, 0.68, 1],
+                ).createShader(rect),
+                child: child,
+              );
+            },
+            child: widget.child,
           ),
-          child: widget.child,
         ),
       ),
     );
   }
 }
 
+/// A placeholder shape: a soft mist tint that sits on the living ground and on glass alike.
 class YqSkeletonBox extends StatelessWidget {
-  const YqSkeletonBox({super.key, this.width, required this.height, this.radius = YqRadii.chip});
+  const YqSkeletonBox({super.key, this.width, required this.height, this.radius = YqRadii.chip}) : circle = false;
+
+  /// A disc of [size] (orbs, avatars, rings).
+  const YqSkeletonBox.circle(double size, {super.key})
+      : width = size,
+        height = size,
+        radius = 0,
+        circle = true;
 
   final double? width;
   final double height;
   final double radius;
+  final bool circle;
+
+  static const fill = Color(0xB3E1E8F3);
 
   @override
   Widget build(BuildContext context) => Container(
         width: width,
         height: height,
-        decoration: BoxDecoration(color: const Color(0xFFE6ECF6), borderRadius: BorderRadius.circular(radius)),
+        decoration: BoxDecoration(
+          color: fill,
+          shape: circle ? BoxShape.circle : BoxShape.rectangle,
+          borderRadius: circle ? null : BorderRadius.circular(radius),
+        ),
+      );
+}
+
+/// A line of text-shaped placeholder; [widthFactor] of the available width.
+class YqSkeletonLine extends StatelessWidget {
+  const YqSkeletonLine({super.key, this.widthFactor = 1, this.height = 12});
+  final double widthFactor;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) => FractionallySizedBox(
+        alignment: AlignmentDirectional.centerStart,
+        widthFactor: widthFactor,
+        child: YqSkeletonBox(height: height, radius: YqRadii.pill),
+      );
+}
+
+/// Three complication orbs with their title and status lines.
+class YqSkeletonOrbs extends StatelessWidget {
+  const YqSkeletonOrbs({super.key, this.count = 3, this.size = 100});
+  final int count;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        children: [
+          for (var i = 0; i < count; i++)
+            Expanded(
+              child: Column(
+                children: [
+                  YqSkeletonBox.circle(size),
+                  const SizedBox(height: 10),
+                  const YqSkeletonBox(width: 56, height: 11, radius: YqRadii.pill),
+                  const SizedBox(height: 6),
+                  const YqSkeletonBox(width: 40, height: 9, radius: YqRadii.pill),
+                ],
+              ),
+            ),
+        ],
+      );
+}
+
+/// A glass-shaped card of [rows] list rows: an optional leading disc, a title and a subtitle line.
+class YqSkeletonRows extends StatelessWidget {
+  const YqSkeletonRows({super.key, this.rows = 4, this.leading = 40, this.trailing = false});
+  final int rows;
+
+  /// Leading disc size; 0 = none.
+  final double leading;
+  final bool trailing;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.s),
+        decoration: BoxDecoration(
+          color: const Color(0x66FFFFFF),
+          borderRadius: BorderRadius.circular(YqRadii.card),
+          border: Border.all(color: const Color(0xB3FFFFFF)),
+        ),
+        child: Column(
+          children: [
+            for (var i = 0; i < rows; i++)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: YqSpace.s + 2),
+                child: Row(
+                  children: [
+                    if (leading > 0) ...[YqSkeletonBox.circle(leading), const SizedBox(width: YqSpace.m)],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Varied lengths read as text, not as a barcode.
+                          YqSkeletonLine(widthFactor: const [0.62, 0.48, 0.7, 0.55][i % 4], height: 13),
+                          const SizedBox(height: 7),
+                          YqSkeletonLine(widthFactor: const [0.38, 0.3, 0.44, 0.34][i % 4], height: 9),
+                        ],
+                      ),
+                    ),
+                    if (trailing) const YqSkeletonBox(width: 64, height: 32, radius: YqRadii.pill),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      );
+}
+
+/// A card of text lines (a passage, a dua, a zikr), centred like the real text.
+class YqSkeletonText extends StatelessWidget {
+  const YqSkeletonText({super.key, this.lines = 4, this.lineHeight = 16});
+  final int lines;
+  final double lineHeight;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(YqSpace.xl),
+        decoration: BoxDecoration(
+          color: const Color(0x66FFFFFF),
+          borderRadius: BorderRadius.circular(YqRadii.hero),
+          border: Border.all(color: const Color(0xB3FFFFFF)),
+        ),
+        child: Column(
+          children: [
+            for (var i = 0; i < lines; i++) ...[
+              if (i > 0) const SizedBox(height: 14),
+              FractionallySizedBox(
+                widthFactor: i == lines - 1 ? 0.55 : const [1.0, 0.92, 0.97][i % 3],
+                child: YqSkeletonBox(height: lineHeight, radius: YqRadii.pill),
+              ),
+            ],
+          ],
+        ),
       );
 }
 

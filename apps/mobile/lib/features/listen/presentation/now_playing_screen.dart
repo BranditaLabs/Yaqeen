@@ -10,6 +10,7 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/liquid_glass.dart';
+import '../../../core/widgets/outer_shadow.dart';
 import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_layout.dart';
 import '../../../core/widgets/yq_ring.dart';
@@ -411,16 +412,19 @@ class _OrbitScrubber extends StatelessWidget {
                 behavior: HitTestBehavior.opaque,
                 onTapUp: (d) => seek(d.localPosition),
                 onPanUpdate: (d) => seek(d.localPosition),
-                child: DecoratedBox(
+                child: OuterShadow(
+                  circle: true,
+                  shadows: const [BoxShadow(color: Color(0x260F1A36), blurRadius: 34, spreadRadius: -8, offset: Offset(0, 14))],
+                  child: DecoratedBox(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xE6FFFFFF), Color(0x99FFFFFF)]),
                     border: Border.all(color: const Color(0xF2FFFFFF), width: 1.4),
-                    boxShadow: const [BoxShadow(color: Color(0x260F1A36), blurRadius: 34, spreadRadius: -8, offset: Offset(0, 14))],
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(14),
                     child: YqRing(value: value, size: size - 28, stroke: 6),
+                  ),
                   ),
                 ),
               ),

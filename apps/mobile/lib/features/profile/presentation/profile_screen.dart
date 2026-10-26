@@ -402,7 +402,7 @@ class LedgerScreen extends ConsumerWidget {
           child: YqPage(
             header: YqTopBar(title: t.profileLedger),
             children: ledger.when(
-              loading: () => [const YqSkeleton(child: YqSkeletonBox(height: 200))],
+              loading: () => [const YqSkeleton(child: YqSkeletonRows(rows: 4, leading: 0, trailing: true))],
               error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(ledgerProvider))],
               data: (list) => list.isEmpty
                   ? [LiquidGlass(child: YqEmptyState(icon: YqIcons.challenge, title: t.ledgerEmpty))]
@@ -512,7 +512,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                 _ => const <Widget>[],
               },
               if (_sizes == null)
-                const YqSkeleton(child: YqSkeletonBox(height: 120))
+                const YqSkeleton(child: YqSkeletonRows(rows: 2, leading: 40))
               else if (_sizes!.isEmpty)
                 LiquidGlass(child: YqEmptyState(icon: YqIcons.download, title: t.downloadsNone))
               else

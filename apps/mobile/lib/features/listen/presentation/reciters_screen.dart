@@ -159,7 +159,7 @@ class _RecitersScreenState extends ConsumerState<RecitersScreen> {
           ),
         ),
         children: reciters.when(
-          loading: () => [const YqSkeleton(child: YqSkeletonBox(height: 300, radius: YqRadii.card))],
+          loading: () => [const YqSkeleton(child: YqSkeletonRows(rows: 5, leading: 52))],
           error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(recitersProvider))],
           data: (all) {
             final shown = _filter(all, dl);
