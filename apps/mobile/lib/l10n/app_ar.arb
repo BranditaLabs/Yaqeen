@@ -1525,14 +1525,12 @@
   "notifTodayTitle": "تنبيهات اليوم",
   "cardTitle": "بطاقة يقين",
   "cardTeaserTitle": "بطاقتك العامة",
-  "cardTeaserBody": "حسابك وروابطك ومستواك في يقين، ببطاقة NFC أو رمز QR",
+  "cardTeaserBody": "حسابك وروابطك ومستواك في يقين، على ميدالية أو بطاقة يقين",
   "cardGuest": "سجّل الدخول لتصنع بطاقتك العامة وتشاركها",
   "cardLive": "منشورة",
   "cardHidden": "مخفية",
   "cardOpens": "مرات الفتح",
   "cardOpensStatus": "من NFC وQR والرابط",
-  "cardNfc": "وسم NFC",
-  "cardNfcStatus": "اكتب رابطك عليه",
   "cardQr": "رمز QR",
   "cardQrStatus": "للطباعة والمشاركة",
   "cardPublish": "نشر البطاقة",
@@ -1582,17 +1580,6 @@
       }
     }
   },
-  "cardNfcTitle": "اكتب بطاقتك على وسم NFC",
-  "cardNfcHint": "قرّب الوسم من أعلى الهاتف وأبقه ثابتاً",
-  "cardNfcWritten": "تمّت الكتابة · أي هاتف يلمس الوسم يفتح بطاقتك",
-  "cardNfcUnsupported": "هذا الجهاز لا يدعم NFC — استخدم رمز QR",
-  "cardNfcDisabled": "NFC متوقف — فعّله من إعدادات الهاتف",
-  "cardNfcNotWritable": "هذا الوسم مقفل أو لا يقبل الكتابة",
-  "cardNfcTooSmall": "مساحة الوسم لا تكفي للرابط",
-  "cardNfcFailed": "تعذّرت الكتابة، حاول مجدداً",
-  "cardNfcPublishFirst": "انشر بطاقتك واحفظها أولاً ليفتحها من يمسحها",
-  "cardNfcBuy": "اطلب وسم يقين من المتجر",
-  "cardNfcStart": "ابدأ الكتابة",
   "cardQrTitle": "امسح لفتح بطاقتي",
   "challengeStreakRestart": "ابدأ من جديد، والقضاء متاح",
   "cardShowTimeline": "رحلتك (محطّات بتواريخها)",
@@ -1646,5 +1633,43 @@
   "journeyShowAll": "الرحلة كاملة",
   "journeyShowLess": "عرض أقل",
   "journeyEmpty": "رحلتك تبدأ اليوم، وكل محطة تُسجَّل هنا.",
-  "journeyPrivate": "خاصة بك. تظهر على بطاقتك فقط إن فعّلتها."
+  "journeyPrivate": "خاصة بك. تظهر على بطاقتك فقط إن فعّلتها.",
+  "cardMedals": "ميدالياتي",
+  "cardMedalsNone": "فعّل ميداليتك",
+  "cardMedalsCount": "{count} مفعّلة",
+  "@cardMedalsCount": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "medalsTitle": "ميدالية وبطاقة يقين",
+  "medalsBody": "على ميداليتك أو بطاقتك رمز من 8 خانات بجوار رمز QR. فعّله مرة واحدة، وبعدها تفتح كل لمسة أو مسح بطاقتك العامة، حتى لو غيّرت اسم المستخدم.",
+  "medalCodeLabel": "رمز التفعيل",
+  "medalActivate": "تفعيل",
+  "medalActivated": "فُعّلت! كل لمسة أو مسح يفتح بطاقتك الآن.",
+  "medalActivatedHidden": "فُعّلت. انشر بطاقتك واحفظها لتفتحها الميدالية.",
+  "medalErrFormat": "الرمز 8 خانات، مثل AB12-CD34",
+  "medalErrNotFound": "لم نجد هذا الرمز، أو فُعّل من قبل. تأكد منه أو تواصل معنا.",
+  "medalErrLimit": "وصلت إلى الحد الأقصى (10). أوقف واحدة أولاً.",
+  "medalErrNetwork": "تعذّر الاتصال، حاول مجدداً",
+  "medalKindMedal": "ميدالية مفاتيح",
+  "medalKindCard": "بطاقة",
+  "medalMeta": "{scans} مسح · فُعّلت {date}",
+  "@medalMeta": {
+    "placeholders": {
+      "scans": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "medalLost": "إيقاف، فقدتها؟",
+  "medalLostTitle": "إيقاف هذه القطعة؟",
+  "medalLostBody": "لن تفتح بطاقتك بعد الآن، ولن يستطيع أحد تفعيلها. لا يمكن التراجع من التطبيق.",
+  "medalLostConfirm": "إيقافها",
+  "medalBuy": "اطلب ميدالية يقين من المتجر"
 }

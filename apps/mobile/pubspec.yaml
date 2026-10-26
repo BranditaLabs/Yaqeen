@@ -37,9 +37,7 @@ dependencies:
   path_provider: ^2.1.6
   crypto: ^3.0.7
   app_tracking_transparency: ^2.0.7
-  nfc_manager: ^4.2.1
   qr_flutter: ^4.1.0
-  nfc_manager_ndef: ^1.1.0
   # Phase 2 (need accounts/keys — see README "Native integrations"):
   # firebase_core, firebase_messaging → PushService · facebook_app_events, TikTok SDK → AdSink
 

@@ -15,7 +15,6 @@ import 'core/notifications/notification_planner.dart';
 import 'features/notifications/data/reminder_service.dart';
 import 'core/settings/app_settings.dart';
 import 'core/network/connectivity.dart';
-import 'core/platform/nfc_writer.dart';
 import 'core/platform/device_services.dart';
 import 'core/platform/just_audio_engine.dart';
 import 'core/platform/location_service.dart';
@@ -94,7 +93,6 @@ Future<void> _start() async {
       deviceServicesProvider.overrideWithValue(PluginDeviceServices()),
       locationServiceProvider.overrideWithValue(PluginLocationService()),
       compassServiceProvider.overrideWithValue(PluginCompassService()),
-      nfcWriterProvider.overrideWithValue(PluginNfcWriter()),
       socialAuthProvider.overrideWithValue(PluginSocialAuth()),
       connectivityProvider.overrideWithValue(PluginConnectivityMonitor()),
       localNotificationsProvider.overrideWithValue(notifier),

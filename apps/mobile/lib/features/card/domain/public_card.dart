@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 /// Public profile card («بطاقة يقين») — mirrors `packages/contracts/src/profile.ts`.
 ///
@@ -357,14 +356,44 @@ class MyJourney {
   int? get toNext => level.nextAt == null ? null : level.nextAt! - lifetimePoints;
 }
 
-/* ------------------------------------------------------------------- NFC */
+/* ------------------------------------------------------------ medal / card tags */
 
-/// NDEF well-known URI record payload: one prefix byte (0x04 = "https://", 0x03 = "http://",
-/// 0x00 = none) then the rest of the URI in UTF-8 (NFC Forum URI RTD).
-Uint8List uriRecordPayload(String uri) {
-  const prefixes = {'https://www.': 0x02, 'http://www.': 0x01, 'https://': 0x04, 'http://': 0x03};
-  for (final e in prefixes.entries) {
-    if (uri.startsWith(e.key)) return Uint8List.fromList([e.value, ...utf8.encode(uri.substring(e.key.length))]);
-  }
-  return Uint8List.fromList([0x00, ...utf8.encode(uri)]);
+/// Mirrors contracts `TAG_ALPHABET` / `normalizeTagCode`: the permanent code printed on a Yaqeen key
+/// medal or card (and inside its NFC chip as `/t/<code>`). No look-alikes (0/O, 1/I).
+const tagAlphabet = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+const tagCodeLength = 8;
+final _tagCode = RegExp('^[$tagAlphabet]{$tagCodeLength}\$');
+
+/// "ab12-cd34", a pasted `…/t/AB12CD34` link or a `yaqeen://tag/…` → "AB12CD34".
+String normalizeTagCode(String raw) {
+  final s = raw.trim();
+  final m = RegExp(r'(?:/t/|tag/)([^/?#]+)', caseSensitive: false).firstMatch(s);
+  return (m?.group(1) ?? s).toUpperCase().replaceAll(RegExp('[^0-9A-Z]'), '');
 }
+
+bool isTagCode(String raw) => _tagCode.hasMatch(normalizeTagCode(raw));
+
+/// "AB12CD34" → "AB12-CD34", as printed.
+String formatTagCode(String code) => code.length == tagCodeLength ? '${code.substring(0, 4)}-${code.substring(4)}' : code;
+
+enum TagKind { medal, card }
+
+/// One of the owner's activated tags (GET /v1/me/tags).
+class CardTag {
+  const CardTag({required this.code, required this.kind, required this.url, required this.linkedAt, required this.scans});
+  final String code;
+  final TagKind kind;
+  final String url;
+  final DateTime linkedAt;
+  final int scans;
+
+  factory CardTag.fromJson(Map<String, dynamic> j) => CardTag(
+        code: j['code'] as String,
+        kind: TagKind.values.asNameMap()[j['kind']] ?? TagKind.medal,
+        url: j['url'] as String? ?? '',
+        linkedAt: DateTime.tryParse(j['linkedAt'] as String? ?? '')?.toLocal() ?? DateTime.now(),
+        scans: (j['scans'] as num?)?.toInt() ?? 0,
+      );
+}
+
+enum TagProblem { format, notFound, limit, network }

@@ -149,7 +149,7 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
                     GoRoute(path: 'privacy', builder: (_, __) => const PrivacyScreen()),
                     GoRoute(path: 'ledger', builder: (_, __) => const LedgerScreen()),
                     GoRoute(path: 'downloads', builder: (_, __) => const DownloadsScreen()),
-                    GoRoute(path: 'card', builder: (_, __) => const CardScreen()),
+                    GoRoute(path: 'card', builder: (_, state) => CardScreen(tag: state.uri.queryParameters['tag'])),
                   ],
                 ),
               ],

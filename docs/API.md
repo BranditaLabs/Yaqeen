@@ -30,6 +30,9 @@ Base URL: `API_URL` (local `http://localhost:4000`). JSON only. Schemas: `packag
 | GET | `/v1/me/export` | user | PDPL data access — everything held about the user |
 | GET · PUT | `/v1/me/public-profile` | user (PUT: not guest) | «بطاقة يقين» settings: handle, name, bio, ≤ 8 links, visibility switches, theme; GET returns a suggested draft before the first save, plus `url` and `views`. Errors `handle_taken` (409), `handle_reserved`, `account_required` |
 | GET | `/v1/me/public-profile/available?handle=` | user | `{available}` |
+| GET | `/t/:code` | — | A physical tag: 302 → `/u/<handle>` when activated and published (no-store), activation page when blank, 404 page otherwise |
+| GET · POST | `/v1/me/tags` | user (POST: not guest; 10 / 10 min) | Key medals / cards: list the active ones `[{code, kind, url, linkedAt, scans}]`; activate `{code}` (any case, dashes, or a pasted `/t/` link). Errors `not_found` (unknown, taken or switched off — indistinguishable), `tag_limit` (409, max 10), `account_required` |
+| DELETE | `/v1/me/tags/:code` | user | Switch a lost tag off for good (204) |
 | GET | `/v1/me/journey` | user | Private journey (`MyJourney`): `lifetimePoints`, `level {…, nextAt}`, `streak`, `challengeDay`, `challengeOf`, `events[] {kind: joined·challenge_start·challenge_day·level·badge, date, value}` newest first. The public view adds `timeline` (≤ 12 events) only when `show.timeline` is on |
 | GET | `/v1/public/profiles/:handle` | public | What a scanner sees (cached 60 s): level, streak, challenge day, badges, member since — each only if switched on; never worship detail. 404 when unpublished |
 | GET | `/u/:handle` | public | The card as a script-free HTML page (Arabic/English by browser) with the get-the-app and store CTAs; counts human opens |
@@ -90,6 +93,10 @@ Roles: `super_admin` (always allowed), `content_editor`, `religious_reviewer`, `
 
 ### Public profile moderation
 
+| GET · POST | `/admin/tags/batches` | read: support, marketing · mint: marketing | Batches with totals; mint `{batch, kind: medal·card, count ≤ 5000}` (audited, `batch_exists`) |
+| GET | `/admin/tags/batches/:batch.csv` | support, marketing | `code,printed_code,url,kind` for the manufacturer (NFC NDEF URI + QR print) |
+| GET | `/admin/tags?batch=&status=unclaimed·active·disabled&code=` | support, marketing | Tags with the linked card's handle (never worship) |
+| POST | `/admin/tags/:code/disable` · `/release` | support | Switch off (e.g. reported lost) / re-issue as blank; `{reason}`, audited |
 | POST | `/admin/users/:id/public-profile/unpublish` | support | Hide a user's public card (`{reason}`), audited. The user detail includes `publicProfile {handle, published, views, url}` |
 
 ## Common error codes

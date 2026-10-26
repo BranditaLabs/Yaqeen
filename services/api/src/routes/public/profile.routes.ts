@@ -4,15 +4,18 @@
  *   GET /v1/public/profiles/:handle the same data as JSON (in-app preview, link unfurlers)
  *   GET /get-app                   smart link: the right app store for the visitor's phone
  *   GET /u/assets/icon.png         share image
+ *   GET /t/:code                   a physical tag (medal/card): → /u/<handle>, or how to activate it
  * Only published cards of active accounts resolve; everything else is a friendly 404 page.
  */
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import { TagCode } from '@yaqeen/contracts';
 import { sendCachedJson } from '../../lib/cache.js';
 import { notFound } from '../../lib/errors.js';
 import * as profile from '../../services/profile.service.js';
+import * as tags from '../../services/tags.service.js';
 import { BRAND_PNG } from '../../web/brand-assets.js';
-import { pickLang, renderNotFoundPage, renderProfilePage, type PageLinks } from '../../web/profile-page.js';
+import { pickLang, renderActivatePage, renderNotFoundPage, renderProfilePage, type PageLinks } from '../../web/profile-page.js';
 
 const HandleParam = z.object({ handle: z.string().min(1).max(40) });
 const BOT = /bot|crawl|spider|slurp|facebookexternalhit|whatsapp|telegram|preview|curl|wget|headless/i;
@@ -63,6 +66,28 @@ export const profileRoutes: FastifyPluginAsync = async (app) => {
     // Short cache: an edit or unpublish shows within a minute even behind a CDN.
     reply.header('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
     return reply.code(200).send(renderProfilePage(view, lang, links(view.handle)));
+  });
+
+  /**
+   * A physical tag (key medal / card). Linked → the owner's card under its current handle; blank →
+   * how to activate it; switched off, unknown or hidden card → the friendly 404 with the app CTA.
+   */
+  app.get('/t/:code', async (req, reply) => {
+    const parsed = TagCode.safeParse((req.params as { code?: string }).code ?? '');
+    const { lang: q } = z.object({ lang: z.string().optional() }).parse(req.query);
+    const lang = pickLang(q, req.headers['accept-language']);
+    reply.header('Vary', 'Accept-Language');
+    reply.header('Cache-Control', 'no-store'); // the owner can relink, rename or hide at any time
+    const target = parsed.success ? await tags.resolve(ctx, parsed.data) : ({ state: 'missing' } as const);
+    if (target.state === 'linked' && target.handle) {
+      if (!BOT.test(String(req.headers['user-agent'] ?? ''))) {
+        tags.countScan(ctx, parsed.data!).catch((err) => req.log.warn({ err }, 'tag scan count failed'));
+      }
+      return reply.redirect(`${base()}/u/${target.handle}${q ? `?lang=${encodeURIComponent(q)}` : ''}`, 302);
+    }
+    reply.type('text/html; charset=utf-8');
+    if (target.state === 'unclaimed') return reply.code(200).send(renderActivatePage(parsed.data!, target.kind, lang, links(null)));
+    return reply.code(404).send(renderNotFoundPage(lang, links(null)));
   });
 
   app.get('/get-app', async (req, reply) => {

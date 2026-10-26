@@ -179,7 +179,7 @@ export const publicProfiles = pgTable(
     bio: text('bio').notNull().default(''),
     links: jsonb('links').$type<{ kind: string; value: string }[]>().notNull().default([]),
     show: jsonb('show')
-      .$type<{ level: boolean; streak: boolean; challengeDay: boolean; badges: boolean; memberSince: boolean }>()
+      .$type<{ level: boolean; streak: boolean; challengeDay: boolean; badges: boolean; memberSince: boolean; timeline?: boolean }>()
       .notNull(),
     theme: text('theme').notNull().default('sky'),
     /** Page opens (bots excluded). A count only — no visitor data is kept. */
@@ -188,6 +188,26 @@ export const publicProfiles = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [uniqueIndex('public_profiles_handle_uq').on(t.handle)],
+);
+
+/**
+ * Physical card tags (key medals, cards): a permanent code in the NFC chip + printed QR, minted in
+ * batches for the manufacturer and activated by the owner in the app. `/t/<code>` follows the owner's
+ * current handle; a lost tag is switched off (`disabled_at`). Only a scan counter is kept.
+ */
+export const profileTags = pgTable(
+  'profile_tags',
+  {
+    code: text('code').primaryKey(),
+    kind: text('kind').notNull().default('medal'),
+    batch: text('batch').notNull(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+    linkedAt: ts('linked_at'),
+    disabledAt: ts('disabled_at'),
+    scans: integer('scans').notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (t) => [index('profile_tags_user_idx').on(t.userId), index('profile_tags_batch_idx').on(t.batch)],
 );
 
 /** Current consent state per bucket. */

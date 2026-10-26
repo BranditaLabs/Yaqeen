@@ -46,8 +46,6 @@
 	<string>$(GOOGLE_IOS_CLIENT_ID)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<key>NFCReaderUsageDescription</key>
-	<string>لكتابة رابط بطاقة يقين الخاصة بك على وسم NFC. To write your Yaqeen card link to an NFC tag.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>نستخدم موقعك لحساب مواقيت الصلاة واتجاه القبلة فقط، ويبقى على جهازك. We use your location only for prayer times and the qibla; it stays on your device.</string>
 	<key>NSMicrophoneUsageDescription</key>

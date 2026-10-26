@@ -190,6 +190,82 @@ describe.skipIf(!url)('public profile cards (Postgres)', () => {
     expect(log).toHaveLength(1);
   });
 
+  it('medal tags: minted in batches, activated once, follow the handle, switch off when lost', async () => {
+    const [m] = await db.insert(s.adminUsers).values({ name: 'Mkt', email: 'mkt@example.com', role: 'marketing', passwordHash: 'x', totpSecret: 'x' }).returning();
+    const [sp] = await db.insert(s.adminUsers).values({ name: 'Sup2', email: 'sup2@example.com', role: 'support', passwordHash: 'x', totpSecret: 'x' }).returning();
+    const mkt = await signAdminToken({ sub: m!.id, role: 'marketing' }, env.ADMIN_JWT_SECRET);
+    const sup = await signAdminToken({ sub: sp!.id, role: 'support' }, env.ADMIN_JWT_SECRET);
+
+    // Mint: marketing only, unique batch names, a CSV for the manufacturer.
+    expect((await app.inject({ method: 'POST', url: '/admin/tags/batches', headers: auth(sup), payload: { batch: 'b1', kind: 'medal', count: 3 } })).statusCode).toBe(403);
+    const mint = await app.inject({ method: 'POST', url: '/admin/tags/batches', headers: auth(mkt), payload: { batch: 'b1', kind: 'medal', count: 3 } });
+    expect(mint.statusCode).toBe(201);
+    expect(mint.json()).toMatchObject({ batch: 'b1', count: 3 });
+    expect((await app.inject({ method: 'POST', url: '/admin/tags/batches', headers: auth(mkt), payload: { batch: 'b1', kind: 'medal', count: 1 } })).statusCode).toBe(400);
+    const csv = await app.inject({ method: 'GET', url: '/admin/tags/batches/b1.csv', headers: auth(sup) });
+    expect(csv.headers['content-type']).toContain('text/csv');
+    const lines = csv.body.trim().split('\n');
+    expect(lines).toHaveLength(4);
+    const [code, printed, url] = lines[1]!.split(',');
+    expect(code).toMatch(/^[2-9A-HJ-NP-Z]{8}$/);
+    expect(url).toBe(`https://id.test/t/${code}`);
+    const other = lines[2]!.split(',')[0]!;
+
+    // A blank tag explains how to activate it; an unknown code is the friendly 404.
+    const blank = await app.inject({ method: 'GET', url: `/t/${code}` });
+    expect(blank.statusCode).toBe(200);
+    expect(blank.body).toContain(printed);
+    expect(blank.body).toContain(`yaqeen://tag/${code}`);
+    expect(blank.body).toContain('ميدالية يقين جديدة');
+    expect((await app.inject({ method: 'GET', url: '/t/ZZZZZZZZ' })).statusCode).toBe(404);
+
+    // Activation: not for guests; typed with a dash in lower case; idempotent; nobody else can take it.
+    const guest = await makeUser('Guest', true);
+    expect((await app.inject({ method: 'POST', url: '/v1/me/tags', headers: auth(guest.token), payload: { code } })).statusCode).toBe(403);
+    const owner = await makeUser('Owner');
+    const claim = await app.inject({ method: 'POST', url: '/v1/me/tags', headers: auth(owner.token), payload: { code: printed!.toLowerCase() } });
+    expect(claim.statusCode).toBe(200);
+    expect(claim.json()).toMatchObject({ code, kind: 'medal', url: `https://id.test/t/${code}`, scans: 0 });
+    expect((await app.inject({ method: 'POST', url: '/v1/me/tags', headers: auth(owner.token), payload: { code } })).statusCode).toBe(200);
+    const thief = await makeUser('Thief');
+    expect((await app.inject({ method: 'POST', url: '/v1/me/tags', headers: auth(thief.token), payload: { code } })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'POST', url: '/v1/me/tags', headers: auth(owner.token), payload: { code: 'nope' } })).statusCode).toBe(400);
+
+    // Linked but the card is unpublished → nothing public. Published → follows the handle, counts scans.
+    expect((await app.inject({ method: 'GET', url: `/t/${code}` })).statusCode).toBe(404);
+    await app.inject({ method: 'PUT', url: '/v1/me/public-profile', headers: auth(owner.token), payload: card({ handle: 'owner' }) });
+    const hop = await app.inject({ method: 'GET', url: `/t/${code}`, headers: { 'user-agent': 'Mozilla/5.0 (iPhone)' } });
+    expect(hop.statusCode).toBe(302);
+    expect(hop.headers.location).toBe('https://id.test/u/owner');
+    expect(hop.headers['cache-control']).toBe('no-store');
+    await app.inject({ method: 'PUT', url: '/v1/me/public-profile', headers: auth(owner.token), payload: card({ handle: 'owner2' }) });
+    expect((await app.inject({ method: 'GET', url: `/t/${code}` })).headers.location).toBe('https://id.test/u/owner2');
+    const mine = (await app.inject({ method: 'GET', url: '/v1/me/tags', headers: auth(owner.token) })).json();
+    expect(mine).toHaveLength(1);
+    expect(mine[0].scans).toBe(2); // both opens above were people (no bot user-agent)
+
+    // Admin list shows the handle, never worship.
+    const list = (await app.inject({ method: 'GET', url: '/admin/tags?batch=b1&status=active', headers: auth(sup) })).json();
+    expect(list.items).toEqual([expect.objectContaining({ code, status: 'active', handle: 'owner2' })]);
+    const batches = (await app.inject({ method: 'GET', url: '/admin/tags/batches', headers: auth(mkt) })).json();
+    expect(batches[0]).toMatchObject({ batch: 'b1', total: 3, active: 1, disabled: 0 });
+
+    // Lost: the owner switches it off; it never resolves again or passes to a finder.
+    expect((await app.inject({ method: 'DELETE', url: `/v1/me/tags/${code}`, headers: auth(owner.token) })).statusCode).toBe(204);
+    expect((await app.inject({ method: 'GET', url: `/t/${code}` })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'POST', url: '/v1/me/tags', headers: auth(thief.token), payload: { code } })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'GET', url: '/v1/me/tags', headers: auth(owner.token) })).json()).toEqual([]);
+
+    // Support re-issues a returned tag (audited); erasure switches off every tag of the user.
+    expect((await app.inject({ method: 'POST', url: `/admin/tags/${code}/release`, headers: auth(sup), payload: { reason: 'returned to store' } })).statusCode).toBe(200);
+    expect((await app.inject({ method: 'GET', url: `/t/${code}` })).statusCode).toBe(200);
+    await app.inject({ method: 'POST', url: '/v1/me/tags', headers: auth(owner.token), payload: { code: other } });
+    await app.inject({ method: 'DELETE', url: '/v1/me', headers: auth(owner.token) });
+    expect((await app.inject({ method: 'GET', url: `/t/${other}` })).statusCode).toBe(404);
+    const log = await db.select().from(s.auditLog).where(eq(s.auditLog.targetType, 'tag'));
+    expect(log.map((l) => l.action)).toEqual(['tags.release']);
+  });
+
   it('get-app sends each phone to its store', async () => {
     const android = await app.inject({ method: 'GET', url: '/get-app?ref=ahmed', headers: { 'user-agent': 'Mozilla/5.0 (Linux; Android 14)' } });
     expect(android.statusCode).toBe(302);

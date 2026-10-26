@@ -52,6 +52,11 @@ const COPY = {
     notFoundTitle: 'هذه البطاقة غير متاحة',
     notFoundBody: 'ربما أخفاها صاحبها أو تغيّر اسمها. يمكنك أن تبدأ رحلتك مع يقين الآن.',
     title: (name: string) => `${name} · يقين`,
+    newTag: (k: 'medal' | 'card') => (k === 'medal' ? 'ميدالية يقين جديدة' : 'بطاقة يقين جديدة'),
+    newTagBody: 'فعّلها مرة واحدة من تطبيق يقين، وبعدها تفتح بطاقتك العامة لكل من يلمسها أو يمسح رمزها.',
+    steps: ['حمّل تطبيق يقين وسجّل الدخول', 'من «حسابي» افتح «بطاقة يقين» ثم «ميدالياتي»', 'أدخل هذا الرمز، أو اضغط الزر بالأسفل'],
+    codeLabel: 'رمز التفعيل',
+    activate: 'فعّلها في التطبيق',
   },
   en: {
     level: (n: number) => `Level ${n}`,
@@ -81,6 +86,11 @@ const COPY = {
     notFoundTitle: 'This card isn’t available',
     notFoundBody: 'Its owner may have hidden it or changed its name. You can start your own journey with Yaqeen now.',
     title: (name: string) => `${name} · Yaqeen`,
+    newTag: (k: 'medal' | 'card') => (k === 'medal' ? 'A new Yaqeen medal' : 'A new Yaqeen card'),
+    newTagBody: 'Activate it once in the Yaqeen app; from then on it opens your public card for anyone who taps or scans it.',
+    steps: ['Get the Yaqeen app and sign in', 'In Profile open «Yaqeen card», then «My medals»', 'Enter this code, or tap the button below'],
+    codeLabel: 'Activation code',
+    activate: 'Activate in the app',
   },
 } as const;
 
@@ -277,6 +287,24 @@ ${cta(lang, links)}`;
   return shell(lang, { title: t.notFoundTitle, description: t.ctaTitle, theme: 'sky', body, links });
 }
 
+/** A blank tag straight from the box: how to activate it, with its code and an app deep link. */
+export function renderActivatePage(code: string, kind: 'medal' | 'card', lang: PageLang, links: PageLinks): string {
+  const t = COPY[lang];
+  const shown = escapeHtml(`${code.slice(0, 4)}-${code.slice(4)}`);
+  const body = `<section class="card activate rise" style="--d:1">
+<div class="medallion empty tag"><span class="initial"><i class="chip"></i></span></div>
+<h1>${t.newTag(kind)}</h1>
+<p class="bio">${t.newTagBody}</p>
+<ol class="steps">${t.steps.map((st, i) => `<li style="--i:${i}"><span class="n">${n(i + 1)}</span>${st}</li>`).join('')}</ol>
+<p class="code-label">${t.codeLabel}</p>
+<p class="code" dir="ltr">${shown}</p>
+<a class="btn primary" href="yaqeen://tag/${escapeHtml(code)}">${t.activate}</a>
+<a class="btn ghost light" href="${escapeHtml(links.getApp)}">${t.getApp}</a>
+</section>
+<footer class="rise" style="--d:3"><span>${t.footer}</span></footer>`;
+  return shell(lang, { title: t.newTag(kind), description: t.newTagBody, theme: 'gold', body, links });
+}
+
 /* The stylesheet: porcelain + living sky (theme sky), warm cream (gold), brand night (night). */
 const CSS = `
 :root{--ink:#0A1530;--muted:#56637F;--lapis:#1F3F94;--navy:#10214D;--gold:#C6A867;--goldText:#7C6127;--goldLight:#E9D49E;
@@ -391,6 +419,16 @@ footer a{color:var(--lapis);font-weight:700;text-decoration:none}
 .btn.primary::after{content:"";position:absolute;inset:0 auto 0 -60%;width:45%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.75),transparent);transform:skewX(-18deg);animation:sheen 5s ease-in-out 2.2s infinite}
 @keyframes sheen{0%{left:-60%}28%,100%{left:130%}}
 .cta::after{animation:drift 14s ease-in-out infinite alternate}
+.activate .bio{margin-bottom:6px}
+.medallion.tag .initial{background:linear-gradient(180deg,#D4BE8D,#7C6127)}
+.chip{width:34px;height:34px;border-radius:50%;border:3px solid rgba(255,255,255,.9);box-shadow:0 0 0 7px rgba(255,255,255,.25),0 0 0 14px rgba(255,255,255,.12);animation:ping 2.6s ease-out infinite}
+@keyframes ping{0%{box-shadow:0 0 0 0 rgba(255,255,255,.5),0 0 0 0 rgba(255,255,255,.3)}100%{box-shadow:0 0 0 16px rgba(255,255,255,0),0 0 0 28px rgba(255,255,255,0)}}
+.steps{list-style:none;padding:0;margin-top:18px;display:grid;gap:10px;text-align:start}
+.steps li{display:flex;align-items:center;gap:12px;font-size:14px;line-height:1.6;animation:rise .7s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(.4s + var(--i,0) * 110ms)}
+.steps .n{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-family:Jost,sans-serif;font-size:14px;color:var(--goldText);background:rgba(233,212,158,.35);border:1px solid rgba(198,168,103,.5)}
+.code-label{margin-top:20px;font-size:12px;color:var(--muted)}
+.code{margin-top:4px;font-family:Jost,sans-serif;font-weight:400;font-size:30px;letter-spacing:4px;color:var(--ink)}
+.btn.ghost.light{color:var(--lapis);border-color:rgba(31,63,148,.25);background:rgba(255,255,255,.5)}
 @supports (animation-timeline:view()){
 .ev,.link{animation:reveal linear both;animation-timeline:view();animation-range:entry 0% entry 70%}
 .journey ol::before{animation:grow linear both;animation-timeline:view();animation-range:entry 10% cover 55%}

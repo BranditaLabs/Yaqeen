@@ -27,4 +27,34 @@ class CardRepository {
 
   /// The owner's private journey: level, lifetime points and every dated milestone.
   Future<MyJourney> journey() async => MyJourney.fromJson((await api.get('/v1/me/journey') as Map).cast<String, dynamic>());
+
+  /// The owner's activated key medals / cards.
+  Future<List<CardTag>> tags() async =>
+      [for (final t in (await api.get('/v1/me/tags') as List)) CardTag.fromJson((t as Map).cast<String, dynamic>())];
+
+  /// Activate a tag by its printed code. Throws [TagException] with what went wrong.
+  Future<CardTag> claimTag(String raw) async {
+    final code = normalizeTagCode(raw);
+    if (!isTagCode(code)) throw const TagException(TagProblem.format);
+    try {
+      return CardTag.fromJson((await api.post('/v1/me/tags', {'code': code}) as Map).cast<String, dynamic>());
+    } on ApiException catch (e) {
+      throw TagException(switch (e.status) {
+        404 => TagProblem.notFound,
+        409 => TagProblem.limit,
+        400 => TagProblem.format,
+        _ => TagProblem.network,
+      },);
+    } on Exception {
+      throw const TagException(TagProblem.network);
+    }
+  }
+
+  /// Switch a lost tag off for good (support can re-issue it).
+  Future<void> disableTag(String code) => api.delete('/v1/me/tags/$code');
+}
+
+class TagException implements Exception {
+  const TagException(this.problem);
+  final TagProblem problem;
 }

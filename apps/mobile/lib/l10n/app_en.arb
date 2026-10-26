@@ -1498,14 +1498,12 @@
   "notifTodayTitle": "Today's reminders",
   "cardTitle": "Yaqeen card",
   "cardTeaserTitle": "Your public card",
-  "cardTeaserBody": "Your links and Yaqeen level on an NFC tag or a QR code",
+  "cardTeaserBody": "Your Yaqeen profile, links and level, on a Yaqeen medal or card",
   "cardGuest": "Sign in to make and share your public card",
   "cardLive": "Live",
   "cardHidden": "Hidden",
   "cardOpens": "Opens",
   "cardOpensStatus": "From NFC, QR and link",
-  "cardNfc": "NFC tag",
-  "cardNfcStatus": "Write your link",
   "cardQr": "QR code",
   "cardQrStatus": "Print or share",
   "cardPublish": "Publish card",
@@ -1555,17 +1553,6 @@
       }
     }
   },
-  "cardNfcTitle": "Write your card to an NFC tag",
-  "cardNfcHint": "Hold the tag near the top of your phone",
-  "cardNfcWritten": "Done · any phone that taps the tag opens your card",
-  "cardNfcUnsupported": "This device has no NFC — use the QR code",
-  "cardNfcDisabled": "NFC is off — turn it on in settings",
-  "cardNfcNotWritable": "This tag is locked or not writable",
-  "cardNfcTooSmall": "The tag is too small for the link",
-  "cardNfcFailed": "Couldn't write — try again",
-  "cardNfcPublishFirst": "Publish and save your card first so scanners can open it",
-  "cardNfcBuy": "Get a Yaqeen NFC tag",
-  "cardNfcStart": "Start writing",
   "cardQrTitle": "Scan to open my card",
   "challengeStreakRestart": "Start again — make-up days are open",
   "cardShowTimeline": "Your journey (dated milestones)",
@@ -1619,5 +1606,43 @@
   "journeyShowAll": "The whole journey",
   "journeyShowLess": "Show less",
   "journeyEmpty": "Your journey starts today; every milestone lands here.",
-  "journeyPrivate": "Private to you. Shown on your card only if you switch it on."
+  "journeyPrivate": "Private to you. Shown on your card only if you switch it on.",
+  "cardMedals": "My medals",
+  "cardMedalsNone": "Activate yours",
+  "cardMedalsCount": "{count} active",
+  "@cardMedalsCount": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "medalsTitle": "Yaqeen medal & card",
+  "medalsBody": "Your medal or card has an 8-character code next to its QR. Activate it once; from then on every tap or scan opens your public card, even if you change your username.",
+  "medalCodeLabel": "Activation code",
+  "medalActivate": "Activate",
+  "medalActivated": "Activated! Every tap or scan now opens your card.",
+  "medalActivatedHidden": "Activated. Publish and save your card so the medal can open it.",
+  "medalErrFormat": "The code has 8 characters, like AB12-CD34",
+  "medalErrNotFound": "We couldn't find this code, or it's already activated. Check it or contact us.",
+  "medalErrLimit": "You've reached the limit (10). Switch one off first.",
+  "medalErrNetwork": "Couldn't connect, try again",
+  "medalKindMedal": "Key medal",
+  "medalKindCard": "Card",
+  "medalMeta": "{scans} scans · activated {date}",
+  "@medalMeta": {
+    "placeholders": {
+      "scans": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "medalLost": "Switch off — lost it?",
+  "medalLostTitle": "Switch this one off?",
+  "medalLostBody": "It will stop opening your card and nobody can activate it. This can't be undone in the app.",
+  "medalLostConfirm": "Switch it off",
+  "medalBuy": "Get a Yaqeen medal from the store"
 }

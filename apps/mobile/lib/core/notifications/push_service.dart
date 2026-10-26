@@ -44,8 +44,14 @@ const deepLinkRoutes = {
 };
 
 /// Maps a deep link to a router location. Unknown targets go home.
+/// `yaqeen://tag/<code>` (the «activate in the app» button on a blank medal's page) opens the card
+/// screen with the code ready to activate.
 String routeForDeepLink(Uri uri) {
   final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
+  if (uri.scheme == 'yaqeen' && uri.host == 'tag' && segments.isNotEmpty) {
+    final code = segments.first.toUpperCase().replaceAll(RegExp('[^0-9A-Z]'), '');
+    if (code.isNotEmpty && code.length <= 16) return '/profile/card?tag=$code';
+  }
   final String key;
   if (uri.scheme == 'yaqeen') {
     key = uri.host.isNotEmpty ? uri.host : (segments.isNotEmpty ? segments.first : '');

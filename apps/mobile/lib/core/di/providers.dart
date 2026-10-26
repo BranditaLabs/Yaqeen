@@ -37,7 +37,6 @@ import '../platform/audio_engine.dart';
 import '../platform/device_services.dart';
 import '../platform/location_service.dart';
 import '../platform/recitation_engine.dart';
-import '../platform/nfc_writer.dart';
 import '../platform/social_auth.dart';
 import '../settings/app_settings.dart';
 import '../settings/settings_repository.dart';
@@ -72,7 +71,6 @@ final locationServiceProvider = Provider<LocationService>((_) => FakeLocationSer
 final compassServiceProvider = Provider<CompassService>((_) => FakeCompassService());
 final socialAuthProvider = Provider<SocialAuth>((_) => FakeSocialAuth());
 final connectivityProvider = Provider<ConnectivityMonitor>((_) => const AlwaysOnline());
-final nfcWriterProvider = Provider<NfcWriter>((_) => const NoopNfcWriter());
 
 /// Live online/offline state (starts optimistic).
 final onlineProvider = StreamProvider<bool>((ref) async* {

@@ -7,7 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:yaqeen/core/di/providers.dart';
 import 'package:yaqeen/core/network/api_client.dart';
-import 'package:yaqeen/core/platform/nfc_writer.dart';
+import 'package:yaqeen/core/notifications/push_service.dart';
 import 'package:yaqeen/core/storage/kv_store.dart';
 import 'package:yaqeen/core/widgets/controls.dart';
 import 'package:yaqeen/core/widgets/liquid_glass.dart';
@@ -52,20 +52,6 @@ Map<String, Object?> cardJson({bool published = false}) => {
       'views': 12,
     };
 
-class FakeNfc implements NfcWriter {
-  String? wrote;
-  @override
-  Future<NfcAvailabilityState> availability() async => NfcAvailabilityState.enabled;
-  @override
-  Future<NfcWriteResult> writeUrl(String url, {required String prompt, required String done}) async {
-    wrote = url;
-    return NfcWriteResult.written;
-  }
-
-  @override
-  Future<void> cancel() async {}
-}
-
 void main() {
   group('domain mirrors contracts/profile.ts', () {
     test('levels from lifetime points', () {
@@ -103,6 +89,16 @@ void main() {
       expect(body.containsKey('views'), isFalse);
     });
 
+    test('medal codes: typed, printed or pasted as a link; deep link opens activation', () {
+      expect(normalizeTagCode(' ab23-cd45 '), 'AB23CD45');
+      expect(normalizeTagCode('https://id.test/t/AB23CD45?x=1'), 'AB23CD45');
+      expect(isTagCode('ab23-cd45'), isTrue);
+      expect(isTagCode('AB10CD45'), isFalse); // 1 and 0 are never printed
+      expect(formatTagCode('AB23CD45'), 'AB23-CD45');
+      expect(routeForDeepLink(Uri.parse('yaqeen://tag/ab23-cd45')), '/profile/card?tag=AB23CD45');
+      expect(routeForDeepLink(Uri.parse('yaqeen://card')), '/profile/card');
+    });
+
     test('journey parses, skipping kinds a newer server may add', () {
       final j = MyJourney.fromJson(journeyJson());
       expect(j.events.map((e) => e.kind), [
@@ -119,13 +115,6 @@ void main() {
       expect(CardVisibility.fromJson(const {}).toJson()['timeline'], false);
     });
 
-    test('NDEF URI payload uses the https:// abbreviation', () {
-      final p = uriRecordPayload('https://id.test/u/ahmed');
-      expect(p.first, 0x04);
-      expect(utf8.decode(p.sublist(1)), 'id.test/u/ahmed');
-      expect(uriRecordPayload('https://www.x.test').first, 0x02);
-      expect(uriRecordPayload('tel:1').first, 0x00);
-    });
   });
 
   group('card screen', () {
@@ -133,6 +122,7 @@ void main() {
     setUp(() => YqGlassConfig.enableBlur = false);
 
     late List<http.Request> requests;
+    late List<Map<String, Object?>> tags;
     http.Client server({bool published = false}) => MockClient((req) async {
           requests.add(req);
           final p = req.url.path;
@@ -155,13 +145,26 @@ void main() {
               headers: h,
             );
           }
+          if (p == '/v1/me/tags' && req.method == 'GET') return http.Response(jsonEncode(tags), 200, headers: h);
+          if (p == '/v1/me/tags' && req.method == 'POST') {
+            final code = (jsonDecode(req.body) as Map)['code'];
+            if (code != 'AB23CD45') return http.Response(jsonEncode({'error': {'code': 'not_found'}}), 404, headers: h);
+            final tag = {'code': code, 'kind': 'medal', 'url': 'https://id.test/t/$code', 'linkedAt': '2026-10-26T10:00:00Z', 'scans': 0};
+            tags.add(tag);
+            return http.Response(jsonEncode(tag), 200, headers: h);
+          }
+          if (p.startsWith('/v1/me/tags/') && req.method == 'DELETE') {
+            tags.removeWhere((t) => t['code'] == p.split('/').last);
+            return http.Response('', 204, headers: h);
+          }
           if (p == '/v1/me/journey') return http.Response(jsonEncode(journeyJson()), 200, headers: h);
           if (p == '/v1/me/ledger') return http.Response('[]', 200, headers: h);
           return http.Response('{}', 404, headers: h);
         });
 
-    Future<List<Override>> overrides({bool published = false, NfcWriter? nfc, bool guest = false}) async {
+    Future<List<Override>> overrides({bool published = false, bool guest = false}) async {
       requests = [];
+      tags = [];
       final secure = MemoryKvStore();
       await secure.write('auth.access', 'token');
       return [
@@ -170,7 +173,6 @@ void main() {
         ),
         tokenStoreProvider.overrideWithValue(TokenStore(secure)),
         apiClientProvider.overrideWith((ref) => ApiClient(baseUrl: 'https://api.test', tokens: ref.watch(tokenStoreProvider), client: server(published: published))),
-        if (nfc != null) nfcWriterProvider.overrideWithValue(nfc),
       ];
     }
 
@@ -275,17 +277,43 @@ void main() {
       expect(requests.where((r) => r.method == 'PUT'), isEmpty);
     });
 
-    testWidgets('NFC: a published card is written to the tag', (tester) async {
+    testWidgets('a medal from the deep link activates, then lists and can be switched off', (tester) async {
       tall(tester);
-      final nfc = FakeNfc();
-      await tester.pumpWidget(harness(const CardScreen(), overrides: await overrides(published: true, nfc: nfc)));
+      await tester.pumpWidget(harness(const CardScreen(tag: 'ab23-cd45'), overrides: await overrides(published: true)));
       await settle(tester);
-      await tester.tap(find.bySemanticsLabel(RegExp('^اكتب بطاقتك على وسم NFC')).first);
+      expect(find.text('ميدالية وبطاقة يقين'), findsOneWidget); // the sheet opened by itself
+      expect(find.widgetWithText(TextField, 'AB23-CD45'), findsOneWidget);
+      await tester.tap(find.text('تفعيل'));
       await settle(tester);
-      await tester.tap(find.text('ابدأ الكتابة'));
+      final post = requests.singleWhere((r) => r.method == 'POST' && r.url.path == '/v1/me/tags');
+      expect(jsonDecode(post.body), {'code': 'AB23CD45'});
+      expect(find.text('فُعّلت! كل لمسة أو مسح يفتح بطاقتك الآن.'), findsOneWidget);
+      expect(find.text('ميدالية مفاتيح · AB23-CD45'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('إيقاف، فقدتها؟'));
       await settle(tester);
-      expect(nfc.wrote, 'https://id.test/u/ahmed');
-      expect(find.text('تمّت الكتابة · أي هاتف يلمس الوسم يفتح بطاقتك'), findsOneWidget);
+      await tester.tap(find.text('إيقافها'));
+      await settle(tester);
+      expect(requests.where((r) => r.method == 'DELETE' && r.url.path == '/v1/me/tags/AB23CD45'), hasLength(1));
+      expect(find.text('ميدالية مفاتيح · AB23-CD45'), findsNothing);
+    });
+
+    testWidgets('a wrong or mistyped code says why, and a mistyped one never reaches the server', (tester) async {
+      tall(tester);
+      await tester.pumpWidget(harness(const CardScreen(), overrides: await overrides()));
+      await settle(tester);
+      expect(find.text('فعّل ميداليتك'), findsOneWidget);
+      await tester.tap(find.bySemanticsLabel(RegExp('^ميدالياتي')).first);
+      await settle(tester);
+      await tester.enterText(find.widgetWithText(TextField, 'XXXX-XXXX'), 'abc');
+      await tester.tap(find.text('تفعيل'));
+      await settle(tester);
+      expect(find.text('الرمز 8 خانات، مثل AB12-CD34'), findsOneWidget);
+      expect(requests.where((r) => r.method == 'POST'), isEmpty);
+      await tester.enterText(find.byType(TextField).last, 'ZZZZ-ZZZZ');
+      await tester.tap(find.text('تفعيل'));
+      await settle(tester);
+      expect(find.text('لم نجد هذا الرمز، أو فُعّل من قبل. تأكد منه أو تواصل معنا.'), findsOneWidget);
     });
   });
 }

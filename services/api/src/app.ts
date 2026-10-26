@@ -16,6 +16,7 @@ import { adminContentRoutes } from './routes/admin/content.routes.js';
 import { adminOverviewRoutes } from './routes/admin/overview.routes.js';
 import { adminRewardsRoutes } from './routes/admin/rewards.routes.js';
 import { adminSettingsRoutes } from './routes/admin/settings.routes.js';
+import { adminTagsRoutes } from './routes/admin/tags.routes.js';
 import { adminUsersRoutes } from './routes/admin/users.routes.js';
 import { appRoutes } from './routes/public/app.routes.js';
 import { authRoutes } from './routes/public/auth.routes.js';
@@ -116,6 +117,7 @@ export async function buildApp(input: Omit<AppContext, 'cache'> & { cache?: Resp
   await app.register(adminCampaignRoutes, { prefix: '/admin/campaigns' });
   await app.register(adminRewardsRoutes, { prefix: '/admin/rewards' });
   await app.register(adminSettingsRoutes, { prefix: '/admin/settings' });
+  await app.register(adminTagsRoutes, { prefix: '/admin/tags' });
 
   return app;
 }

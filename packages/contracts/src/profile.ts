@@ -194,3 +194,83 @@ export type MyJourney = z.infer<typeof MyJourney>;
 
 /** Challenge days that become journey milestones. */
 export const JOURNEY_DAYS = [30, 100, 200, 300, 365] as const;
+
+/* ------------------------------------------------------------ medal / card tags */
+
+/**
+ * Physical «بطاقة يقين» tags (key medals, cards) carry a permanent code link `/t/<code>` in their
+ * NFC chip and printed QR. The owner activates the code in the app; handle changes never break it,
+ * and a lost tag can be switched off. Codes avoid look-alikes (no 0/O, 1/I).
+ */
+export const TAG_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+export const TAG_CODE_LENGTH = 8;
+export const TAG_LIMIT_PER_USER = 10;
+
+/** "ab12-cd34 " → "AB12CD34" (what users type from the print, or a scanned URL). */
+export function normalizeTagCode(raw: string): string {
+  const s = raw.trim();
+  const fromUrl = /\/t\/([^/?#]+)/i.exec(s)?.[1] ?? s;
+  return fromUrl.toUpperCase().replace(/[^0-9A-Z]/g, '');
+}
+
+/** "AB12CD34" → "AB12-CD34" for print and display. */
+export const formatTagCode = (code: string) => `${code.slice(0, 4)}-${code.slice(4)}`;
+
+export const TagCode = z
+  .string()
+  .max(200)
+  .transform(normalizeTagCode)
+  .pipe(z.string().regex(new RegExp(`^[${TAG_ALPHABET}]{${TAG_CODE_LENGTH}}$`), 'invalid tag code'));
+
+export const TagKind = z.enum(['medal', 'card']);
+export type TagKind = z.infer<typeof TagKind>;
+
+/** GET /v1/me/tags — the owner's active tags. */
+export const ProfileTag = z.object({
+  code: z.string(),
+  kind: TagKind,
+  url: z.string(),
+  linkedAt: z.string(),
+  scans: z.number().int(),
+});
+export type ProfileTag = z.infer<typeof ProfileTag>;
+
+/** POST /v1/me/tags */
+export const ClaimTagRequest = z.object({ code: TagCode });
+
+/** POST /admin/tags/batches — mint codes for the manufacturer. */
+export const AdminTagBatchRequest = z.object({
+  batch: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9_-]{1,40}$/, 'letters, digits, - and _'),
+  kind: TagKind,
+  count: z.number().int().min(1).max(5000),
+});
+
+export const TagStatus = z.enum(['unclaimed', 'active', 'disabled']);
+export type TagStatus = z.infer<typeof TagStatus>;
+
+export const AdminTagRow = z.object({
+  code: z.string(),
+  kind: TagKind,
+  batch: z.string(),
+  status: TagStatus,
+  /** The linked card's handle (never worship data). */
+  handle: z.string().nullable(),
+  userId: z.string().nullable(),
+  scans: z.number().int(),
+  createdAt: z.string(),
+  linkedAt: z.string().nullable(),
+});
+export type AdminTagRow = z.infer<typeof AdminTagRow>;
+
+export const AdminTagBatch = z.object({
+  batch: z.string(),
+  kind: TagKind,
+  total: z.number().int(),
+  active: z.number().int(),
+  disabled: z.number().int(),
+  createdAt: z.string(),
+});
+export type AdminTagBatch = z.infer<typeof AdminTagBatch>;

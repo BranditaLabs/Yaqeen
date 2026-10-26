@@ -3,7 +3,7 @@ import { and, desc, eq, ilike, lt, or, sql } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { AdjustPointsRequest, type AdminUserRow, UserStatus } from '@yaqeen/contracts';
-import { authIdentities, challengeEnrollments, pointsLedger, publicProfiles, redemptions, users } from '../../db/schema.js';
+import { authIdentities, challengeEnrollments, pointsLedger, profileTags, publicProfiles, redemptions, users } from '../../db/schema.js';
 import { challengeDayNumber, localToday } from '../../domain/points.js';
 import { audit } from '../../lib/audit.js';
 import { maskEmail } from '../../lib/crypto.js';
@@ -82,6 +82,10 @@ export const adminUsersRoutes: FastifyPluginAsync = async (app) => {
       .select({ handle: publicProfiles.handle, published: publicProfiles.published, views: publicProfiles.views })
       .from(publicProfiles)
       .where(eq(publicProfiles.userId, id));
+    const tagRows = await db
+      .select({ code: profileTags.code, kind: profileTags.kind, scans: profileTags.scans, linkedAt: profileTags.linkedAt, disabledAt: profileTags.disabledAt })
+      .from(profileTags)
+      .where(eq(profileTags.userId, id));
     return {
       id: u.id,
       displayName: u.displayName,
@@ -97,6 +101,7 @@ export const adminUsersRoutes: FastifyPluginAsync = async (app) => {
       redemptions: reds,
       // The public card's identity only (what anyone scanning it already sees) — for moderation.
       publicProfile: card ? { ...card, url: `${app.ctx.env.PUBLIC_PROFILE_BASE_URL.replace(/\/$/, '')}/u/${card.handle}` } : null,
+      tags: tagRows.map((t) => ({ code: t.code, kind: t.kind, scans: t.scans, linkedAt: t.linkedAt, active: !t.disabledAt })),
     };
   });
 

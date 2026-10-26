@@ -9,7 +9,6 @@ import '../../../core/config/env.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/format.dart';
 import '../../../core/network/api_client.dart';
-import '../../../core/platform/nfc_writer.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/ambient_background.dart';
@@ -27,6 +26,7 @@ import '../../onboarding/presentation/session_controller.dart';
 import '../../onboarding/presentation/sign_in_sheet.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../../rewards/domain/reward.dart';
+import '../data/card_repository.dart';
 import '../domain/public_card.dart';
 import 'journey_widgets.dart';
 
@@ -57,13 +57,17 @@ String socialMono(SocialKind k) => switch (k) {
       SocialKind.website => '↗',
     };
 
-/// «بطاقة يقين» — the user's public card for NFC tags and QR codes (opt-in, no worship detail).
+/// «بطاقة يقين» — the user's public card, opened by Yaqeen key medals and cards (NFC + printed QR)
+/// sold in the store (opt-in, no worship detail).
 ///
-/// The stage is a live preview of the card in its chosen look; the orbs write it to a tag, show
-/// its QR and count its opens; below, the card is edited: identity, links, what visitors may see
-/// and the look. Nothing is public until it is published and saved.
+/// The stage is a live preview of the card in its chosen look; the orbs activate the user's medals,
+/// show the card's QR and count its opens; below, the card is edited: identity, links, what visitors
+/// may see and the look. Nothing is public until it is published and saved.
 class CardScreen extends ConsumerStatefulWidget {
-  const CardScreen({super.key});
+  const CardScreen({super.key, this.tag});
+
+  /// A medal code from a deep link (`yaqeen://tag/<code>`): opens activation with it filled in.
+  final String? tag;
 
   @override
   ConsumerState<CardScreen> createState() => _CardScreenState();
@@ -89,7 +93,15 @@ class _CardScreenState extends ConsumerState<CardScreen> {
     super.dispose();
   }
 
+  bool _tagOffered = false;
+
   void _adopt(PublicCard c) {
+    if (!_tagOffered && widget.tag != null) {
+      _tagOffered = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _medalsSheet(context, initialCode: widget.tag);
+      });
+    }
     _saved = c;
     _draft = c;
     _name.text = c.displayName;
@@ -220,17 +232,10 @@ class _CardScreenState extends ConsumerState<CardScreen> {
   List<Widget> _editor(BuildContext context, AppLocalizations t, PublicCard d) {
     final text = Theme.of(context).textTheme;
     final saved = _saved!;
-    final live = saved.published && !_dirty;
     return [
       YqOrbRow(
         orbs: [
-          YqOrb(
-            title: t.cardNfc,
-            status: t.cardNfcStatus,
-            onTap: () => _nfcSheet(context, saved, live),
-            semanticLabel: t.cardNfcTitle,
-            disc: const Center(child: _NfcGlyph(size: 46)),
-          ),
+          _MedalsOrb(onTap: () => _medalsSheet(context)),
           YqOrb(
             title: t.cardQr,
             status: t.cardQrStatus,
@@ -397,8 +402,8 @@ class _CardScreenState extends ConsumerState<CardScreen> {
     if (link != null) _edit((x) => x.copyWith(links: [...x.links, link]));
   }
 
-  Future<void> _nfcSheet(BuildContext context, PublicCard saved, bool live) =>
-      showYqSheet<void>(context, builder: (_) => _NfcSheet(url: saved.url, ready: live));
+  Future<void> _medalsSheet(BuildContext context, {String? initialCode}) =>
+      showYqSheet<void>(context, scrollable: true, builder: (_) => _MedalsSheet(initialCode: initialCode, published: _saved?.published ?? false));
 
   Future<void> _qrSheet(BuildContext context, PublicCard saved) => showYqSheet<void>(context, builder: (_) => _QrSheet(card: saved));
 }
@@ -775,89 +780,191 @@ class _LinkSheetState extends State<_LinkSheet> {
   }
 }
 
-/// Writes the card link to a tag. Gently pulsing rings while waiting; clear outcomes; and a way
-/// to get a Yaqeen NFC tag from the store.
-class _NfcSheet extends ConsumerStatefulWidget {
-  const _NfcSheet({required this.url, required this.ready});
-  final String url;
+final myTagsProvider = FutureProvider.autoDispose((ref) => ref.watch(cardRepositoryProvider).tags());
 
-  /// Published and saved: a scanner would see the card.
-  final bool ready;
+/// The medals orb: how many are active, or an invitation to activate the first.
+class _MedalsOrb extends ConsumerWidget {
+  const _MedalsOrb({required this.onTap});
+  final VoidCallback onTap;
 
   @override
-  ConsumerState<_NfcSheet> createState() => _NfcSheetState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(context);
+    final n = ref.watch(myTagsProvider).valueOrNull?.length ?? 0;
+    final status = n > 0 ? t.cardMedalsCount(YqFormat.number(n)) : t.cardMedalsNone;
+    return YqOrb(
+      title: t.cardMedals,
+      status: status,
+      glow: n > 0,
+      statusColor: n > 0 ? YqColors.goldText : null,
+      onTap: onTap,
+      semanticLabel: '${t.cardMedals}، $status',
+      disc: Center(child: _NfcGlyph(size: 46, color: n > 0 ? YqColors.goldDeep : YqColors.lapis)),
+    );
+  }
 }
 
-class _NfcSheetState extends ConsumerState<_NfcSheet> {
-  bool _waiting = false;
-  NfcWriteResult? _result;
+/// Activate a Yaqeen key medal / card by its printed code, see the active ones, switch off a lost
+/// one, or get one from the store. Rings breathe while activating; a check blooms when it's done.
+class _MedalsSheet extends ConsumerStatefulWidget {
+  const _MedalsSheet({this.initialCode, required this.published});
+  final String? initialCode;
+  final bool published;
+
+  @override
+  ConsumerState<_MedalsSheet> createState() => _MedalsSheetState();
+}
+
+class _MedalsSheetState extends ConsumerState<_MedalsSheet> {
+  late final _code = TextEditingController(text: widget.initialCode == null ? '' : formatTagCode(normalizeTagCode(widget.initialCode!)));
+  bool _busy = false;
+  bool _done = false;
+  TagProblem? _problem;
 
   @override
   void dispose() {
-    if (_waiting) ref.read(nfcWriterProvider).cancel();
+    _code.dispose();
     super.dispose();
   }
 
-  Future<void> _write() async {
+  Future<void> _activate() async {
+    setState(() {
+      _busy = true;
+      _problem = null;
+    });
+    try {
+      await ref.read(cardRepositoryProvider).claimTag(_code.text);
+      if (!mounted) return;
+      HapticFeedback.mediumImpact();
+      ref.invalidate(myTagsProvider);
+      setState(() {
+        _done = true;
+        _code.clear();
+      });
+    } on TagException catch (e) {
+      if (mounted) setState(() => _problem = e.problem);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _switchOff(CardTag tag) async {
     final t = AppLocalizations.of(context);
-    setState(() {
-      _waiting = true;
-      _result = null;
-    });
-    final r = await ref.read(nfcWriterProvider).writeUrl(widget.url, prompt: t.cardNfcHint, done: t.cardNfcWritten);
-    if (!mounted) return;
-    if (r == NfcWriteResult.written) HapticFeedback.mediumImpact();
-    setState(() {
-      _waiting = false;
-      _result = r;
-    });
+    final ok = await showYqSheet<bool>(
+      context,
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(t.medalLostTitle, textAlign: TextAlign.center, style: Theme.of(ctx).textTheme.titleLarge),
+          const SizedBox(height: YqSpace.s),
+          Text(t.medalLostBody, textAlign: TextAlign.center, style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(color: YqColors.muted)),
+          const SizedBox(height: YqSpace.xl),
+          YqButton(label: t.medalLostConfirm, onPressed: () => Navigator.of(ctx).pop(true)),
+          const SizedBox(height: YqSpace.s),
+          YqButton.text(label: t.cancel, onPressed: () => Navigator.of(ctx).pop(false)),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await ref.read(cardRepositoryProvider).disableTag(tag.code);
+      ref.invalidate(myTagsProvider);
+    } on Exception {
+      if (mounted) YqToast.show(context, t.medalErrNetwork);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
-    final message = switch (_result) {
-      null => widget.ready ? t.cardNfcHint : t.cardNfcPublishFirst,
-      NfcWriteResult.written => t.cardNfcWritten,
-      NfcWriteResult.notSupported => t.cardNfcUnsupported,
-      NfcWriteResult.disabled => t.cardNfcDisabled,
-      NfcWriteResult.notWritable => t.cardNfcNotWritable,
-      NfcWriteResult.tooSmall => t.cardNfcTooSmall,
-      NfcWriteResult.cancelled || NfcWriteResult.failed => t.cardNfcFailed,
+    final locale = Localizations.localeOf(context).languageCode;
+    final tags = ref.watch(myTagsProvider).valueOrNull ?? const <CardTag>[];
+    final error = switch (_problem) {
+      null => null,
+      TagProblem.format => t.medalErrFormat,
+      TagProblem.notFound => t.medalErrNotFound,
+      TagProblem.limit => t.medalErrLimit,
+      TagProblem.network => t.medalErrNetwork,
     };
-    final done = _result == NfcWriteResult.written;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(t.cardNfcTitle, textAlign: TextAlign.center, style: text.titleLarge),
-        const SizedBox(height: YqSpace.xl),
-        Center(child: _Pulse(active: _waiting, done: done)),
+        Text(t.medalsTitle, textAlign: TextAlign.center, style: text.titleLarge),
         const SizedBox(height: YqSpace.l),
-        Text(
-          message,
-          textAlign: TextAlign.center,
-          style: text.bodyMedium?.copyWith(color: done ? YqColors.success : (_result == null ? YqColors.muted : YqColors.goldText)),
+        Center(child: _Pulse(active: _busy, done: _done)),
+        const SizedBox(height: YqSpace.m),
+        AnimatedSwitcher(
+          duration: YqMotion.base,
+          child: Text(
+            _done ? (widget.published ? t.medalActivated : t.medalActivatedHidden) : t.medalsBody,
+            key: ValueKey(_done),
+            textAlign: TextAlign.center,
+            style: text.bodyMedium?.copyWith(color: _done ? YqColors.success : YqColors.muted, height: 1.6),
+          ),
         ),
-        const SizedBox(height: YqSpace.s),
-        Text(widget.url, textAlign: TextAlign.center, textDirection: TextDirection.ltr, style: YqText.numberSmall.copyWith(fontSize: 12, color: YqColors.muted)),
-        const SizedBox(height: YqSpace.xl),
-        if (done)
-          YqButton(label: t.close, onPressed: () => Navigator.of(context).pop())
-        else
-          YqButton(label: t.cardNfcStart, loading: _waiting, onPressed: widget.ready && !_waiting ? _write : null),
-        const SizedBox(height: YqSpace.s),
+        const SizedBox(height: YqSpace.l),
+        Text(t.medalCodeLabel, style: text.labelLarge),
+        const SizedBox(height: YqSpace.xs),
+        TextField(
+          controller: _code,
+          textDirection: TextDirection.ltr,
+          textAlign: TextAlign.center,
+          textCapitalization: TextCapitalization.characters,
+          autocorrect: false,
+          enableSuggestions: false,
+          style: YqText.numberSmall.copyWith(fontSize: 22, letterSpacing: 4, color: YqColors.ink),
+          decoration: InputDecoration(hintText: 'XXXX-XXXX', errorText: error, errorMaxLines: 3),
+          onChanged: (_) {
+            if (_problem != null || _done) setState(() => _problem = null);
+          },
+          onSubmitted: (_) => _busy ? null : _activate(),
+        ),
+        const SizedBox(height: YqSpace.m),
+        YqButton(label: t.medalActivate, loading: _busy, onPressed: _busy ? null : _activate),
+        if (tags.isNotEmpty) ...[
+          const SizedBox(height: YqSpace.xl),
+          YqGroup(
+            children: [
+              for (final tag in tags)
+                YqListRow(
+                  dense: true,
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [YqColors.cream, YqColors.sand]),
+                    ),
+                    child: const _NfcGlyph(size: 24, color: YqColors.goldDeep),
+                  ),
+                  title: '${tag.kind == TagKind.medal ? t.medalKindMedal : t.medalKindCard} · ${formatTagCode(tag.code)}',
+                  subtitle: t.medalMeta(YqFormat.number(tag.scans), YqFormat.fullDate(tag.linkedAt, locale)),
+                  trailing: IconButton(
+                    tooltip: t.medalLost,
+                    icon: const Icon(Icons.link_off_rounded, color: YqColors.muted),
+                    onPressed: () => _switchOff(tag),
+                  ),
+                ),
+            ],
+          ),
+        ],
+        const SizedBox(height: YqSpace.m),
         YqButton.text(
-          label: t.cardNfcBuy,
-          onPressed: () => ref.read(deviceServicesProvider).openUrl(Uri.parse(Env.storeUrl)),
+          label: t.medalBuy,
+          onPressed: () => ref.read(deviceServicesProvider).openUrl(
+                Uri.parse(Env.storeUrl).replace(queryParameters: {'utm_source': 'yaqeen_app', 'utm_medium': 'card', 'utm_campaign': 'medal'}),
+              ),
         ),
       ],
     );
   }
 }
 
-/// Concentric rings breathing out from the NFC glyph while the phone waits for a tag.
+/// Concentric rings breathing out from the contactless mark while a medal is being activated.
 class _Pulse extends StatefulWidget {
   const _Pulse({required this.active, required this.done});
   final bool active;

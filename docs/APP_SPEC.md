@@ -685,15 +685,27 @@ badges and member-since. It is also Yaqeen's front door for whoever scans it.
 - **Levels** come from lifetime points (sum of positive ledger rows) — spending never lowers a level;
   names describe the journey: بداية الطريق · على الطريق · مواظب · ثابت · راسخ · منارة
   (0 · 500 · 2,000 · 5,000 · 12,000 · 25,000). No leaderboard, no change to points economics.
-- **App screen**: stage = live preview in the chosen look + live/hidden state; orbs = write to NFC
-  (one NDEF URI record — any phone opens it without the app), branded QR (share/copy), open count;
+- **Physical tags — Yaqeen key medals and cards** (sold in the Yaqeen store; the app does not write
+  tags). Each piece carries a **permanent code** minted by marketing in admin batches (8 characters,
+  no look-alikes, printed `XXXX-XXXX`): the NFC chip holds one NDEF URI record
+  `<PUBLIC_PROFILE_BASE_URL>/t/<code>` and the same link is printed as a QR beside the code (the batch
+  CSV gives code, printed code and URL per piece). `GET /t/<code>`: activated + card published → 302 to
+  `/u/<current handle>` (handle changes never break a medal; scans counted, bots skipped); blank →
+  «ميدالية يقين جديدة» page with the 3 activation steps, the code and «فعّلها في التطبيق»
+  (`yaqeen://tag/<code>`) + «حمّل تطبيق يقين»; switched off / unknown / card hidden → the friendly 404.
+  The buyer activates it once in the app (orb «ميدالياتي» → code field, or the deep link pre-fills it);
+  a code activates for one account only (≤ 10 per user, rate-limited, guests can't); a lost piece is
+  switched off for good by its owner — never passed to a finder — and support can re-issue a returned
+  one (audited). No `/t` universal link: scanners must always see the web card.
+- **App screen**: stage = live preview in the chosen look + live/hidden state; orbs = «ميدالياتي»
+  (activate, list with scans, switch off, «اطلب ميدالية يقين من المتجر»), branded QR (share/copy), open count;
   editor = publish switch, name, handle (live availability, reserved names), bio (160), ≤ 8 links
   (https only), visibility switches with the note «عباداتك لا تظهر أبداً», look. Entry: Profile.
 - **Privacy**: unpublished by default; never worship detail; guests can't publish; erasure request or
   suspension hides it at once; support can hide an abusive card (audited); only an open counter is
-  kept. Deep link `yaqeen://card` → `/profile/card`.
+  kept. Deep links `yaqeen://card` → `/profile/card`, `yaqeen://tag/<code>` → `/profile/card?tag=<code>`.
 - **Acceptance** [x] nothing public until published · [x] only switched-on fields appear · [x] unsafe
-  links never render · [x] journey shows only when switched on, newest first · [x] NFC writes the URL and reports locked/small tags · [x] works in ar/en.
+  links never render · [x] journey shows only when switched on, newest first · [x] a blank medal explains activation; an activated one follows the handle; a switched-off one never resolves or re-activates · [x] works in ar/en.
 
 ## 6. Cross-cutting functions
 

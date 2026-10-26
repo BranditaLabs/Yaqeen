@@ -21,6 +21,7 @@ interface UserDetail {
   ledger: LedgerEntry[];
   redemptions: { id: string; code: string; status: string; costPoints: number; createdAt: string }[];
   publicProfile: { handle: string; published: boolean; views: number; url: string } | null;
+  tags?: { code: string; kind: string; scans: number; linkedAt: string | null; active: boolean }[];
 }
 
 const REASON: Record<LedgerEntry['reason'], string> = {
@@ -149,6 +150,21 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
               <p className="mt-1 text-sm text-muted">
                 فُتحت <span className="num">{num(u.publicProfile.views)}</span> مرة
               </p>
+              {(u.tags ?? []).length > 0 && (
+                <ul className="mt-3 space-y-1 text-sm">
+                  {u.tags!.map((t) => (
+                    <li key={t.code} className="flex items-center justify-between gap-2">
+                      <Link href={`/tags?code=${t.code}`} className="num text-lapis" dir="ltr">
+                        {t.code.slice(0, 4)}-{t.code.slice(4)}
+                      </Link>
+                      <span className="text-muted">
+                        {t.kind === 'medal' ? 'ميدالية' : 'بطاقة'} · <span className="num">{num(t.scans)}</span> مسح{' '}
+                        <Badge tone={t.active ? 'green' : 'red'}>{t.active ? 'مفعّلة' : 'موقوفة'}</Badge>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
               {u.publicProfile.published && (
                 <ActionForm action={unpublishCard.bind(null, u.id)} className="mt-3 space-y-3">
                   <input name="reason" placeholder="سبب الإخفاء (يُسجَّل في سجل التدقيق)" required minLength={3} className="field" />

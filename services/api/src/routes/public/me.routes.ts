@@ -4,10 +4,12 @@ import type { FastifyPluginAsync } from 'fastify';
 import {
   type ConsentKind,
   ConsentKind as ConsentKindSchema,
+  ClaimTagRequest,
   ConsentUpdate,
   type ConsentsResponse,
   PublicProfileUpdate,
   RegisterDeviceRequest,
+  TagCode,
   UpdateSettingsRequest,
 } from '@yaqeen/contracts';
 import {
@@ -17,6 +19,7 @@ import {
   consents,
   devices,
   pointsLedger,
+  profileTags,
   publicProfiles,
   redemptions,
   refreshTokens,
@@ -27,6 +30,7 @@ import type { Db } from '../../db/client.js';
 import { notFound } from '../../lib/errors.js';
 import { userId } from '../../plugins/auth.js';
 import * as profile from '../../services/profile.service.js';
+import * as tags from '../../services/tags.service.js';
 
 /** Bump when the privacy policy text changes; stored with every consent event. */
 export const POLICY_VERSION = '2026-10-01';
@@ -57,6 +61,10 @@ export async function exportUser(db: Db, uid: string, opts: { includeWorship: bo
           .where(eq(pointsLedger.userId, uid)),
     redemptions: await db.select().from(redemptions).where(eq(redemptions.userId, uid)),
     publicProfile: (await db.select().from(publicProfiles).where(eq(publicProfiles.userId, uid)))[0] ?? null,
+    tags: await db
+      .select({ code: profileTags.code, kind: profileTags.kind, linkedAt: profileTags.linkedAt, disabledAt: profileTags.disabledAt, scans: profileTags.scans })
+      .from(profileTags)
+      .where(eq(profileTags.userId, uid)),
   };
 }
 
@@ -174,6 +182,20 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
   /** The owner's journey for the Profile tab: level, streak, challenge day and dated milestones. */
   app.get('/journey', async (req) => profile.myJourney(app.ctx, userId(req)));
 
+  /** Physical tags (key medals, cards): list, activate by code, switch off a lost one. */
+  app.get('/tags', async (req) => tags.mine(app.ctx, userId(req)));
+
+  app.post('/tags', { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } }, async (req) => {
+    const { code } = ClaimTagRequest.parse(req.body);
+    return tags.claim(app.ctx, userId(req), req.user?.guest ?? true, code);
+  });
+
+  app.delete('/tags/:code', async (req, reply) => {
+    const { code } = z.object({ code: TagCode }).parse(req.params);
+    await tags.disable(app.ctx, userId(req), code);
+    return reply.status(204).send();
+  });
+
   app.get('/public-profile/available', async (req) => {
     const { handle } = z.object({ handle: z.string().max(40) }).parse(req.query);
     return { available: await profile.handleAvailable(app.ctx, handle, userId(req)) };
@@ -196,6 +218,7 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
       await tx.update(refreshTokens).set({ revokedAt: now }).where(and(eq(refreshTokens.userId, uid), isNull(refreshTokens.revokedAt)));
       await tx.update(devices).set({ invalidatedAt: now }).where(and(eq(devices.userId, uid), isNull(devices.invalidatedAt)));
       await tx.update(publicProfiles).set({ published: false, updatedAt: now }).where(eq(publicProfiles.userId, uid));
+      await tags.disableAllFor(tx, uid, now);
     });
     await app.ctx.cache.bumpNamespace('profile'); // the public card disappears at once
     return reply.status(202).send({ status: 'deletion_requested', graceDays: DELETION_GRACE_DAYS });
