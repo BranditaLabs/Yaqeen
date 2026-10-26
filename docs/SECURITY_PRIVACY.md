@@ -26,6 +26,18 @@ Task completions reveal religious practice. Rules:
 3. **Guests earn no points**, so no worship data is stored for anonymous users.
 4. **Public cards (بطاقة يقين) never show worship.** A card is unpublished until the user publishes it and shows only the fields they switch on: level (from lifetime points), streak length, challenge day, streak-milestone badges, member-since, a dated journey timeline (joined, challenge start/day 30–365, levels reached, badges). Never prayers, azkar, pages or tasks. Guests can't publish; an erasure request or a suspension hides it at once; support can hide an abusive card (audited). The page is `noindex`, has no scripts or trackers, and keeps only an open counter. Physical tags (medals/cards) carry a random permanent code, not the user's identity: an activated code activates for one account only, a lost one is switched off by the owner (never re-assigned to a finder), an erasure request switches off all of the user's tags, and each keeps only a scan counter. Codes can't be probed — unknown, taken and switched-off all answer `not_found`, and activation is rate-limited. Admin moderation of cards (hide, restore, release a handle) and every batch / tag action is audited with a reason; the programme's numbers are daily counters only (`card_daily_stats`) — no visitor, user or handle is recorded.
 
+5. **Product analytics («تحسين التطبيق») never carries worship.** Opt-in bucket `product_analytics` (off by default). Closed list `PRODUCT_EVENTS` (contracts) with closed values: onboarding steps, the three non-worship tab roots, card/medal/rewards/store actions, settings changes. Worship tabs and screens are never tracked. Events go to our API only, keyed by a random per-install id (rotated when consent is withdrawn) and stored **without** the account id; 180-day retention; admins see aggregates with counts under 20 withheld. Server-side forwarding to PostHog EU sends the same events with no IP, no GeoIP and no person profiles.
+6. **Error reports carry no personal or worship data.** Sentry (app, API, jobs, admin): no user, cookies, request bodies, query strings or private headers; URLs reduced to route templates; app reports drop navigation, tap and HTTP breadcrumbs and never attach screenshots or view hierarchies. Metrics are labelled by route template and status only.
+
+### Processors
+
+| Processor | Purpose | Data | Region |
+| --- | --- | --- | --- |
+| Sentry | Errors and crashes | stack traces, device/OS, app version — scrubbed as above | choose the EU (Frankfurt) data region |
+| PostHog | Product analytics (consented) | closed-list events keyed by a random install id | EU cloud (`eu.i.posthog.com`) |
+
+Both are listed in the privacy policy and can be switched off by removing their DSN / key (no app release needed for PostHog: the app talks only to our API).
+
 ## Ads & tracking
 
 - iOS: show the ATT prompt only after the user turned on `ads_measurement` in our own consent screen. Without ATT, SDKs run in limited mode.

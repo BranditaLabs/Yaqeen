@@ -9,10 +9,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # source-map upload comes as a BuildKit secret, so it never lands in an image layer.
 ARG GIT_SHA=dev
 ARG NEXT_PUBLIC_SENTRY_DSN=""
-ARG NEXT_PUBLIC_SENTRY_ENVIRONMENT=""
 ARG SENTRY_ORG=""
-ENV GIT_SHA=$GIT_SHA NEXT_PUBLIC_GIT_SHA=$GIT_SHA NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN \
-    NEXT_PUBLIC_SENTRY_ENVIRONMENT=$NEXT_PUBLIC_SENTRY_ENVIRONMENT SENTRY_ORG=$SENTRY_ORG
+ENV GIT_SHA=$GIT_SHA NEXT_PUBLIC_GIT_SHA=$GIT_SHA NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN SENTRY_ORG=$SENTRY_ORG
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
 # Whole contracts package: its `prepare` script compiles it during install.
 COPY packages/contracts packages/contracts

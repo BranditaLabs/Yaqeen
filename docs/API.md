@@ -32,6 +32,7 @@ Base URL: `API_URL` (local `http://localhost:4000`). JSON only. Schemas: `packag
 | GET | `/v1/me/public-profile/available?handle=` | user | `{available}` |
 | GET | `/go/store?src=card·medal·missing&ref=` | — | The card page's shop button: counts the click, 302 to the store (admin link or `STORE_URL`) with UTM |
 | GET | `/t/:code` | — | A physical tag: 302 → `/u/<handle>` when activated and published (no-store), activation page when blank, 404 page otherwise |
+| POST | `/v1/me/events` | user (30/min) | Consented product events `{anonId, platform, appVersion, locale, events[≤50] {name, props, at}}` → `202 {accepted}`; only `PRODUCT_EVENTS` with allowed values are kept, nothing without the `product_analytics` consent, never linked to the account |
 | GET · POST | `/v1/me/tags` | user (POST: not guest; 10 / 10 min) | Key medals / cards: list the active ones `[{code, kind, url, linkedAt, scans}]`; activate `{code}` (any case, dashes, or a pasted `/t/` link). Errors `not_found` (unknown, taken or switched off — indistinguishable), `tag_limit` (409, max 10), `account_required` |
 | DELETE | `/v1/me/tags/:code` | user | Switch a lost tag off for good (204) |
 | GET | `/v1/me/journey` | user | Private journey (`MyJourney`): `lifetimePoints`, `level {…, nextAt}`, `streak`, `challengeDay`, `challengeOf`, `events[] {kind: joined·challenge_start·challenge_day·level·badge, date, value}` newest first. The public view adds `timeline` (≤ 12 events) only when `show.timeline` is on |
@@ -94,6 +95,7 @@ Roles: `super_admin` (always allowed), `content_editor`, `religious_reviewer`, `
 
 ### Public profile moderation
 
+| GET | `/admin/analytics?days=30` | marketing, support | Product analytics aggregates (`ProductAnalyticsReport`); counts under 20 are `null` |
 | GET | `/admin/cards?search=&status=published·hidden·moderated` | support, marketing | Cards directory (public fields, opens, active medals) |
 | POST | `/admin/cards/:userId/moderate` · `/restore` · `/release-handle` | support | `{reason}`, audited. Moderated cards 404 and the owner's PUT `published:true` → 403 `card_moderated` |
 | GET · PUT | `/admin/cards/settings` | read: support, marketing · write: marketing | `CardsSettings` (https links, CTA copy ar/en, reserved handles), audited |

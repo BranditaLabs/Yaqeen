@@ -77,15 +77,57 @@ guest-link 10/min/IP, redeem 5/min, admin login 5 per 5 min.
 
 ## Observability
 
-- Every response carries `x-request-id` (honoured from the load balancer when present); logs are JSON
-  (pino) with tokens, ID tokens, passwords and TOTP codes redacted.
+| Signal | Where | What |
+| --- | --- | --- |
+| Logs | stdout (pino JSON) | every response carries `x-request-id` (honoured from the load balancer); tokens, ID tokens, passwords and TOTP codes redacted |
+| Errors | **Sentry** — projects `yaqeen-api`, `yaqeen-admin`, `yaqeen-app` | API 5xx + unhandled rejections (route template + request id), cron jobs as **cron monitors** (missed/failed runs alert), admin server + browser errors, app crashes (Dart + native). Release = commit SHA (API/admin) or `yaqeen@version+build` (app); deploys are marked by the pipeline. Set `SENTRY_DSN` (API secret), `ADMIN_SENTRY_DSN` / `APP_SENTRY_DSN` (CI variables). Scrubbing: docs/SECURITY_PRIVACY.md. |
+| Metrics | **Prometheus** scrape of `:9100/metrics` (`METRICS_PORT`, never through the ingress) | `yaqeen_http_request_duration_seconds{method,route,status}`, `yaqeen_cache_lookups_total{namespace,result}`, `yaqeen_pg_pool_{total,idle,waiting}`, `yaqeen_external_calls_total{service,outcome}`, `yaqeen_product_events_total{event}`, Node defaults (`yaqeen_*`) |
+| Dashboards | **Grafana** — `deploy/k8s/monitoring/dashboards/yaqeen-api.json` (sidecar-loaded ConfigMap) | rate, errors, latency, slowest routes, cache, pool, event loop, memory, probes |
+| Alerts | `deploy/k8s/monitoring/alerts.yaml` (PrometheusRule) | **page**: 5xx > 1 % 5 min · p99 > 1 s 10 min · Postgres pool waiting · HPA at max 15 min · probe down 3 min. **ticket**: load shedding · cache miss storm · Shopify failing · pod restarts · job failed · TLS < 14 days |
+| Uptime | blackbox `Probe` (in cluster, every minute) + `.github/workflows/synthetics.yml` (outside, every 10 min) | `/health`, `/ready`, `/v1/config`, Hijri, card 404 page, `/get-app`, admin login. External failures open one `outage` issue per environment and close it on recovery; run the same checks by hand: `API_URL=… ADMIN_URL=… bash tools/synthetics/check.sh` |
+| Product | admin «التحليلات» (aggregates, counts < 20 withheld) + PostHog EU (`POSTHOG_KEY`) | consented `PRODUCT_EVENTS` only — docs/ANALYTICS_EVENTS.md |
+
 - **SLOs**: availability 99.9 % monthly; p99 < 300 ms for cached reads and < 800 ms for personal reads;
   redeem success (excluding user errors) ≥ 99 %.
-- **Alerts**: 5xx rate > 1 % for 5 min · p99 > 1 s for 10 min · any `503` from load shedding · pod
-  restarts · Postgres connections > 80 % · Redis unavailable · dispatcher job failed twice ·
-  `shopify_unavailable` > 5 in 10 min (the dashboard also shows this).
-- Crash and performance monitoring in the app: Firebase Crashlytics (spec §6.21) — no worship data in
-  keys or logs.
+- Monitoring needs kube-prometheus-stack (Prometheus Operator + Grafana) and
+  prometheus-blackbox-exporter in the `monitoring` namespace: `kubectl apply -k deploy/k8s/monitoring`.
+
+## Delivery pipeline
+
+```
+PR ──► CI (typecheck, tests + Postgres, migration drift, admin build, Flutter analyze/test,
+       APK + emulator smoke, iOS build, kustomize render, image build)
+main ─► Deploy: build → Trivy scan → push ghcr.io/branditalabs/yaqeen-{api,admin}:sha-<12> ─► staging (auto)
+v1.2.3 tag ─► Deploy: same images ─► production (after the environment's reviewers approve)
+mobile-v1.2.3 tag ─► Release mobile: signed AAB → Play (internal) + IPA → TestFlight, symbols → Sentry
+```
+
+Each environment rollout (`tools/deploy/deploy.sh <env> <tag>`, also runnable from a laptop):
+1. renders `deploy/k8s/overlays/<env>` with both images pinned to the commit;
+2. replaces and waits for the `yaqeen-migrate` Job — **a failed migration stops the deploy before any pod changes**;
+3. applies everything and waits for both rollouts (`maxUnavailable: 0`);
+4. runs the synthetic checks against the environment;
+5. a failed rollout or check runs `kubectl rollout undo` on both Deployments and fails the run;
+6. marks the Sentry release + deploy.
+
+**Rollback** any time: Actions › Deploy › Run workflow › `rollback` (or `tools/deploy/deploy.sh production --rollback`).
+**Re-deploy an older commit**: Run workflow › `deploy` with that `sha` (its images are already in GHCR).
+
+### One-time setup
+
+| Where | Name | Value |
+| --- | --- | --- |
+| Settings › Environments | `staging`, `production` | create both; on `production` add **required reviewers** (the approval gate) and restrict to `v*` tags |
+| Environment secret (each) | `KUBE_CONFIG` | base64 kubeconfig of a deployer ServiceAccount bound to that namespace only (`edit` role) |
+| Repository variables | `DEPLOY_ENABLED` | `true` once the clusters exist (until then images are built and scanned, nothing deploys) |
+| | `STAGING_API_URL`, `STAGING_ADMIN_URL`, `PROD_API_URL`, `PROD_ADMIN_URL` | public URLs (smoke checks + synthetics) |
+| | `SENTRY_ORG`, `ADMIN_SENTRY_DSN`, `APP_SENTRY_DSN` | Sentry organisation and the admin/app project DSNs (DSNs are not secrets) |
+| Repository secret | `SENTRY_AUTH_TOKEN` | Sentry internal integration token (releases, source maps, app symbols) |
+| Cluster secret `yaqeen-api-secrets` | `SENTRY_DSN`, `POSTHOG_KEY` | API project DSN; PostHog EU project key (optional) |
+| Packages | GHCR | the cluster pulls `ghcr.io/branditalabs/*`: make the packages public or add an image pull secret |
+
+Namespaces: `yaqeen-staging` (1 replica, HPA 1–4, campaigns suspended, 20 % traces) and `yaqeen`
+(production, base manifests). Dependabot opens grouped weekly PRs for npm, pub, Actions and base images.
 
 ## Runbooks
 
@@ -96,7 +138,9 @@ guest-link 10/min/IP, redeem 5/min, admin login 5 per 5 min.
 | Postgres connections exhausted | Lower `PG_POOL_MAX` or add PgBouncer; look for long transactions. |
 | Redis down | Service degrades gracefully; restore Redis. Expect higher DB read load meanwhile. |
 | Shopify failing | Redemptions refund automatically (`shopify_unavailable`, points not deducted). Check the token/scopes on the dashboard pill. |
-| Bad deploy | `kubectl -n yaqeen rollout undo deploy/yaqeen-api` (migrations are backwards compatible). |
+| Bad deploy | Actions › Deploy › Run workflow › `rollback` (or `tools/deploy/deploy.sh production --rollback`); migrations are backwards compatible. |
+| Error spike after a deploy | Sentry › Releases › compare the new release with the previous one; roll back first, investigate after. |
+| `outage` issue opened | Synthetics failed from outside: check the probe dashboard (in-cluster view) to tell a cluster outage from an ingress/DNS/TLS one. |
 | Need to pause a feature | Dashboard → الإعدادات → turn the flag off (apps pick it up within the config cache window), or maintenance mode for a full stop — Quran, prayer and azkar keep working offline. |
 
 ## Release checklist (ops)
@@ -107,3 +151,5 @@ guest-link 10/min/IP, redeem 5/min, admin login 5 per 5 min.
 - [ ] HPA `minReplicas` raised ahead of a known peak.
 - [ ] Dashboard Shopify pill shows «متصل» with `write_discounts`.
 - [ ] Firebase service account set (pushes), AlAdhan reachable from the cluster (Hijri).
+- [ ] Sentry DSNs set (API secret, admin/app variables); alert routes for `page` / `ticket` configured in Alertmanager.
+- [ ] Staging deploy green and smoke checks passing before tagging `v*` for production.

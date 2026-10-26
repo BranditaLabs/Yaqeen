@@ -76,3 +76,4 @@ touching user privacy.
   snake_case error codes.
 - **Schema change:** `pnpm db:generate`, then commit the SQL. CI fails on drift.
 - **Never commit** secrets, signing material (`key.properties`, keystores, `Secrets.xcconfig`) or licensed content packs.
+- **Observability & delivery:** errors via Sentry (`services/api/src/lib/observability.ts`, `apps/admin/src/sentry.shared.ts`, app `core/platform/error_reporter.dart`) — scrub everything personal; metrics `services/api/src/lib/metrics.ts` (route templates only); product analytics only through `PRODUCT_EVENTS` (closed list, never worship; a test mirrors it in Dart); deploys only through `.github/workflows/deploy.yml` / `tools/deploy/deploy.sh` (migrations backwards compatible).

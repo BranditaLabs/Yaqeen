@@ -1,0 +1,16 @@
+# Production: the base manifests as they are. Deployed by .github/workflows/deploy.yml from a `v*` tag
+# after the `production` environment's reviewers approve; it promotes the exact image staging ran.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources: [../..]
+namespace: yaqeen
+images:
+  - { name: ghcr.io/branditalabs/yaqeen-api, newTag: latest }
+  - { name: ghcr.io/branditalabs/yaqeen-admin, newTag: latest }
+patches:
+  - target: { kind: Deployment, name: yaqeen-admin }
+    patch: |
+      - { op: add, path: /spec/template/spec/containers/0/env/-, value: { name: SENTRY_ENVIRONMENT, value: production } }
+  - target: { kind: ConfigMap, name: yaqeen-api-config }
+    patch: |
+      - { op: add, path: /data/SENTRY_ENVIRONMENT, value: production }

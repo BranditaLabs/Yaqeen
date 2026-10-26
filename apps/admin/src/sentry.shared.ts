@@ -19,7 +19,13 @@ export function scrub(event: ErrorEvent): ErrorEvent {
 /** Shared by server and browser init. Off (no DSN) in local dev and tests. */
 export const sentryBase: Pick<BrowserOptions, 'dsn' | 'environment' | 'release' | 'tracesSampleRate' | 'dataCollection' | 'beforeSend'> = {
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN,
-  environment: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT || process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV,
+  // One image runs in staging and production: the browser tells them apart by host, the server by env.
+  environment:
+    typeof window !== 'undefined'
+      ? window.location.hostname.includes('staging')
+        ? 'staging'
+        : 'production'
+      : process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV,
   release: `yaqeen-admin@${process.env.NEXT_PUBLIC_GIT_SHA || process.env.GIT_SHA || 'dev'}`,
   tracesSampleRate: 0,
   dataCollection: { userInfo: false, cookies: false, httpBodies: [], urlQueryParams: false },

@@ -337,7 +337,7 @@ CTA «متابعة».
 ### 5.6 `04·ب · Notifications & privacy consent` — `/onboarding/consent` 🟡
 
 **Layout** Stepper 3/4. Eyebrow «03 / 04», H1 «تنبيهات تهمّك\nوخصوصيتك محفوظة», sub «اختر ما يصلك. يمكنك تغيير ذلك في أي وقت من الإعدادات.»
-Glass card with 4 switch rows (40 pt icon tile + title + 11 pt description):
+Glass card with 5 switch rows (40 pt icon tile + title + 11 pt description):
 
 | Bucket | Title | Description | Default |
 | --- | --- | --- | --- |
@@ -345,6 +345,7 @@ Glass card with 4 switch rows (40 pt icon tile + title + 11 pt description):
 | `challenge_rewards` | التحدي والمكافآت | تقدمك في 365 يوماً، والأيام الفائتة، ورصيد يكفي لمكافأة. | ON |
 | `store_offers` | عروض متجر يقين | خصومات وإصدارات جديدة، بحد أقصى رسالة واحدة يومياً. | **OFF** |
 | `ads_measurement` | تحسين إعلانات يقين | قياس نجاح إعلاناتنا على جوجل وميتا وتيك توك: التحميل والتسجيل والاستبدال فقط. | **OFF** |
+| `product_analytics` | تحسين التطبيق | إحصاءات استخدام مجهولة تساعدنا على تحسين يقين: الصفحات والخطوات فقط، بلا حسابك ولا أي عبادة. | **OFF** |
 
 Green privacy note «عباداتك لا تُشارك أبداً مع أي منصة إعلانية: لا قراءة ولا صلاة ولا ذكر ولا حفظ. سياسة الخصوصية».
 CTA «متابعة» + caption «سيطلب هاتفك بعدها إذن الإشعارات» (+ «، وعلى iPhone إذن التتبع» when ads is ON).
@@ -742,7 +743,7 @@ Each function: **what · where in code · rules · tests**. Pure logic goes in `
 
 ### 6.3 Consent ✅
 
-- 4 buckets (table in 5.6). Local first; `PUT /v1/me/consents [{kind, granted, source}]` appends `consent_events` (who/when/source/app version) for PDPL.
+- 5 buckets (table in 5.6). Local first; `PUT /v1/me/consents [{kind, granted, source}]` appends `consent_events` (who/when/source/app version) for PDPL.
 - `Analytics` sends an `AdEvent` only when `ads_measurement` is granted; events before consent are queued for max 24 h then dropped (existing gate).
 - Push marketing requires `store_offers` (offers) or `challenge_rewards` (challenge/rewards campaigns) — enforced server-side in the dispatcher (existing guardrails).
 
@@ -843,9 +844,9 @@ Each function: **what · where in code · rules · tests**. Pure logic goes in `
 
 - `routeForDeepLink` → update to the new sub-routes (calendar → `/challenge/calendar`, azkar → `/home/azkar`, hifz → `/quran/hifz`, redeem → `/challenge/redeem`). iOS Associated Domains + Android App Links for `yaqin-brand.com/app/*` (`apple-app-site-association`, `assetlinks.json` hosted by the store theme).
 
-### 6.21 Quality, crash & performance 🟡 (perf rules + CI smoke; Crashlytics needs Firebase credentials)
+### 6.21 Quality, crash & performance ✅ (Sentry once DSNs are set)
 
-- Crash reporting: Firebase Crashlytics (no PII, no worship data in keys/logs). Performance budget: cold start < 2 s to splash, Home interactive < 1 s after splash, APK < 60 MB (without audio), memory < 250 MB in reader.
+- Crash/error reporting: **Sentry** for the app (`ErrorReporter`, started after the first frame; boot errors buffered), API + cron jobs and admin — no user, no request bodies/URLs/query strings, no navigation, tap or HTTP breadcrumbs, no screenshots; obfuscated builds symbolicated from CI-uploaded symbols. Product analytics «تحسين التطبيق»: §11.2 and docs/ANALYTICS_EVENTS.md. Performance budget: cold start < 2 s to splash, Home interactive < 1 s after splash, APK < 60 MB (without audio), memory < 250 MB in reader.
 
 ---
 
@@ -897,7 +898,8 @@ Every write shows a toast and is written to `audit_log` in the same transaction 
 | POST | `/v1/auth/sign-in` · `/refresh` · `/sign-out` | Google/Apple/guest sessions |
 | GET | `/v1/me` | profile + settings + balance |
 | PATCH | `/v1/me/settings` | locale, city, timezone, method, asr, hijri offset |
-| GET/PUT | `/v1/me/consents` | 4 buckets + event log |
+| GET/PUT | `/v1/me/consents` | 5 buckets + event log |
+| POST | `/v1/me/events` | consented product events (closed list, no account link) |
 | POST | `/v1/me/devices` | FCM token, platform, app version, locale |
 | GET | `/v1/me/redemptions` · `/v1/me/ledger` | codes, points history |
 | GET | `/v1/me/export` · DELETE `/v1/me` | PDPL |
@@ -1088,7 +1090,7 @@ IDs are referenced in commits (`YQ-12: …`).
 | ID | Ticket | Spec | Acceptance |
 | --- | --- | --- | --- |
 | YQ-60 | Brand fonts (ZEYADA, Canela) when licensed; update `pubspec.yaml` | §2.2 | |
-| YQ-61 | Crashlytics, performance budget checks | 6.21 | budgets met |
+| YQ-61 | Sentry crash/error reporting, performance budget checks | 6.21 | budgets met |
 | YQ-62 | Universal links + store files | 6.20 | |
 | YQ-63 | Accessibility pass (VoiceOver/TalkBack, 200 % text) | §1.2 | checklist |
 | YQ-64 | Store listings, privacy labels (iOS) / data safety (Android) matching §6.13 | — | |

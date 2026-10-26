@@ -1,3 +1,4 @@
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../config/env.dart';
@@ -9,9 +10,13 @@ class SentryErrorReporter extends BufferedErrorReporter {
   @override
   Future<bool> startSdk() async {
     if (Env.sentryDsn.isEmpty) return false;
+    // Same release name the CI symbol upload uses (release-mobile.yml): yaqeen@<version>+<build>.
+    final info = await PackageInfo.fromPlatform();
     await SentryFlutter.init((o) {
       o
         ..dsn = Env.sentryDsn
+        ..release = 'yaqeen@${info.version}+${info.buildNumber}'
+        ..dist = info.buildNumber
         ..environment = Env.flavor
         ..sendDefaultPii = false
         ..tracesSampleRate = 0

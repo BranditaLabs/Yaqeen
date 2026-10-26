@@ -124,6 +124,21 @@ jobs:
       - run: cp ios/Flutter/Secrets.example.xcconfig ios/Flutter/Secrets.xcconfig
       - run: flutter build ios --no-codesign --debug
 
+  deploy-config:
+    name: Deploy config (kustomize, scripts)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Render every overlay
+        run: |
+          for d in deploy/k8s deploy/k8s/overlays/staging deploy/k8s/overlays/production deploy/k8s/monitoring; do
+            echo "::group::$d"; kubectl kustomize "$d" > /dev/null && echo "ok $d"; echo "::endgroup::"
+          done
+      - name: Scripts parse
+        run: for f in tools/deploy/deploy.sh tools/synthetics/check.sh; do bash -n "$f"; done
+      - name: Dashboard JSON
+        run: python3 -m json.tool deploy/k8s/monitoring/dashboards/yaqeen-api.json > /dev/null
+
   images:
     name: Docker images
     runs-on: ubuntu-latest

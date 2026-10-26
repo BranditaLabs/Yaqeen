@@ -92,3 +92,19 @@ people on your team) can install them at once. External testers need a one-time 
   the profile must contain the imported distribution certificate.
 - **iOS "requires a development team" for a CocoaPods bundle**: ask Claude to add a Podfile
   `post_install` that sets the team for pod targets.
+
+## Crash reporting (Sentry)
+
+Optional; the workflow skips it when unset.
+
+| Where | Name | Value |
+| --- | --- | --- |
+| Variable | `APP_SENTRY_DSN` | DSN of the `yaqeen-app` Sentry project (compiled in with `--dart-define=SENTRY_DSN`) |
+| Variable | `SENTRY_ORG` | Sentry organisation slug |
+| Secret | `SENTRY_AUTH_TOKEN` | token allowed to upload debug files |
+
+After each build, `dart run sentry_dart_plugin` uploads the obfuscation symbols (`build/symbols`,
+config under `sentry:` in `pubspec.yaml`) for release `yaqeen@<version>+<build number>` — the
+same release the app reports — so crashes show readable stack traces. Reports carry no user,
+URLs, navigation or screenshots (docs/SECURITY_PRIVACY.md).
+
