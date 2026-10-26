@@ -10,6 +10,7 @@
  * which changes every key in it at once on all instances (L1 copies age out within L1_TTL_MS).
  * Only non-personal data may be cached here — never anything keyed by user.
  */
+import { cacheLookups } from './metrics.js';
 import { createHash } from 'node:crypto';
 import type { Redis } from 'ioredis';
 
@@ -50,6 +51,7 @@ export class ResponseCache {
     const hit = this.l1.get(full);
     if (hit && hit.expires > this.now()) {
       this.hits++;
+      cacheLookups.inc({ namespace: ns, result: 'l1' });
       return hit.value;
     }
     const pending = this.inflight.get(full);
@@ -64,6 +66,7 @@ export class ResponseCache {
       }
       if (value === null) {
         this.misses++;
+        cacheLookups.inc({ namespace: ns, result: 'miss' });
         value = JSON.stringify(await load());
         try {
           await this.redis?.set(full, value, 'EX', ttlSec);
@@ -72,6 +75,7 @@ export class ResponseCache {
         }
       } else {
         this.hits++;
+        cacheLookups.inc({ namespace: ns, result: 'l2' });
       }
       this.remember(full, value, Math.min(L1_TTL_MS, ttlSec * 1000));
       return value;

@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/analytics/analytics.dart';
+import '../../../core/analytics/product_analytics.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/settings/app_settings.dart';
@@ -34,6 +37,7 @@ class SessionController extends Notifier<Session> {
       state = await _repo.signIn(provider, idToken: cred.idToken, displayName: cred.displayName, locale: _locale);
       // Consent isn't decided yet during onboarding → queued, sent only if ads are allowed.
       await ref.read(analyticsProvider).logOrQueue(AdEvent.signUp);
+      unawaited(ref.read(productAnalyticsProvider).track(ProductEvent.signIn, {'provider': provider.name}));
       await _afterSignIn();
       return SignInOutcome.signedIn;
     } on OfflineException {
@@ -46,6 +50,7 @@ class SessionController extends Notifier<Session> {
   /// Works with zero network (spec §5.3 acceptance).
   Future<void> continueAsGuest() async {
     state = await _repo.continueAsGuest(locale: _locale);
+    unawaited(ref.read(productAnalyticsProvider).track(ProductEvent.signIn, {'provider': 'guest'}));
     if (!state.pendingServer) await _afterSignIn();
   }
 

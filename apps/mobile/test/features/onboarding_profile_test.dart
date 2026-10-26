@@ -147,7 +147,7 @@ void main() {
     // 04·ب — consent defaults: reminders + challenge ON, offers + ads OFF.
     expect(find.bySemanticsLabel('تذكيرات العبادة'), findsOneWidget);
     final switches = tester.widgetList<Semantics>(find.byWidgetPredicate((w) => w is Semantics && w.properties.toggled != null)).toList();
-    expect(switches.map((s) => s.properties.toggled), [true, true, false, false]);
+    expect(switches.map((s) => s.properties.toggled), [true, true, false, false, false]);
     await tester.tap(find.text('متابعة'));
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
     await tester.pumpAndSettle();

@@ -7,6 +7,7 @@ import {
   ClaimTagRequest,
   ConsentUpdate,
   type ConsentsResponse,
+  ProductEventsBatch,
   PublicProfileUpdate,
   RegisterDeviceRequest,
   TagCode,
@@ -31,6 +32,7 @@ import { notFound } from '../../lib/errors.js';
 import { userId } from '../../plugins/auth.js';
 import * as profile from '../../services/profile.service.js';
 import * as tags from '../../services/tags.service.js';
+import * as analytics from '../../services/product-analytics.service.js';
 
 /** Bump when the privacy policy text changes; stored with every consent event. */
 export const POLICY_VERSION = '2026-10-01';
@@ -181,6 +183,13 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
 
   /** The owner's journey for the Profile tab: level, streak, challenge day and dated milestones. */
   app.get('/journey', async (req) => profile.myJourney(app.ctx, userId(req)));
+
+  /** Consented product analytics (closed list, no worship, no account link). 202 even when dropped. */
+  app.post('/events', { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (req, reply) => {
+    const batch = ProductEventsBatch.parse(req.body);
+    const accepted = await analytics.ingest(app.ctx, userId(req), batch);
+    return reply.status(202).send({ accepted });
+  });
 
   /** Physical tags (key medals, cards): list, activate by code, switch off a lost one. */
   app.get('/tags', async (req) => tags.mine(app.ctx, userId(req)));

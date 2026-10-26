@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/analytics/product_analytics.dart';
 import '../../../core/config/config_controller.dart';
 import '../../../core/config/env.dart';
 import '../../../core/config/remote_config.dart';
@@ -172,7 +174,14 @@ class ProfileScreen extends ConsumerWidget {
             children: [
               row(t.profileLedger, icon: YqIcons.streak, onTap: () => context.push('/profile/ledger')),
               row(t.myCodes, icon: YqIcons.bookmark, onTap: () => context.push('/challenge/redeem/codes')),
-              row(t.profileVisitStore, icon: YqIcons.share, onTap: () => ref.read(deviceServicesProvider).openUrl(Uri.parse(Env.storeUrl))),
+              row(
+                t.profileVisitStore,
+                icon: YqIcons.share,
+                onTap: () {
+                  unawaited(ref.read(productAnalyticsProvider).track(ProductEvent.storeClick, {'from': 'profile'}));
+                  ref.read(deviceServicesProvider).openUrl(Uri.parse(Env.storeUrl));
+                },
+              ),
             ],
           ),
           const SizedBox(height: YqSpace.xl),
@@ -234,7 +243,10 @@ class ProfileScreen extends ConsumerWidget {
                 YqSegmented<String>(
                   segments: [('ar', t.langArabic), ('en', t.langEnglish)],
                   selected: s.locale,
-                  onChanged: (v) => ref.read(settingsProvider.notifier).update((x) => x.copyWith(locale: v)),
+                  onChanged: (v) {
+                    ref.read(settingsProvider.notifier).update((x) => x.copyWith(locale: v));
+                    unawaited(ref.read(productAnalyticsProvider).track(ProductEvent.settingsChange, {'setting': 'language'}));
+                  },
                 ),
                 const SizedBox(height: YqSpace.l),
                 Text(t.langFontSize, style: Theme.of(c).textTheme.titleSmall),
@@ -307,7 +319,7 @@ class ProfileScreen extends ConsumerWidget {
       false;
 }
 
-/// «الخصوصية والموافقات» — the same four switches as onboarding, recorded with source `settings`.
+/// «الخصوصية والموافقات» — the same five switches as onboarding, recorded with source `settings`.
 class PrivacyScreen extends ConsumerStatefulWidget {
   const PrivacyScreen({super.key});
 
@@ -322,6 +334,7 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
       await ref.read(analyticsProvider).onConsentChanged(v);
       if (v) await ref.read(deviceServicesProvider).requestTracking();
     }
+    if (k == ConsentKind.productAnalytics) await ref.read(productAnalyticsProvider).onConsentChanged(v);
     if (mounted) setState(() {});
   }
 
@@ -335,6 +348,7 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
       (ConsentKind.challengeRewards, t.consentChallenge, t.consentChallengeDetail),
       (ConsentKind.storeOffers, t.consentOffers, t.consentOffersDetail),
       (ConsentKind.adsMeasurement, t.consentAds, t.consentAdsDetail),
+      (ConsentKind.productAnalytics, t.consentAnalytics, t.consentAnalyticsDetail),
     ];
     return Scaffold(
       backgroundColor: YqColors.porcelain,

@@ -3,12 +3,13 @@ import 'dart:convert';
 import '../../../core/network/api_client.dart';
 import '../../../core/storage/kv_store.dart';
 
-/// The four consent buckets (Egypt PDPL 151/2020: explicit, specific, revocable).
+/// The five consent buckets (Egypt PDPL 151/2020: explicit, specific, revocable).
 enum ConsentKind {
   worshipReminders('worship_reminders'),
   challengeRewards('challenge_rewards'),
   storeOffers('store_offers'),
-  adsMeasurement('ads_measurement');
+  adsMeasurement('ads_measurement'),
+  productAnalytics('product_analytics');
 
   const ConsentKind(this.wire);
   final String wire;
@@ -22,6 +23,7 @@ const consentDefaults = {
   ConsentKind.challengeRewards: true,
   ConsentKind.storeOffers: false,
   ConsentKind.adsMeasurement: false,
+  ConsentKind.productAnalytics: false,
 };
 
 /// Consents are stored locally first (they gate analytics immediately, even offline) and synced

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -9,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app/app_gate.dart';
 import 'app/bootstrap.dart';
 import 'app/router.dart';
+import 'core/analytics/product_analytics.dart';
 import 'core/di/providers.dart';
 import 'core/notifications/local_notifier.dart';
 import 'core/notifications/notification_planner.dart';
@@ -18,6 +21,7 @@ import 'core/network/connectivity.dart';
 import 'core/platform/device_services.dart';
 import 'core/platform/just_audio_engine.dart';
 import 'core/platform/location_service.dart';
+import 'core/platform/sentry_error_reporter.dart';
 import 'core/platform/social_auth.dart';
 import 'core/settings/settings_controller.dart';
 import 'core/settings/settings_repository.dart';
@@ -33,7 +37,10 @@ import 'core/time/zoned.dart';
 import 'features/onboarding/data/auth_repository.dart';
 import 'l10n/gen/app_localizations.dart';
 
-void main() => Boot.guard(_start);
+void main() {
+  Boot.reporter = SentryErrorReporter();
+  Boot.guard(_start);
+}
 
 Future<void> _start() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -107,11 +114,20 @@ Future<void> _start() async {
 
   // Plugin set-up the first frame doesn't need, in parallel. Both are idempotent and awaited again
   // by their first real use (scheduling a reminder, playing audio).
+  final router = buildRouter(initialLocation: '/splash');
+  final product = container.read(productAnalyticsProvider);
+  final routes = RouteTracker(product);
+  router.routerDelegate.addListener(() => routes.onLocation(router.routerDelegate.currentConfiguration.uri.path));
+  AppLifecycleListener(onPause: () => unawaited(product.flush()));
   Boot.afterFirstFrame({
     'notifications': notifier.init,
     'audio': JustAudioEngine.init,
+    'analytics': () async {
+      product.start();
+      await product.track(ProductEvent.appOpen);
+    },
   });
-  runApp(UncontrolledProviderScope(container: container, child: YaqeenApp(router: buildRouter(initialLocation: '/splash'))));
+  runApp(UncontrolledProviderScope(container: container, child: YaqeenApp(router: router)));
 }
 
 class YaqeenApp extends ConsumerWidget {

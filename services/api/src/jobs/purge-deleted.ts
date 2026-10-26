@@ -21,6 +21,8 @@ import {
   users,
 } from '../db/schema.js';
 import { DELETION_GRACE_DAYS } from '../routes/public/me.routes.js';
+import { runJob } from '../lib/observability.js';
+import { RETENTION_DAYS, purgeOld } from '../services/product-analytics.service.js';
 import { withJobLock } from './lock.js';
 
 export async function purgeDeleted(db: Db, now: Date): Promise<number> {
@@ -46,7 +48,8 @@ export async function purgeDeleted(db: Db, now: Date): Promise<number> {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const env = loadEnv();
   const { db, pool } = createDb(env.DATABASE_URL);
-  const res = await withJobLock(pool, 'purge-deleted', () => purgeDeleted(db, new Date()));
+  const res = await runJob(env, 'yaqeen-purge', '17 1 * * *', () => withJobLock(pool, 'purge-deleted', () => purgeDeleted(db, new Date())));
   console.log(res.ran ? `[purge] anonymised ${res.result} account(s)` : '[purge] another run in progress — skipped');
+  if (res.ran) console.log(`[purge] removed ${await purgeOld(db, new Date())} product event(s) older than ${RETENTION_DAYS} days`);
   await pool.end();
 }

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../../../core/analytics/product_analytics.dart';
 import '../../../core/config/config_controller.dart';
 import '../../../core/config/env.dart';
 import '../../../core/config/remote_config.dart';
@@ -151,7 +152,9 @@ class _CardScreenState extends ConsumerState<CardScreen> {
     final t = AppLocalizations.of(context);
     setState(() => _saving = true);
     try {
+      final wasLive = _saved?.published ?? false;
       final saved = await ref.read(cardRepositoryProvider).save(_draft!);
+      if (saved.published && !wasLive) unawaited(ref.read(productAnalyticsProvider).track(ProductEvent.cardPublished));
       if (!mounted) return;
       setState(() => _adopt(saved));
       ref.invalidate(cardViewProvider(saved.handle));
@@ -205,7 +208,10 @@ class _CardScreenState extends ConsumerState<CardScreen> {
                   if (_saved != null && _saved!.published)
                     GlassIconButton(
                       tooltip: t.cardShare,
-                      onPressed: () => ref.read(deviceServicesProvider).shareText(_saved!.url),
+                      onPressed: () {
+                        unawaited(ref.read(productAnalyticsProvider).track(ProductEvent.cardShared, {'channel': 'link'}));
+                        ref.read(deviceServicesProvider).shareText(_saved!.url);
+                      },
                       icon: const YqIcon(YqIcons.share, size: 20),
                     ),
                 ],
@@ -859,6 +865,7 @@ class _MedalsSheetState extends ConsumerState<_MedalsSheet> {
     });
     try {
       await ref.read(cardRepositoryProvider).claimTag(_code.text);
+      unawaited(ref.read(productAnalyticsProvider).track(ProductEvent.medalActivated, {'via': widget.initialCode == null ? 'code' : 'link'}));
       if (!mounted) return;
       HapticFeedback.mediumImpact();
       ref.invalidate(myTagsProvider);
@@ -981,9 +988,12 @@ class _MedalsSheetState extends ConsumerState<_MedalsSheet> {
         const SizedBox(height: YqSpace.m),
         YqButton.text(
           label: t.medalBuy,
-          onPressed: () => ref.read(deviceServicesProvider).openUrl(
+          onPressed: () {
+            unawaited(ref.read(productAnalyticsProvider).track(ProductEvent.storeClick, {'from': 'medal'}));
+            ref.read(deviceServicesProvider).openUrl(
                 Uri.parse(_medalUrl(ref)).replace(queryParameters: {'utm_source': 'yaqeen_app', 'utm_medium': 'card', 'utm_campaign': 'medal'}),
-              ),
+                );
+          },
         ),
       ],
     );
@@ -1166,7 +1176,13 @@ class _QrSheet extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: YqSpace.l),
-        YqButton(label: t.cardShare, onPressed: () => ref.read(deviceServicesProvider).shareText(card.url)),
+        YqButton(
+          label: t.cardShare,
+          onPressed: () {
+            unawaited(ref.read(productAnalyticsProvider).track(ProductEvent.cardShared, {'channel': 'qr'}));
+            ref.read(deviceServicesProvider).shareText(card.url);
+          },
+        ),
         const SizedBox(height: YqSpace.s),
         YqButton.secondary(
           label: t.copy,

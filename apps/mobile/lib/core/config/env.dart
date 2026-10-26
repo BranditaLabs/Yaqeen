@@ -14,5 +14,8 @@ abstract final class Env {
   static const appleRedirectUri =
       String.fromEnvironment('APPLE_REDIRECT_URI', defaultValue: 'https://api.yaqin-brand.com/v1/auth/apple/callback');
 
+  /// Sentry DSN for crash/error reports; empty = reporting off (dev, tests).
+  static const sentryDsn = String.fromEnvironment('SENTRY_DSN');
+
   static bool get isProd => flavor == 'prod';
 }

@@ -20,6 +20,7 @@ import { FcmSender } from '../integrations/fcm.js';
 import { ShopifyClient } from '../integrations/shopify.js';
 import { ResponseCache } from '../lib/cache.js';
 import { segmentQuery } from '../routes/admin/campaigns.routes.js';
+import { runJob } from '../lib/observability.js';
 import { withJobLock } from './lock.js';
 
 const DEEP_LINK_PREFIX = 'yaqeen://';
@@ -110,7 +111,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const env = loadEnv();
   const { db, pool } = createDb(env.DATABASE_URL);
   const redis = new Redis(env.REDIS_URL);
-  const res = await withJobLock(pool, 'campaign-dispatcher', () => dispatchDue({
+  const res = await runJob(env, 'yaqeen-campaigns', '*/10 * * * *', () => withJobLock(pool, 'campaign-dispatcher', () => dispatchDue({
     env,
     db,
     redis,
@@ -119,7 +120,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     shopify: new ShopifyClient({ shopDomain: env.SHOPIFY_SHOP_DOMAIN, adminToken: env.SHOPIFY_ADMIN_TOKEN, apiVersion: env.SHOPIFY_API_VERSION }),
     fcm: new FcmSender(env.FIREBASE_SERVICE_ACCOUNT_JSON),
     now: () => new Date(),
-  }));
+  })));
   if (!res.ran) console.log('[campaigns] another dispatcher is running — skipped');
   await pool.end();
   redis.disconnect();

@@ -25,6 +25,8 @@ import '../../features/quran/data/tafsir_repository.dart';
 import '../../features/quran/domain/quran_data.dart';
 import '../../features/rewards/data/rewards_repository.dart';
 import '../analytics/analytics.dart';
+import '../analytics/product_analytics.dart';
+import '../settings/settings_controller.dart';
 import '../config/env.dart';
 import '../config/remote_config.dart';
 import '../network/download_queue.dart';
@@ -121,6 +123,20 @@ final analyticsProvider = Provider((ref) {
     sinks: ref.watch(adSinksProvider),
     adsConsent: () => consents.granted(ConsentKind.adsMeasurement),
     store: ref.watch(kvStoreProvider),
+  );
+});
+
+/// Consented product analytics («تحسين التطبيق»), to our API only — see core/analytics/product_analytics.dart.
+final productAnalyticsProvider = Provider((ref) {
+  final consents = ref.watch(consentRepositoryProvider);
+  final device = ref.watch(deviceServicesProvider);
+  return ProductAnalytics(
+    api: ref.watch(apiClientProvider),
+    store: ref.watch(kvStoreProvider),
+    consent: () => consents.granted(ConsentKind.productAnalytics),
+    platform: device.isIOS ? 'ios' : 'android',
+    appVersion: device.appVersion,
+    locale: () => ref.read(settingsProvider).locale,
   );
 });
 

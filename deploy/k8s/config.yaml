@@ -19,3 +19,7 @@ data:
   RATE_LIMIT_PER_MIN: "300"
   MAX_EVENT_LOOP_DELAY_MS: "1000"
   SHUTDOWN_GRACE_MS: "15000"
+  # Prometheus scrape port (Service port `metrics`, never exposed by the ingress). See deploy/k8s/monitoring.
+  METRICS_PORT: "9100"
+  # Errors only by default; raise to sample performance traces (0.05 = 5 %).
+  SENTRY_TRACES_SAMPLE_RATE: "0"

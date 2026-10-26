@@ -34,6 +34,19 @@ const EnvSchema = z.object({
   PLAY_STORE_URL: z.string().url().default('https://play.google.com/store/apps/details?id=com.yaqinbrand.yaqeen'),
   /** Empty until the App Store listing exists; iPhone visitors then go to the store site. */
   APP_STORE_URL: z.string().default(''),
+
+  /* Observability — all optional; empty = off. */
+  /** Sentry project DSN (errors; traces only when SENTRY_TRACES_SAMPLE_RATE > 0). */
+  SENTRY_DSN: z.string().default(''),
+  SENTRY_ENVIRONMENT: z.string().default(''),
+  SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(0),
+  /** The commit this build came from (set by CI in the image); the Sentry release. */
+  GIT_SHA: z.string().default('dev'),
+  /** Prometheus metrics on a separate, cluster-internal port (0 = off). */
+  METRICS_PORT: z.coerce.number().int().min(0).max(65535).default(0),
+  /** PostHog project key (EU cloud) — consented product events are forwarded server-side when set. */
+  POSTHOG_KEY: z.string().default(''),
+  POSTHOG_HOST: z.string().url().default('https://eu.i.posthog.com'),
   // Capacity / resilience (tune per environment; see docs/OPERATIONS.md)
   PG_POOL_MAX: z.coerce.number().int().min(1).max(200).default(20),
   PG_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(1000).default(10_000),

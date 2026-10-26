@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/analytics/analytics.dart';
+import '../../../core/analytics/product_analytics.dart';
 import '../../../core/config/env.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/format.dart';
@@ -177,6 +180,7 @@ class _ConfirmSheetState extends ConsumerState<_ConfirmSheet> {
       final r = await ref.read(rewardsRepositoryProvider).redeem(widget.reward.id, idempotencyKey: _key);
       // Marketing milestone only; the analytics gate drops it without `ads_measurement` consent.
       await ref.read(analyticsProvider).log(AdEvent.rewardRedeem, {'reward_id': widget.reward.id});
+      unawaited(ref.read(productAnalyticsProvider).track(ProductEvent.rewardRedeem));
       ref.invalidate(challengeControllerProvider);
       ref.invalidate(rewardsProvider);
       ref.invalidate(codesProvider);
@@ -285,6 +289,7 @@ class _SuccessScreenState extends ConsumerState<_SuccessScreen> {
               label: t.redeemShop,
               onPressed: () async {
                 await ref.read(analyticsProvider).log(AdEvent.storeClick);
+                unawaited(ref.read(productAnalyticsProvider).track(ProductEvent.storeClick, {'from': 'redeem'}));
                 await ref.read(deviceServicesProvider).openUrl(storeLinkFor(Env.storeUrl, code));
               },
             ),

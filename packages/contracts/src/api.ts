@@ -529,3 +529,38 @@ export type ConfigPatch = z.infer<typeof ConfigPatch>;
 
 export const Paged = <T extends z.ZodTypeAny>(item: T) =>
   z.object({ items: z.array(item), nextCursor: z.string().nullable() });
+
+/* ------------------------------------------------------- product analytics */
+
+/** POST /v1/events — a batch of consented product events from one install. */
+export const ProductEventsBatch = z.object({
+  /** Random per-install id (UUID v4), never the account id; rotated when consent is withdrawn. */
+  anonId: z.string().uuid(),
+  platform: z.enum(['ios', 'android']),
+  appVersion: z.string().max(32),
+  locale: z.enum(['ar', 'en']),
+  events: z
+    .array(
+      z.object({
+        name: z.string().max(40),
+        props: z.record(z.string().max(30), z.string().max(30)).default({}),
+        at: z.iso.datetime(),
+      }),
+    )
+    .min(1)
+    .max(50),
+});
+export type ProductEventsBatch = z.infer<typeof ProductEventsBatch>;
+
+/** GET /admin/analytics — aggregates only; any count under 20 is withheld (null). */
+export const ProductAnalyticsReport = z.object({
+  days: z.number().int(),
+  to: z.string(),
+  activeInstalls: z.array(z.object({ date: z.string(), value: z.number().int().nullable() })),
+  events: z.array(z.object({ name: z.string(), total: z.number().int().nullable(), installs: z.number().int().nullable() })),
+  onboardingFunnel: z.array(z.object({ step: z.string(), installs: z.number().int().nullable() })),
+  retention: z.array(z.object({ cohort: z.string(), size: z.number().int().nullable(), weeks: z.array(z.number().nullable()) })),
+  platforms: z.array(z.object({ platform: z.string(), installs: z.number().int().nullable() })),
+  versions: z.array(z.object({ version: z.string(), installs: z.number().int().nullable() })),
+});
+export type ProductAnalyticsReport = z.infer<typeof ProductAnalyticsReport>;

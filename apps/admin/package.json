@@ -11,6 +11,7 @@
     "test": "echo \"admin: covered by typecheck + build\""
   },
   "dependencies": {
+    "@sentry/nextjs": "^11.9.0",
     "@yaqeen/contracts": "workspace:*",
     "@yaqeen/design-tokens": "workspace:*",
     "next": "15.5.4",

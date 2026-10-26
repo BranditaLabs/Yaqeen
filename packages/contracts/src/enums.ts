@@ -14,7 +14,7 @@ export type UserStatus = z.infer<typeof UserStatus>;
  * Consent buckets, recorded separately (Egypt PDPL 151/2020 requires explicit,
  * specific, revocable consent with records).
  */
-export const ConsentKind = z.enum(['worship_reminders', 'challenge_rewards', 'store_offers', 'ads_measurement']);
+export const ConsentKind = z.enum(['worship_reminders', 'challenge_rewards', 'store_offers', 'ads_measurement', 'product_analytics']);
 export type ConsentKind = z.infer<typeof ConsentKind>;
 
 /** The six daily challenge tasks. Point values live in the database (admin-editable). */

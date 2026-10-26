@@ -10,6 +10,7 @@
  */
 import { sql } from 'drizzle-orm';
 import {
+  bigserial,
   boolean,
   date,
   index,
@@ -35,6 +36,7 @@ export const consentKind = pgEnum('consent_kind', [
   'challenge_rewards',
   'store_offers',
   'ads_measurement',
+  'product_analytics',
 ]);
 export const taskKey = pgEnum('task_key', [
   'wird',
@@ -211,6 +213,27 @@ export const profileTags = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index('profile_tags_user_idx').on(t.userId), index('profile_tags_batch_idx').on(t.batch)],
+);
+
+/**
+ * Consented product analytics («تحسين التطبيق»). Keyed by a random per-install id, never the account:
+ * no user_id column on purpose. Closed event list without worship activity (contracts PRODUCT_EVENTS).
+ * Kept 180 days (purge job), shown to admins as aggregates with small counts withheld.
+ */
+export const productEvents = pgTable(
+  'product_events',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    anonId: uuid('anon_id').notNull(),
+    name: text('name').notNull(),
+    props: jsonb('props').$type<Record<string, string>>().notNull().default({}),
+    platform: text('platform').notNull(),
+    appVersion: text('app_version').notNull(),
+    locale: text('locale').notNull(),
+    occurredAt: ts('occurred_at').notNull(),
+    receivedAt: createdAt(),
+  },
+  (t) => [index('product_events_time_idx').on(t.occurredAt), index('product_events_name_time_idx').on(t.name, t.occurredAt)],
 );
 
 /** A production run of tags: what the factory was asked for and where it stands. */

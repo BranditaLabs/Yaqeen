@@ -9,6 +9,7 @@ import { sql } from 'drizzle-orm';
 import type { AppContext } from './context.js';
 import { type CacheNamespace, ResponseCache } from './lib/cache.js';
 import { errorHandler } from './lib/errors.js';
+import { httpDuration } from './lib/metrics.js';
 import { authPlugin } from './plugins/auth.js';
 import { adminAuthRoutes } from './routes/admin/auth.routes.js';
 import { adminCampaignRoutes } from './routes/admin/campaigns.routes.js';
@@ -18,6 +19,7 @@ import { adminRewardsRoutes } from './routes/admin/rewards.routes.js';
 import { adminSettingsRoutes } from './routes/admin/settings.routes.js';
 import { adminTagsRoutes } from './routes/admin/tags.routes.js';
 import { adminCardsRoutes } from './routes/admin/cards.routes.js';
+import { adminAnalyticsRoutes } from './routes/admin/analytics.routes.js';
 import { adminUsersRoutes } from './routes/admin/users.routes.js';
 import { appRoutes } from './routes/public/app.routes.js';
 import { authRoutes } from './routes/public/auth.routes.js';
@@ -57,6 +59,13 @@ export async function buildApp(input: Omit<AppContext, 'cache'> & { cache?: Resp
   app.setErrorHandler(errorHandler);
   app.addHook('onSend', async (req, reply) => {
     reply.header('x-request-id', req.id);
+  });
+  // RED metrics by route template (never the raw URL: no handles, codes or ids in labels).
+  app.addHook('onResponse', async (req, reply) => {
+    httpDuration.observe(
+      { method: req.method, route: req.routeOptions.url ?? 'unmatched', status: String(reply.statusCode) },
+      reply.elapsedTime / 1000,
+    );
   });
   app.addHook('onResponse', async (req, reply) => {
     if (req.method === 'GET' || reply.statusCode >= 400) return;
@@ -120,6 +129,7 @@ export async function buildApp(input: Omit<AppContext, 'cache'> & { cache?: Resp
   await app.register(adminSettingsRoutes, { prefix: '/admin/settings' });
   await app.register(adminTagsRoutes, { prefix: '/admin/tags' });
   await app.register(adminCardsRoutes, { prefix: '/admin/cards' });
+  await app.register(adminAnalyticsRoutes, { prefix: '/admin/analytics' });
 
   return app;
 }

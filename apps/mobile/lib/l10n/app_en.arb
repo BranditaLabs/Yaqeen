@@ -1647,5 +1647,7 @@
   "medalBuy": "Get a Yaqeen medal from the store",
   "cardModerated": "Yaqeen support has hidden your card for breaking the guidelines. Contact us to review it.",
   "cardPaused": "Public cards are paused for now and will be back soon.",
-  "medalPaused": "Medal activation is paused for now, try again later."
+  "medalPaused": "Medal activation is paused for now, try again later.",
+  "consentAnalytics": "Improve the app",
+  "consentAnalyticsDetail": "Anonymous usage stats that help us improve Yaqeen: screens and steps only, never your account or any worship."
 }

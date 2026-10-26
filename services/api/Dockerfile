@@ -14,7 +14,10 @@ RUN pnpm --filter @yaqeen/contracts build && pnpm --filter @yaqeen/api build
 RUN pnpm --filter @yaqeen/api deploy --prod --legacy /out
 
 FROM node:22-alpine AS runtime
-ENV NODE_ENV=production
+# The commit this image was built from: the Sentry release and a deploy marker in logs.
+ARG GIT_SHA=dev
+# tsc output is plain readable JS; source maps make stack traces (logs and Sentry) point at the .ts lines.
+ENV NODE_ENV=production GIT_SHA=$GIT_SHA NODE_OPTIONS=--enable-source-maps
 WORKDIR /app
 RUN addgroup -S app && adduser -S app -G app
 COPY --from=build /out/node_modules ./node_modules

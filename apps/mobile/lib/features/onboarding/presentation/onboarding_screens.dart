@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/analytics/analytics.dart';
+import '../../../core/analytics/product_analytics.dart';
 import '../../../core/config/config_controller.dart';
 import '../../../core/config/remote_config.dart';
 import '../../../core/di/providers.dart';
@@ -635,6 +638,7 @@ class _ConsentStepState extends ConsumerState<ConsentStep> {
     if (_values[ConsentKind.adsMeasurement]!) await ref.read(deviceServicesProvider).requestTracking();
     // Queued first_open / sign_up go out only if ads ended ON; otherwise they are dropped.
     await ref.read(analyticsProvider).onConsentChanged(_values[ConsentKind.adsMeasurement]!);
+    await ref.read(productAnalyticsProvider).onConsentChanged(_values[ConsentKind.productAnalytics]!);
     ref.read(remindersControllerProvider.notifier).replan().ignore();
     if (!mounted) return;
     setState(() => _busy = false);
@@ -652,6 +656,7 @@ class _ConsentStepState extends ConsumerState<ConsentStep> {
       (ConsentKind.challengeRewards, YqIcons.challenge, t.consentChallenge, t.consentChallengeDetail),
       (ConsentKind.storeOffers, YqIcons.store, t.consentOffers, t.consentOffersDetail),
       (ConsentKind.adsMeasurement, YqIcons.share, t.consentAds, t.consentAdsDetail),
+      (ConsentKind.productAnalytics, YqIcons.settings, t.consentAnalytics, t.consentAnalyticsDetail),
     ];
     return _Step(
       step: 3,
@@ -926,6 +931,7 @@ class DownloadStep extends ConsumerWidget {
   Future<void> _finish(BuildContext context, WidgetRef ref) async {
     await ref.read(settingsProvider.notifier).update((s) => s.copyWith(onboardingCompletedAt: DateTime.now()), sync: false);
     await ref.read(analyticsProvider).logOrQueue(AdEvent.onboardingComplete);
+    unawaited(ref.read(productAnalyticsProvider).track(ProductEvent.onboardingComplete));
     if (context.mounted) context.go('/home');
   }
 
