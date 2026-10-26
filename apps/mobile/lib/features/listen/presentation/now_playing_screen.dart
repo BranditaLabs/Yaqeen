@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,10 +9,11 @@ import '../../../core/format.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
-import '../../../core/widgets/ambient_background.dart';
 import '../../../core/widgets/liquid_glass.dart';
 import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_layout.dart';
+import '../../../core/widgets/yq_ring.dart';
+import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../quran/domain/quran_data.dart';
@@ -161,199 +164,182 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
       if (_tafsir && prev != next) setState(() => _tafsir = false);
     });
 
-    Widget body;
-    if (quran == null || st.status == ListenStatus.loading || st.status == ListenStatus.idle) {
-      body = const Center(child: CircularProgressIndicator(color: YqColors.lapis));
-    } else if (st.status == ListenStatus.noReciter) {
-      body = Center(child: YqEmptyState(icon: YqIcons.listen, title: t.listenNoReciter));
-    } else {
-      final surah = quran.surah(st.surah);
-      final r = st.reciter!;
-      final total = st.duration ?? Duration.zero;
-      final pos = st.position > total && total > Duration.zero ? total : st.position;
-      body = ListView(
-        padding: const EdgeInsets.fromLTRB(YqSpace.gutter, YqSpace.s, YqSpace.gutter, YqSpace.xxl),
+    final r = st.reciter;
+    final ready = quran != null && st.status != ListenStatus.loading && st.status != ListenStatus.idle;
+    final download = r != null && st.status != ListenStatus.noReciter
+        ? GlassIconButton(
+            tooltip: _progress != null
+                ? t.reciterDownloading
+                : _downloaded == true
+                    ? t.reciterDownloaded
+                    : t.listenDownloadSurah,
+            onPressed: _downloaded == true ? null : () => _download(r, st.surah),
+            icon: _progress != null
+                ? SizedBox.square(dimension: 20, child: CircularProgressIndicator(value: _progress, strokeWidth: 2.4, color: YqColors.lapis))
+                : _downloaded == true
+                    ? const Icon(Icons.download_done_rounded, color: YqColors.success, size: 22)
+                    : const YqIcon(YqIcons.download, size: 20),
+          )
+        : null;
+
+    final surah = ready && st.status != ListenStatus.noReciter ? quran.surah(st.surah) : null;
+    final stage = YqStage(
+      compact: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(t.listenNowPlaying, style: text.labelMedium?.copyWith(color: YqColors.goldText, letterSpacing: 0.2)),
-          const SizedBox(height: YqSpace.s),
-          LiquidGlass(
-            padding: const EdgeInsets.all(YqSpace.xl),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(t.listenSurahMeta(surah.number, surahTypeLabel(t, surah), surah.ayahCount), style: text.bodySmall),
-                const SizedBox(height: YqSpace.xs),
-                Text(surah.name(locale), style: YqText.display.copyWith(fontSize: 34)),
-                const SizedBox(height: YqSpace.xs),
-                Text(r.name(locale), style: text.bodyMedium?.copyWith(color: YqColors.muted)),
-              ],
-            ),
-          ),
-          const SizedBox(height: YqSpace.m),
-          if (st.status == ListenStatus.unavailable)
-            YqErrorState(message: t.listenUnavailable, onRetry: () => c.open(st.surah, ayah: st.ayah))
-          else ...[
-            LiquidGlass(
-              padding: const EdgeInsets.all(YqSpace.l),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Directionality(
-                    textDirection: TextDirection.rtl,
-                    child: Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(text: '${quran.text(st.ref)} '),
-                          TextSpan(
-                            text: '﴿${YqFormat.toArabicIndic(st.ayah)}﴾',
-                            style: const TextStyle(color: YqColors.goldText),
-                          ),
-                        ],
-                      ),
-                      textAlign: TextAlign.center,
-                      style: YqText.quran(size: 24, height: 2.1, color: YqColors.ink),
-                    ),
-                  ),
-                  Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: TextButton.icon(
-                      onPressed: () => _toggleTafsir(st.ref),
-                      icon: Icon(_tafsir ? Icons.expand_less_rounded : Icons.expand_more_rounded, size: 18),
-                      label: Text(t.tafsirTitle),
-                    ),
-                  ),
-                  if (_tafsir)
-                    Text(
-                      _tafsirText ?? t.tafsirPlaceholder,
-                      style: text.bodyMedium?.copyWith(color: _tafsirText == null ? YqColors.muted : YqColors.ink),
-                    ),
-                  if (_tafsir && _tafsirText != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: YqSpace.xs),
-                      child: Text(t.tafsirAttribution, style: text.bodySmall?.copyWith(color: YqColors.goldText)),
-                    ),
-                ],
-              ),
-            ),
+          Row(children: [YqBackButton(label: t.listenBack), const Spacer(), if (download != null) download]),
+          if (surah != null) ...[
             const SizedBox(height: YqSpace.l),
-            Semantics(
-              label: '${mmss(pos)} / ${mmss(total)}',
-              child: Slider(
-                value: total.inMilliseconds == 0 ? 0 : pos.inMilliseconds / total.inMilliseconds,
-                onChanged: total.inMilliseconds == 0 ? null : (v) => c.seek(total * v),
-                activeColor: YqColors.lapis,
-                inactiveColor: YqColors.sky200,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: YqSpace.l),
-              child: Directionality(
-                textDirection: TextDirection.ltr,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [Text(mmss(pos), style: YqText.numberSmall), Text(mmss(total), style: YqText.numberSmall)],
+            YqMoment(
+              eyebrow: t.listenNowPlaying,
+              value: Text(
+                surah.name(locale),
+                style: YqMoment.display(context, size: 48).copyWith(
+                  fontFamily: locale == 'ar' ? YqFonts.display : YqFonts.naskh,
+                  fontFamilyFallback: YqFonts.displayFallback,
                 ),
               ),
-            ),
-            const SizedBox(height: YqSpace.l),
-            Semantics(
-              container: true,
-              label: t.listenControls,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              caption: Column(
                 children: [
-                  _RoundIcon(
-                    tooltip: t.listenRepeat,
-                    icon: Icons.repeat_one_rounded,
-                    active: st.repeat == ListenRepeat.ayah,
-                    onTap: st.synced ? c.toggleRepeatAyah : null,
-                  ),
-                  // RTL: «previous ayah» sits on the right, matching reading direction.
-                  _RoundIcon(tooltip: t.listenPrev, icon: Icons.skip_next_rounded, onTap: st.synced ? c.previous : null),
-                  Tooltip(
-                    message: st.playing ? t.listenPause : t.listenPlay,
-                    child: Semantics(
-                      button: true,
-                      label: st.playing ? t.listenPause : t.listenPlay,
-                      child: Material(
-                        color: YqColors.ink,
-                        shape: const StadiumBorder(),
-                        child: InkWell(
-                          customBorder: const StadiumBorder(),
-                          onTap: c.toggle,
-                          child: SizedBox(
-                            width: 88,
-                            height: 64,
-                            child: Icon(st.playing ? Icons.pause_rounded : Icons.play_arrow_rounded, color: YqColors.white, size: 34),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  _RoundIcon(tooltip: t.listenNext, icon: Icons.skip_previous_rounded, onTap: st.synced ? c.next : null),
-                  Tooltip(
-                    message: t.listenSpeed(_speed(st.speed)),
-                    child: TextButton(
-                      onPressed: c.cycleSpeed,
-                      child: Text('${_speed(st.speed)}×', style: YqText.numberSmall.copyWith(color: YqColors.lapis)),
-                    ),
-                  ),
+                  Text(t.listenSurahMeta(surah.number, surahTypeLabel(t, surah), surah.ayahCount)),
+                  Text(r!.name(locale), style: text.bodyMedium?.copyWith(color: YqColors.ink, fontWeight: FontWeight.w500)),
                 ],
               ),
             ),
           ],
-          const SizedBox(height: YqSpace.xl),
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: YqSpace.s,
-            runSpacing: YqSpace.s,
-            children: [
-              YqChip(label: t.listenChangeReciter, selected: false, onTap: () => context.push('/quran/reciters')),
-              YqChip(label: t.listenSleepTimer, selected: st.sleepOn, onTap: _sleepSheet),
-            ],
-          ),
         ],
-      );
-    }
+      ),
+    );
 
-    final r = st.reciter;
-    return Scaffold(
-      backgroundColor: YqColors.porcelain,
-      body: AmbientBackground(
-        child: SafeArea(
+    final List<Widget> children;
+    if (!ready) {
+      children = const [Center(child: Padding(padding: EdgeInsets.all(YqSpace.xxl), child: CircularProgressIndicator(color: YqColors.lapis)))];
+    } else if (st.status == ListenStatus.noReciter) {
+      children = [YqEmptyState(icon: YqIcons.listen, title: t.listenNoReciter)];
+    } else if (st.status == ListenStatus.unavailable) {
+      children = [YqErrorState(message: t.listenUnavailable, onRetry: () => c.open(st.surah, ayah: st.ayah))];
+    } else {
+      final total = st.duration ?? Duration.zero;
+      final pos = st.position > total && total > Duration.zero ? total : st.position;
+      children = [
+        LiquidGlass(
+          padding: const EdgeInsets.all(YqSpace.l),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(YqSpace.gutter, YqSpace.s, YqSpace.gutter, 0),
-                child: Row(
-                  children: [
-                    YqBackButton(label: t.listenBack),
-                    const Spacer(),
-                    if (r != null && st.status != ListenStatus.noReciter)
-                      GlassIconButton(
-                        tooltip: _progress != null
-                            ? t.reciterDownloading
-                            : _downloaded == true
-                                ? t.reciterDownloaded
-                                : t.listenDownloadSurah,
-                        onPressed: _downloaded == true ? null : () => _download(r, st.surah),
-                        icon: _progress != null
-                            ? SizedBox.square(
-                                dimension: 20,
-                                child: CircularProgressIndicator(value: _progress, strokeWidth: 2.4, color: YqColors.lapis),
-                              )
-                            : _downloaded == true
-                                ? const Icon(Icons.download_done_rounded, color: YqColors.success, size: 22)
-                                : const YqIcon(YqIcons.download, size: 20),
-                      ),
-                  ],
+              Directionality(
+                textDirection: TextDirection.rtl,
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(text: '${quran.text(st.ref)} '),
+                      TextSpan(text: '﴿${YqFormat.toArabicIndic(st.ayah)}﴾', style: const TextStyle(color: YqColors.goldText)),
+                    ],
+                  ),
+                  textAlign: TextAlign.center,
+                  style: YqText.quran(size: 24, height: 2.1, color: YqColors.ink),
                 ),
               ),
-              Expanded(child: body),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton.icon(
+                  onPressed: () => _toggleTafsir(st.ref),
+                  icon: Icon(_tafsir ? Icons.expand_less_rounded : Icons.expand_more_rounded, size: 18),
+                  label: Text(t.tafsirTitle),
+                ),
+              ),
+              if (_tafsir)
+                Text(
+                  _tafsirText ?? t.tafsirPlaceholder,
+                  style: text.bodyMedium?.copyWith(color: _tafsirText == null ? YqColors.muted : YqColors.ink),
+                ),
+              if (_tafsir && _tafsirText != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: YqSpace.xs),
+                  child: Text(t.tafsirAttribution, style: text.bodySmall?.copyWith(color: YqColors.goldText)),
+                ),
             ],
           ),
         ),
-      ),
+        const SizedBox(height: YqSpace.xl),
+        // The player as an orbit: the ring is the timeline (drag around it to seek), the ink pill
+        // in its heart plays and pauses.
+        Center(
+          child: _OrbitScrubber(
+            value: total.inMilliseconds == 0 ? 0 : pos.inMilliseconds / total.inMilliseconds,
+            label: '${mmss(pos)} / ${mmss(total)}',
+            onSeek: total.inMilliseconds == 0 ? null : (v) => c.seek(total * v),
+            child: Tooltip(
+              message: st.playing ? t.listenPause : t.listenPlay,
+              child: Semantics(
+                button: true,
+                label: st.playing ? t.listenPause : t.listenPlay,
+                child: Material(
+                  color: YqColors.navy,
+                  shape: const StadiumBorder(),
+                  elevation: 0,
+                  child: InkWell(
+                    customBorder: const StadiumBorder(),
+                    onTap: c.toggle,
+                    child: SizedBox(
+                      width: 96,
+                      height: 64,
+                      child: Icon(st.playing ? Icons.pause_rounded : Icons.play_arrow_rounded, color: YqColors.goldLight, size: 36),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: YqSpace.s),
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Text('${mmss(pos)}  ·  ${mmss(total)}', textAlign: TextAlign.center, style: YqText.numberSmall.copyWith(color: YqColors.muted)),
+        ),
+        const SizedBox(height: YqSpace.l),
+        Semantics(
+          container: true,
+          label: t.listenControls,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _RoundIcon(
+                tooltip: t.listenRepeat,
+                icon: Icons.repeat_one_rounded,
+                active: st.repeat == ListenRepeat.ayah,
+                onTap: st.synced ? c.toggleRepeatAyah : null,
+              ),
+              // RTL: «previous ayah» sits on the right, matching reading direction.
+              _RoundIcon(tooltip: t.listenPrev, icon: Icons.skip_next_rounded, onTap: st.synced ? c.previous : null),
+              _RoundIcon(tooltip: t.listenNext, icon: Icons.skip_previous_rounded, onTap: st.synced ? c.next : null),
+              Tooltip(
+                message: t.listenSpeed(_speed(st.speed)),
+                child: TextButton(
+                  onPressed: c.cycleSpeed,
+                  child: Text('${_speed(st.speed)}×', style: YqText.numberSmall.copyWith(color: YqColors.lapis, fontSize: 15)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: YqSpace.l),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: YqSpace.s,
+          runSpacing: YqSpace.s,
+          children: [
+            YqChip(label: t.listenChangeReciter, selected: false, onTap: () => context.push('/quran/reciters')),
+            YqChip(label: t.listenSleepTimer, selected: st.sleepOn, onTap: _sleepSheet),
+          ],
+        ),
+      ];
+    }
+
+    return Scaffold(
+      backgroundColor: YqColors.porcelain,
+      body: YqCanvas(bottom: YqSpace.xxl, stage: stage, children: children),
     );
   }
 
@@ -380,4 +366,69 @@ class _RoundIcon extends StatelessWidget {
           icon: Icon(icon),
         ),
       );
+}
+
+/// A ring that is the track's timeline: progress sweeps with the reading direction, a gold bead
+/// marks the position, and dragging (or tapping) around the ring seeks. For screen readers it is
+/// a slider that steps 5 %.
+class _OrbitScrubber extends StatelessWidget {
+  const _OrbitScrubber({required this.value, required this.label, required this.onSeek, required this.child});
+  final double value;
+  final String label;
+  final ValueChanged<double>? onSeek;
+  final Widget child;
+
+  static const size = 232.0;
+
+  double _fraction(Offset local, bool rtl) {
+    final d = local - const Offset(size / 2, size / 2);
+    var a = math.atan2(d.dx, -d.dy); // 0 at the top, clockwise
+    if (a < 0) a += math.pi * 2;
+    final f = a / (math.pi * 2);
+    return rtl ? (1 - f) % 1 : f;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    void seek(Offset p) => onSeek?.call(_fraction(p, rtl).clamp(0.0, 1.0));
+    String pct(double v) => '${(v.clamp(0.0, 1.0) * 100).round()}%';
+    return Semantics(
+      slider: true,
+      label: label,
+      value: pct(value),
+      increasedValue: pct(value + 0.05),
+      decreasedValue: pct(value - 0.05),
+      onIncrease: onSeek == null ? null : () => onSeek!((value + 0.05).clamp(0.0, 1.0)),
+      onDecrease: onSeek == null ? null : () => onSeek!((value - 0.05).clamp(0.0, 1.0)),
+      child: SizedBox.square(
+        dimension: size,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapUp: (d) => seek(d.localPosition),
+                onPanUpdate: (d) => seek(d.localPosition),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xE6FFFFFF), Color(0x99FFFFFF)]),
+                    border: Border.all(color: const Color(0xF2FFFFFF), width: 1.4),
+                    boxShadow: const [BoxShadow(color: Color(0x260F1A36), blurRadius: 34, spreadRadius: -8, offset: Offset(0, 14))],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: YqRing(value: value, size: size - 28, stroke: 6),
+                  ),
+                ),
+              ),
+            ),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
 }

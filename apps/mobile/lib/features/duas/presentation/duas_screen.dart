@@ -7,11 +7,12 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/time/zoned.dart';
-import '../../../core/widgets/ambient_background.dart';
+import '../../../core/format.dart';
 import '../../../core/widgets/liquid_glass.dart';
 import '../../../core/widgets/share_card.dart';
 import '../../../core/widgets/yq_icon.dart';
-import '../../../core/widgets/yq_layout.dart';
+import '../../../core/widgets/yq_orb.dart';
+import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../content/data/content_controller.dart';
@@ -53,94 +54,115 @@ class DuasScreen extends ConsumerWidget {
     final s = ref.watch(settingsProvider);
     final today = Zoned.isoDate(Zoned.today(s.placeOrDefault.timezone, ref.watch(clockProvider)()));
 
+    final lib = content.valueOrNull;
+    final ofDay = lib?.duaOfTheDay(today);
     return Scaffold(
       backgroundColor: YqColors.porcelain,
-      body: AmbientBackground(
-        child: SafeArea(
-          child: YqPage(
-            header: YqTopBar(title: t.duasTitle),
-            children: content.when(
-              loading: () => [const YqSkeleton(child: YqSkeletonBox(height: 220, radius: YqRadii.hero))],
-              error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(contentProvider))],
-              data: (lib) {
-                final ofDay = lib.duaOfTheDay(today);
-                if (ofDay == null) {
-                  return [
-                    LiquidGlass(
-                      child: YqEmptyState(
-                        icon: YqIcons.dua,
-                        title: t.duasEmpty,
-                        hint: t.contentOfflineHint,
-                        actionLabel: t.retry,
-                        onAction: () => ref.read(contentProvider.notifier).refresh(),
-                      ),
-                    ),
-                  ];
-                }
-                return [
-                  Text(t.duaOfTheDay, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: YqColors.goldText)),
-                  const SizedBox(height: YqSpace.s),
-                  DuaCard(item: ofDay, gold: true),
-                  const SizedBox(height: YqSpace.xl),
-                  Text(t.duaSections, style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: YqSpace.m),
-                  GridView.count(
-                    crossAxisCount: 2,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    mainAxisSpacing: YqSpace.m,
-                    crossAxisSpacing: YqSpace.m,
-                    childAspectRatio: 1.7,
-                    children: [
-                      for (final c in DuaCategory.values)
-                        if (lib.duas(c).isNotEmpty)
-                          _SectionTile(
-                            title: duaCategoryLabel(t, c),
-                            subtitle: t.duaCount(lib.duas(c).length),
-                            onTap: () => context.push('/home/duas/${c.key}'),
-                          ),
-                      _SectionTile(
-                        title: t.duaFavourites,
-                        subtitle: t.duaFavCount(favs.where((id) => lib.byId(id) != null).length),
-                        gold: true,
-                        onTap: () => context.push('/home/duas/favourites'),
-                      ),
-                    ],
-                  ),
-                ];
-              },
-            ),
+      body: YqCanvas(
+        bottom: YqSpace.xxl,
+        stage: YqStage(
+          compact: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              YqStageBar(back: true, title: t.duasTitle),
+              if (ofDay != null) ...[const SizedBox(height: YqSpace.xl), _DayDua(item: ofDay)],
+            ],
           ),
+        ),
+        children: content.when(
+          loading: () => [const YqSkeleton(child: YqSkeletonBox(height: 220, radius: YqRadii.hero))],
+          error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(contentProvider))],
+          data: (lib) {
+            if (ofDay == null) {
+              return [
+                LiquidGlass(
+                  child: YqEmptyState(
+                    icon: YqIcons.dua,
+                    title: t.duasEmpty,
+                    hint: t.contentOfflineHint,
+                    actionLabel: t.retry,
+                    onAction: () => ref.read(contentProvider.notifier).refresh(),
+                  ),
+                ),
+              ];
+            }
+            final favCount = favs.where((id) => lib.byId(id) != null).length;
+            final orbs = <Widget>[
+              for (final c in DuaCategory.values)
+                if (lib.duas(c).isNotEmpty)
+                  YqOrb(
+                    size: 88,
+                    title: duaCategoryLabel(t, c),
+                    status: t.duaCount(lib.duas(c).length),
+                    onTap: () => context.push('/home/duas/${c.key}'),
+                    semanticLabel: '${duaCategoryLabel(t, c)}، ${t.duaCount(lib.duas(c).length)}',
+                    disc: YqOrb.number(YqFormat.number(lib.duas(c).length), size: 26),
+                  ),
+              YqOrb(
+                size: 88,
+                title: t.duaFavourites,
+                status: t.duaFavCount(favCount),
+                glow: favCount > 0,
+                statusColor: YqColors.goldText,
+                onTap: () => context.push('/home/duas/favourites'),
+                semanticLabel: '${t.duaFavourites}، ${t.duaFavCount(favCount)}',
+                disc: Center(
+                  child: Icon(favCount > 0 ? Icons.favorite_rounded : Icons.favorite_border_rounded, color: YqColors.gold, size: 30),
+                ),
+              ),
+            ];
+            return [
+              YqHeading(t.duaSections),
+              for (var i = 0; i < orbs.length; i += 3) ...[
+                YqOrbRow(orbs: [for (var j = i; j < i + 3; j++) j < orbs.length ? orbs[j] : const SizedBox.shrink()]),
+                const SizedBox(height: YqSpace.l),
+              ],
+            ];
+          },
         ),
       ),
     );
   }
 }
 
-class _SectionTile extends StatelessWidget {
-  const _SectionTile({required this.title, required this.subtitle, required this.onTap, this.gold = false});
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-  final bool gold;
+/// The stage's moment: the dua of the day in the naskh face, its source, favourite and share.
+class _DayDua extends ConsumerWidget {
+  const _DayDua({required this.item});
+  final ContentItem item;
 
   @override
-  Widget build(BuildContext context) => GlassTap(
-        onTap: onTap,
-        semanticLabel: '$title، $subtitle',
-        child: LiquidGlass(
-          padding: const EdgeInsets.all(YqSpace.l),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(title, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: YqSpace.xs),
-              Text(subtitle, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: gold ? YqColors.goldText : YqColors.muted)),
-            ],
-          ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(context);
+    final fav = ref.watch(favouritesProvider).valueOrNull?.contains(item.id) ?? false;
+    final text = Theme.of(context).textTheme;
+    return Column(
+      children: [
+        Text(t.duaOfTheDay, style: text.labelSmall?.copyWith(color: YqColors.goldText, fontWeight: FontWeight.w700, fontSize: 12, letterSpacing: 0.6)),
+        const SizedBox(height: YqSpace.m),
+        Text(item.textAr, textAlign: TextAlign.center, textDirection: TextDirection.rtl, style: YqText.dua.copyWith(fontSize: 24, height: 1.9)),
+        const SizedBox(height: YqSpace.s),
+        Text(item.source, textAlign: TextAlign.center, style: text.bodySmall?.copyWith(color: YqColors.goldText)),
+        const SizedBox(height: YqSpace.m),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            GlassIconButton(
+              tooltip: fav ? t.duaFavRemove : t.duaFavAdd,
+              onPressed: () => ref.read(favouritesProvider.notifier).toggle(item.id),
+              icon: Icon(fav ? Icons.favorite_rounded : Icons.favorite_border_rounded, color: fav ? YqColors.gold : YqColors.muted, size: 22),
+            ),
+            const SizedBox(width: YqSpace.m),
+            GlassIconButton(
+              tooltip: t.duaShare,
+              onPressed: () => showTextShareCard(context, ref, text: item.textAr, reference: item.source, fileName: 'yaqeen-dua.png'),
+              icon: const YqIcon(YqIcons.share, size: 20, tone: YqIconTone.idle),
+            ),
+          ],
         ),
-      );
+      ],
+    );
+  }
 }
 
 /// One dua: optional occasion title, text, source line (always), favourite and share.
@@ -208,16 +230,13 @@ class DuaCategoryScreen extends ConsumerWidget {
     final title = cat != null ? duaCategoryLabel(t, cat) : t.duaFavourites;
     return Scaffold(
       backgroundColor: YqColors.porcelain,
-      body: AmbientBackground(
-        child: SafeArea(
-          child: YqPage(
-            header: YqTopBar(title: title, subtitle: t.duaCount(items.length)),
-            children: [
-              if (items.isEmpty) LiquidGlass(child: YqEmptyState(icon: YqIcons.dua, title: t.duaFavCount(0))),
-              for (final i in items) ...[DuaCard(item: i), const SizedBox(height: YqSpace.m)],
-            ],
-          ),
-        ),
+      body: YqCanvas(
+        bottom: YqSpace.xxl,
+        stage: YqStage(compact: true, child: YqStageBar(back: true, title: title, subtitle: t.duaCount(items.length))),
+        children: [
+          if (items.isEmpty) LiquidGlass(child: YqEmptyState(icon: YqIcons.dua, title: t.duaFavCount(0))),
+          for (final i in items) ...[DuaCard(item: i), const SizedBox(height: YqSpace.m)],
+        ],
       ),
     );
   }

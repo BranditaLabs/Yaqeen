@@ -7,12 +7,13 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../core/text/arabic.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
-import '../../../core/widgets/ambient_background.dart';
 import '../../../core/widgets/controls.dart';
 import '../../../core/widgets/liquid_glass.dart';
 import '../../../core/widgets/yq_button.dart';
 import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_layout.dart';
+import '../../../core/widgets/yq_ring.dart';
+import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../domain/audio_models.dart';
@@ -95,113 +96,145 @@ class _RecitersScreenState extends ConsumerState<RecitersScreen> {
       if (list != null) ref.read(downloadsControllerProvider.notifier).refresh(list);
     });
 
+    final all = reciters.valueOrNull;
+    final selected = all?.where((r) => r.id == listen.reciter?.id).firstOrNull;
+    final text = Theme.of(context).textTheme;
+    final border = OutlineInputBorder(borderRadius: BorderRadius.circular(YqRadii.pill), borderSide: const BorderSide(color: Color(0xF2FFFFFF)));
+
     return Scaffold(
       backgroundColor: YqColors.porcelain,
-      body: AmbientBackground(
-        child: SafeArea(
-          child: reciters.when(
-            loading: () => const Center(child: CircularProgressIndicator(color: YqColors.lapis)),
-            error: (_, __) => YqErrorState(onRetry: () => ref.invalidate(recitersProvider)),
-            data: (all) {
-              final shown = _filter(all, dl);
-              final selectedId = listen.reciter?.id;
-              return YqPage(
-                header: YqTopBar(title: t.recitersTitle, backLabel: t.recitersBack),
-                children: [
-                  TextField(
-                    controller: _query,
-                    onChanged: (_) => setState(() {}),
-                    decoration: InputDecoration(
-                      hintText: t.recitersSearch,
-                      prefixIcon:
-                          const Padding(padding: EdgeInsets.all(12), child: YqIcon(YqIcons.search, size: 20, tone: YqIconTone.idle)),
-                      filled: true,
-                      fillColor: const Color(0xB3FFFFFF),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(YqRadii.pill), borderSide: BorderSide.none),
-                    ),
-                  ),
-                  const SizedBox(height: YqSpace.m),
-                  Wrap(
-                    spacing: YqSpace.s,
-                    runSpacing: YqSpace.s,
-                    children: [
-                      YqChip(label: t.recitersAll, selected: !_downloadedOnly, onTap: () => setState(() => _downloadedOnly = false)),
-                      YqChip(label: t.recitersDownloaded, selected: _downloadedOnly, onTap: () => setState(() => _downloadedOnly = true)),
-                      for (final s in RecitationStyle.values)
-                        YqChip(
-                          label: styleLabel(t, s),
-                          selected: _style == s,
-                          onTap: () => setState(() => _style = _style == s ? null : s),
+      body: YqCanvas(
+        bottom: YqSpace.xxl,
+        stage: YqStage(
+          compact: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              YqStageBar(back: true, title: t.recitersTitle, backLabel: t.recitersBack),
+              if (selected != null) ...[
+                const SizedBox(height: YqSpace.l),
+                // The voice you listen to: its medallion ringed by how much of the mushaf is offline.
+                Row(
+                  children: [
+                    YqRing(
+                      value: (dl[selected.id] ?? const ReciterDownload()).fraction,
+                      gold: (dl[selected.id] ?? const ReciterDownload()).complete,
+                      size: 76,
+                      stroke: 4,
+                      child: CircleAvatar(
+                        radius: 30,
+                        backgroundColor: YqColors.lapis,
+                        child: Text(
+                          selected.initial(locale),
+                          style: const TextStyle(fontFamily: YqFonts.naskh, fontSize: 24, fontWeight: FontWeight.w700, color: YqColors.white),
                         ),
-                    ],
-                  ),
-                  const SizedBox(height: YqSpace.l),
-                  if (all.isEmpty)
-                    LiquidGlass(child: YqEmptyState(icon: YqIcons.listen, title: t.listenNoReciter))
-                  else if (shown.isEmpty)
-                    LiquidGlass(child: YqEmptyState(icon: YqIcons.search, title: t.recitersEmpty, hint: t.recitersEmptyHint))
-                  else
-                    LiquidGlass(
-                      padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
-                      child: Column(
-                        children: [
-                          for (final r in shown) ...[
-                            _ReciterRow(
-                              reciter: r,
-                              locale: locale,
-                              selected: r.id == selectedId,
-                              sampling: listen.sampleOf == r.id,
-                              download: dl[r.id] ?? const ReciterDownload(),
-                              onSelect: () async {
-                                await ref.read(listenControllerProvider.notifier).stopSample();
-                                await ref.read(listenControllerProvider.notifier).selectReciter(r);
-                                if (context.mounted && context.canPop()) context.pop();
-                              },
-                              onSample: () => listen.sampleOf == r.id
-                                  ? ref.read(listenControllerProvider.notifier).stopSample()
-                                  : ref.read(listenControllerProvider.notifier).playSample(r),
-                              onDownload: () async {
-                                final d = dl[r.id] ?? const ReciterDownload();
-                                final c = ref.read(downloadsControllerProvider.notifier);
-                                if (d.running) {
-                                  c.cancel(r.id);
-                                } else if (d.complete) {
-                                  await _confirmDelete(r);
-                                } else {
-                                  await c.downloadAll(r);
-                                  final after = ref.read(downloadsControllerProvider)[r.id];
-                                  if (context.mounted && after?.error != null) YqToast.show(context, t.reciterWifiOnly);
-                                }
-                              },
-                            ),
-                            if (r != shown.last) const YqDivider(),
-                          ],
-                        ],
                       ),
                     ),
-                  const SizedBox(height: YqSpace.l),
-                  LiquidGlass(
-                    padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.m),
-                    child: Row(
-                      children: [
-                        Expanded(child: Text(t.useMobileData, style: Theme.of(context).textTheme.bodyMedium)),
-                        YqSwitch(
-                          label: t.useMobileData,
-                          value: _metered,
-                          onChanged: (v) {
-                            setState(() => _metered = v);
-                            ref.read(listenStoreProvider).setAllowMetered(v);
-                          },
-                        ),
-                      ],
+                    const SizedBox(width: YqSpace.l),
+                    Expanded(
+                      child: YqMoment(
+                        center: false,
+                        eyebrow: t.reciterSelected,
+                        value: Text(selected.name(locale), style: YqMoment.display(context, size: 24)),
+                        caption: Text(t.reciterRow(styleLabel(t, selected.style), riwayaLabel(t, selected.riwaya))),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: YqSpace.m),
-                  Text(t.recitersFooter, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
-                ],
-              );
-            },
+                  ],
+                ),
+              ],
+              const SizedBox(height: YqSpace.l),
+              TextField(
+                controller: _query,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  hintText: t.recitersSearch,
+                  prefixIcon: const Padding(padding: EdgeInsets.all(12), child: YqIcon(YqIcons.search, size: 20, tone: YqIconTone.idle)),
+                  filled: true,
+                  fillColor: const Color(0xCCFFFFFF),
+                  border: border,
+                  enabledBorder: border,
+                ),
+              ),
+            ],
           ),
+        ),
+        children: reciters.when(
+          loading: () => [const YqSkeleton(child: YqSkeletonBox(height: 300, radius: YqRadii.card))],
+          error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(recitersProvider))],
+          data: (all) {
+            final shown = _filter(all, dl);
+            final selectedId = listen.reciter?.id;
+            return [
+              Wrap(
+                spacing: YqSpace.s,
+                runSpacing: YqSpace.s,
+                children: [
+                  YqChip(label: t.recitersAll, selected: !_downloadedOnly, onTap: () => setState(() => _downloadedOnly = false)),
+                  YqChip(label: t.recitersDownloaded, selected: _downloadedOnly, onTap: () => setState(() => _downloadedOnly = true)),
+                  for (final s in RecitationStyle.values)
+                    YqChip(label: styleLabel(t, s), selected: _style == s, onTap: () => setState(() => _style = _style == s ? null : s)),
+                ],
+              ),
+              const SizedBox(height: YqSpace.l),
+              if (all.isEmpty)
+                LiquidGlass(child: YqEmptyState(icon: YqIcons.listen, title: t.listenNoReciter))
+              else if (shown.isEmpty)
+                LiquidGlass(child: YqEmptyState(icon: YqIcons.search, title: t.recitersEmpty, hint: t.recitersEmptyHint))
+              else
+                YqGroup(
+                  children: [
+                    for (final r in shown)
+                      _ReciterRow(
+                        reciter: r,
+                        locale: locale,
+                        selected: r.id == selectedId,
+                        sampling: listen.sampleOf == r.id,
+                        download: dl[r.id] ?? const ReciterDownload(),
+                        onSelect: () async {
+                          await ref.read(listenControllerProvider.notifier).stopSample();
+                          await ref.read(listenControllerProvider.notifier).selectReciter(r);
+                          if (context.mounted && context.canPop()) context.pop();
+                        },
+                        onSample: () => listen.sampleOf == r.id
+                            ? ref.read(listenControllerProvider.notifier).stopSample()
+                            : ref.read(listenControllerProvider.notifier).playSample(r),
+                        onDownload: () async {
+                          final d = dl[r.id] ?? const ReciterDownload();
+                          final c = ref.read(downloadsControllerProvider.notifier);
+                          if (d.running) {
+                            c.cancel(r.id);
+                          } else if (d.complete) {
+                            await _confirmDelete(r);
+                          } else {
+                            await c.downloadAll(r);
+                            final after = ref.read(downloadsControllerProvider)[r.id];
+                            if (context.mounted && after?.error != null) YqToast.show(context, t.reciterWifiOnly);
+                          }
+                        },
+                      ),
+                  ],
+                ),
+              const SizedBox(height: YqSpace.l),
+              LiquidGlass(
+                padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.m),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(t.useMobileData, style: text.bodyMedium)),
+                    YqSwitch(
+                      label: t.useMobileData,
+                      value: _metered,
+                      onChanged: (v) {
+                        setState(() => _metered = v);
+                        ref.read(listenStoreProvider).setAllowMetered(v);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: YqSpace.m),
+              Text(t.recitersFooter, textAlign: TextAlign.center, style: text.bodySmall),
+            ];
+          },
         ),
       ),
     );
@@ -246,15 +279,22 @@ class _ReciterRow extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  CircleAvatar(
-                    radius: 22,
-                    backgroundColor: selected ? YqColors.lapis : YqColors.sky100,
-                    child: Text(
-                      reciter.initial(locale),
-                      style: TextStyle(
-                        fontFamily: YqFonts.naskh,
-                        fontWeight: FontWeight.w700,
-                        color: selected ? YqColors.white : YqColors.lapis,
+                  // The ring shows how much of this voice is on the device (gold when all of it is).
+                  YqRing(
+                    value: download.fraction,
+                    gold: download.complete,
+                    size: 52,
+                    stroke: 3,
+                    child: CircleAvatar(
+                      radius: 20,
+                      backgroundColor: selected ? YqColors.lapis : YqColors.sky100,
+                      child: Text(
+                        reciter.initial(locale),
+                        style: TextStyle(
+                          fontFamily: YqFonts.naskh,
+                          fontWeight: FontWeight.w700,
+                          color: selected ? YqColors.white : YqColors.lapis,
+                        ),
                       ),
                     ),
                   ),

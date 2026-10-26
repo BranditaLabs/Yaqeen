@@ -13,6 +13,7 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/liquid_glass.dart';
+import '../../../core/widgets/yq_misbaha.dart';
 import '../../../core/widgets/yq_orb.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
@@ -286,7 +287,7 @@ class TasbeehOrb extends ConsumerWidget {
               tween: Tween(end: inRound.toDouble()),
               duration: const Duration(milliseconds: 220),
               curve: Curves.easeOut,
-              builder: (context, v, child) => CustomPaint(painter: _MisbahaPainter(counted: v, beads: per), child: child),
+              builder: (context, v, child) => CustomPaint(painter: MisbahaPainter(counted: v, beads: per), child: child),
               child: Center(
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 180),
@@ -325,54 +326,6 @@ class TasbeehOrb extends ConsumerWidget {
     ref.read(tasbeehProvider.notifier).reset();
     YqToast.show(context, AppLocalizations.of(context).tasbeehResetDone);
   }
-}
-
-/// A misbaha loop: [beads] beads on a ring with the imam bead (and its tassel) at the top. Counted
-/// beads turn gold; the latest one is slightly larger with a soft glow. [counted] may be fractional
-/// while it animates.
-class _MisbahaPainter extends CustomPainter {
-  _MisbahaPainter({required this.counted, required this.beads});
-  final double counted;
-  final int beads;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final c = size.center(Offset.zero);
-    final r = size.width / 2 - 6;
-    canvas.drawCircle(
-      c,
-      r,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..color = const Color(0x40C6A867),
-    );
-    final top = Offset(c.dx, c.dy - r);
-    canvas.drawCircle(top, 4.6, Paint()..color = YqColors.goldText);
-
-    final step = math.pi * 2 / (beads + 1);
-    final latest = counted.ceil() - 1;
-    for (var i = 0; i < beads; i++) {
-      final a = -math.pi / 2 + step * (i + 1);
-      final p = Offset(c.dx + r * math.cos(a), c.dy + r * math.sin(a));
-      final fill = (counted - i).clamp(0.0, 1.0);
-      final isLatest = i == latest && fill > 0;
-      final radius = isLatest ? 3.8 : 2.9;
-      if (isLatest) canvas.drawCircle(p, 7, Paint()..color = const Color(0x40E9D49E));
-      canvas.drawCircle(p, radius, Paint()..color = Color.lerp(const Color(0xFFFFFFFF), YqColors.gold, fill)!);
-      canvas.drawCircle(
-        p,
-        radius,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 0.9
-          ..color = Color.lerp(const Color(0x591F3F94), YqColors.goldText, fill)!,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_MisbahaPainter old) => old.counted != counted || old.beads != beads;
 }
 
 /// Wird complication: liquid that fills as today's pages are read. Tap → the Quran.
