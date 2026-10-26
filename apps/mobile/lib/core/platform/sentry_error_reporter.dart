@@ -25,7 +25,6 @@ class SentryErrorReporter extends BufferedErrorReporter {
         ..enableUserInteractionTracing = false
         ..enableAutoNativeBreadcrumbs = false
         ..attachScreenshot = false
-        ..attachViewHierarchy = false
         ..reportPackages = false
         ..maxBreadcrumbs = 20
         ..beforeBreadcrumb = keepBreadcrumb

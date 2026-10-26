@@ -38,7 +38,7 @@ dependencies:
   crypto: ^3.0.7
   app_tracking_transparency: ^2.0.7
   qr_flutter: ^4.1.0
-  sentry_flutter: ^10.2.0
+  sentry_flutter: ^9.0.0
   # Phase 2 (need accounts/keys — see README "Native integrations"):
   # firebase_core, firebase_messaging → PushService · facebook_app_events, TikTok SDK → AdSink
 
