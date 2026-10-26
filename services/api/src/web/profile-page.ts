@@ -7,7 +7,7 @@
  * The page is also Yaqeen's front door for whoever scans it: below the owner's card sits a CTA to
  * get the app and to shop the store, tagged with the owner's handle for attribution.
  */
-import { socialUrl, type PublicProfileView, type SocialKind } from '@yaqeen/contracts';
+import { LEVELS, socialUrl, type JourneyEvent, type PublicProfileView, type SocialKind } from '@yaqeen/contracts';
 import { BRAND_PNG } from './brand-assets.js';
 
 export type PageLang = 'ar' | 'en';
@@ -32,6 +32,15 @@ const COPY = {
     badges: 'أوسمة المواظبة',
     badge: (d: number) => `${d} يوماً`,
     since: (m: string) => `في يقين منذ ${m}`,
+    journey: 'الرحلة في يقين',
+    event: (e: JourneyEvent): string =>
+      ({
+        joined: 'الانضمام إلى يقين',
+        challenge_start: 'بداية رحلة 365 يوماً',
+        challenge_day: `اليوم ${e.value} من رحلة 365`,
+        level: `مستوى «${LEVELS[(e.value ?? 1) - 1]?.ar ?? ''}»`,
+        badge: `وسام ${e.value} يوماً متتالياً`,
+      })[e.kind],
     links: 'تواصل',
     ctaEyebrow: 'من يقين',
     ctaTitle: 'طمأنينة يومية تبدأ من هنا',
@@ -52,6 +61,15 @@ const COPY = {
     badges: 'Streak badges',
     badge: (d: number) => `${d} days`,
     since: (m: string) => `On Yaqeen since ${m}`,
+    journey: 'The Yaqeen journey',
+    event: (e: JourneyEvent): string =>
+      ({
+        joined: 'Joined Yaqeen',
+        challenge_start: 'Started the 365-day journey',
+        challenge_day: `Day ${e.value} of the 365-day journey`,
+        level: `Reached “${LEVELS[(e.value ?? 1) - 1]?.en ?? ''}”`,
+        badge: `${e.value}-day streak badge`,
+      })[e.kind],
     links: 'Connect',
     ctaEyebrow: 'From Yaqeen',
     ctaTitle: 'Daily calm starts here',
@@ -92,6 +110,22 @@ export function pickLang(query: string | undefined, acceptLanguage: string | und
 /** Western digits everywhere (CLAUDE.md rule 7). */
 const n = (v: number) => new Intl.NumberFormat('en-US').format(v);
 
+/** A number whose digits roll up into place, staggered (CSS only; screen readers get the label). */
+function rolling(v: number): string {
+  const text = n(v);
+  const digits = Array.from(text)
+    .map((ch, i) => `<i style="--i:${i}">${escapeHtml(ch)}</i>`)
+    .join('');
+  return `<span class="num" role="img" aria-label="${escapeHtml(text)}" dir="ltr">${digits}</span>`;
+}
+
+function fullDate(iso: string, lang: PageLang): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  return new Intl.DateTimeFormat(lang === 'ar' ? 'ar-EG-u-nu-latn' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(d);
+}
+
+const EVENT_ICON: Record<JourneyEvent['kind'], string> = { joined: 'star', challenge_start: 'flag', challenge_day: 'day', level: 'level', badge: 'badge' };
+
 function monthYear(iso: string, lang: PageLang): string {
   const d = new Date(`${iso}T00:00:00Z`);
   return new Intl.DateTimeFormat(lang === 'ar' ? 'ar-EG-u-nu-latn' : 'en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(d);
@@ -131,7 +165,7 @@ function shell(lang: PageLang, opts: { title: string; description: string; theme
 <style>${CSS}</style>
 </head>
 <body class="theme-${escapeHtml(opts.theme)}">
-<div class="sky" aria-hidden="true"><i class="glow"></i><i class="glow two"></i></div>
+<div class="sky" aria-hidden="true"><i class="glow"></i><i class="glow two"></i><b class="spark s1"></b><b class="spark s2"></b><b class="spark s3"></b><b class="spark s4"></b></div>
 <main>
 <header class="brand"><img src="data:image/png;base64,${logo}" alt="${lang === 'ar' ? 'يقين' : 'Yaqeen'}" width="150"></header>
 ${opts.body}
@@ -159,34 +193,44 @@ export function renderProfilePage(view: PublicProfileView, lang: PageLang, links
 
   const stats: string[] = [];
   if (view.streak !== null) {
-    stats.push(`<div class="stat"><span class="num">${n(view.streak)}</span><span class="lbl">${t.streak}</span></div>`);
+    stats.push(`<div class="stat">${rolling(view.streak)}<span class="lbl">${t.streak}</span></div>`);
   }
   if (view.challengeDay) {
     const p = view.challengeDay.of ? view.challengeDay.day / view.challengeDay.of : 0;
     stats.push(
-      `<div class="stat"><span class="num">${n(view.challengeDay.day)}</span><span class="lbl">${t.dayOf(view.challengeDay.day, view.challengeDay.of)}</span><span class="bar"><i style="width:${(p * 100).toFixed(1)}%"></i></span></div>`,
+      `<div class="stat">${rolling(view.challengeDay.day)}<span class="lbl">${t.dayOf(view.challengeDay.day, view.challengeDay.of)}</span><span class="bar"><i style="width:${(p * 100).toFixed(1)}%"></i></span></div>`,
     );
   }
   if (view.badges && view.badges.length) {
-    stats.push(`<div class="stat"><span class="num">${n(view.badges.length)}</span><span class="lbl">${t.badges}</span></div>`);
+    stats.push(`<div class="stat">${rolling(view.badges.length)}<span class="lbl">${t.badges}</span></div>`);
   }
 
   const badges =
     view.badges && view.badges.length
       ? `<section class="badges rise" style="--d:4" aria-label="${t.badges}">${view.badges
-          .map((d) => `<span class="badge"><i class="diamond"></i>${t.badge(d).replace(String(d), n(d))}</span>`)
+          .map((d, i) => `<span class="badge" style="--i:${i}"><i class="diamond"></i>${t.badge(d).replace(String(d), n(d))}</span>`)
           .join('')}</section>`
       : '';
 
   const linkItems = view.links
     .map((l) => ({ l, url: socialUrl(l) }))
     .filter((x): x is { l: (typeof view.links)[number]; url: string } => x.url !== null)
-    .map(({ l, url }) => {
+    .map(({ l, url }, i) => {
       const meta = SOCIAL[l.kind];
       const shown = escapeHtml(l.value.replace(/^https?:\/\//, '').replace(/\/$/, ''));
-      return `<a class="link" href="${escapeHtml(url)}" rel="me noopener nofollow" target="_blank"><span class="mono k-${l.kind}">${meta.mono}</span><span class="txt"><b>${lang === 'ar' ? meta.ar : meta.en}</b><small dir="ltr">${shown}</small></span><span class="go" aria-hidden="true">›</span></a>`;
+      return `<a class="link" style="--i:${i}" href="${escapeHtml(url)}" rel="me noopener nofollow" target="_blank"><span class="mono k-${l.kind}">${meta.mono}</span><span class="txt"><b>${lang === 'ar' ? meta.ar : meta.en}</b><small dir="ltr">${shown}</small></span><span class="go" aria-hidden="true">›</span></a>`;
     })
     .join('');
+
+  const timeline =
+    view.timeline && view.timeline.length
+      ? `<section class="journey rise" style="--d:5" aria-label="${t.journey}"><h2 class="sec">${t.journey}</h2><ol>${view.timeline
+          .map(
+            (e, i) =>
+              `<li class="ev ev-${e.kind}" style="--i:${i}"><span class="dot ic-${EVENT_ICON[e.kind]}" aria-hidden="true"></span><div><b>${escapeHtml(t.event(e)).replace(/\d+/g, (d) => n(Number(d)))}</b><time datetime="${escapeHtml(e.date)}">${escapeHtml(fullDate(e.date, lang))}</time></div></li>`,
+          )
+          .join('')}</ol></section>`
+      : '';
 
   const body = `<section class="card rise" style="--d:1">
 <div class="medallion">${level ? ring(level.progress) : ''}<span class="initial">${initial}</span></div>
@@ -198,6 +242,7 @@ ${view.memberSince ? `<p class="since">${escapeHtml(t.since(monthYear(view.membe
 </section>
 ${stats.length ? `<section class="stats rise" style="--d:2">${stats.join('')}</section>` : ''}
 ${badges}
+${timeline}
 ${linkItems ? `<nav class="links rise" style="--d:5" aria-label="${t.links}">${linkItems}</nav>` : ''}
 ${cta(lang, links)}
 <footer class="rise" style="--d:7"><span>${t.footer}</span><a href="${escapeHtml(links.getApp)}">${t.footerMake}</a></footer>`;
@@ -292,5 +337,54 @@ footer a{color:var(--lapis);font-weight:700;text-decoration:none}
 .theme-night footer a{color:var(--goldLight)}
 .rise{animation:rise .8s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--d,0) * 70ms)}
 @keyframes rise{from{opacity:0;transform:translateY(14px)}}
-@media (prefers-reduced-motion:reduce){.rise,.ring .arc,.glow{animation:none}}
+.num{overflow:hidden;clip-path:inset(0 -4px)}
+.num i{display:inline-block;font-style:normal;animation:roll .9s cubic-bezier(.2,.9,.25,1.15) both;animation-delay:calc(.45s + var(--i,0) * 90ms)}
+@keyframes roll{from{opacity:0;transform:translateY(.9em) rotateX(70deg)}}
+.spark{position:absolute;width:5px;height:5px;border-radius:50%;background:var(--goldLight);box-shadow:0 0 12px 3px rgba(233,212,158,.55);opacity:0;animation:twinkle 5.5s ease-in-out infinite}
+.spark.s1{top:14%;inset-inline-start:12%}.spark.s2{top:34%;inset-inline-end:9%;animation-delay:1.4s}
+.spark.s3{top:62%;inset-inline-start:7%;animation-delay:2.8s;width:4px;height:4px}.spark.s4{top:82%;inset-inline-end:14%;animation-delay:4.1s}
+.theme-sky .spark{background:#fff;box-shadow:0 0 12px 3px rgba(171,196,232,.8)}
+@keyframes twinkle{0%,100%{opacity:0;transform:scale(.4)}45%{opacity:.9;transform:scale(1)}60%{opacity:.6}}
+.medallion::after{content:"";position:absolute;inset:-2px;border-radius:50%;background:conic-gradient(from 0deg,transparent 0 78%,rgba(255,255,255,.95) 88%,transparent 96%);-webkit-mask:radial-gradient(closest-side,transparent 88%,#000 90%,#000 98%,transparent);mask:radial-gradient(closest-side,transparent 88%,#000 90%,#000 98%,transparent);opacity:0;animation:glint 1.8s cubic-bezier(.4,0,.2,1) 1.7s both}
+.medallion.empty::after{display:none}
+@keyframes glint{0%{opacity:0;transform:rotate(-40deg)}25%{opacity:1}100%{opacity:0;transform:rotate(320deg)}}
+.initial{animation:breathe 6s ease-in-out 2.4s infinite}
+@keyframes breathe{50%{transform:scale(1.025);box-shadow:0 22px 40px -16px rgba(31,63,148,.75)}}
+.bar i{transform-origin:left;animation:fill 1.4s cubic-bezier(.2,.7,.2,1) .6s both}
+[dir=rtl] .bar i{transform-origin:right;margin-inline-start:auto}
+@keyframes fill{from{transform:scaleX(0)}}
+.badge{animation:pop .7s cubic-bezier(.3,1.6,.5,1) both;animation-delay:calc(.5s + var(--i,0) * 80ms)}
+@keyframes pop{from{opacity:0;transform:scale(.5)}}
+.sec{font-size:13px;font-weight:700;letter-spacing:.4px;color:var(--muted);margin:0 6px 12px}
+.journey{margin-top:22px;padding:20px 18px 8px;border-radius:28px;background:var(--glass);border:1px solid var(--rim);box-shadow:0 22px 40px -30px rgba(15,26,54,.4)}
+.journey ol{position:relative;list-style:none;padding:0 0 4px;padding-inline-start:38px}
+.journey ol::before{content:"";position:absolute;top:10px;bottom:22px;inset-inline-start:13px;width:2px;border-radius:2px;background:linear-gradient(var(--gold),var(--track));transform-origin:top;animation:grow 1.6s cubic-bezier(.2,.7,.2,1) .5s both}
+@keyframes grow{from{transform:scaleY(0)}}
+.ev{position:relative;padding:0 0 18px;animation:rise .7s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(.55s + var(--i,0) * 110ms)}
+.ev b{display:block;font-size:15px;font-weight:700;line-height:1.5}
+.ev time{display:block;margin-top:2px;font-size:12px;color:var(--muted)}
+.dot{position:absolute;top:1px;inset-inline-start:-38px;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--porcelain);border:2px solid var(--track);animation:pop .6s cubic-bezier(.3,1.6,.5,1) both;animation-delay:calc(.65s + var(--i,0) * 110ms)}
+.dot::after{content:"";display:block}
+.ic-level,.ic-badge{border-color:var(--gold);background:linear-gradient(180deg,#FFFBF1,#F4E8C8);box-shadow:0 0 0 5px rgba(233,212,158,.25)}
+.ic-level::after{width:9px;height:9px;transform:rotate(45deg);border-radius:2px;background:linear-gradient(135deg,var(--goldLight),var(--gold))}
+.ic-badge::after{width:10px;height:10px;border-radius:50%;border:2.5px solid var(--gold)}
+.ic-day,.ic-flag{border-color:#576FAF}
+.ic-day::after{width:8px;height:8px;border-radius:50%;background:var(--lapis)}
+.ic-flag::after{width:0;height:0;border-block:5px solid transparent;border-inline-start:8px solid var(--lapis);margin-inline-start:2px}
+.ic-star{border-color:var(--navy);background:linear-gradient(180deg,#576FAF,#10214D)}
+.ic-star::after{width:6px;height:6px;border-radius:50%;background:var(--goldLight);box-shadow:0 0 8px 2px rgba(233,212,158,.7)}
+.theme-night .dot{background:#10214D}
+.theme-night .ic-day::after,.theme-night .ic-flag::after{background:var(--goldLight);border-inline-start-color:var(--goldLight)}
+.theme-night .ic-flag::after{background:none}
+.link{animation:rise .7s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(.6s + var(--i,0) * 80ms)}
+.btn.primary{overflow:hidden}
+.btn.primary::after{content:"";position:absolute;inset:0 auto 0 -60%;width:45%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.75),transparent);transform:skewX(-18deg);animation:sheen 5s ease-in-out 2.2s infinite}
+@keyframes sheen{0%{left:-60%}28%,100%{left:130%}}
+.cta::after{animation:drift 14s ease-in-out infinite alternate}
+@supports (animation-timeline:view()){
+.ev,.link{animation:reveal linear both;animation-timeline:view();animation-range:entry 0% entry 70%}
+.journey ol::before{animation:grow linear both;animation-timeline:view();animation-range:entry 10% cover 55%}
+@keyframes reveal{from{opacity:0;transform:translateY(22px) scale(.98)}}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.spark{display:none}}
 `;

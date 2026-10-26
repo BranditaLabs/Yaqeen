@@ -43,6 +43,8 @@ export const ProfileVisibility = z.object({
   challengeDay: z.boolean().default(false),
   badges: z.boolean().default(false),
   memberSince: z.boolean().default(false),
+  /** The dated journey: joined, levels reached, streak badges, challenge milestones. */
+  timeline: z.boolean().default(false),
 });
 export type ProfileVisibility = z.infer<typeof ProfileVisibility>;
 
@@ -53,7 +55,7 @@ export const PublicProfileUpdate = z.object({
   displayName: z.string().trim().min(1).max(40),
   bio: z.string().trim().max(160).default(''),
   links: z.array(SocialLink).max(8).default([]),
-  show: ProfileVisibility.default({ level: true, streak: false, challengeDay: false, badges: false, memberSince: false }),
+  show: ProfileVisibility.default({ level: true, streak: false, challengeDay: false, badges: false, memberSince: false, timeline: false }),
   theme: ProfileTheme.default('sky'),
 });
 export type PublicProfileUpdate = z.infer<typeof PublicProfileUpdate>;
@@ -126,6 +128,8 @@ export const PublicProfileView = z.object({
   /** Streak milestones reached, in days (e.g. [7, 30]). */
   badges: z.array(z.number().int()).nullable(),
   memberSince: z.string().nullable(),
+  /** Newest first, at most 12 — only when the owner switched it on. */
+  timeline: z.array(z.lazy(() => JourneyEvent)).nullable(),
 });
 export type PublicProfileView = z.infer<typeof PublicProfileView>;
 
@@ -158,3 +162,35 @@ export function socialUrl(link: SocialLink): string | null {
       return /^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(v) ? `https://${v}` : null;
   }
 }
+
+/* ---------------------------------------------------------------- journey */
+
+/**
+ * One milestone of the user's Yaqeen journey. Never a worship act: joining, levels (from points),
+ * streak badges and challenge days — the same facts the card can already show, with their dates.
+ */
+export const JourneyEventKind = z.enum(['joined', 'challenge_start', 'challenge_day', 'level', 'badge']);
+export type JourneyEventKind = z.infer<typeof JourneyEventKind>;
+
+export const JourneyEvent = z.object({
+  kind: JourneyEventKind,
+  /** YYYY-MM-DD. */
+  date: z.string(),
+  /** Level number, badge days or challenge day; null for joined / challenge_start. */
+  value: z.number().int().nullable(),
+});
+export type JourneyEvent = z.infer<typeof JourneyEvent>;
+
+/** GET /v1/me/journey — the owner's own journey (Profile tab). */
+export const MyJourney = z.object({
+  lifetimePoints: z.number().int(),
+  level: PublicLevel.extend({ nextAt: z.number().int().nullable() }),
+  streak: z.number().int(),
+  challengeDay: z.number().int().nullable(),
+  challengeOf: z.number().int(),
+  events: z.array(JourneyEvent),
+});
+export type MyJourney = z.infer<typeof MyJourney>;
+
+/** Challenge days that become journey milestones. */
+export const JOURNEY_DAYS = [30, 100, 200, 300, 365] as const;

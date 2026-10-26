@@ -171,6 +171,9 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
     profile.update(app.ctx, userId(req), req.user?.guest ?? true, PublicProfileUpdate.parse(req.body)),
   );
 
+  /** The owner's journey for the Profile tab: level, streak, challenge day and dated milestones. */
+  app.get('/journey', async (req) => profile.myJourney(app.ctx, userId(req)));
+
   app.get('/public-profile/available', async (req) => {
     const { handle } = z.object({ handle: z.string().max(40) }).parse(req.query);
     return { available: await profile.handleAvailable(app.ctx, handle, userId(req)) };

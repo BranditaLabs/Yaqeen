@@ -23,6 +23,13 @@ const view: PublicProfileView = {
   challengeDay: { day: 47, of: 365 },
   badges: [7, 30],
   memberSince: '2026-09-04',
+  timeline: [
+    { kind: 'level', date: '2026-10-20', value: 3 },
+    { kind: 'challenge_day', date: '2026-10-03', value: 30 },
+    { kind: 'badge', date: '2026-09-11', value: 7 },
+    { kind: 'challenge_start', date: '2026-09-04', value: null },
+    { kind: 'joined', date: '2026-09-04', value: null },
+  ],
 };
 
 describe('levels', () => {
@@ -50,6 +57,7 @@ describe('contract', () => {
       challengeDay: false,
       badges: false,
       memberSince: false,
+      timeline: false,
     });
   });
 });
@@ -88,11 +96,27 @@ describe('page', () => {
     expect(html).toContain('href="https://x.test/get-app?ref=ahmed"');
     expect(html).toContain('noindex');
 
-    const minimal = renderProfilePage({ ...view, level: null, streak: null, challengeDay: null, badges: null, memberSince: null }, 'en', links);
+    const minimal = renderProfilePage({ ...view, level: null, streak: null, challengeDay: null, badges: null, memberSince: null, timeline: null }, 'en', links);
     expect(minimal).toContain('dir="ltr"');
     expect(minimal).not.toContain('class="stats');
     expect(minimal).not.toContain('Level');
     expect(minimal).toContain('Get the Yaqeen app');
+    expect(minimal).not.toContain('class="journey');
+  });
+
+  it('renders the journey as dated milestones, newest first, with no worship detail', () => {
+    const html = renderProfilePage(view, 'ar', links);
+    expect(html).toContain('class="journey');
+    expect(html).toContain('مستوى «مواظب»');
+    expect(html).toContain('اليوم 30 من رحلة 365');
+    expect(html).toContain('وسام 7 يوماً متتالياً');
+    expect(html).toContain('الانضمام إلى يقين');
+    expect(html).toContain('datetime="2026-10-20"');
+    expect(html.indexOf('مستوى «مواظب»')).toBeLessThan(html.indexOf('الانضمام إلى يقين'));
+    expect(html).toContain('prefers-reduced-motion');
+    const en = renderProfilePage(view, 'en', links);
+    expect(en).toContain('Day 30 of the 365-day journey');
+    expect(en).toContain('Joined Yaqeen');
   });
 
   it('a missing card still invites to the app and the store', () => {

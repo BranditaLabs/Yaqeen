@@ -7,6 +7,10 @@
  */
 import { and, eq, gt, like, sql } from 'drizzle-orm';
 import {
+  type JourneyEvent,
+  type MyJourney,
+  JOURNEY_DAYS,
+  LEVELS,
   type PublicProfileSettings,
   type PublicProfileUpdate,
   type PublicProfileView,
@@ -15,11 +19,12 @@ import {
   levelFor,
 } from '@yaqeen/contracts';
 import type { AppContext } from '../context.js';
-import { pointsLedger, publicProfiles, users } from '../db/schema.js';
+import { challengeEnrollments, pointsLedger, publicProfiles, users } from '../db/schema.js';
+import { addDays } from '../domain/points.js';
 import { conflict, forbidden, badRequest } from '../lib/errors.js';
 import * as challenge from './challenge.service.js';
 
-const DEFAULT_SHOW = { level: true, streak: false, challengeDay: false, badges: false, memberSince: false };
+const DEFAULT_SHOW = { level: true, streak: false, challengeDay: false, badges: false, memberSince: false, timeline: false };
 
 export const profileUrl = (ctx: AppContext, handle: string) => `${ctx.env.PUBLIC_PROFILE_BASE_URL.replace(/\/$/, '')}/u/${handle}`;
 
@@ -141,11 +146,7 @@ export async function publicView(ctx: AppContext, handle: string): Promise<Publi
   let level: PublicProfileView['level'] = null;
   if (show.level) {
     // Lifetime earned points: spending on rewards never lowers the level.
-    const [sum] = await ctx.db
-      .select({ pts: sql<number>`coalesce(sum(${pointsLedger.delta}), 0)::int` })
-      .from(pointsLedger)
-      .where(and(eq(pointsLedger.userId, uid), gt(pointsLedger.delta, 0)));
-    const l = levelFor(sum?.pts ?? 0);
+    const l = levelFor(await lifetimePoints(ctx, uid));
     level = { level: l.level, nameAr: l.nameAr, nameEn: l.nameEn, progress: l.progress };
   }
 
@@ -169,6 +170,8 @@ export async function publicView(ctx: AppContext, handle: string): Promise<Publi
       .sort((a, b) => a - b);
   }
 
+  const timeline = show.timeline ? (await journeyEvents(ctx, uid)).slice(0, 12) : null;
+
   return {
     handle: p.handle,
     displayName: p.displayName,
@@ -180,6 +183,86 @@ export async function publicView(ctx: AppContext, handle: string): Promise<Publi
     challengeDay,
     badges,
     memberSince: show.memberSince ? row.createdAt.toISOString().slice(0, 10) : null,
+    timeline,
+  };
+}
+
+/* ------------------------------------------------------------------ journey */
+
+/** Lifetime earned points (positive ledger rows): spending never lowers a level. */
+async function lifetimePoints(ctx: AppContext, uid: string): Promise<number> {
+  const [sum] = await ctx.db
+    .select({ pts: sql<number>`coalesce(sum(${pointsLedger.delta}), 0)::int` })
+    .from(pointsLedger)
+    .where(and(eq(pointsLedger.userId, uid), gt(pointsLedger.delta, 0)));
+  return sum?.pts ?? 0;
+}
+
+/**
+ * The dated milestones of a user's journey, newest first: joined, challenge started, challenge
+ * days 30/100/200/300/365, each level reached (the day lifetime points first crossed it) and each
+ * streak badge. Nothing here names a prayer, zikr or page.
+ */
+export async function journeyEvents(ctx: AppContext, uid: string): Promise<JourneyEvent[]> {
+  const day = (d: Date) => d.toISOString().slice(0, 10);
+  const events: JourneyEvent[] = [];
+  const [u] = await ctx.db.select({ createdAt: users.createdAt }).from(users).where(eq(users.id, uid));
+  if (u) events.push({ kind: 'joined', date: day(u.createdAt), value: null });
+
+  const [enr] = await ctx.db.select({ startedOn: challengeEnrollments.startedOn }).from(challengeEnrollments).where(eq(challengeEnrollments.userId, uid));
+  if (enr) {
+    events.push({ kind: 'challenge_start', date: enr.startedOn, value: 1 });
+    const today = await challenge.todayFor(ctx, uid);
+    for (const n of JOURNEY_DAYS) {
+      const date = addDays(enr.startedOn, n - 1);
+      if (date <= today) events.push({ kind: 'challenge_day', date, value: n });
+    }
+  }
+
+  // The first moment the running total of earned points reached each level's threshold.
+  const thresholds = LEVELS.slice(1).map((l) => l.min);
+  if (thresholds.length) {
+    const rows = await ctx.db.execute<{ min: number; reached: Date | string | null }>(sql`
+      with earned as (
+        select ${pointsLedger.createdAt} as at,
+               sum(${pointsLedger.delta}) over (order by ${pointsLedger.createdAt}, ${pointsLedger.id}) as cum
+        from ${pointsLedger}
+        where ${pointsLedger.userId} = ${uid} and ${pointsLedger.delta} > 0
+      )
+      select t.min, (select min(at) from earned where cum >= t.min) as reached
+      from unnest(${sql.raw(`array[${thresholds.join(',')}]`)}::int[]) as t(min)`);
+    for (const r of rows.rows) {
+      if (!r.reached) continue;
+      const level = LEVELS.findIndex((l) => l.min === Number(r.min)) + 1;
+      events.push({ kind: 'level', date: day(new Date(r.reached)), value: level });
+    }
+  }
+
+  const badges = await ctx.db
+    .select({ ref: pointsLedger.refKey, at: pointsLedger.createdAt })
+    .from(pointsLedger)
+    .where(and(eq(pointsLedger.userId, uid), eq(pointsLedger.reason, 'milestone'), like(pointsLedger.refKey, 'milestone:%')));
+  for (const b of badges) {
+    const days = Number(b.ref.slice('milestone:'.length));
+    if (Number.isFinite(days) && days > 0) events.push({ kind: 'badge', date: day(b.at), value: days });
+  }
+
+  // Newest first; on the same day the bigger moment (level, badge) leads.
+  const weight: Record<JourneyEvent['kind'], number> = { level: 4, badge: 3, challenge_day: 2, challenge_start: 1, joined: 0 };
+  return events.sort((a, b) => (a.date === b.date ? weight[b.kind] - weight[a.kind] : a.date < b.date ? 1 : -1));
+}
+
+/** The owner's journey for the Profile tab (private — every milestone, plus where they stand). */
+export async function myJourney(ctx: AppContext, uid: string): Promise<MyJourney> {
+  const [pts, summary, events] = await Promise.all([lifetimePoints(ctx, uid), challenge.summary(ctx, uid), journeyEvents(ctx, uid)]);
+  const l = levelFor(pts);
+  return {
+    lifetimePoints: pts,
+    level: { level: l.level, nameAr: l.nameAr, nameEn: l.nameEn, progress: l.progress, nextAt: l.nextAt },
+    streak: summary.enrolled ? summary.streak : 0,
+    challengeDay: summary.enrolled ? summary.dayNumber : null,
+    challengeOf: summary.challengeLengthDays,
+    events,
   };
 }
 

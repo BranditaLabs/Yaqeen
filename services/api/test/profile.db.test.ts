@@ -101,6 +101,44 @@ describe.skipIf(!url)('public profile cards (Postgres)', () => {
     expect(page.body).toContain('https://id.test/get-app?ref=ahmed');
   });
 
+  it('journey: private milestones for the owner, shown publicly only when switched on', async () => {
+    const u = await makeUser('Journey');
+    await db.update(s.users).set({ createdAt: new Date('2026-08-01T10:00:00Z') }).where(eq(s.users.id, u.id));
+    await db.insert(s.challengeEnrollments).values({ userId: u.id, startedOn: '2026-08-02' });
+    await db.insert(s.pointsLedger).values([
+      { userId: u.id, delta: 300, reason: 'task', refKey: 'j:1', createdAt: new Date('2026-08-10T09:00:00Z') },
+      { userId: u.id, delta: -200, reason: 'redemption', refKey: 'j:r', createdAt: new Date('2026-08-11T09:00:00Z') },
+      { userId: u.id, delta: 100, reason: 'milestone', refKey: 'milestone:7', createdAt: new Date('2026-08-12T09:00:00Z') },
+      { userId: u.id, delta: 150, reason: 'task', refKey: 'j:2', createdAt: new Date('2026-09-01T09:00:00Z') },
+    ]);
+
+    const mine = (await app.inject({ method: 'GET', url: '/v1/me/journey', headers: auth(u.token) })).json();
+    expect(mine).toMatchObject({ lifetimePoints: 550, level: { level: 2, nextAt: 2000 }, challengeOf: 365 });
+    // The redemption doesn't delay the level: 300 + 100 + 150 crosses 500 on 1 Sep.
+    expect(mine.events).toEqual([
+      { kind: 'level', date: '2026-09-01', value: 2 },
+      { kind: 'challenge_day', date: '2026-08-31', value: 30 },
+      { kind: 'badge', date: '2026-08-12', value: 7 },
+      { kind: 'challenge_start', date: '2026-08-02', value: 1 },
+      { kind: 'joined', date: '2026-08-01', value: null },
+    ]);
+    expect(JSON.stringify(mine)).not.toMatch(/five_prayers|wird|azkar|task/);
+    expect((await app.inject({ method: 'GET', url: '/v1/me/journey' })).statusCode).toBe(401);
+
+    await app.inject({ method: 'PUT', url: '/v1/me/public-profile', headers: auth(u.token), payload: card({ handle: 'journey' }) });
+    expect((await app.inject({ method: 'GET', url: '/v1/public/profiles/journey' })).json().timeline).toBeNull();
+    await app.inject({
+      method: 'PUT',
+      url: '/v1/me/public-profile',
+      headers: auth(u.token),
+      payload: card({ handle: 'journey', show: { level: true, streak: false, challengeDay: false, badges: false, memberSince: false, timeline: true } }),
+    });
+    const pub = (await app.inject({ method: 'GET', url: '/v1/public/profiles/journey' })).json();
+    expect(pub.timeline).toHaveLength(5);
+    const page = await app.inject({ method: 'GET', url: '/u/journey', headers: { 'accept-language': 'en' } });
+    expect(page.body).toContain('Day 30 of the 365-day journey');
+  });
+
   it('counts human opens only', async () => {
     await app.inject({ method: 'GET', url: '/u/ahmed', headers: { 'user-agent': 'WhatsApp/2.0 preview' } });
     await new Promise((r) => setTimeout(r, 50));
