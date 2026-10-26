@@ -1566,5 +1566,6 @@
   "cardNfcPublishFirst": "Publish and save your card first so scanners can open it",
   "cardNfcBuy": "Get a Yaqeen NFC tag",
   "cardNfcStart": "Start writing",
-  "cardQrTitle": "Scan to open my card"
+  "cardQrTitle": "Scan to open my card",
+  "challengeStreakRestart": "Start again — make-up days are open"
 }

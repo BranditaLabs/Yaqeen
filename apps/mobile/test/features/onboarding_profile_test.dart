@@ -63,6 +63,7 @@ void main() {
     test('a universal link path (as the OS hands it to the router) maps to its route', () {
       expect(routeForDeepLink(Uri(path: '/app/calendar')), '/challenge/calendar');
       expect(routeForDeepLink(Uri.parse('https://yaqin-brand.com/app/hifz')), '/quran/hifz');
+      expect(routeForDeepLink(Uri.parse('https://yaqin-brand.com/app/card')), '/profile/card');
       expect(routeForDeepLink(Uri(path: '/app/unknown')), '/home');
     });
 

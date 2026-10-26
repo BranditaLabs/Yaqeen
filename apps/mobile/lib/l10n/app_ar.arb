@@ -1593,5 +1593,6 @@
   "cardNfcPublishFirst": "انشر بطاقتك واحفظها أولاً ليفتحها من يمسحها",
   "cardNfcBuy": "اطلب وسم يقين من المتجر",
   "cardNfcStart": "ابدأ الكتابة",
-  "cardQrTitle": "امسح لفتح بطاقتي"
+  "cardQrTitle": "امسح لفتح بطاقتي",
+  "challengeStreakRestart": "ابدأ من جديد، والقضاء متاح"
 }

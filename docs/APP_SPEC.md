@@ -122,7 +122,7 @@ Scale (pt): display 30/1.4 · title-L 19 · title-M 15 · body-L 16/1.75 · body
 | `YqSwitch`, `YqSegmented`, `YqProgressLine` | ✅ | Lapis on, porcelain track |
 | `AmbientBackground` | ✅ | Porcelain lit by the **living sky** (tint + glow under the sun, follows the time of day; DESIGN_SYSTEM §2); `lights:` adds accents (`goldLights`) |
 | `YqCanvas` / `YqStage` / `YqOrb` / `YqRing` / `YqTimeline` / `YqGroup` | ✅ | The living-canvas screen kit — every screen is stage → complications → journey (DESIGN_SYSTEM §3–4) |
-| **To build** | ⬜ | `YqButton` (primary dark pill 56 · secondary glass · text), `YqListRow`, `YqSection` (glass card with title), `YqEmptyState`, `YqErrorState`, `YqOfflineBanner`, `YqSheet` (glass bottom sheet, 28 radius, grabber), `YqChip`, `YqStepper` (onboarding 4 dashes), `YqCountdown`, `YqToast` |
+| **Built** | ✅ | `YqButton`, `YqListRow`, `YqSection`, `YqGroup`, `YqEmptyState`, `YqErrorState`, `YqOfflineBanner`, sheets, `YqChip`, `YqStepper`, `YqCountdown`, `YqToast`, shaped skeletons (`YqSkeletonOrbs/Rows/Text`) and `OuterShadow` |
 
 ### 2.5 Universal screen states (every data screen must implement)
 
@@ -239,6 +239,7 @@ Push payload: `data.link`, `data.campaignId` (opened → `POST /v1/me/campaigns/
 | 19 | 365 challenge | `/challenge` | ✅ | — |
 | 20 | Redeem reward | `/challenge/redeem` | ✅ | Shopify credentials |
 | 21 | Profile & settings | `/profile` | ✅ | — |
+| 21·ب | Yaqeen card (NFC/QR) | `/profile/card` | ✅ | §5.26 |
 | 22 | Hifz plan | `/quran/hifz` | ✅ | — |
 
 Each section below uses the same headings: **Purpose · Layout · Data · Interactions · States · Analytics &
@@ -270,7 +271,7 @@ notifications · Acceptance**. Arabic strings are the real UI copy (put them in 
 
 ---
 
-### 5.3 `02 · Sign in` — `/onboarding/welcome` ⬜
+### 5.3 `02 · Sign in` — `/onboarding/welcome` ✅
 
 **Purpose** Welcome + choose how to continue.
 
@@ -298,7 +299,7 @@ notifications · Acceptance**. Arabic strings are the real UI copy (put them in 
 
 ---
 
-### 5.4 `03 · Language & mushaf` — `/onboarding/language` ⬜
+### 5.4 `03 · Language & mushaf` — `/onboarding/language` ✅
 
 **Layout** Header: back · stepper «الخطوة 1 من 4» (4 dashes, lapis filled) · «تخطي». Eyebrow «01 / 04», H1 «لغتك ومصحفك», sub «يمكنك تغيير ذلك لاحقاً من الإعدادات.»
 Sections (glass cards):
@@ -315,7 +316,7 @@ CTA dark pill «متابعة».
 
 ---
 
-### 5.5 `04 · Prayer setup` — `/onboarding/prayer` ⬜
+### 5.5 `04 · Prayer setup` — `/onboarding/prayer` ✅
 
 **Layout** Stepper 2/4. H1 «مواقيت دقيقة لمكانك», sub «نستخدم موقعك لحساب الصلاة والقبلة فقط، ويُحفظ على جهازك.»
 - **Location card**: «القاهرة، مصر» · «تم تحديد موقعك تلقائياً» · «تغيير» (opens city search sheet).
@@ -357,7 +358,7 @@ CTA «متابعة» + caption «سيطلب هاتفك بعدها إذن الإ�
 
 ---
 
-### 5.7 `05 · Daily goal & challenge` — `/onboarding/goal` ⬜
+### 5.7 `05 · Daily goal & challenge` — `/onboarding/goal` ✅
 
 **Layout** Stepper 4/5. H1 «وِردك اليومي», sub «قليلٌ دائم خيرٌ من كثيرٍ منقطع. اختر ما يناسب يومك.»
 - Goal chips (single select): صفحة · **صفحتان** (default) · 4 صفحات · جزء.
@@ -398,7 +399,7 @@ routine-related reaches the API.
 
 ---
 
-### 5.8 `06 · Offline mushaf` — `/onboarding/download` ⬜
+### 5.8 `06 · Offline mushaf` — `/onboarding/download` ✅
 
 **Layout** Eyebrow «تجهيز المصحف», H1 «القرآن معك\nحتى دون اتصال», sub «نحمّل النص والخطوط مرة واحدة، ونحدّثها تلقائياً كل أسبوع.» Big ring «72 %» + «31 من 43 م.ب».
 Item list with status: «نص المصحف · رواية حفص · 6 MB ✓» · «خط المصحف العثماني · 18 MB ✓» · «التفسير الميسر · 19 MB · جارٍ التحميل…» · optional switch «تلاوة مشاري العفاسي · اختياري · عبر Wi-Fi فقط · 1.1 GB».
@@ -455,7 +456,7 @@ Footer verse «وَرَتِّلِ ٱلْقُرْءَانَ تَرْتِيلًا�
 
 ---
 
-### 5.10 `08 · Quran index` — `/quran` ⬜
+### 5.10 `08 · Quran index` — `/quran` ✅
 
 **Layout**
 1. Title «القرآن الكريم» · glass buttons «الاستماع» (→ listen last surah) and «خطة الحفظ» (→ `/quran/hifz`).
@@ -475,7 +476,7 @@ Footer verse «وَرَتِّلِ ٱلْقُرْءَانَ تَرْتِيلًا�
 
 ---
 
-### 5.11 `09 · Reading mode` — `/quran/read/:page` ⬜
+### 5.11 `09 · Reading mode` — `/quran/read/:page` ✅
 
 **Purpose** The heart of the app: a calm, faithful mushaf page.
 
@@ -504,7 +505,7 @@ Footer verse «وَرَتِّلِ ٱلْقُرْءَانَ تَرْتِيلًا�
 
 ---
 
-### 5.12 `10 · Recitation check (تسميع)` — `/quran/recite/:surah` ⬜ · flag `recite`
+### 5.12 `10 · Recitation check (تسميع)` — `/quran/recite/:surah` 🟡 (UI + aligner; ASR model pending) · flag `recite`
 
 **Layout** Header: back · surah «الفاتحة» · «الجزء 1 · الصفحة 1» · segmented «قراءة | استماع | تسميع» (switches modes for the same position). Ayat shown progressively; hidden until recited when «إظهار الآيات» is OFF (memorisation test). Bottom: big mic button with live waveform and label «يستمع إليك» · «إيقاف التسميع» · «استمع إلى القارئ».
 Result strip: «3 آيات صحيحة» (success tone) · «تنبيه واحد: الْعَالَمِينَ» (the word underlined in gold, tap → play the reciter for that ayah).
@@ -519,7 +520,7 @@ Result strip: «3 آيات صحيحة» (success tone) · «تنبيه واحد:
 
 ---
 
-### 5.13 `11 · Now playing` — `/quran/listen/:surah` ⬜
+### 5.13 `11 · Now playing` — `/quran/listen/:surah` ✅
 
 **Layout** Back «رجوع إلى المصحف» · download button «تنزيل السورة». Eyebrow «يُشغَّل الآن», surah card «السورة 18 · مكية · 110 آيات» with name «الكهف» in display face, reciter «مشاري راشد العفاسي». Current ayah card (glass) with ayah text and number + collapsible tafsir line. Progress bar «4:12 / 23:40» (seek). Controls «التحكم في التشغيل»: repeat ayah · previous ayah · play/pause (64 dark pill) · next ayah · speed (0.75/1/1.25/1.5). Bottom chips «تغيير القارئ» (→ 12) · «مؤقت النوم» (sheet: 15/30/45/60 min, end of surah).
 
@@ -529,7 +530,7 @@ Result strip: «3 آيات صحيحة» (success tone) · «تنبيه واحد:
 
 ---
 
-### 5.14 `12 · Choose a reciter` — `/quran/reciters` ⬜
+### 5.14 `12 · Choose a reciter` — `/quran/reciters` ✅
 
 **Layout** Back «رجوع إلى المشغل», title «اختر القارئ», search «ابحث عن قارئ», filter chips «الكل | المحمّلة» + style «مرتّل | مجوّد». List rows: avatar initial · name · «مرتّل · حفص عن عاصم» · sample play («استمع لعينة من …» / «إيقاف العينة») · download state («محمّل · المس للحذف», ring «جارٍ التحميل · المس للإلغاء», or button «تحميل المصحف كاملاً للاستماع دون اتصال»). Selected row has lapis check. Footer note «التلاوات المتاحة تأتي من مصدر المحتوى المرخّص، والتحميل يتيح الاستماع دون اتصال.»
 Empty search: «لا يوجد قارئ بهذا الاسم» / «جرّب جزءاً من الاسم».
@@ -540,7 +541,7 @@ Empty search: «لا يوجد قارئ بهذا الاسم» / «جرّب جزء
 
 ---
 
-### 5.15 `13 · Prayer times` — `/prayer` ⬜
+### 5.15 `13 · Prayer times` — `/prayer` ✅
 
 **Layout** Title «مواقيت الصلاة», sub «الإثنين 19 أكتوبر · الهيئة المصرية العامة للمساحة», location chip «القاهرة». Qibla card «اتجاه القبلة 136° · من الشمال باتجاه الجنوب الشرقي · البوصلة معايرة» (→ 14, label «افتح بوصلة القبلة»). List «مواقيت اليوم»: الفجر 5:30 · الشروق 6:56 · الظهر 12:40 · **العصر 3:55 «بعد 1:24:10»** (next highlighted, glass lapis rim) · المغرب 6:22 · العشاء 7:40. Each row has a bell toggle («تنبيه الفجر مفعل» etc.); الشروق default off. Swipe horizontally for previous/next day. Footer link → 15.
 
@@ -550,7 +551,7 @@ Empty search: «لا يوجد قارئ بهذا الاسم» / «جرّب جزء
 
 ---
 
-### 5.16 `14 · Qibla` — `/prayer/qibla` ⬜
+### 5.16 `14 · Qibla` — `/prayer/qibla` ✅
 
 **Layout** Full-screen light. Back. Location «القاهرة · ≈ 1,280 km» to Makkah. Big compass: dial with N marker, Kaaba pointer at bearing, needle = device heading. Readout «القبلة على 136° من الشمال · اتجاهك N°». Guidance text: «استدر يميناً» / «استدر يساراً» / «أنت في اتجاه القبلة» (± 3°, gold ring + one light haptic). Buttons «معايرة البوصلة» (figure-8 animation sheet) · «عرض بالكاميرا» (phase 2 AR).
 
@@ -560,7 +561,7 @@ Empty search: «لا يوجد قارئ بهذا الاسم» / «جرّب جزء
 
 ---
 
-### 5.17 `15 · Adhan & notifications` — `/prayer/notifications` ⬜
+### 5.17 `15 · Adhan & notifications` — `/prayer/notifications` ✅
 
 **Sections**
 1. **تنبيه كل صلاة** — 6 rows, each a 3-state chip «أذان | تنبيه | صامت» (tap cycles; a11y «الفجر، الوضع الحالي أذان. المس للتغيير»). Defaults: fajr/dhuhr/asr/maghrib adhan, isha notify, sunrise silent.
@@ -577,7 +578,7 @@ Footer: «تعمل التنبيهات دون اتصال بالإنترنت، و�
 
 ---
 
-### 5.18 `15·ب · Notification centre` — `/home/inbox` ⬜
+### 5.18 `15·ب · Notification centre` — `/home/inbox` ✅
 
 **Layout** Back, title «الإشعارات», settings icon (→ 15), action «قراءة الكل». Filter chips «الكل | العبادات | التحدي | العروض». Grouped «اليوم / أمس». Rows: icon tile · title · body · time · unread dot. Examples: «العصر بعد 10 دقائق / استعد للصلاة · 3:55 م» · «باقي يومان على 14 يوماً متتالية / أكمل ورد اليوم لتحافظ على استمراريتك» · «رصيدك يكفي لخصم 50 ج.م / استبدل 1,000 نقطة …» · «يوم الإثنين: صيام +30 نقطة / مهمة إضافية في تقويم اليقين» · «مراجعة الحفظ / سورة الهمزة مستحقة للمراجعة اليوم».
 Empty: «لا إشعارات هنا» / «ستظهر هنا تذكيراتك وعروض المتجر».
@@ -586,7 +587,7 @@ Empty: «لا إشعارات هنا» / «ستظهر هنا تذكيراتك و�
 
 ---
 
-### 5.19 `16 · Azkar counter` — `/home/azkar` ⬜
+### 5.19 `16 · Azkar counter` — `/home/azkar` ✅
 
 **Layout** Back, title «أذكار الصباح», settings «الإعدادات: الاهتزاز والصوت». Tabs «نوع الأذكار»: الصباح · المساء · بعد الصلاة · النوم. Position «الذكر 3 من 12». **Counter card** (big glass, the whole card is the tap target): zikr text in Amiri «سُبْحَانَ اللهِ وَبِحَمْدِهِ», virtue + source «… · رواه مسلم», ring counter «37 / 100». Hint «اضغط في أي مكان على البطاقة للعدّ». When done: «تقبّل الله · انتقل للذكر التالي» (auto-advance after 0.8 s). List «باقي الأذكار» with per-item progress «1 / 1», «3 / 3», «0 / 7».
 
@@ -596,7 +597,7 @@ Empty: «لا إشعارات هنا» / «ستظهر هنا تذكيراتك و�
 
 ---
 
-### 5.20 `17 · Duas` — `/home/duas` ⬜
+### 5.20 `17 · Duas` — `/home/duas` ✅
 
 **Layout** Title «الأدعية». **دعاء اليوم** card (gold glass): text, source «رواه البخاري», actions favourite + «مشاركة الدعاء». «الأقسام» grid with counts («3 أدعية», «دعاءان»): الهم والحزن · السفر · الطعام · النوم · المسجد · المفضلة («N محفوظ» / «لا يوجد بعد»). Category screen: title + list of cards (occasion «عند دخول المسجد», text, source, favourite «إضافة إلى المفضلة / إزالة من المفضلة», share).
 
@@ -643,7 +644,7 @@ Selected-day sheet: date line, task list (الورد · أذكار الصباح 
 
 ---
 
-### 5.24 `21 · Profile & settings` — `/profile` ⬜
+### 5.24 `21 · Profile & settings` — `/profile` ✅
 
 **Layout** Avatar initial «أ» · name «أحمد» · «مرتبط بحساب Google · مزامنة مفعّلة». Points card «رصيد النقاط 3,240» · «سجل النقاط» (ledger list: date, reason label, ±points) · «760 نقطة حتى المكافأة التالية». «مكافآت متجر يقين» row of reward cards + «زيارة المتجر». Settings list «الإعدادات»: «اللغة والمصحف · العربية · العثماني» · «مواقيت الصلاة والتنبيهات · الهيئة المصرية» · «الخصوصية والموافقات» (4 consent switches as on 04·ب) · «التنزيلات دون اتصال · 43 MB» · «أكوادي» · «عن يقين / الشروط / الخصوصية / تواصل معنا» · «تصدير بياناتي» · «حذف الحساب» · «تسجيل الخروج».
 
@@ -651,7 +652,7 @@ Selected-day sheet: date line, task list (الورد · أذكار الصباح 
 
 ---
 
-### 5.25 `22 · Hifz plan` — `/quran/hifz` 🟡 (scheduler built)
+### 5.25 `22 · Hifz plan` — `/quran/hifz` ✅
 
 **Layout** Back «رجوع إلى الفهرس», title «خطة الحفظ», «تعديل الخطة». Progress card: goal «جزء عمّ» · «N %» · «الختام ≈ date». **حفظ اليوم**: «سورة العاديات · الآيات 1–5», ayah text, steps checklist «استمع · 3 مرات» · «كرّر · 10 مرات» · «اختبر نفسك · بإخفاء الآيات», CTA «سمّع الآن لتثبيت الحفظ» (→ 10 with this range). **مراجعة اليوم**: due cards «سورة الهمزة · حُفظت قبل 9 أيام · آخر مراجعة قبل 4 أيام», tag «مستحقة اليوم / تحتاج تثبيت / غداً / بعد 3 أيام / بعد 14 يوماً»; rating «كيف كانت المراجعة؟» «صعبة · غداً | جيدة · N أيام | متقنة · N يوماً». Done: «اكتملت مراجعة اليوم». Heat strip «آخر 14 يوماً · 12 يوم حفظ ومراجعة».
 Plan sheet «خطتي»: goals «جزء عمّ · 37 سورة · 564 آية» · «جزء تبارك · 11 سورة · 431 آية» · «سورة الكهف · 110 آيات» · «القرآن كاملاً · 6236 آية»; «مقدار الحفظ الجديد يومياً» stepper (N آيات يومياً) → finish estimate; «حفظ الخطة».
@@ -660,12 +661,36 @@ Plan sheet «خطتي»: goals «جزء عمّ · 37 سورة · 564 آية» ·
 
 ---
 
+### 5.26 `21·ب · Yaqeen card (بطاقة يقين)` — `/profile/card` ✅
+
+An opt-in public card the user can put on an **NFC tag** or a **QR code**: their name, @handle, bio,
+social links and — only if they switch it on — their Yaqeen level, streak, challenge day, streak
+badges and member-since. It is also Yaqeen's front door for whoever scans it.
+
+- **Public page** `GET /u/<handle>` (API-rendered, no scripts, `noindex`): glass card with a level ring
+  around the initial, level chip, stats, gold badges, link pills, then an ink CTA «حمّل تطبيق يقين»
+  (`/get-app` → Play / App Store) and «تسوّق من متجر يقين» (store, UTM `yaqeen_card/nfc/<handle>`).
+  Themes **sky · gold · night**; Arabic/English by the visitor's browser. Missing/hidden cards show
+  a friendly 404 that still invites to the app and the store.
+- **Levels** come from lifetime points (sum of positive ledger rows) — spending never lowers a level;
+  names describe the journey: بداية الطريق · على الطريق · مواظب · ثابت · راسخ · منارة
+  (0 · 500 · 2,000 · 5,000 · 12,000 · 25,000). No leaderboard, no change to points economics.
+- **App screen**: stage = live preview in the chosen look + live/hidden state; orbs = write to NFC
+  (one NDEF URI record — any phone opens it without the app), branded QR (share/copy), open count;
+  editor = publish switch, name, handle (live availability, reserved names), bio (160), ≤ 8 links
+  (https only), visibility switches with the note «عباداتك لا تظهر أبداً», look. Entry: Profile.
+- **Privacy**: unpublished by default; never worship detail; guests can't publish; erasure request or
+  suspension hides it at once; support can hide an abusive card (audited); only an open counter is
+  kept. Deep link `yaqeen://card` → `/profile/card`.
+- **Acceptance** [x] nothing public until published · [x] only switched-on fields appear · [x] unsafe
+  links never render · [x] NFC writes the URL and reports locked/small tags · [x] works in ar/en.
+
 ## 6. Cross-cutting functions
 
 Each function: **what · where in code · rules · tests**. Pure logic goes in `domain/` (Dart) or
 `services/api/src/domain` (TS) and needs unit tests.
 
-### 6.1 Auth & session 🟡
+### 6.1 Auth & session ✅ (OAuth credentials pending, §13)
 
 - Providers `google | apple | guest` → `POST /v1/auth/sign-in {provider, idToken?, deviceId, displayName?}` → `{accessToken (15 min JWT), refreshToken (rotating, 60 d), user}`.
 - `ApiClient` refreshes once on 401 (`POST /v1/auth/refresh`), then signs out locally on failure. Refresh reuse → server revokes the family (existing).
@@ -673,26 +698,26 @@ Each function: **what · where in code · rules · tests**. Pure logic goes in `
 - Tokens in `SecureKvStore`; sign-out → `POST /v1/auth/sign-out`, wipe secure + synced caches.
 - Tests: refresh-once, logout-on-refresh-fail, link merge (API, Postgres).
 
-### 6.2 Onboarding persistence & settings ⬜
+### 6.2 Onboarding persistence & settings ✅
 
 - `OnboardingController` keeps step state; each step saves immediately (kill-safe). `onboarding.completedAt` set on 06 → event `onboarding_complete` (ad-gated).
 - `SettingsRepository` = local source of truth (`KvStore`) + `PATCH /v1/me/settings` (Outbox when offline) for `locale, city, timezone, prayerMethod, asrSchool, hijriOffsetDays`.
 - Device-only keys: `location{lat,lng}`, `quran.*`, `wird.*`, `adhan.*`, `reminders.*`, `quietHours`, `haptics`.
 
-### 6.3 Consent ✅ (API) · 🟡 (mobile)
+### 6.3 Consent ✅
 
 - 4 buckets (table in 5.6). Local first; `PUT /v1/me/consents [{kind, granted, source}]` appends `consent_events` (who/when/source/app version) for PDPL.
 - `Analytics` sends an `AdEvent` only when `ads_measurement` is granted; events before consent are queued for max 24 h then dropped (existing gate).
 - Push marketing requires `store_offers` (offers) or `challenge_rewards` (challenge/rewards campaigns) — enforced server-side in the dispatcher (existing guardrails).
 
-### 6.4 Prayer engine ⬜
+### 6.4 Prayer engine ✅
 
 - Package `adhan_dart` (port of `adhan`) behind `PrayerTimesCalculator` interface in `features/prayer/domain`. Inputs: lat/lng, date, tz, method, asr, high-latitude rule (`twilightAngle` default), per-prayer minute adjustments (hidden advanced setting).
 - Methods: Egyptian (default EG), MWL, Umm al-Qura (+30 min Isha in Ramadan per method), Karachi, ISNA, Dubai, Kuwait, Qatar, Singapore, Turkey.
 - Output for any date offline; Home/13/15/notifications all read from it. Location change > 25 km → prompt to update.
 - Tests: golden tables for Cairo, Alexandria, Aswan, Makkah, London (±1 min vs reference), Cairo DST transitions.
 
-### 6.5 Notifications ✅ planner · ⬜ integration
+### 6.5 Notifications ✅ (re-plan on start, resume, settings, wird/hifz, and at local midnight while open; FCM credentials pending)
 
 - **Local (worship)**: `NotificationPlanner` (pure, tested) produces the next N items; `LocalNotifier` implementation with `flutter_local_notifications` (+ `timezone`). Re-plan on: app start, settings change, location change, midnight, timezone change, after boot (Android `RECEIVE_BOOT_COMPLETED`). iOS: 64 pending limit → plan ~5 days of prayers first, then reminders.
 - **Adhan audio**: custom sounds bundled (≤ 30 s on iOS — full adhan only on Android via a foreground playback service when `mode=adhan` + voice `full`). Android channels: `adhan`, `reminders`, `challenge`, `offers` (user can silence each in OS).
@@ -700,27 +725,27 @@ Each function: **what · where in code · rules · tests**. Pure logic goes in `
 - **Remote (marketing/challenge)**: FCM via `PushService`; server dispatcher applies guardrails (quiet hours, ±prayer windows computed from the user's city/method, Jumu'ah block 11:30–13:30 Fri, 1/day for offers). Tap → deep link.
 - Inbox entries (5.18) for both.
 
-### 6.6 Quran data ⬜
+### 6.6 Quran data ✅ (bundled JSON; licensed fonts/Indo-Pak pending)
 
 - Bundled `assets/quran/quran.db` (SQLite): `surah(114)`, `ayah(6236: surah, ayah, page, juz, hizb, rub, text_uthmani, text_plain)`, `page(604 line layout)`, `juz`, `hizb`. Built by `tools/quran/build_db.py` (new) from licensed sources (§10) with a checksum test (6236 ayat, 604 pages, known hashes).
 - Fonts: Amiri Quran bundled (OFL); KFGQPC page fonts as optional download pack after licence.
 - Tafsir packs (التفسير الميسر first) downloadable `tafsir_<id>.db`; versioned via `GET /v1/content/packs` (new) → `{id, kind, version, url, sha256, sizeBytes}`; weekly background check.
 - Bookmarks/lastRead/wird in local `user.db` (drift).
 
-### 6.7 Audio ⬜
+### 6.7 Audio ✅ (recitations + timings pending licence)
 
 - `just_audio` + `audio_service` + `background_downloader`. Per reciter: surah MP3s + `timings.json` (ayah start/end ms).
 - Player state persisted (surah, ayah, position, reciter, speed, repeat). Lock-screen metadata: surah name, reciter, mark artwork.
 - Downloads: queue, pause/resume, Wi-Fi only default, storage accounting. Delete reclaims.
 
-### 6.8 Recitation check (R&D) ⬜ · flag `recite`
+### 6.8 Recitation check (R&D) 🟡 (engine interface + aligner; model pending) · flag `recite`
 
 - Interface `RecitationEngine { start(expectedAyat); Stream<WordResult>; stop() }`. Implementation candidate: on-device Whisper-small fine-tuned on Quran recitation (e.g. Tarteel-style open models) via `whisper.cpp`/ONNX; model ~150 MB downloaded on demand.
 - Alignment: normalise both sides (strip tashkeel for matching), Levenshtein on words, mark `ok / warn / skipped`. Show only «تنبيه», never claim tajweed judgment in v1.
 - Privacy: audio in memory only; no upload. Opt-in "help improve" upload is **out of scope** until a separate consent exists.
 - Ship gate: ≥ 90 % word accuracy on a 50-reciter internal test set; otherwise keep flag off.
 
-### 6.9 Challenge engine ✅ (API) · 🟡 (mobile)
+### 6.9 Challenge engine ✅
 
 - Server rules (existing, tested): day = sum of active task points (`dailyTotal`, default 100); qada day capped at `qadaDayPoints` (80) within `qadaWindowDays` (7); bonuses per `bonus_rules`; milestones from `streak_milestones`; idempotent by `ref_key = task:<user>:<date>:<task>`.
 - Mobile: `ChallengeRepository` optimistic ticks → Outbox (`clientEventId`) → reconcile with `ChallengeSummary`. "Today" uses the user's timezone; ticks made offline carry their local `date`.
@@ -732,24 +757,24 @@ Each function: **what · where in code · rules · tests**. Pure logic goes in `
 - `GET /v1/calendar/hijri` returns Umm al-Qura (AlAdhan source, cached server-side) with the admin offset (`hijri_adjustments`, region EG) and effective date. App caches 3 months; user may add personal ±1 (`hijriOffsetDays`).
 - Special days (white days 13–15, Mon/Thu, Friday, Ramadan, Eids, Arafah, Ashura) computed from the Hijri date → bonus pips and optional reminders.
 
-### 6.11 Religious content sync 🟡
+### 6.11 Religious content sync ✅
 
 - `GET /v1/content?type=dua|zikr&since=` returns only `published` items (reviewer ≠ author, existing). App stores in local DB; bundled seed for first launch offline.
 - Each item: `text, source (hadith ref), virtue?, repeat count, category, order, featured`. Rendering always shows the source line.
 - `GET /v1/daily-task` → today's «مهمة اليوم» (published only).
 
-### 6.12 Rewards & redemption ✅ (API) · 🟡 (mobile)
+### 6.12 Rewards & redemption ✅
 
 - Catalogue `GET /v1/rewards` (+ balance). Redeem `POST /v1/rewards/:id/redeem` → Shopify `discountCodeBasicCreate` / `discountCodeFreeShippingCreate`, single use, `validityDays`, ledger debit in the same transaction as the redemption row; Shopify failure → no debit.
 - Limits: stock, `perUserMonthlyLimit`. Codes list `GET /v1/me/redemptions`. Store link `STORE_URL/discount/<code>?redirect=/collections/all` + UTM `utm_source=yaqeen_app`; event `store_click`.
 - Phase 2: Shopify order webhook → mark redemption `used`, ad event `purchase` (server-side CAPI only with consent).
 
-### 6.13 Profile, sync & backup ⬜
+### 6.13 Profile, sync & backup ✅ (encrypted backup = phase 2)
 
 - Synced to server: account, settings (non-location), consents, challenge, ledger, redemptions.
 - **Never synced**: location, reading history, bookmarks, hifz, azkar counts. Optional encrypted backup (phase 2) using a key derived on device and stored in iCloud Keychain / Google Block Store — server sees ciphertext only.
 
-### 6.14 Hifz ✅ (scheduler) · ⬜ (UI)
+### 6.14 Hifz ✅
 
 - `ReviewScheduler` (existing, `features/hifz/domain`): `hard → 1 d` · `good → max(3, previous×2)` · `easy → max(14, previous×2.5)`, capped at 120 d; new portions per plan rate. Plan estimate = remaining ayat ÷ rate.
 - Recitation results (6.8) suggest a rating; the user confirms.
@@ -770,19 +795,19 @@ Each function: **what · where in code · rules · tests**. Pure logic goes in `
 - `GET /v1/me/export` (JSON of account, settings, consents + events, ledger, redemptions). `DELETE /v1/me` → status `deletion_requested`, tokens revoked, hard delete after 30 days by job (ledger anonymised to keep accounting).
 - Admin worship analytics are aggregates with k-anonymity ≥ 20.
 
-### 6.18 i18n & formatting 🟡
+### 6.18 i18n & formatting ✅
 
 - `flutter gen-l10n`, ARB per screen prefix (`home_*`, `quran_*`…). `YqFormat.number/time/date` (Western digits, `ar-EG-u-nu-latn`, 12-hour «م/ص» in Arabic). English: same layouts mirrored LTR; Quran text stays RTL.
 
-### 6.19 Analytics (product) ⬜
+### 6.19 Analytics (product) ✅ (server-side DAU / challenge stats)
 
 - Two separate pipes: **AdEvent** (9 events, consent-gated → Firebase/Meta/TikTok SDKs) and **product metrics** computed **server-side from first-party data** (DAU from authenticated requests, challenge stats from ledger). No third-party product analytics SDK on worship screens.
 
-### 6.20 Deep links ✅ (map) · ⬜ (universal links)
+### 6.20 Deep links ✅ (map) · 🟡 (universal links: AASA + assetlinks on the store theme)
 
 - `routeForDeepLink` → update to the new sub-routes (calendar → `/challenge/calendar`, azkar → `/home/azkar`, hifz → `/quran/hifz`, redeem → `/challenge/redeem`). iOS Associated Domains + Android App Links for `yaqin-brand.com/app/*` (`apple-app-site-association`, `assetlinks.json` hosted by the store theme).
 
-### 6.21 Quality, crash & performance ⬜
+### 6.21 Quality, crash & performance 🟡 (perf rules + CI smoke; Crashlytics needs Firebase credentials)
 
 - Crash reporting: Firebase Crashlytics (no PII, no worship data in keys/logs). Performance budget: cold start < 2 s to splash, Home interactive < 1 s after splash, APK < 60 MB (without audio), memory < 250 MB in reader.
 

@@ -58,6 +58,9 @@ touching user privacy.
     `lights:` only for accents (`goldLights` on reward, challenge and calendar screens).
   - Every screen is a `YqCanvas`: a `YqStage` (living sky; `compact` on pushed screens, `gold` on reward screens) with a `YqStageBar` and one `YqMoment`, then up to three `YqOrb`s, then a `YqTimeline` / `YqGroup`s / lazy `slivers`. The reader and splash are the only exceptions (DESIGN_SYSTEM §3).
   - Tab bar = the living dock (`FloatingTabBar`).
+  - Shadows under translucent glass go through `OuterShadow` (never a plain `BoxShadow` under a see-through fill).
+  - Loading states are shaped like the content: `YqSkeletonOrbs`, `YqSkeletonRows`, `YqSkeletonText`, `YqSkeletonBox.circle`.
+- **Public card (بطاقة يقين):** opt-in; shows only switched-on fields and never worship detail (CLAUDE.md rules 1–2). Server page in `services/api/src/web/profile-page.ts` (escape every user string; https links only); app in `features/card`; NFC behind `core/platform/nfc_writer.dart`.
   - Tests pin the sky with the harness `skyClock:` so goldens are deterministic.
 - **Routine:** `quranSlot`/`hifzSlot`/`dhikrSlot` (`RoutineSlot`) drive Home's «Your day» stops and local reminders.
   They are device-only and never go in `serverPatch()`.

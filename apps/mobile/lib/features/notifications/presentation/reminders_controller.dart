@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 import '../../../core/config/config_controller.dart';
 import '../../../core/config/remote_config.dart';
@@ -32,12 +34,31 @@ final reminderInputsProvider = FutureProvider<ReminderInputs>((ref) async {
 /// Keeps the local notification schedule in sync (spec §6.5): re-plans when settings change and on
 /// demand (start, resume, wird done, hifz rated). Also moves delivered reminders into the inbox.
 class RemindersController extends Notifier<DateTime?> {
+  Timer? _next;
+
   @override
   DateTime? build() {
     ref.listen(settingsProvider, (prev, next) {
       if (prev != next) replan();
     });
+    ref.onDispose(() => _next?.cancel());
     return null;
+  }
+
+  /// While the app stays open, re-plan when the window runs out or just after local midnight
+  /// (a new day: new prayer times, wird reset), whichever comes first (spec §6.5).
+  void _scheduleNext(DateTime? replanBefore) {
+    _next?.cancel();
+    final s = ref.read(settingsProvider);
+    final now = ref.read(clockProvider)();
+    final today = Zoned.today(s.placeOrDefault.timezone, now);
+    final next = DateTime(today.year, today.month, today.day + 1);
+    // 00:01 tomorrow in the place's zone, as an instant.
+    final tomorrow = tz.TZDateTime(Zoned.location(s.placeOrDefault.timezone), next.year, next.month, next.day, 0, 1).toUtc();
+    DateTime at = tomorrow;
+    if (replanBefore != null && replanBefore.isBefore(at)) at = replanBefore;
+    final wait = at.difference(now.toUtc());
+    _next = Timer(wait.isNegative ? const Duration(minutes: 1) : wait, () => replan().ignore());
   }
 
   Future<void> replan() async {
@@ -57,6 +78,7 @@ class RemindersController extends Notifier<DateTime?> {
       ramadan: ref.read(remoteConfigProvider).isOn(Flags.ramadan),
     );
     state = plan.replanBefore;
+    _scheduleNext(plan.replanBefore);
   }
 }
 

@@ -28,6 +28,11 @@ Base URL: `API_URL` (local `http://localhost:4000`). JSON only. Schemas: `packag
 | GET | `/v1/me/ledger` · `/v1/me/redemptions` | user | Points history · issued codes |
 | POST | `/v1/me/campaigns/:id/opened` | user | Push opened; idempotent (`{counted}`), feeds open rate |
 | GET | `/v1/me/export` | user | PDPL data access — everything held about the user |
+| GET · PUT | `/v1/me/public-profile` | user (PUT: not guest) | «بطاقة يقين» settings: handle, name, bio, ≤ 8 links, visibility switches, theme; GET returns a suggested draft before the first save, plus `url` and `views`. Errors `handle_taken` (409), `handle_reserved`, `account_required` |
+| GET | `/v1/me/public-profile/available?handle=` | user | `{available}` |
+| GET | `/v1/public/profiles/:handle` | public | What a scanner sees (cached 60 s): level, streak, challenge day, badges, member since — each only if switched on; never worship detail. 404 when unpublished |
+| GET | `/u/:handle` | public | The card as a script-free HTML page (Arabic/English by browser) with the get-the-app and store CTAs; counts human opens |
+| GET | `/get-app` | public | Smart redirect to Google Play / the App Store by user agent (store site otherwise) |
 | DELETE | `/v1/me` | user | PDPL erasure request (202, 30-day grace). Sessions and devices end at once; `job:purge` anonymises after 30 days (ledger kept). Signing in again during the grace period cancels the request |
 | POST | `/v1/challenge/enroll` | user (not guest) | Starts day 1 today |
 | GET | `/v1/challenge/summary` | user | Day number, streak, balance, today, task values |
@@ -81,6 +86,10 @@ Roles: `super_admin` (always allowed), `content_editor`, `religious_reviewer`, `
 | POST | `/admin/settings/hijri/preview` · `/admin/settings/hijri` | religious_reviewer — save blocked if the preview has warnings |
 | GET | `/admin/settings/audit` | super_admin |
 | GET · POST · PATCH | `/admin/settings/team` · `/admin/settings/team/:id` | super_admin — new admin's TOTP secret is returned once |
+
+### Public profile moderation
+
+| POST | `/admin/users/:id/public-profile/unpublish` | support | Hide a user's public card (`{reason}`), audited. The user detail includes `publicProfile {handle, published, views, url}` |
 
 ## Common error codes
 

@@ -271,6 +271,26 @@ class _Enrolled extends ConsumerWidget {
             ),
           ],
         ),
+        // A broken streak is never shamed or shown as zero loudly (spec §6.9): a gentle way back.
+        if (summary.streak == 0 && summary.dayNumber > 1) ...[
+          const SizedBox(height: YqSpace.l),
+          GlassTap(
+            onTap: () => context.push('/challenge/calendar'),
+            semanticLabel: t.challengeStreakRestart,
+            child: LiquidGlass(
+              tone: GlassTone.gold,
+              padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.m),
+              child: Row(
+                children: [
+                  const YqIcon(YqIcons.calendar, size: 20, tone: YqIconTone.gold),
+                  const SizedBox(width: YqSpace.m),
+                  Expanded(child: Text(t.challengeStreakRestart, style: text.titleSmall?.copyWith(color: YqColors.goldDeep))),
+                  const Icon(Icons.chevron_right_rounded, color: YqColors.goldText),
+                ],
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: YqSpace.xxl),
         YqHeading(t.todayTasks),
         YqTimeline(
