@@ -17,6 +17,7 @@ import '../features/notifications/presentation/notification_settings_screen.dart
 import '../features/onboarding/presentation/onboarding_screens.dart';
 import '../features/onboarding/presentation/splash_gate.dart';
 import '../features/prayer/presentation/prayer_screen.dart';
+import '../features/card/presentation/card_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/prayer/presentation/qibla_screen.dart';
 import '../features/quran/presentation/quran_index_screen.dart';
@@ -148,6 +149,7 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
                     GoRoute(path: 'privacy', builder: (_, __) => const PrivacyScreen()),
                     GoRoute(path: 'ledger', builder: (_, __) => const LedgerScreen()),
                     GoRoute(path: 'downloads', builder: (_, __) => const DownloadsScreen()),
+                    GoRoute(path: 'card', builder: (_, __) => const CardScreen()),
                   ],
                 ),
               ],

@@ -1,0 +1,220 @@
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:yaqeen/core/di/providers.dart';
+import 'package:yaqeen/core/network/api_client.dart';
+import 'package:yaqeen/core/platform/nfc_writer.dart';
+import 'package:yaqeen/core/storage/kv_store.dart';
+import 'package:yaqeen/core/widgets/controls.dart';
+import 'package:yaqeen/core/widgets/liquid_glass.dart';
+import 'package:yaqeen/features/card/domain/public_card.dart';
+import 'package:yaqeen/features/card/presentation/card_screen.dart';
+import 'package:yaqeen/features/onboarding/data/auth_repository.dart';
+
+import '../helpers/fonts.dart';
+import '../helpers/harness.dart';
+
+/// What GET /v1/me/public-profile returns (shape of contracts `PublicProfileSettings`).
+Map<String, Object?> cardJson({bool published = false}) => {
+      'published': published,
+      'handle': 'ahmed',
+      'displayName': 'أحمد',
+      'bio': '',
+      'links': [
+        {'kind': 'instagram', 'value': '@ahmed'},
+      ],
+      'show': {'level': true, 'streak': false, 'challengeDay': false, 'badges': false, 'memberSince': false},
+      'theme': 'sky',
+      'url': 'https://id.test/u/ahmed',
+      'views': 12,
+    };
+
+class FakeNfc implements NfcWriter {
+  String? wrote;
+  @override
+  Future<NfcAvailabilityState> availability() async => NfcAvailabilityState.enabled;
+  @override
+  Future<NfcWriteResult> writeUrl(String url, {required String prompt, required String done}) async {
+    wrote = url;
+    return NfcWriteResult.written;
+  }
+
+  @override
+  Future<void> cancel() async {}
+}
+
+void main() {
+  group('domain mirrors contracts/profile.ts', () {
+    test('levels from lifetime points', () {
+      expect(levelFor(0).level, 1);
+      expect(levelFor(0).nextAt, 500);
+      expect(levelFor(1250).level, 2);
+      expect(levelFor(1250).progress, closeTo(0.5, 1e-9));
+      expect(levelFor(99999).nameAr, 'منارة');
+      expect(levelFor(99999).progress, 1);
+    });
+
+    test('social links: https only', () {
+      expect(const SocialLink(SocialKind.instagram, '@ahmed.y').url, 'https://instagram.com/ahmed.y');
+      expect(const SocialLink(SocialKind.whatsapp, '+20 100 123 4567').url, 'https://wa.me/201001234567');
+      expect(const SocialLink(SocialKind.website, 'yaqin-brand.com/about').url, 'https://yaqin-brand.com/about');
+      expect(const SocialLink(SocialKind.website, 'javascript:alert(1)').url, isNull);
+      expect(const SocialLink(SocialKind.x, 'http://evil.test').url, isNull);
+    });
+
+    test('handle rules', () {
+      expect(handleProblemOf('ahmed.y'), isNull);
+      expect(handleProblemOf('1abc'), HandleProblem.format);
+      expect(handleProblemOf('أحمد'), HandleProblem.format);
+      expect(handleProblemOf('yaqeen'), HandleProblem.reserved);
+    });
+
+    test('parse → update body round-trip', () {
+      final c = PublicCard.fromJson(cardJson());
+      expect(c.links.single.kind, SocialKind.instagram);
+      expect(c.views, 12);
+      final body = c.copyWith(handle: '  Ahmed ', published: true).toUpdateJson();
+      expect(body['handle'], 'ahmed');
+      expect(body['published'], true);
+      expect(body.containsKey('url'), isFalse);
+      expect(body.containsKey('views'), isFalse);
+    });
+
+    test('NDEF URI payload uses the https:// abbreviation', () {
+      final p = uriRecordPayload('https://id.test/u/ahmed');
+      expect(p.first, 0x04);
+      expect(utf8.decode(p.sublist(1)), 'id.test/u/ahmed');
+      expect(uriRecordPayload('https://www.x.test').first, 0x02);
+      expect(uriRecordPayload('tel:1').first, 0x00);
+    });
+  });
+
+  group('card screen', () {
+    setUpAll(loadAppFonts);
+    setUp(() => YqGlassConfig.enableBlur = false);
+
+    late List<http.Request> requests;
+    http.Client server({bool published = false}) => MockClient((req) async {
+          requests.add(req);
+          final p = req.url.path;
+          final h = {'content-type': 'application/json'};
+          if (p == '/v1/me/public-profile' && req.method == 'GET') return http.Response(jsonEncode(cardJson(published: published)), 200, headers: h);
+          if (p == '/v1/me/public-profile' && req.method == 'PUT') {
+            final body = (jsonDecode(req.body) as Map).cast<String, Object?>();
+            return http.Response(jsonEncode({...body, 'url': 'https://id.test/u/${body['handle']}', 'views': 12}), 200, headers: h);
+          }
+          if (p == '/v1/me/public-profile/available') return http.Response(jsonEncode({'available': true}), 200, headers: h);
+          if (p == '/v1/public/profiles/ahmed') {
+            return http.Response(
+              jsonEncode({
+                'level': {'level': 2, 'nameAr': 'على الطريق', 'nameEn': 'On the path', 'progress': 0.3},
+                'streak': null,
+                'challengeDay': null,
+                'badges': null,
+              }),
+              200,
+              headers: h,
+            );
+          }
+          if (p == '/v1/me/ledger') return http.Response('[]', 200, headers: h);
+          return http.Response('{}', 404, headers: h);
+        });
+
+    Future<List<Override>> overrides({bool published = false, NfcWriter? nfc, bool guest = false}) async {
+      requests = [];
+      final secure = MemoryKvStore();
+      await secure.write('auth.access', 'token');
+      return [
+        initialSessionProvider.overrideWithValue(
+          guest ? const Session(provider: SignInProvider.guest) : const Session(provider: SignInProvider.google, userId: 'u1', displayName: 'أحمد'),
+        ),
+        tokenStoreProvider.overrideWithValue(TokenStore(secure)),
+        apiClientProvider.overrideWith((ref) => ApiClient(baseUrl: 'https://api.test', tokens: ref.watch(tokenStoreProvider), client: server(published: published))),
+        if (nfc != null) nfcWriterProvider.overrideWithValue(nfc),
+      ];
+    }
+
+    void tall(WidgetTester tester) {
+      tester.view.physicalSize = const Size(390 * 3, 2600 * 3);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+    }
+
+    Future<void> settle(WidgetTester tester) async {
+      for (var i = 0; i < 4; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 60)));
+        await tester.pump(const Duration(milliseconds: 300));
+      }
+    }
+
+    testWidgets('guests are invited to sign in', (tester) async {
+      tall(tester);
+      await tester.pumpWidget(harness(const CardScreen(), overrides: await overrides(guest: true)));
+      await settle(tester);
+      expect(find.text('سجّل الدخول لتصنع بطاقتك العامة وتشاركها'), findsOneWidget);
+    });
+
+    testWidgets('loads the card, previews it, and saves only after a change', (tester) async {
+      tall(tester);
+      await tester.pumpWidget(harness(const CardScreen(), overrides: await overrides()));
+      await settle(tester);
+      expect(find.text('@ahmed'), findsWidgets); // preview handle (and the Instagram link)
+      expect(find.text('مخفية'), findsOneWidget);
+      expect(find.text('12'), findsOneWidget); // opens orb
+      expect(find.text('عباداتك لا تظهر أبداً: لا صلوات ولا أذكار ولا صفحات. تظهر فقط الأرقام التي تختارها هنا.'), findsOneWidget);
+
+      // Nothing changed → nothing to save.
+      final save = find.widgetWithText(GestureDetector, 'حفظ البطاقة');
+      await tester.tap(find.text('حفظ البطاقة'));
+      await settle(tester);
+      expect(requests.where((r) => r.method == 'PUT'), isEmpty);
+      expect(save, findsWidgets);
+
+      // Publish + show the streak, then save.
+      // Switches in order: publish, then level, streak, challenge day, badges, member since.
+      await tester.tap(find.byType(YqSwitch).at(0));
+      await tester.tap(find.byType(YqSwitch).at(2));
+      await tester.pump();
+      await tester.tap(find.text('حفظ البطاقة'));
+      await settle(tester);
+      final put = requests.singleWhere((r) => r.method == 'PUT');
+      final body = jsonDecode(put.body) as Map<String, dynamic>;
+      expect(body['published'], true);
+      expect((body['show'] as Map)['streak'], true);
+      expect(body['links'], [
+        {'kind': 'instagram', 'value': '@ahmed'},
+      ]);
+      expect(find.text('منشورة'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 3)); // the «saved» toast
+    });
+
+    testWidgets('a bad handle blocks saving and says why', (tester) async {
+      tall(tester);
+      await tester.pumpWidget(harness(const CardScreen(), overrides: await overrides()));
+      await settle(tester);
+      await tester.enterText(find.widgetWithText(TextField, 'ahmed'), 'yaqeen');
+      await tester.pump();
+      expect(find.text('هذا الاسم محجوز'), findsOneWidget);
+      await tester.tap(find.text('حفظ البطاقة'));
+      await settle(tester);
+      expect(requests.where((r) => r.method == 'PUT'), isEmpty);
+    });
+
+    testWidgets('NFC: a published card is written to the tag', (tester) async {
+      tall(tester);
+      final nfc = FakeNfc();
+      await tester.pumpWidget(harness(const CardScreen(), overrides: await overrides(published: true, nfc: nfc)));
+      await settle(tester);
+      await tester.tap(find.bySemanticsLabel(RegExp('^اكتب بطاقتك على وسم NFC')).first);
+      await settle(tester);
+      await tester.tap(find.text('ابدأ الكتابة'));
+      await settle(tester);
+      expect(nfc.wrote, 'https://id.test/u/ahmed');
+      expect(find.text('تمّت الكتابة · أي هاتف يلمس الوسم يفتح بطاقتك'), findsOneWidget);
+    });
+  });
+}

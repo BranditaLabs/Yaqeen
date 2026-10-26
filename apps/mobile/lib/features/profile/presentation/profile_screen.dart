@@ -176,6 +176,8 @@ class ProfileScreen extends ConsumerWidget {
           ),
           const SizedBox(height: YqSpace.xl),
         ],
+        const _CardTeaser(),
+        const SizedBox(height: YqSpace.xl),
         YqHeading(t.profileSettings),
         YqGroup(
           children: [
@@ -542,6 +544,61 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
                 ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Entry to «بطاقة يقين»: an ink card with a gold edge — the public card for NFC tags and QR.
+class _CardTeaser extends StatelessWidget {
+  const _CardTeaser();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    return GlassTap(
+      onTap: () => context.push('/profile/card'),
+      semanticLabel: '${t.cardTitle}، ${t.cardTeaserBody}',
+      child: Container(
+        padding: const EdgeInsets.all(YqSpace.l),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(YqRadii.card),
+          gradient: const LinearGradient(
+            begin: AlignmentDirectional.centerStart,
+            end: AlignmentDirectional.centerEnd,
+            colors: [YqColors.midnight, YqColors.navy, YqColors.lapis],
+          ),
+          border: Border.all(color: const Color(0x40E9D49E)),
+          boxShadow: const [BoxShadow(color: Color(0x590A1530), blurRadius: 26, spreadRadius: -12, offset: Offset(0, 12))],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: YqColors.goldLight.withValues(alpha: 0.6)),
+                color: const Color(0x14E9D49E),
+              ),
+              child: const Icon(Icons.contactless_outlined, color: YqColors.goldLight, size: 28),
+            ),
+            const SizedBox(width: YqSpace.m),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(t.cardTitle, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: YqColors.goldLight, letterSpacing: 0.4)),
+                  const SizedBox(height: 2),
+                  Text(t.cardTeaserTitle, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: YqColors.white)),
+                  Text(t.cardTeaserBody, style: const TextStyle(fontSize: 12, height: 1.5, color: Color(0xFFC3C8D3))),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: YqColors.goldLight),
+          ],
         ),
       ),
     );

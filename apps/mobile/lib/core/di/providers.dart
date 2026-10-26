@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../features/card/data/card_repository.dart';
 import '../../features/calendar/data/calendar_repository.dart';
 import '../../features/challenge/data/challenge_repository.dart';
 import '../../features/azkar/data/azkar_store.dart';
@@ -36,6 +37,7 @@ import '../platform/audio_engine.dart';
 import '../platform/device_services.dart';
 import '../platform/location_service.dart';
 import '../platform/recitation_engine.dart';
+import '../platform/nfc_writer.dart';
 import '../platform/social_auth.dart';
 import '../settings/app_settings.dart';
 import '../settings/settings_repository.dart';
@@ -70,6 +72,7 @@ final locationServiceProvider = Provider<LocationService>((_) => FakeLocationSer
 final compassServiceProvider = Provider<CompassService>((_) => FakeCompassService());
 final socialAuthProvider = Provider<SocialAuth>((_) => FakeSocialAuth());
 final connectivityProvider = Provider<ConnectivityMonitor>((_) => const AlwaysOnline());
+final nfcWriterProvider = Provider<NfcWriter>((_) => const NoopNfcWriter());
 
 /// Live online/offline state (starts optimistic).
 final onlineProvider = StreamProvider<bool>((ref) async* {
@@ -98,6 +101,7 @@ final challengeRepositoryProvider = Provider(
     cache: ref.watch(kvStoreProvider),
   ),
 );
+final cardRepositoryProvider = Provider((ref) => CardRepository(ref.watch(apiClientProvider)));
 final rewardsRepositoryProvider = Provider((ref) => RewardsRepository(ref.watch(apiClientProvider), cache: ref.watch(kvStoreProvider)));
 final calendarRepositoryProvider =
     Provider((ref) => CalendarRepository(api: ref.watch(apiClientProvider), cache: ref.watch(kvStoreProvider)));
