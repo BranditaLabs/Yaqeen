@@ -1,5 +1,5 @@
 # Build from the repo root:  docker build -f apps/admin/Dockerfile -t yaqeen-admin .
-FROM node:22-alpine AS base
+FROM node:26-alpine AS base
 RUN corepack enable && corepack prepare pnpm@10.34.7 --activate
 WORKDIR /repo
 
@@ -24,7 +24,7 @@ RUN --mount=type=secret,id=sentry_auth_token \
     sh -c 'pnpm --filter @yaqeen/contracts build && pnpm --filter @yaqeen/admin build'
 
 # Next.js standalone output: only the traced runtime files.
-FROM node:22-alpine AS runtime
+FROM node:26-alpine AS runtime
 ARG GIT_SHA=dev
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 GIT_SHA=$GIT_SHA
 WORKDIR /app
