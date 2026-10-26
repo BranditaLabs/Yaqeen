@@ -337,6 +337,7 @@ class YqGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     return LiquidGlass(
       tone: gold ? GlassTone.gold : GlassTone.clear,
+      highlight: false,
       padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.xs),
       child: Column(
         children: [

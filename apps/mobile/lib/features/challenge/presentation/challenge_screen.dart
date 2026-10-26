@@ -10,8 +10,10 @@ import '../../../core/format.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/ambient_background.dart';
-import '../../../core/widgets/yq_sky_header.dart';
-import '../../../core/widgets/controls.dart';
+import '../../../core/widgets/yq_orb.dart';
+import '../../../core/widgets/yq_ring.dart';
+import '../../../core/widgets/yq_stage.dart';
+import '../../../core/widgets/yq_timeline.dart';
 import '../../../core/widgets/liquid_glass.dart';
 import '../../../core/widgets/yq_button.dart';
 import '../../../core/widgets/yq_icon.dart';
@@ -56,22 +58,17 @@ class ChallengeScreen extends ConsumerWidget {
       }
     });
 
-    return AmbientBackground(
-      lights: AmbientBackground.goldLights,
-      // When enrolled, the header's sky band reaches under the status bar (YqSkyHeader).
-      child: SafeArea(
-        top: !(session.canEarnPoints && (state.valueOrNull?.enrolled ?? false)),
-        bottom: false,
-        child: !session.canEarnPoints
-            ? _JoinView(guest: true, onJoin: () => context.push('/onboarding/welcome'))
-            : state.when(
-                loading: () => const _Skeleton(),
-                error: (_, __) => YqErrorState(message: t.errorGeneric, onRetry: () => ref.invalidate(challengeControllerProvider)),
-                data: (s) => s.enrolled
-                    ? _Enrolled(summary: s)
-                    : _JoinView(guest: false, onJoin: () => ref.read(challengeControllerProvider.notifier).enroll()),
-              ),
+    if (!session.canEarnPoints) return _JoinView(guest: true, onJoin: () => context.push('/onboarding/welcome'));
+    return state.when(
+      loading: () => const _Skeleton(),
+      error: (_, __) => YqCanvas(
+        lights: AmbientBackground.goldLights,
+        stage: YqStage(gold: true, child: YqStageBar(title: t.challengeTitle)),
+        children: [YqErrorState(message: t.errorGeneric, onRetry: () => ref.invalidate(challengeControllerProvider))],
       ),
+      data: (s) => s.enrolled
+          ? _Enrolled(summary: s)
+          : _JoinView(guest: false, onJoin: () => ref.read(challengeControllerProvider.notifier).enroll()),
     );
   }
 }
@@ -178,15 +175,18 @@ class _Enrolled extends ConsumerWidget {
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final dailyTask = summary.today == null ? null : ref.watch(dailyTaskProvider(summary.today!.date)).valueOrNull;
 
-    return RefreshIndicator.adaptive(
+    final m = summary.nextMilestone;
+    return YqCanvas(
+      lights: AmbientBackground.goldLights,
       onRefresh: () => ref.refresh(challengeControllerProvider.future),
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(YqSpace.gutter, 0, YqSpace.gutter, 140),
-        children: [
-          YqSkyHeader(
-            child: Row(
-              children: [
-                Expanded(child: Semantics(header: true, child: Text(t.challengeTitle, style: YqText.display.copyWith(fontSize: 30)))),
+      stage: YqStage(
+        gold: true,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            YqStageBar(
+              title: t.challengeTitle,
+              actions: [
                 GlassIconButton(
                   tooltip: t.challengeCalendar,
                   onPressed: () => context.push('/challenge/calendar'),
@@ -194,196 +194,138 @@ class _Enrolled extends ConsumerWidget {
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: YqSpace.l),
-          LiquidGlass(
-            tone: GlassTone.gold,
-            radius: YqRadii.hero,
-            padding: const EdgeInsets.all(YqSpace.xl),
-            child: Row(
-              children: [
-                SizedBox.square(
-                  dimension: 96,
-                  child: CustomPaint(
-                    painter: _DayRing(summary.progress),
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(YqFormat.number(summary.dayNumber), style: YqText.numeral.copyWith(fontSize: 26)),
-                          Text(YqFormat.number(summary.challengeLengthDays), style: YqText.numberSmall.copyWith(color: YqColors.goldText)),
-                        ],
-                      ),
+            const SizedBox(height: YqSpace.xl),
+            Semantics(
+              container: true,
+              excludeSemantics: true,
+              label: '${t.dayOfTotal(summary.dayNumber, summary.challengeLengthDays)}، ${t.challengePointsLabel(YqFormat.number(summary.balance))}',
+              child: Column(
+                children: [
+                  YqRing(
+                    value: summary.progress,
+                    gold: true,
+                    size: 176,
+                    stroke: 9,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          YqFormat.number(summary.dayNumber),
+                          textDirection: TextDirection.ltr,
+                          style: YqMoment.numeral(size: 58),
+                        ),
+                        Text(
+                          t.dayOfTotal(summary.dayNumber, summary.challengeLengthDays),
+                          style: text.bodySmall?.copyWith(color: YqColors.goldDeep),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                const SizedBox(width: YqSpace.l),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        t.dayOfTotal(summary.dayNumber, summary.challengeLengthDays),
-                        style: text.bodySmall?.copyWith(color: YqColors.goldDeep),
-                      ),
-                      Text(t.challengePointsLabel(YqFormat.number(summary.balance)), style: YqText.numeral.copyWith(fontSize: 24)),
-                      const SizedBox(height: YqSpace.xs),
-                      Text(t.streakDays(summary.streak), style: text.bodySmall),
-                      Text(t.challengeQadaDays(summary.qadaDays), style: text.bodySmall),
-                    ],
+                  const SizedBox(height: YqSpace.m),
+                  Text(
+                    t.challengePointsLabel(YqFormat.number(summary.balance)),
+                    style: YqMoment.numeral(size: 30, color: YqColors.goldDeep).copyWith(fontWeight: FontWeight.w400),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: YqSpace.xl),
-          Row(
-            children: [
-              Expanded(child: Text(t.todayTasks, style: text.titleMedium)),
-              Text(t.challengeTodayProgress(earned, total), style: YqText.numberSmall.copyWith(color: YqColors.lapis)),
-            ],
-          ),
+          ],
+        ),
+      ),
+      children: [
+        YqOrbRow(
+          orbs: [
+            YqOrb(
+              title: t.todayTasks,
+              status: t.challengeTodayProgress(earned, total),
+              glow: total > 0 && earned >= total,
+              statusColor: total > 0 && earned >= total ? YqColors.goldText : null,
+              disc: YqRing(
+                value: total == 0 ? 0 : earned / total,
+                size: YqOrb.defaultSize - 12,
+                stroke: 5,
+                child: Text(
+                  '${YqFormat.number(total == 0 ? 0 : (earned * 100 / total).round())}%',
+                  textDirection: TextDirection.ltr,
+                  style: YqText.numberSmall.copyWith(fontSize: 18, fontWeight: FontWeight.w500, color: YqColors.ink),
+                ),
+              ),
+            ),
+            YqOrb(
+              title: t.challengeStreak,
+              status: t.streakDays(summary.streak),
+              statusColor: YqColors.goldText,
+              disc: YqRing(
+                value: m == null || m.days == 0 ? 1 : summary.streak / m.days,
+                gold: true,
+                size: YqOrb.defaultSize - 12,
+                stroke: 5,
+                child: const YqIcon(YqIcons.streak, size: 26, tone: YqIconTone.gold),
+              ),
+            ),
+            YqOrb(
+              title: t.challengeQada,
+              status: t.challengeQadaDays(summary.qadaDays),
+              onTap: () => context.push('/challenge/calendar'),
+              disc: YqOrb.number(YqFormat.number(summary.qadaDays), size: 30),
+            ),
+          ],
+        ),
+        const SizedBox(height: YqSpace.xxl),
+        YqHeading(t.todayTasks),
+        YqTimeline(
+          timeWidth: 0,
+          stops: [
+            for (final task in summary.tasks)
+              YqStop(
+                title: isAr ? task.labelAr : task.labelEn,
+                style: StopStyle.pill,
+                subtitle: switch (task.key) {
+                  TaskKey.fivePrayers => t.taskPrivate,
+                  TaskKey.dailyTask => dailyTask == null ? null : (isAr ? dailyTask.ar : dailyTask.en),
+                  _ when isAutoTask(task.key) => t.taskAuto,
+                  _ => null,
+                },
+                done: done.contains(task.key),
+                highlight: !done.contains(task.key) && task == summary.tasks.firstWhere((x) => !done.contains(x.key), orElse: () => task),
+                trailing: Text(
+                  t.pointsPlus(YqFormat.number(task.points)),
+                  style: YqText.numberSmall.copyWith(color: done.contains(task.key) ? YqColors.muted : YqColors.goldText),
+                ),
+                onTap: done.contains(task.key) ? null : () => _onTask(context, ref, task, false),
+              ),
+          ],
+        ),
+        if (m != null) ...[
           const SizedBox(height: YqSpace.s),
-          YqProgressLine(value: total == 0 ? 0 : (earned / total).clamp(0, 1), height: 5),
-          const SizedBox(height: YqSpace.m),
-          for (final task in summary.tasks) ...[
-            _TaskTile(
-              task: task,
-              label: isAr ? task.labelAr : task.labelEn,
-              subtitle: switch (task.key) {
-                TaskKey.fivePrayers => t.taskPrivate,
-                TaskKey.dailyTask => dailyTask == null ? null : (isAr ? dailyTask.ar : dailyTask.en),
-                _ when isAutoTask(task.key) => t.taskAuto,
-                _ => null,
-              },
-              done: done.contains(task.key),
-              onTap: () => _onTask(context, ref, task, done.contains(task.key)),
-            ),
-            const SizedBox(height: YqSpace.s),
-          ],
-          if (summary.nextMilestone case final m?) ...[
-            const SizedBox(height: YqSpace.s),
-            Text(t.nextMilestone(m.days, YqFormat.number(m.points)), style: text.bodySmall?.copyWith(color: YqColors.goldText)),
-          ],
-          const SizedBox(height: YqSpace.xl),
-          LiquidGlass(
-            tone: GlassTone.gold,
-            child: Row(
-              children: [
-                const YqIcon(YqIcons.store, tone: YqIconTone.gold),
-                const SizedBox(width: YqSpace.m),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(t.redeemCardTitle, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                      if (config.cheapestRewardPoints case final p?)
-                        Text(t.redeemCardHint(YqFormat.number(p)), style: text.bodySmall?.copyWith(color: YqColors.goldDeep)),
-                    ],
-                  ),
-                ),
-                YqButton(label: t.redeemCta, expand: false, onPressed: () => context.push('/challenge/redeem')),
-              ],
-            ),
+          Text(
+            t.nextMilestone(m.days, YqFormat.number(m.points)),
+            textAlign: TextAlign.center,
+            style: text.bodySmall?.copyWith(color: YqColors.goldText),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _DayRing extends CustomPainter {
-  _DayRing(this.value);
-  final double value;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final r = (Offset.zero & size).deflate(5);
-    canvas.drawArc(
-      r,
-      0,
-      math.pi * 2,
-      false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 7
-        ..color = const Color(0x297C6127),
-    );
-    canvas.drawArc(
-      r,
-      -math.pi / 2,
-      math.pi * 2 * value.clamp(0, 1),
-      false,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 7
-        ..strokeCap = StrokeCap.round
-        ..color = YqColors.gold,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_DayRing old) => old.value != value;
-}
-
-class _TaskTile extends StatelessWidget {
-  const _TaskTile({required this.task, required this.label, required this.done, required this.onTap, this.subtitle});
-  final ChallengeTask task;
-  final String label;
-  final String? subtitle;
-  final bool done;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AppLocalizations.of(context);
-    final auto = isAutoTask(task.key);
-    return Semantics(
-      button: !done,
-      checked: done,
-      label: [label, if (subtitle != null) subtitle!, t.pointsPlus(YqFormat.number(task.points))].join('، '),
-      excludeSemantics: true,
-      child: GlassTap(
-        onTap: done ? null : onTap,
-        child: LiquidGlass(
-          padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.m),
+        const SizedBox(height: YqSpace.xl),
+        LiquidGlass(
+          tone: GlassTone.gold,
           child: Row(
             children: [
-              AnimatedContainer(
-                duration: YqMotion.base,
-                width: 26,
-                height: 26,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: done ? YqColors.lapis : Colors.transparent,
-                  border: Border.all(color: done ? YqColors.lapis : YqColors.mist, width: 1.6),
-                ),
-                child: done ? const Icon(Icons.check, size: 16, color: Colors.white) : null,
-              ),
+              const YqIcon(YqIcons.store, tone: YqIconTone.gold),
               const SizedBox(width: YqSpace.m),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(label, style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: done ? YqColors.muted : YqColors.ink)),
-                    if (subtitle != null)
-                      Text(subtitle!, style: Theme.of(context).textTheme.bodySmall, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    Text(t.redeemCardTitle, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                    if (config.cheapestRewardPoints case final p?)
+                      Text(t.redeemCardHint(YqFormat.number(p)), style: text.bodySmall?.copyWith(color: YqColors.goldDeep)),
                   ],
                 ),
               ),
-              Text(t.pointsPlus(YqFormat.number(task.points)), style: YqText.numberSmall.copyWith(color: YqColors.goldText)),
-              if (auto && !done) ...[
-                const SizedBox(width: YqSpace.xs),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: YqColors.muted,
-                  size: 20,
-                ),
-              ],
+              YqButton(label: t.redeemCta, expand: false, onPressed: () => context.push('/challenge/redeem')),
             ],
           ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -396,28 +338,26 @@ class _JoinView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(YqSpace.xxl),
-        child: LiquidGlass(
-          tone: GlassTone.gold,
-          padding: const EdgeInsets.all(YqSpace.xxl),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(t.challengeTitle, style: YqText.display.copyWith(fontSize: 30), textAlign: TextAlign.center),
-              const SizedBox(height: YqSpace.m),
-              Text(
-                guest ? t.challengeSignIn : t.joinChallengeHint,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: YqSpace.xl),
-              YqButton(label: guest ? t.signIn : t.joinChallenge, onPressed: onJoin),
-            ],
-          ),
+    return YqCanvas(
+      lights: AmbientBackground.goldLights,
+      stage: YqStage(
+        gold: true,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            YqStageBar(title: t.challengeTitle),
+            const SizedBox(height: YqSpace.xxl),
+            const Center(child: YqRing(value: 0, gold: true, size: 150, stroke: 9, child: YqIcon(YqIcons.challenge, size: 44, tone: YqIconTone.gold))),
+            const SizedBox(height: YqSpace.xl),
+            Text(
+              guest ? t.challengeSignIn : t.joinChallengeHint,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+          ],
         ),
       ),
+      children: [YqButton(label: guest ? t.signIn : t.joinChallenge, onPressed: onJoin)],
     );
   }
 }
@@ -425,13 +365,10 @@ class _JoinView extends StatelessWidget {
 class _Skeleton extends StatelessWidget {
   const _Skeleton();
   @override
-  Widget build(BuildContext context) => ListView(
-        padding: const EdgeInsets.fromLTRB(YqSpace.gutter, YqSpace.l, YqSpace.gutter, 140),
-        children: const [
-          YqSkeleton(child: YqSkeletonBox(width: 200, height: 30)),
-          SizedBox(height: YqSpace.l),
-          YqSkeleton(child: YqSkeletonBox(height: 140, radius: YqRadii.hero)),
-          SizedBox(height: YqSpace.l),
+  Widget build(BuildContext context) => const YqCanvas(
+        lights: AmbientBackground.goldLights,
+        stage: YqStage(gold: true, child: YqSkeleton(child: YqSkeletonBox(height: 260, radius: YqRadii.hero))),
+        children: [
           YqSkeleton(child: YqSkeletonBox(height: 56)),
           SizedBox(height: YqSpace.s),
           YqSkeleton(child: YqSkeletonBox(height: 56)),

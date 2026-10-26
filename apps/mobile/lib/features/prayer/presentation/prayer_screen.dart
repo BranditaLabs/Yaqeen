@@ -9,9 +9,15 @@ import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
-import '../../../core/widgets/ambient_background.dart';
-import '../../../core/widgets/yq_sky_header.dart';
+import '../../../core/config/config_controller.dart';
+import '../../../core/config/remote_config.dart';
+import '../../../core/design/living_sky.dart';
 import '../../../core/widgets/liquid_glass.dart';
+import '../../../core/widgets/liquid_orb.dart';
+import '../../../core/widgets/yq_orb.dart';
+import '../../../core/widgets/yq_ring.dart';
+import '../../../core/widgets/yq_stage.dart';
+import '../../../core/widgets/yq_timeline.dart';
 import '../../../core/widgets/yq_countdown.dart';
 import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_layout.dart';
@@ -20,6 +26,7 @@ import '../../../l10n/gen/app_localizations.dart';
 import '../domain/prayer_calculator.dart';
 import '../domain/prayer_clock.dart';
 import '../domain/qibla.dart';
+import '../../home/widgets/orbs.dart';
 import 'city_picker_sheet.dart';
 import 'prayer_labels.dart';
 
@@ -76,111 +83,219 @@ class _PrayerScreenState extends ConsumerState<PrayerScreen> {
     final today = repo.today(s, now);
     final date = DateTime(today.year, today.month, today.day + (_page - _todayPage));
     final place = s.placeOrDefault;
-    final bearing = qiblaBearing(place.lat, place.lng);
 
-    return AmbientBackground(
-      // The header's sky band reaches under the status bar (YqSkyHeader).
-      child: SafeArea(
-        top: false,
-        bottom: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(YqSpace.gutter, 0, YqSpace.gutter, 140),
+    return YqCanvas(
+      stage: YqStage(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            YqSkyHeader(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Semantics(header: true, child: Text(t.prayerTitle, style: YqText.display.copyWith(fontSize: 28))),
-                        Text(
-                          '${YqFormat.weekdayDayMonth(date, s.locale)} · ${methodLabel(t, s.method)}',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: YqSpace.s),
-                  _LocationChip(label: place.name(s.locale), onTap: _changePlace),
-                ],
-              ),
+            YqStageBar(
+              title: t.prayerTitle,
+              large: true,
+              subtitle: '${YqFormat.weekdayDayMonth(date, s.locale)} · ${methodLabel(t, s.method)}',
+              actions: [_LocationChip(label: place.name(s.locale), onTap: _changePlace)],
             ),
-            if (_moved case final moved?) ...[
-              const SizedBox(height: YqSpace.m),
-              _TravelBanner(
-                city: moved.name(s.locale),
-                onUpdate: () async {
-                  await ref.read(settingsProvider.notifier).update((x) => x.copyWith(place: moved));
-                  setState(() => _moved = null);
-                },
+            const SizedBox(height: YqSpace.xl),
+            const _NextPrayer(),
+          ],
+        ),
+      ),
+      children: [
+        if (_moved case final moved?) ...[
+          _TravelBanner(
+            city: moved.name(s.locale),
+            onUpdate: () async {
+              await ref.read(settingsProvider.notifier).update((x) => x.copyWith(place: moved));
+              setState(() => _moved = null);
+            },
+          ),
+          const SizedBox(height: YqSpace.l),
+        ],
+        const YqOrbRow(orbs: [QiblaOrb(), _DaylightOrb(), _AlertsOrb()]),
+        const SizedBox(height: YqSpace.xxl),
+        YqHeading(
+          _page == _todayPage ? t.prayerToday : YqFormat.weekdayDayMonth(date, s.locale),
+          action: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GlassIconButton(
+                tooltip: t.prayerPrevDay,
+                size: 40,
+                onPressed: () => _pages.previousPage(duration: YqMotion.base, curve: YqMotion.ease),
+                icon: const Icon(Icons.chevron_left_rounded, color: YqColors.ink),
+              ),
+              const SizedBox(width: YqSpace.s),
+              GlassIconButton(
+                tooltip: t.prayerNextDay,
+                size: 40,
+                onPressed: () => _pages.nextPage(duration: YqMotion.base, curve: YqMotion.ease),
+                icon: const Icon(Icons.chevron_right_rounded, color: YqColors.ink),
               ),
             ],
-            const SizedBox(height: YqSpace.l),
-            GlassTap(
-              onTap: () => context.push('/prayer/qibla'),
-              semanticLabel: t.qiblaOpen,
-              child: LiquidGlass(
-                child: Row(
-                  children: [
-                    const YqIconTile(YqIcons.qibla, gold: true, size: 48),
-                    const SizedBox(width: YqSpace.m),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(t.qiblaCardTitle(YqFormat.number(bearing.round())), style: Theme.of(context).textTheme.titleMedium),
-                          Text(t.qiblaCardFrom(directionLabel(t, compassPoint(bearing))), style: Theme.of(context).textTheme.bodySmall),
-                        ],
-                      ),
-                    ),
-                    const Icon(
-                      Icons.chevron_right_rounded,
-                      color: YqColors.muted,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: YqSpace.l),
-            Row(
-              children: [
-                Expanded(child: Text(t.prayerToday, style: Theme.of(context).textTheme.titleMedium)),
-                IconButton(
-                  tooltip: t.prayerPrevDay,
-                  onPressed: () => _pages.previousPage(duration: YqMotion.base, curve: YqMotion.ease),
-                  icon: const Icon(Icons.chevron_left_rounded),
-                ),
-                IconButton(
-                  tooltip: t.prayerNextDay,
-                  onPressed: () => _pages.nextPage(duration: YqMotion.base, curve: YqMotion.ease),
-                  icon: const Icon(Icons.chevron_right_rounded),
-                ),
-              ],
-            ),
-            SizedBox(
-              height: 6 * 64 + 2 * YqSpace.m,
-              child: PageView.builder(
-                controller: _pages,
-                onPageChanged: (p) => setState(() => _page = p),
-                itemBuilder: (context, page) {
-                  final d = DateTime(today.year, today.month, today.day + (page - _todayPage));
-                  return _DayTimes(date: d, isToday: page == _todayPage);
-                },
-              ),
-            ),
-            const SizedBox(height: YqSpace.m),
-            YqSection(
-              padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.xs),
-              child: YqListRow(
-                leading: const YqIconTile(YqIcons.adhan),
-                title: t.prayerNotificationsLink,
-                onTap: () => context.push('/prayer/notifications'),
-              ),
+          ),
+        ),
+        SizedBox(
+          height: 6 * _DayTimes.rowHeight,
+          child: PageView.builder(
+            controller: _pages,
+            onPageChanged: (p) => setState(() => _page = p),
+            itemBuilder: (context, page) {
+              final d = DateTime(today.year, today.month, today.day + (page - _todayPage));
+              return _DayTimes(date: d, page: page - _todayPage);
+            },
+          ),
+        ),
+        const SizedBox(height: YqSpace.m),
+        YqGroup(
+          children: [
+            YqListRow(
+              leading: const YqIconTile(YqIcons.adhan),
+              title: t.prayerNotificationsLink,
+              onTap: () => context.push('/prayer/notifications'),
             ),
           ],
         ),
+      ],
+    );
+  }
+}
+
+/// The stage's moment: the next prayer in large type, its adhan time and the live countdown, over
+/// the day arc. Re-plans every 15 s; only the countdown ticks each second.
+class _NextPrayer extends ConsumerWidget {
+  const _NextPrayer();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(context);
+    final s = ref.watch(settingsProvider);
+    final repo = ref.watch(prayerRepositoryProvider);
+    final clock = ref.watch(clockProvider);
+    final ramadan = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.ramadan)));
+    return YqTicker(
+      now: clock,
+      interval: const Duration(seconds: 15),
+      builder: (context, now) {
+        final friday = repo.today(s, now).weekday == DateTime.friday;
+        final moment = repo.moment(s, now, ramadan: ramadan);
+        final shown = moment.current ?? moment.next;
+        final name = prayerLabel(t, shown, friday: friday);
+        final at = YqFormat.time(repo.local(s, moment.current != null ? moment.currentAt! : moment.at), s.locale);
+        final arc = dayArcAt(s, repo, now, ramadan: ramadan);
+        return Column(
+          children: [
+            Semantics(
+              container: true,
+              excludeSemantics: true,
+              label: moment.isPrayerTime ? t.homePrayerNow(name) : t.homeHeroA11y(name, at, YqCountdown.format(moment.at.difference(now.toUtc()))),
+              child: YqMoment(
+                eyebrow: moment.isPrayerTime ? t.prayerPrayingNow : t.nextPrayer,
+                value: Text(name, style: YqMoment.display(context, size: 52)),
+                caption: moment.isPrayerTime
+                    ? Text(at)
+                    : Column(
+                        children: [
+                          Text('$at · ${t.adhanIn}'),
+                          const SizedBox(height: 4),
+                          RepaintBoundary(
+                            child: YqCountdown(target: moment.at, now: () => clock().toUtc(), style: YqMoment.numeral(size: 40)),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+            const SizedBox(height: YqSpace.s),
+            DayArc(
+              position: arc.position,
+              nextIndex: arc.nextIndex,
+              night: arc.night,
+              height: 78,
+              labels: [for (final p in obligatory) prayerLabel(t, p, friday: friday)],
+              current: obligatory.indexOf(shown),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Daylight as liquid: the orb fills from sunrise to Maghrib (then from Maghrib to Fajr at night),
+/// with the time left in the centre. Local, so it works offline; re-plans every 30 s.
+class _DaylightOrb extends ConsumerWidget {
+  const _DaylightOrb();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(context);
+    final s = ref.watch(settingsProvider);
+    final repo = ref.watch(prayerRepositoryProvider);
+    final clock = ref.watch(clockProvider);
+    return YqTicker(
+      now: clock,
+      interval: const Duration(seconds: 30),
+      builder: (context, now) {
+        final instant = now.toUtc();
+        final today = repo.today(s, now);
+        final times = repo.forDate(s, today);
+        final day = !instant.isBefore(times.sunrise) && instant.isBefore(times.maghrib);
+        late final DateTime from;
+        late final DateTime to;
+        if (day) {
+          (from, to) = (times.sunrise, times.maghrib);
+        } else if (instant.isBefore(times.sunrise)) {
+          final yesterday = repo.forDate(s, DateTime(today.year, today.month, today.day - 1));
+          (from, to) = (yesterday.maghrib, times.fajr);
+        } else {
+          final tomorrow = repo.forDate(s, DateTime(today.year, today.month, today.day + 1));
+          (from, to) = (times.maghrib, tomorrow.fajr);
+        }
+        final span = to.difference(from).inSeconds;
+        final level = span <= 0 ? 0.0 : (instant.difference(from).inSeconds / span).clamp(0.0, 1.0);
+        final left = to.difference(instant);
+        final leftLabel = left.isNegative ? '0:00' : '${left.inHours}:${(left.inMinutes % 60).toString().padLeft(2, '0')}';
+        final until = t.prayerOrbUntil(prayerLabel(t, day ? PrayerName.maghrib : PrayerName.fajr));
+        final title = day ? t.prayerOrbDay : t.prayerOrbNight;
+        return YqOrb(
+          title: title,
+          status: until,
+          semanticLabel: '$title، $leftLabel $until',
+          disc: LiquidOrb(
+            level: level,
+            size: YqOrb.defaultSize - 12,
+            child: Text(
+              leftLabel,
+              textDirection: TextDirection.ltr,
+              style: YqText.numberSmall.copyWith(fontSize: 18, fontWeight: FontWeight.w500, color: YqColors.ink),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// How many of the six alerts are on, as a ring. Tap → adhan & notifications.
+class _AlertsOrb extends ConsumerWidget {
+  const _AlertsOrb();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(context);
+    final modes = ref.watch(settingsProvider.select((s) => s.alertModes));
+    final on = displayOrder.where((p) => modes[p] != AlertMode.silent).length;
+    final total = displayOrder.length;
+    final status = t.prayerOrbAlertsStatus(YqFormat.number(on), YqFormat.number(total));
+    return YqOrb(
+      title: t.prayerOrbAlerts,
+      status: status,
+      onTap: () => context.push('/prayer/notifications'),
+      semanticLabel: '${t.prayerOrbAlerts}: $status',
+      disc: YqRing(
+        value: on / total,
+        size: YqOrb.defaultSize - 12,
+        stroke: 5,
+        child: const YqIcon(YqIcons.adhan, size: 26),
       ),
     );
   }
@@ -237,54 +352,80 @@ class _TravelBanner extends StatelessWidget {
   }
 }
 
-/// The six rows for one day; today's next prayer is highlighted with a live countdown.
+/// One day as a journey of six stops; today's passed prayers recede and the next one carries a
+/// live countdown. [page] is days from today.
 class _DayTimes extends ConsumerWidget {
-  const _DayTimes({required this.date, required this.isToday});
+  const _DayTimes({required this.date, required this.page});
   final DateTime date;
-  final bool isToday;
+  final int page;
+
+  static const rowHeight = 62.0;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(context);
     final s = ref.watch(settingsProvider);
     final repo = ref.watch(prayerRepositoryProvider);
     final clock = ref.watch(clockProvider);
     final times = repo.forDate(s, date);
     final friday = date.weekday == DateTime.friday;
-    Widget card(DateTime now) {
-      final moment = isToday ? repo.moment(s, now) : null;
-      return LiquidGlass(
-        padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.m),
-        child: Column(
-          children: [
-            for (final p in displayOrder)
-              _PrayerRow(
-                prayer: p,
-                label: prayerLabel(AppLocalizations.of(context), p, friday: friday),
-                time: YqFormat.time(repo.local(s, times.of(p)), s.locale),
-                nextAt: moment?.next == p && repo.local(s, moment!.at).day == date.day ? moment.at : null,
-                now: clock,
-              ),
-          ],
-        ),
+    Widget day(DateTime now) {
+      final instant = now.toUtc();
+      final moment = page == 0 ? repo.moment(s, now) : null;
+      final passed = page < 0 ? displayOrder.length : (page == 0 ? displayOrder.where((p) => !times.of(p).isAfter(instant)).length : 0);
+      return YqTimeline(
+        pastIndex: passed,
+        stops: [
+          for (final p in displayOrder)
+            _stop(
+              t,
+              p,
+              label: prayerLabel(t, p, friday: friday),
+              time: YqFormat.time(repo.local(s, times.of(p)), s.locale),
+              nextAt: moment?.next == p && repo.local(s, moment!.at).day == date.day ? moment.at : null,
+              clock: clock,
+            ),
+        ],
       );
     }
 
     // Other days never change; today re-plans every 15 s (rolls over to the next prayer) while only
-    // the countdown text itself ticks each second (_PrayerRow).
-    if (!isToday) return card(clock());
-    return YqTicker(now: clock, interval: const Duration(seconds: 15), builder: (context, now) => card(now));
+    // the countdown text itself ticks each second.
+    if (page != 0) return day(clock());
+    return YqTicker(now: clock, interval: const Duration(seconds: 15), builder: (context, now) => day(now));
   }
+
+  YqStop _stop(
+    AppLocalizations t,
+    PrayerName p, {
+    required String label,
+    required String time,
+    required DateTime? nextAt,
+    required DateTime Function() clock,
+  }) =>
+      YqStop(
+        time: time,
+        title: label,
+        highlight: nextAt != null,
+        tag: nextAt != null ? t.homeNextTag : null,
+        detail: nextAt == null
+            ? null
+            : YqTicker(
+                now: clock,
+                builder: (context, n) => Text(
+                  t.prayerIn(YqCountdown.format(nextAt.difference(n.toUtc()))),
+                  style: YqText.numberSmall.copyWith(color: YqColors.lapis, fontSize: 12),
+                ),
+              ),
+        trailing: _Bell(prayer: p, label: label),
+      );
 }
 
-class _PrayerRow extends ConsumerWidget {
-  const _PrayerRow({required this.prayer, required this.label, required this.time, required this.now, this.nextAt});
+/// The alert toggle on a prayer stop: tap toggles adhan ↔ off; long-press chooses the mode.
+class _Bell extends ConsumerWidget {
+  const _Bell({required this.prayer, required this.label});
   final PrayerName prayer;
   final String label;
-  final String time;
-  final DateTime Function() now;
-
-  /// When this is the next prayer: its time (the row shows a live countdown to it).
-  final DateTime? nextAt;
 
   Future<void> _setMode(WidgetRef ref, AlertMode mode) =>
       ref.read(settingsProvider.notifier).update((s) => s.copyWith(alertModes: {...s.alertModes, prayer: mode}), sync: false);
@@ -317,65 +458,28 @@ class _PrayerRow extends ConsumerWidget {
     final t = AppLocalizations.of(context);
     final mode = ref.watch(settingsProvider.select((s) => s.alertModes[prayer]!));
     final on = mode != AlertMode.silent;
-    final highlighted = nextAt != null;
-    return Container(
-      height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: YqSpace.m),
-      decoration: highlighted
-          ? BoxDecoration(
-              color: const Color(0xB3FFFFFF),
-              borderRadius: BorderRadius.circular(YqRadii.tile),
-              border: Border.all(color: YqColors.lapis.withAlpha(90), width: 1.2),
-              boxShadow: const [BoxShadow(color: Color(0x261F3F94), blurRadius: 16, spreadRadius: -8, offset: Offset(0, 6))],
-            )
-          : null,
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: highlighted ? FontWeight.w700 : FontWeight.w500,
-                color: highlighted ? YqColors.lapis : YqColors.ink,
-              ),
-            ),
+    return Semantics(
+      button: true,
+      toggled: on,
+      label: on ? t.prayerAlertOn(label) : t.prayerAlertOff(label),
+      child: InkResponse(
+        radius: 24,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          _setMode(ref, on ? AlertMode.silent : (prayer == PrayerName.sunrise ? AlertMode.notify : AlertMode.adhan));
+        },
+        onLongPress: () => _modeSheet(context, ref),
+        child: AnimatedContainer(
+          duration: YqMotion.base,
+          width: YqSpace.touch,
+          height: YqSpace.touch,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: on ? const Color(0xB3FFFFFF) : const Color(0x00FFFFFF),
+            border: Border.all(color: on ? const Color(0x331F3F94) : const Color(0x00FFFFFF)),
           ),
-          if (highlighted)
-            Padding(
-              padding: const EdgeInsetsDirectional.only(end: YqSpace.m),
-              child: RepaintBoundary(
-                child: YqTicker(
-                  now: now,
-                  builder: (context, n) => Text(
-                    t.prayerIn(YqCountdown.format(nextAt!.difference(n.toUtc()))),
-                    textDirection: Directionality.of(context),
-                    style: YqText.numberSmall.copyWith(color: YqColors.lapis),
-                  ),
-                ),
-              ),
-            ),
-          Text(time, style: YqText.numberSmall.copyWith(fontSize: 16, color: YqColors.ink)),
-          const SizedBox(width: YqSpace.s),
-          Semantics(
-            button: true,
-            toggled: on,
-            label: on ? t.prayerAlertOn(label) : t.prayerAlertOff(label),
-            child: InkResponse(
-              radius: 24,
-              onTap: () {
-                HapticFeedback.selectionClick();
-                // Tap toggles adhan ↔ off; long-press chooses adhan / notify / silent.
-                _setMode(ref, on ? AlertMode.silent : (prayer == PrayerName.sunrise ? AlertMode.notify : AlertMode.adhan));
-              },
-              onLongPress: () => _modeSheet(context, ref),
-              child: SizedBox.square(
-                dimension: YqSpace.touch,
-                child: Center(child: YqIcon(YqIcons.adhan, size: 20, tone: on ? YqIconTone.active : YqIconTone.idle)),
-              ),
-            ),
-          ),
-        ],
+          child: Center(child: YqIcon(YqIcons.adhan, size: 20, tone: on ? YqIconTone.active : YqIconTone.idle)),
+        ),
       ),
     );
   }

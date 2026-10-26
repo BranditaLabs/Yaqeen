@@ -18,6 +18,7 @@ class YqStop {
     this.icon,
     this.style = StopStyle.line,
     this.subtitle,
+    this.detail,
     this.tag,
     this.goldTag = false,
     this.highlight = false,
@@ -33,6 +34,9 @@ class YqStop {
   final YqIcons? icon;
   final StopStyle style;
   final String? subtitle;
+
+  /// A live line under the title (a ticking countdown), kept in its own repaint boundary.
+  final Widget? detail;
 
   /// Small chip («التالية», «متاحة الآن»); gold with [goldTag].
   final String? tag;
@@ -229,6 +233,7 @@ class YqTimeline extends StatelessWidget {
                     ],
                   ),
                   if (m.subtitle != null) Text(m.subtitle!, style: const TextStyle(fontSize: 12, color: YqColors.muted)),
+                  if (m.detail != null) RepaintBoundary(child: m.detail),
                 ],
               ),
             ),
@@ -245,7 +250,7 @@ class YqTimeline extends StatelessWidget {
     }
 
     // Pill: a tappable glass card; gold while highlighted.
-    return GlassTap(
+    final pill = GlassTap(
       onTap: m.onTap == null ? null : tap,
       semanticLabel: m.semanticLabel ?? m.title,
       child: LiquidGlass(
@@ -285,6 +290,7 @@ class YqTimeline extends StatelessWidget {
         ),
       ),
     );
+    return m.done ? Semantics(checked: true, child: pill) : pill;
   }
 }
 

@@ -18,13 +18,13 @@ import '../../challenge/domain/challenge_models.dart';
 import '../../challenge/presentation/challenge_controller.dart';
 import '../../challenge/presentation/challenge_screen.dart';
 
-const _hijriMonthsEn = [
+const hijriMonthsEn = [
   'Muharram', 'Safar', 'Rabiʿ al-Awwal', 'Rabiʿ al-Thani', 'Jumada al-Ula', 'Jumada al-Akhirah',
   'Rajab', 'Shaʿban', 'Ramadan', 'Shawwal', 'Dhu al-Qaʿdah', 'Dhu al-Hijjah', //
 ];
 
 String hijriMonthName(CalendarCell c, String locale) =>
-    locale == 'ar' ? c.hijriMonthNameAr : _hijriMonthsEn[(c.hijriMonth - 1).clamp(0, 11)];
+    locale == 'ar' ? c.hijriMonthNameAr : hijriMonthsEn[(c.hijriMonth - 1).clamp(0, 11)];
 
 final calendarMonthProvider = FutureProvider.autoDispose.family<ChallengeCalendar, String>(
   (ref, month) => ref.read(challengeRepositoryProvider).calendar(month),

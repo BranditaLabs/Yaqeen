@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../design/living_sky.dart';
 import '../theme/tokens.dart';
 import 'liquid_glass.dart';
 import 'yq_icon.dart';
@@ -13,8 +14,10 @@ class YqTab {
   final String label;
 }
 
-/// Floating liquid-glass capsule. One glass "lens" slides under the active tab, which widens to
-/// show its label; the last slot is the profile avatar.
+/// The living dock: a floating porcelain-glass capsule. One ink "lens" lit by the living sky
+/// slides under the active tab, which widens to show its label in gold; the last slot is the
+/// profile avatar. A hairline thread along the top edge is the day itself — gold up to where the
+/// sun is now (a moon dot at night), the same light as every screen's stage.
 ///
 /// Fluid by construction: every slot width and the lens position derive from the same target
 /// layout and animate on the same curve and duration, so nothing jumps or overlaps mid-way, and
@@ -36,7 +39,7 @@ class FloatingTabBar extends StatelessWidget {
   final String avatarInitial;
   final String profileLabel;
 
-  static const height = 66.0;
+  static const height = 68.0;
   static const _pad = 7.0;
   static const _slot = 52.0;
   static const _duration = Duration(milliseconds: 420);
@@ -74,6 +77,7 @@ class FloatingTabBar extends StatelessWidget {
           final lensIndex = currentIndex.clamp(0, widths.length - 1);
           final lensStart = widths.take(lensIndex).fold(0.0, (a, b) => a + b);
           return Stack(
+            clipBehavior: Clip.none,
             children: [
               AnimatedPositionedDirectional(
                 duration: _duration,
@@ -88,6 +92,7 @@ class FloatingTabBar extends StatelessWidget {
                   child: const _Lens(),
                 ),
               ),
+              const Positioned(left: 14, right: 14, top: -_pad + 1.5, height: 5, child: _DayThread()),
               Row(
                 children: [
                   for (var i = 0; i < tabs.length; i++)
@@ -129,26 +134,76 @@ class FloatingTabBar extends StatelessWidget {
   }
 }
 
-/// The glass lens under the active tab.
+/// The lens under the active tab: ink glass with a glow of the current sky at its top edge.
 class _Lens extends StatelessWidget {
   const _Lens();
 
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(YqRadii.pill),
-          gradient: const RadialGradient(
-            center: Alignment(0, -1.2),
-            radius: 1.6,
-            colors: [Color(0xFAFFFFFF), Color(0xC7E9EFF9), Color(0xB8D6E0F2)],
-            stops: [0, 0.6, 1],
+  Widget build(BuildContext context) => LivingSky(
+        builder: (context, sky) => AnimatedContainer(
+          duration: const Duration(milliseconds: 900),
+          curve: Curves.easeInOut,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(YqRadii.pill),
+            gradient: RadialGradient(
+              center: const Alignment(0, -1.4),
+              radius: 1.5,
+              colors: [Color.lerp(YqColors.navy, sky.palette.glow, 0.35)!, YqColors.navy],
+              stops: const [0, 0.85],
+            ),
+            border: Border.all(color: const Color(0x59E9D49E)),
+            boxShadow: const [BoxShadow(color: Color(0x660A1530), blurRadius: 18, spreadRadius: -8, offset: Offset(0, 8))],
           ),
-          border: Border.all(color: const Color(0xE6FFFFFF)),
-          boxShadow: const [
-            BoxShadow(color: Color(0x661F3F94), blurRadius: 18, spreadRadius: -8, offset: Offset(0, 8)),
-          ],
         ),
       );
+}
+
+/// The day as a hairline: mist track, gold up to the sun's position, and the sun (or a moon at
+/// night) as a small glint. Mirrored in RTL like the stage's arc.
+class _DayThread extends StatelessWidget {
+  const _DayThread();
+
+  @override
+  Widget build(BuildContext context) {
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    return ExcludeSemantics(
+      child: RepaintBoundary(
+        child: LivingSky(
+          builder: (context, sky) => TweenAnimationBuilder<double>(
+            tween: Tween(end: sky.position),
+            duration: YqMotion.slow,
+            curve: Curves.easeOutCubic,
+            builder: (context, p, _) => CustomPaint(painter: _ThreadPainter(position: p, night: sky.phase == SkyPhase.night, rtl: rtl)),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ThreadPainter extends CustomPainter {
+  _ThreadPainter({required this.position, required this.night, required this.rtl});
+  final double position;
+  final bool night;
+  final bool rtl;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final y = size.height / 2;
+    final p = position.clamp(0.0, 1.0);
+    final x = size.width * (rtl ? 1 - p : p);
+    final line = Paint()
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(Offset(0, y), Offset(size.width, y), line..color = const Color(0x40B8C6E0));
+    canvas.drawLine(Offset(rtl ? size.width : 0, y), Offset(x, y), line..color = night ? const Color(0x991F3F94) : const Color(0xCCC6A867));
+    final glint = Offset(x, y);
+    canvas.drawCircle(glint, 5, Paint()..color = night ? const Color(0x331F3F94) : const Color(0x55E9D49E));
+    canvas.drawCircle(glint, 2.6, Paint()..color = night ? YqColors.lapis : YqColors.gold);
+  }
+
+  @override
+  bool shouldRepaint(_ThreadPainter old) => old.position != position || old.night != night || old.rtl != rtl;
 }
 
 class _TabItem extends StatelessWidget {
@@ -178,7 +233,10 @@ class _TabItem extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                YqIcon(tab.icon, size: 22, tone: active ? YqIconTone.active : YqIconTone.idle),
+                AnimatedSwitcher(
+                  duration: FloatingTabBar._duration,
+                  child: YqIcon(tab.icon, key: ValueKey(active), size: 22, tone: active ? YqIconTone.light : YqIconTone.idle),
+                ),
                 Flexible(
                   // Unfolds (width) and fades together, so the icon stays centred when inactive.
                   child: AnimatedAlign(
@@ -198,7 +256,7 @@ class _TabItem extends StatelessWidget {
                             maxLines: 1,
                             softWrap: false,
                             overflow: TextOverflow.fade,
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: YqColors.lapis),
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: YqColors.goldLight),
                           ),
                         ),
                       ),

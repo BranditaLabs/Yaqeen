@@ -14,7 +14,7 @@ import '../../../core/theme/typography.dart';
 import '../../../core/widgets/ambient_background.dart';
 import '../../../core/widgets/liquid_glass.dart';
 import '../../../core/widgets/yq_button.dart';
-import '../../../core/widgets/yq_layout.dart';
+import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../domain/qibla.dart';
@@ -31,19 +31,26 @@ class QiblaScreen extends ConsumerStatefulWidget {
 class _QiblaScreenState extends ConsumerState<QiblaScreen> {
   StreamSubscription<HeadingReading>? _sub;
   HeadingReading? _heading;
-  bool _noCompass = false;
   bool _wasAligned = false;
+
+  /// Kaaba angle on the ring, unwrapped (179° → −179° turns 2°, not 358°) so it never spins round.
+  double? _angle;
 
   @override
   void initState() {
     super.initState();
+    // No compass: the orbit stays static (north up, the Kaaba at the bearing).
     final stream = ref.read(compassServiceProvider).headings;
-    if (stream == null) {
-      _noCompass = true;
-    } else {
+    if (stream != null) {
       _sub = stream.listen((h) {
         if (!mounted) return;
-        setState(() => _heading = h);
+        final place = ref.read(settingsProvider).placeOrDefault;
+        final turn = turnToQibla(h.degrees, qiblaBearing(place.lat, place.lng));
+        setState(() {
+          final last = _angle;
+          _angle = last == null ? turn : last + turnToQibla(last, turn);
+          _heading = h;
+        });
         _hapticOnAlignment();
       });
     }
@@ -96,173 +103,242 @@ class _QiblaScreenState extends ConsumerState<QiblaScreen> {
     final guidance = turn == null ? null : guidanceFor(turn);
     final aligned = guidance == QiblaGuidance.aligned;
 
+    final deg = YqFormat.number(bearing.round());
+    final guidanceText = switch (guidance) {
+      QiblaGuidance.turnRight => t.qiblaTurnRight,
+      QiblaGuidance.turnLeft => t.qiblaTurnLeft,
+      QiblaGuidance.aligned => t.qiblaAligned,
+      null => null,
+    };
+
     return Scaffold(
-      body: AmbientBackground(
+      body: YqCanvas(
         lights: aligned ? AmbientBackground.goldLights : null,
-        child: SafeArea(
-          child: YqPage(
-            header: YqTopBar(
-              title: t.qiblaTitle,
-              subtitle: t.qiblaDistance(place.name(s.locale), YqFormat.number(km.round())),
-              actions: [
-                TextButton(
-                  onPressed: () async {
-                    final p = await showCityPicker(context);
-                    if (p != null) await ref.read(settingsProvider.notifier).update((x) => x.copyWith(place: p));
-                  },
-                  child: Text(t.locationChange),
-                ),
-              ],
-            ),
+        bottom: YqSpace.xxl,
+        stage: YqStage(
+          compact: true,
+          gold: aligned,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (_heading?.needsCalibration ?? false) ...[
-                LiquidGlass(
-                  tone: GlassTone.gold,
-                  padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.s),
-                  child: Row(
-                    children: [
-                      Expanded(child: Text(t.qiblaNeedsCalibration, style: const TextStyle(fontWeight: FontWeight.w500))),
-                      TextButton(onPressed: _calibrate, child: Text(t.qiblaCalibrate)),
-                    ],
+              YqStageBar(
+                back: true,
+                title: t.qiblaTitle,
+                subtitle: t.qiblaDistance(place.name(s.locale), YqFormat.number(km.round())),
+                actions: [
+                  TextButton(
+                    onPressed: () async {
+                      final p = await showCityPicker(context);
+                      if (p != null) await ref.read(settingsProvider.notifier).update((x) => x.copyWith(place: p));
+                    },
+                    child: Text(t.locationChange),
                   ),
-                ),
-                const SizedBox(height: YqSpace.m),
-              ],
-              const SizedBox(height: YqSpace.l),
-              Semantics(
-                label: turn == null ? t.qiblaNoCompass(YqFormat.number(bearing.round())) : t.qiblaA11y(YqFormat.number(turn.abs().round())),
-                liveRegion: true,
-                child: ExcludeSemantics(
-                  child: AspectRatio(
-                    aspectRatio: 1,
-                    child: CustomPaint(
-                      painter: _CompassPainter(heading: heading ?? 0, bearing: bearing, aligned: aligned, hasHeading: heading != null),
-                    ),
-                  ),
-                ),
+                ],
               ),
               const SizedBox(height: YqSpace.xl),
-              if (_noCompass || heading == null)
-                Text(
-                  t.qiblaNoCompass(YqFormat.number(bearing.round())),
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                )
-              else ...[
-                Text(
-                  switch (guidance!) {
-                    QiblaGuidance.turnRight => t.qiblaTurnRight,
-                    QiblaGuidance.turnLeft => t.qiblaTurnLeft,
-                    QiblaGuidance.aligned => t.qiblaAligned,
-                  },
-                  textAlign: TextAlign.center,
-                  style: YqText.display.copyWith(fontSize: 24, color: aligned ? YqColors.goldText : YqColors.ink),
+              YqMoment(
+                value: AnimatedDefaultTextStyle(
+                  duration: YqMotion.base,
+                  style: YqMoment.display(context, size: guidanceText == null ? 20 : 34)
+                      .copyWith(color: aligned ? YqColors.goldText : YqColors.ink),
+                  child: Text(guidanceText ?? t.qiblaNoCompass(deg)),
                 ),
-                const SizedBox(height: YqSpace.s),
-                Text(
-                  t.qiblaReadout(YqFormat.number(bearing.round()), YqFormat.number(heading.round())),
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-              const SizedBox(height: YqSpace.xl),
-              Row(
-                children: [
-                  Expanded(child: YqButton.secondary(label: t.qiblaCalibrate, onPressed: _calibrate)),
-                  const SizedBox(width: YqSpace.m),
-                  Expanded(child: YqButton.secondary(label: '${t.qiblaCamera} · ${t.soon}', onPressed: null)),
-                ],
+                caption: heading == null ? null : Text(t.qiblaReadout(deg, YqFormat.number(heading.round()))),
               ),
             ],
           ),
         ),
+        children: [
+          if (_heading?.needsCalibration ?? false) ...[
+            LiquidGlass(
+              tone: GlassTone.gold,
+              padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.s),
+              child: Row(
+                children: [
+                  Expanded(child: Text(t.qiblaNeedsCalibration, style: const TextStyle(fontWeight: FontWeight.w500))),
+                  TextButton(onPressed: _calibrate, child: Text(t.qiblaCalibrate)),
+                ],
+              ),
+            ),
+            const SizedBox(height: YqSpace.l),
+          ],
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 340),
+              child: Semantics(
+                label: turn == null ? t.qiblaNoCompass(deg) : t.qiblaA11y(YqFormat.number(turn.abs().round())),
+                liveRegion: true,
+                child: ExcludeSemantics(
+                  child: AspectRatio(
+                    aspectRatio: 1,
+                    child: RepaintBoundary(
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween(end: turn == null ? bearing : (_angle ?? turn)),
+                        duration: const Duration(milliseconds: 280),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, angle, _) => CustomPaint(
+                          painter: _OrbitPainter(
+                            angle: angle,
+                            north: heading == null ? 0 : -heading,
+                            aligned: aligned,
+                            live: heading != null,
+                            northLabel: t.dirShortN,
+                          ),
+                          child: Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '${YqFormat.number((aligned || turn == null ? bearing : turn.abs()).round())}°',
+                                  textDirection: TextDirection.ltr,
+                                  style: YqMoment.numeral(size: 64, color: aligned ? YqColors.goldDeep : YqColors.ink),
+                                ),
+                                if (turn != null && !aligned)
+                                  Text(
+                                    t.qiblaCardTitle(deg),
+                                    style: Theme.of(context).textTheme.bodySmall,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: YqSpace.xl),
+          Row(
+            children: [
+              Expanded(child: YqButton.secondary(label: t.qiblaCalibrate, onPressed: _calibrate)),
+              const SizedBox(width: YqSpace.m),
+              Expanded(child: YqButton.secondary(label: '${t.qiblaCamera} · ${t.soon}', onPressed: null)),
+            ],
+          ),
+        ],
       ),
     );
   }
 }
 
-/// Dial rotates against the device heading so north stays north; the gold pointer marks the Kaaba.
-class _CompassPainter extends CustomPainter {
-  _CompassPainter({required this.heading, required this.bearing, required this.aligned, required this.hasHeading});
+/// The Qibla as an orbit (the Home complication at full size): the top notch is where the phone
+/// points (north without a compass); the Kaaba travels the ring at [angle]° clockwise from the
+/// top and reaches it when you face the Qibla, where the ring turns gold. A soft trail shows which
+/// way to turn; the north letter rides the ring at [north]°.
+class _OrbitPainter extends CustomPainter {
+  _OrbitPainter({required this.angle, required this.north, required this.aligned, required this.live, required this.northLabel});
 
-  final double heading;
-  final double bearing;
+  final double angle;
+  final double north;
   final bool aligned;
-  final bool hasHeading;
+  final bool live;
+  final String northLabel;
+
+  Offset _on(Offset c, double r, double deg) {
+    final a = deg * math.pi / 180;
+    return Offset(c.dx + r * math.sin(a), c.dy - r * math.cos(a));
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
     final c = size.center(Offset.zero);
-    final r = size.shortestSide / 2 - 8;
-    canvas.drawCircle(c, r, Paint()..color = const Color(0xB3FFFFFF));
+    final r = size.shortestSide / 2 - 26;
+    // Glass disc.
+    canvas.drawCircle(
+      c,
+      r + 18,
+      Paint()
+        ..shader = const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xE6FFFFFF), Color(0x99FFFFFF)])
+            .createShader(Rect.fromCircle(center: c, radius: r + 18)),
+    );
+    canvas.drawCircle(
+      c,
+      r + 18,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..color = const Color(0xF2FFFFFF),
+    );
+    if (aligned) {
+      canvas.drawCircle(
+        c,
+        r + 18,
+        Paint()..shader = const RadialGradient(colors: [Color(0x00E9D49E), Color(0x66E9D49E)]).createShader(Rect.fromCircle(center: c, radius: r + 18)),
+      );
+    }
+    // Ring and degree ticks (riding with north).
     canvas.drawCircle(
       c,
       r,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = aligned ? 4 : 1.5
-        ..color = aligned ? YqColors.gold : YqColors.line,
+        ..strokeWidth = aligned ? 3 : 1.4
+        ..color = aligned ? YqColors.gold : const Color(0x331F3F94),
     );
-
-    canvas.save();
-    canvas.translate(c.dx, c.dy);
-    canvas.rotate(-heading * math.pi / 180);
-    final tick = Paint()..strokeCap = StrokeCap.round;
-    for (var d = 0; d < 360; d += 10) {
+    final tick = Paint()
+      ..strokeCap = StrokeCap.round
+      ..color = const Color(0x401F3F94);
+    for (var d = 0; d < 360; d += 15) {
       final major = d % 90 == 0;
-      tick
-        ..strokeWidth = major ? 2 : 1
-        ..color = major ? YqColors.ink : YqColors.mist;
-      final a = d * math.pi / 180;
-      final inner = r - (major ? 18 : 10);
-      canvas.drawLine(Offset(math.sin(a) * inner, -math.cos(a) * inner), Offset(math.sin(a) * (r - 4), -math.cos(a) * (r - 4)), tick);
+      tick.strokeWidth = major ? 1.6 : 1;
+      canvas.drawLine(_on(c, r - (major ? 12 : 7), north + d), _on(c, r - 3, north + d), tick);
     }
-    // North marker.
-    final north = Path()
-      ..moveTo(0, -r + 22)
-      ..lineTo(-7, -r + 36)
-      ..lineTo(7, -r + 36)
-      ..close();
-    canvas.drawPath(north, Paint()..color = YqColors.lapis);
-    // Kaaba pointer at the Qibla bearing.
-    final b = bearing * math.pi / 180;
-    final tip = Offset(math.sin(b) * (r - 30), -math.cos(b) * (r - 30));
-    canvas.drawLine(
-      Offset.zero,
-      tip,
-      Paint()
-        ..strokeWidth = 3
-        ..strokeCap = StrokeCap.round
-        ..color = YqColors.gold,
-    );
-    canvas.save();
-    canvas.translate(tip.dx, tip.dy);
-    canvas.rotate(b);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(const Rect.fromLTWH(-11, -11, 22, 22), const Radius.circular(4)),
-      Paint()..color = YqColors.ink,
-    );
-    canvas.drawRect(const Rect.fromLTWH(-11, -5, 22, 3), Paint()..color = YqColors.gold);
-    canvas.restore();
-    canvas.restore();
+    final n = TextPainter(
+      text: TextSpan(
+        text: northLabel,
+        style: const TextStyle(fontFamily: YqFonts.ui, fontSize: 12, fontWeight: FontWeight.w700, color: YqColors.lapis),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    n.paint(canvas, _on(c, r - 24, north) - Offset(n.width / 2, n.height / 2));
 
-    // Fixed needle: where the phone points.
-    if (hasHeading) {
-      canvas.drawLine(
-        c,
-        c + Offset(0, -r + 6),
+    // Trail from the notch to the Kaaba: the way to turn.
+    final signed = ((angle % 360) + 540) % 360 - 180;
+    if (live && signed.abs() > 3) {
+      canvas.drawArc(
+        Rect.fromCircle(center: c, radius: r),
+        -math.pi / 2,
+        signed * math.pi / 180,
+        false,
         Paint()
-          ..strokeWidth = 2
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 6
           ..strokeCap = StrokeCap.round
-          ..color = aligned ? YqColors.goldText : YqColors.lapis,
+          ..color = const Color(0x401F3F94),
       );
     }
-    canvas.drawCircle(c, 6, Paint()..color = YqColors.ink);
+
+    // Top notch: where the phone points.
+    final top = Offset(c.dx, c.dy - r);
+    canvas.drawPath(
+      Path()
+        ..moveTo(top.dx - 8, top.dy - 14)
+        ..lineTo(top.dx + 8, top.dy - 14)
+        ..lineTo(top.dx, top.dy - 3)
+        ..close(),
+      Paint()..color = aligned ? YqColors.gold : YqColors.lapis,
+    );
+
+    // The Kaaba.
+    final k = _on(c, r, angle);
+    canvas.drawCircle(
+      k,
+      aligned ? 34 : 22,
+      Paint()
+        ..shader = RadialGradient(colors: [aligned ? const Color(0xB3E9D49E) : const Color(0x591F3F94), const Color(0x00FFFFFF)])
+            .createShader(Rect.fromCircle(center: k, radius: aligned ? 34 : 22)),
+    );
+    final box = RRect.fromRectAndRadius(Rect.fromCenter(center: k, width: 24, height: 26), const Radius.circular(4));
+    canvas.drawShadow(Path()..addRRect(box), YqColors.ink, 3, false);
+    canvas.drawRRect(box, Paint()..color = YqColors.ink);
+    canvas.drawRect(Rect.fromLTWH(k.dx - 12, k.dy - 6, 24, 4), Paint()..color = YqColors.gold);
   }
 
   @override
-  bool shouldRepaint(_CompassPainter old) =>
-      old.heading != heading || old.bearing != bearing || old.aligned != aligned || old.hasHeading != hasHeading;
+  bool shouldRepaint(_OrbitPainter old) =>
+      old.angle != angle || old.north != north || old.aligned != aligned || old.live != live || old.northLabel != northLabel;
 }
 
 class _FigureEight extends StatefulWidget {

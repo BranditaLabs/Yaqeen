@@ -14,7 +14,9 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/ambient_background.dart';
-import '../../../core/widgets/yq_sky_header.dart';
+import '../../../core/widgets/yq_orb.dart';
+import '../../../core/widgets/yq_ring.dart';
+import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/controls.dart';
 import '../../../core/widgets/liquid_glass.dart';
 import '../../../core/widgets/yq_button.dart';
@@ -72,165 +74,142 @@ class ProfileScreen extends ConsumerWidget {
           onTap: onTap,
         );
 
-    return AmbientBackground(
-      // The header's sky band reaches under the status bar (YqSkyHeader).
-      child: SafeArea(
-        top: false,
-        bottom: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(YqSpace.gutter, 0, YqSpace.gutter, 140),
+    final rewards = summary != null && config.isOn(Flags.rewards);
+    final initial = name.isEmpty ? '' : String.fromCharCode(name.runes.first);
+    final mb = megabytes(t, bytes);
+
+    return YqCanvas(
+      stage: YqStage(
+        child: Column(
           children: [
-            YqSkyHeader(
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: YqColors.lapis,
-                    child: Text(
-                      name.isEmpty ? '' : String.fromCharCode(name.runes.first),
-                      style: const TextStyle(fontFamily: YqFonts.naskh, fontSize: 26, fontWeight: FontWeight.w700, color: YqColors.white),
-                    ),
-                  ),
-                  const SizedBox(width: YqSpace.m),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(name, style: text.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-                        if (provider != null && session.canEarnPoints)
-                          Text(t.profileLinked(provider), style: text.bodySmall)
-                        else
-                          GestureDetector(
-                            onTap: () => showSignInSheet(context),
-                            child: Text(
-                              t.profileGuestCta,
-                              style: text.bodySmall?.copyWith(color: YqColors.lapis, fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
+            const SizedBox(height: YqSpace.s),
+            // Identity: the initial in a lapis medallion with a soft halo, then the name.
+            Container(
+              width: 96,
+              height: 96,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [YqColors.lapis500, YqColors.lapis]),
+                border: Border.all(color: const Color(0xF2FFFFFF), width: 3),
+                boxShadow: const [BoxShadow(color: Color(0x401F3F94), blurRadius: 24, spreadRadius: -10, offset: Offset(0, 10))],
+              ),
+              child: Text(
+                initial,
+                style: const TextStyle(fontFamily: YqFonts.naskh, fontSize: 40, fontWeight: FontWeight.w700, color: YqColors.white),
               ),
             ),
+            const SizedBox(height: YqSpace.m),
+            Semantics(header: true, child: Text(name, textAlign: TextAlign.center, style: YqMoment.display(context, size: 30))),
+            if (provider != null && session.canEarnPoints)
+              Text(t.profileLinked(provider), style: text.bodySmall)
+            else ...[
+              const SizedBox(height: YqSpace.s),
+              GlassTap(
+                onTap: () => showSignInSheet(context),
+                semanticLabel: t.profileGuestCta,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.s),
+                  decoration: BoxDecoration(color: YqColors.navy, borderRadius: BorderRadius.circular(YqRadii.pill)),
+                  child: Text(t.profileGuestCta, style: const TextStyle(color: YqColors.goldLight, fontWeight: FontWeight.w700, fontSize: 13)),
+                ),
+              ),
+            ],
             if (pending > 0) ...[
               const SizedBox(height: YqSpace.s),
               Text(t.profilePending(pending), style: text.bodySmall?.copyWith(color: YqColors.goldText)),
             ],
-            const SizedBox(height: YqSpace.l),
-            if (summary != null && config.isOn(Flags.rewards)) ...[
-              LiquidGlass(
-                tone: GlassTone.gold,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(child: Text(t.profileBalance, style: text.titleSmall)),
-                        Text(YqFormat.number(summary.balance), style: YqText.numeral.copyWith(fontSize: 26)),
-                      ],
-                    ),
-                    if (toNext != null && toNext > 0)
-                      Text(t.profileToNext(YqFormat.number(toNext)), style: text.bodySmall?.copyWith(color: YqColors.goldDeep)),
-                    const SizedBox(height: YqSpace.s),
-                    Row(
-                      children: [
-                        YqButton.text(label: t.profileLedger, onPressed: () => context.push('/profile/ledger')),
-                        const Spacer(),
-                        YqButton.text(label: t.myCodes, onPressed: () => context.push('/challenge/redeem/codes')),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: YqSpace.m),
-              LiquidGlass(
-                padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
-                child: Column(
-                  children: [
-                    row(t.profileRewards, icon: YqIcons.store, onTap: () => context.push('/challenge/redeem')),
-                    const YqDivider(),
-                    row(
-                      t.profileVisitStore,
-                      icon: YqIcons.share,
-                      onTap: () => ref.read(deviceServicesProvider).openUrl(Uri.parse(Env.storeUrl)),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: YqSpace.l),
-            ],
-            Text(t.profileSettings, style: text.titleMedium),
-            const SizedBox(height: YqSpace.s),
-            LiquidGlass(
-              padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
-              child: Column(
-                children: [
-                  row(
-                    t.profileLanguage,
-                    subtitle:
-                        '${s.locale == 'ar' ? t.langArabic : t.langEnglish} · ${s.script == QuranScript.uthmani ? t.scriptUthmani : t.scriptIndopak}',
-                    icon: YqIcons.quran,
-                    onTap: () => _languageSheet(context),
-                  ),
-                  const YqDivider(),
-                  row(
-                    t.profilePrayer,
-                    subtitle: methodLabel(t, s.method),
-                    icon: YqIcons.adhan,
-                    onTap: () => context.push('/prayer/notifications'),
-                  ),
-                  const YqDivider(),
-                  row(t.profilePrivacy, icon: YqIcons.settings, onTap: () => context.push('/profile/privacy')),
-                  const YqDivider(),
-                  row(
-                    t.profileDownloads,
-                    subtitle: megabytes(t, bytes),
-                    icon: YqIcons.download,
-                    onTap: () => context.push('/profile/downloads'),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: YqSpace.m),
-            LiquidGlass(
-              padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
-              child: Column(
-                children: [
-                  row(t.profileAbout, onTap: () => ref.read(deviceServicesProvider).openUrl(Uri.parse('${Env.storeUrl}/pages/about'))),
-                  const YqDivider(),
-                  row(
-                    t.terms,
-                    onTap: () => ref.read(deviceServicesProvider).openUrl(Uri.parse('${Env.storeUrl}/policies/terms-of-service')),
-                  ),
-                  const YqDivider(),
-                  row(
-                    t.privacyPolicy,
-                    onTap: () => ref.read(deviceServicesProvider).openUrl(Uri.parse('${Env.storeUrl}/policies/privacy-policy')),
-                  ),
-                  const YqDivider(),
-                  row(t.profileContact, onTap: () => ref.read(deviceServicesProvider).openUrl(Uri.parse('${Env.storeUrl}/pages/contact'))),
-                ],
-              ),
-            ),
-            if (session.signedIn && session.userId != null) ...[
-              const SizedBox(height: YqSpace.m),
-              LiquidGlass(
-                padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
-                child: Column(
-                  children: [
-                    row(t.profileExport, onTap: () => _export(context, ref)),
-                    const YqDivider(),
-                    row(t.profileDelete, color: YqColors.goldText, onTap: () => _delete(context, ref)),
-                    const YqDivider(),
-                    row(t.profileSignOut, onTap: () => _signOut(context, ref)),
-                  ],
-                ),
-              ),
-            ],
           ],
         ),
       ),
+      children: [
+        YqOrbRow(
+          orbs: [
+            if (rewards) ...[
+              YqOrb(
+                title: t.profileBalance,
+                status: t.challengePointsLabel(YqFormat.number(summary.balance)),
+                glow: true,
+                statusColor: YqColors.goldText,
+                onTap: () => context.push('/profile/ledger'),
+                semanticLabel: '${t.profileBalance}، ${t.challengePointsLabel(YqFormat.number(summary.balance))}',
+                disc: YqOrb.number(YqFormat.number(summary.balance), size: 21, color: YqColors.goldDeep),
+              ),
+              YqOrb(
+                title: t.profileRewards,
+                status: toNext != null && toNext > 0 ? t.profileToNext(YqFormat.number(toNext)) : t.redeemAvailable,
+                onTap: () => context.push('/challenge/redeem'),
+                disc: YqRing(
+                  value: cheapest == null || cheapest == 0 ? 0 : summary.balance / cheapest,
+                  gold: true,
+                  size: YqOrb.defaultSize - 12,
+                  stroke: 5,
+                  child: const YqIcon(YqIcons.store, size: 26, tone: YqIconTone.gold),
+                ),
+              ),
+            ] else
+              YqOrb(
+                title: t.langApp,
+                status: s.locale == 'ar' ? t.langArabic : t.langEnglish,
+                onTap: () => _languageSheet(context),
+                semanticLabel: '${t.langApp}، ${s.locale == 'ar' ? t.langArabic : t.langEnglish}',
+                disc: YqOrb.number(s.locale == 'ar' ? 'ع' : 'En', size: 28),
+              ),
+            YqOrb(
+              title: t.profileDownloads,
+              status: mb,
+              onTap: () => context.push('/profile/downloads'),
+              semanticLabel: '${t.profileDownloads}، $mb',
+              disc: const Center(child: YqIcon(YqIcons.download, size: 30)),
+            ),
+          ],
+        ),
+        const SizedBox(height: YqSpace.xxl),
+        if (rewards) ...[
+          YqGroup(
+            gold: true,
+            children: [
+              row(t.profileLedger, icon: YqIcons.streak, onTap: () => context.push('/profile/ledger')),
+              row(t.myCodes, icon: YqIcons.bookmark, onTap: () => context.push('/challenge/redeem/codes')),
+              row(t.profileVisitStore, icon: YqIcons.share, onTap: () => ref.read(deviceServicesProvider).openUrl(Uri.parse(Env.storeUrl))),
+            ],
+          ),
+          const SizedBox(height: YqSpace.xl),
+        ],
+        YqHeading(t.profileSettings),
+        YqGroup(
+          children: [
+            row(
+              t.profileLanguage,
+              subtitle: '${s.locale == 'ar' ? t.langArabic : t.langEnglish} · ${s.script == QuranScript.uthmani ? t.scriptUthmani : t.scriptIndopak}',
+              icon: YqIcons.quran,
+              onTap: () => _languageSheet(context),
+            ),
+            row(t.profilePrayer, subtitle: methodLabel(t, s.method), icon: YqIcons.adhan, onTap: () => context.push('/prayer/notifications')),
+            row(t.profilePrivacy, icon: YqIcons.settings, onTap: () => context.push('/profile/privacy')),
+            row(t.profileDownloads, subtitle: mb, icon: YqIcons.download, onTap: () => context.push('/profile/downloads')),
+          ],
+        ),
+        const SizedBox(height: YqSpace.l),
+        YqGroup(
+          children: [
+            row(t.profileAbout, onTap: () => ref.read(deviceServicesProvider).openUrl(Uri.parse('${Env.storeUrl}/pages/about'))),
+            row(t.terms, onTap: () => ref.read(deviceServicesProvider).openUrl(Uri.parse('${Env.storeUrl}/policies/terms-of-service'))),
+            row(t.privacyPolicy, onTap: () => ref.read(deviceServicesProvider).openUrl(Uri.parse('${Env.storeUrl}/policies/privacy-policy'))),
+            row(t.profileContact, onTap: () => ref.read(deviceServicesProvider).openUrl(Uri.parse('${Env.storeUrl}/pages/contact'))),
+          ],
+        ),
+        if (session.signedIn && session.userId != null) ...[
+          const SizedBox(height: YqSpace.l),
+          YqGroup(
+            children: [
+              row(t.profileExport, onTap: () => _export(context, ref)),
+              row(t.profileDelete, color: YqColors.goldText, onTap: () => _delete(context, ref)),
+              row(t.profileSignOut, onTap: () => _signOut(context, ref)),
+            ],
+          ),
+        ],
+      ],
     );
   }
 

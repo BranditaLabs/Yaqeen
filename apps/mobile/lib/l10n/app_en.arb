@@ -1457,5 +1457,42 @@
   "routineSettingsTitle": "My routine",
   "homeRoutineQuran": "Your Quran wird",
   "homeRoutineDue": "Due now",
-  "homeRoutineDone": "Done"
+  "homeRoutineDone": "Done",
+  "prayerOrbAlerts": "Alerts",
+  "prayerOrbAlertsStatus": "{on} of {total} on",
+  "@prayerOrbAlertsStatus": {
+    "placeholders": {
+      "on": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerPrayingNow": "It's prayer time",
+  "prayerOrbDay": "Daylight",
+  "prayerOrbNight": "Night",
+  "prayerOrbUntil": "until {name}",
+  "@prayerOrbUntil": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "quranKhatma": "Khatma",
+  "quranKhatmaStatus": "Page {page} of {total}",
+  "@quranKhatmaStatus": {
+    "placeholders": {
+      "page": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "challengeStreak": "Streak",
+  "challengeQada": "Make-up"
 }

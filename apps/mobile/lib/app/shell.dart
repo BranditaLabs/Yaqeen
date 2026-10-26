@@ -1,20 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/theme/tokens.dart';
 import '../core/widgets/floating_tab_bar.dart';
 import '../core/widgets/yq_icon.dart';
+import '../features/onboarding/presentation/session_controller.dart';
 import '../l10n/gen/app_localizations.dart';
 
 /// Hosts the five tab branches and floats the liquid tab bar above them.
-class AppShell extends StatelessWidget {
+class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
+    final session = ref.watch(sessionProvider);
+    final name = session.canEarnPoints && (session.displayName?.trim().isNotEmpty ?? false) ? session.displayName!.trim() : t.guestName;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
@@ -48,7 +52,7 @@ class AppShell extends StatelessWidget {
             child: FloatingTabBar(
               currentIndex: navigationShell.currentIndex,
               onSelect: (i) => navigationShell.goBranch(i, initialLocation: i == navigationShell.currentIndex),
-              avatarInitial: 'أ',
+              avatarInitial: String.fromCharCode(name.runes.first),
               profileLabel: t.tabProfile,
               tabs: [
                 YqTab(icon: YqIcons.home, label: t.tabHome),

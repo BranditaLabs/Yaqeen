@@ -1484,5 +1484,42 @@
   "routineSettingsTitle": "روتيني",
   "homeRoutineQuran": "وردك من القرآن",
   "homeRoutineDue": "حان وقته",
-  "homeRoutineDone": "تم"
+  "homeRoutineDone": "تم",
+  "prayerOrbAlerts": "التنبيهات",
+  "prayerOrbAlertsStatus": "{on} من {total} مفعّلة",
+  "@prayerOrbAlertsStatus": {
+    "placeholders": {
+      "on": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerPrayingNow": "حان وقت الصلاة",
+  "prayerOrbDay": "النهار",
+  "prayerOrbNight": "الليل",
+  "prayerOrbUntil": "حتى {name}",
+  "@prayerOrbUntil": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "quranKhatma": "الختمة",
+  "quranKhatmaStatus": "الصفحة {page} من {total}",
+  "@quranKhatmaStatus": {
+    "placeholders": {
+      "page": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "challengeStreak": "المواظبة",
+  "challengeQada": "القضاء"
 }

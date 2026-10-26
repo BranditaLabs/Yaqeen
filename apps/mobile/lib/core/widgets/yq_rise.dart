@@ -18,6 +18,8 @@ class YqRise extends StatelessWidget {
       child: child,
       builder: (context, v, child) => Opacity(
         opacity: v,
+        // Screen readers see the content at once; only the eye waits for the rise.
+        alwaysIncludeSemantics: true,
         child: Transform.translate(offset: Offset(0, 14 * (1 - v)), child: child),
       ),
     );
