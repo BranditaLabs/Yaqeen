@@ -3,7 +3,7 @@ import { and, desc, eq, ilike, lt, or, sql } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { AdjustPointsRequest, type AdminUserRow, UserStatus } from '@yaqeen/contracts';
-import { authIdentities, challengeEnrollments, pointsLedger, redemptions, users } from '../../db/schema.js';
+import { authIdentities, challengeEnrollments, pointsLedger, publicProfiles, redemptions, users } from '../../db/schema.js';
 import { challengeDayNumber, localToday } from '../../domain/points.js';
 import { audit } from '../../lib/audit.js';
 import { maskEmail } from '../../lib/crypto.js';
@@ -78,6 +78,10 @@ export const adminUsersRoutes: FastifyPluginAsync = async (app) => {
       .orderBy(desc(pointsLedger.createdAt))
       .limit(50);
     const reds = await db.select().from(redemptions).where(eq(redemptions.userId, id)).orderBy(desc(redemptions.createdAt));
+    const [card] = await db
+      .select({ handle: publicProfiles.handle, published: publicProfiles.published, views: publicProfiles.views })
+      .from(publicProfiles)
+      .where(eq(publicProfiles.userId, id));
     return {
       id: u.id,
       displayName: u.displayName,
@@ -91,6 +95,8 @@ export const adminUsersRoutes: FastifyPluginAsync = async (app) => {
       balance: ledger.length ? Number((await db.select({ s: sql<string>`sum(${pointsLedger.delta})` }).from(pointsLedger).where(eq(pointsLedger.userId, id)))[0]?.s ?? 0) : 0,
       ledger: ledger.map((l) => ({ id: l.id, delta: l.delta, reason: l.reason, note: l.note, createdAt: l.createdAt })),
       redemptions: reds,
+      // The public card's identity only (what anyone scanning it already sees) — for moderation.
+      publicProfile: card ? { ...card, url: `${app.ctx.env.PUBLIC_PROFILE_BASE_URL.replace(/\/$/, '')}/u/${card.handle}` } : null,
     };
   });
 
@@ -127,6 +133,20 @@ export const adminUsersRoutes: FastifyPluginAsync = async (app) => {
       });
       await audit(tx, req, { action: 'user.points.adjust', targetType: 'user', targetId: id, reason: body.reason, after: body });
     });
+    return { ok: true };
+  });
+
+  /** Moderation: hide a public card (abusive name, bio or links). The owner can edit and republish. */
+  app.post('/:id/public-profile/unpublish', { preHandler: write }, async (req) => {
+    const { id } = z.object({ id: z.uuid() }).parse(req.params);
+    const body = z.object({ reason: z.string().min(3).max(200) }).parse(req.body);
+    await db.transaction(async (tx) => {
+      const [before] = await tx.select({ handle: publicProfiles.handle, published: publicProfiles.published }).from(publicProfiles).where(eq(publicProfiles.userId, id));
+      if (!before) throw notFound('public_profile');
+      await tx.update(publicProfiles).set({ published: false, updatedAt: app.ctx.now() }).where(eq(publicProfiles.userId, id));
+      await audit(tx, req, { action: 'user.public_profile.unpublish', targetType: 'user', targetId: id, reason: body.reason, before, after: { published: false } });
+    });
+    await app.ctx.cache.bumpNamespace('profile');
     return { ok: true };
   });
 

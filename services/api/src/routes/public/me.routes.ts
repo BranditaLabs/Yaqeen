@@ -6,6 +6,7 @@ import {
   ConsentKind as ConsentKindSchema,
   ConsentUpdate,
   type ConsentsResponse,
+  PublicProfileUpdate,
   RegisterDeviceRequest,
   UpdateSettingsRequest,
 } from '@yaqeen/contracts';
@@ -16,6 +17,7 @@ import {
   consents,
   devices,
   pointsLedger,
+  publicProfiles,
   redemptions,
   refreshTokens,
   taskCompletions,
@@ -24,6 +26,7 @@ import {
 import type { Db } from '../../db/client.js';
 import { notFound } from '../../lib/errors.js';
 import { userId } from '../../plugins/auth.js';
+import * as profile from '../../services/profile.service.js';
 
 /** Bump when the privacy policy text changes; stored with every consent event. */
 export const POLICY_VERSION = '2026-10-01';
@@ -53,6 +56,7 @@ export async function exportUser(db: Db, uid: string, opts: { includeWorship: bo
           .from(pointsLedger)
           .where(eq(pointsLedger.userId, uid)),
     redemptions: await db.select().from(redemptions).where(eq(redemptions.userId, uid)),
+    publicProfile: (await db.select().from(publicProfiles).where(eq(publicProfiles.userId, uid)))[0] ?? null,
   };
 }
 
@@ -158,6 +162,20 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
       .limit(200),
   );
 
+  /* ------------------------------------------------- public profile card (NFC / QR) */
+
+  /** The owner's card settings (a suggested draft before the first save), its URL and scan count. */
+  app.get('/public-profile', async (req) => profile.settings(app.ctx, userId(req)));
+
+  app.put('/public-profile', async (req) =>
+    profile.update(app.ctx, userId(req), req.user?.guest ?? true, PublicProfileUpdate.parse(req.body)),
+  );
+
+  app.get('/public-profile/available', async (req) => {
+    const { handle } = z.object({ handle: z.string().max(40) }).parse(req.query);
+    return { available: await profile.handleAvailable(app.ctx, handle, userId(req)) };
+  });
+
   /** PDPL right of access: everything we hold about the user, as JSON. */
   app.get('/export', async (req) => {
     return { exportedAt: app.ctx.now().toISOString(), ...(await exportUser(db, userId(req), { includeWorship: true })) };
@@ -174,7 +192,9 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
       await tx.update(users).set({ status: 'deletion_requested', deletionRequestedAt: now, updatedAt: now }).where(eq(users.id, uid));
       await tx.update(refreshTokens).set({ revokedAt: now }).where(and(eq(refreshTokens.userId, uid), isNull(refreshTokens.revokedAt)));
       await tx.update(devices).set({ invalidatedAt: now }).where(and(eq(devices.userId, uid), isNull(devices.invalidatedAt)));
+      await tx.update(publicProfiles).set({ published: false, updatedAt: now }).where(eq(publicProfiles.userId, uid));
     });
+    await app.ctx.cache.bumpNamespace('profile'); // the public card disappears at once
     return reply.status(202).send({ status: 'deletion_requested', graceDays: DELETION_GRACE_DAYS });
   });
 };

@@ -27,6 +27,13 @@ const EnvSchema = z.object({
   FIREBASE_SERVICE_ACCOUNT_JSON: z.string().default(''),
   ALADHAN_BASE_URL: z.string().url().default('https://api.aladhan.com/v1'),
   HIJRI_REGION: z.string().default('EG'),
+  // Public profile cards (NFC/QR): the host that serves /u/<handle> (point a vanity domain here),
+  // the store and the app-store links its CTA opens.
+  PUBLIC_PROFILE_BASE_URL: z.string().url().default('https://api.yaqin-brand.com'),
+  STORE_URL: z.string().url().default('https://www.yaqin-brand.com'),
+  PLAY_STORE_URL: z.string().url().default('https://play.google.com/store/apps/details?id=com.yaqinbrand.yaqeen'),
+  /** Empty until the App Store listing exists; iPhone visitors then go to the store site. */
+  APP_STORE_URL: z.string().default(''),
   // Capacity / resilience (tune per environment; see docs/OPERATIONS.md)
   PG_POOL_MAX: z.coerce.number().int().min(1).max(200).default(20),
   PG_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(1000).default(10_000),

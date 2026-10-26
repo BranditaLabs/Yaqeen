@@ -13,7 +13,7 @@
 import { createHash } from 'node:crypto';
 import type { Redis } from 'ioredis';
 
-export type CacheNamespace = 'config' | 'content' | 'calendar' | 'catalogue';
+export type CacheNamespace = 'config' | 'content' | 'calendar' | 'catalogue' | 'profile';
 
 const L1_TTL_MS = 5_000;
 const L1_MAX = 500;

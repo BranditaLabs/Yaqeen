@@ -4,7 +4,7 @@ import { ActionForm } from '@/components/action-form';
 import { Badge, Button, Card, CardTitle, Kpi, Notice, PageHeader, Table, Td } from '@/components/ui';
 import { api } from '@/lib/api';
 import { date, dateTime, num } from '@/lib/format';
-import { adjustPoints, setStatus } from '../actions';
+import { adjustPoints, setStatus, unpublishCard } from '../actions';
 import { USER_STATUS as STATUS } from '@/lib/labels';
 
 interface UserDetail {
@@ -20,6 +20,7 @@ interface UserDetail {
   balance: number;
   ledger: LedgerEntry[];
   redemptions: { id: string; code: string; status: string; costPoints: number; createdAt: string }[];
+  publicProfile: { handle: string; published: boolean; views: number; url: string } | null;
 }
 
 const REASON: Record<LedgerEntry['reason'], string> = {
@@ -135,6 +136,27 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
               <Button variant="danger">تحديث الحالة</Button>
             </ActionForm>
           </Card>
+
+          {u.publicProfile && (
+            <Card>
+              <CardTitle>بطاقة يقين العامة</CardTitle>
+              <p className="text-sm">
+                <a href={u.publicProfile.url} target="_blank" rel="noreferrer" dir="ltr" className="num text-lapis">
+                  @{u.publicProfile.handle}
+                </a>{' '}
+                <Badge tone={u.publicProfile.published ? 'green' : 'gray'}>{u.publicProfile.published ? 'منشورة' : 'مخفية'}</Badge>
+              </p>
+              <p className="mt-1 text-sm text-muted">
+                فُتحت <span className="num">{num(u.publicProfile.views)}</span> مرة
+              </p>
+              {u.publicProfile.published && (
+                <ActionForm action={unpublishCard.bind(null, u.id)} className="mt-3 space-y-3">
+                  <input name="reason" placeholder="سبب الإخفاء (يُسجَّل في سجل التدقيق)" required minLength={3} className="field" />
+                  <Button variant="danger">إخفاء البطاقة</Button>
+                </ActionForm>
+              )}
+            </Card>
+          )}
 
           <Card>
             <CardTitle>الاستبدالات</CardTitle>

@@ -160,6 +160,36 @@ export const userActivityDays = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.date] }), index('user_activity_days_date_idx').on(t.date)],
 );
 
+/**
+ * Opt-in public card («بطاقة يقين») for NFC tags and QR codes. One per account; unpublished by
+ * default and unpublished again on an erasure request. Holds what the owner typed and the
+ * visibility switches only — the activity it shows (level, streak, badges) is computed at read
+ * time and never includes worship detail.
+ */
+export const publicProfiles = pgTable(
+  'public_profiles',
+  {
+    userId: uuid('user_id')
+      .primaryKey()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** Lower-case; unique across all profiles. */
+    handle: text('handle').notNull(),
+    published: boolean('published').notNull().default(false),
+    displayName: text('display_name').notNull(),
+    bio: text('bio').notNull().default(''),
+    links: jsonb('links').$type<{ kind: string; value: string }[]>().notNull().default([]),
+    show: jsonb('show')
+      .$type<{ level: boolean; streak: boolean; challengeDay: boolean; badges: boolean; memberSince: boolean }>()
+      .notNull(),
+    theme: text('theme').notNull().default('sky'),
+    /** Page opens (bots excluded). A count only — no visitor data is kept. */
+    views: integer('views').notNull().default(0),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex('public_profiles_handle_uq').on(t.handle)],
+);
+
 /** Current consent state per bucket. */
 export const consents = pgTable(
   'consents',

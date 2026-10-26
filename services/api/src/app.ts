@@ -20,6 +20,7 @@ import { adminUsersRoutes } from './routes/admin/users.routes.js';
 import { appRoutes } from './routes/public/app.routes.js';
 import { authRoutes } from './routes/public/auth.routes.js';
 import { meRoutes } from './routes/public/me.routes.js';
+import { profileRoutes } from './routes/public/profile.routes.js';
 
 /** Which public caches an admin write under each prefix can change. */
 const INVALIDATES: [string, CacheNamespace[]][] = [
@@ -105,6 +106,7 @@ export async function buildApp(input: Omit<AppContext, 'cache'> & { cache?: Resp
   await app.register(authRoutes, { prefix: '/v1/auth' });
   await app.register(meRoutes, { prefix: '/v1/me' });
   await app.register(appRoutes, { prefix: '/v1' });
+  await app.register(profileRoutes);
 
   // Admin API (separate token audience + RBAC on every route)
   await app.register(adminAuthRoutes, { prefix: '/admin/auth' });

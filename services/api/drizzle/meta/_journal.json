@@ -43,6 +43,13 @@
       "when": 1792565832422,
       "tag": "0005_redeem_idempotency",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793048860172,
+      "tag": "0006_public_profiles",
+      "breakpoints": true
     }
   ]
 }

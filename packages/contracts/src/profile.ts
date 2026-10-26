@@ -1,0 +1,160 @@
+import { z } from 'zod';
+
+/**
+ * Public profile («بطاقة يقين») — an opt-in card a user can put on an NFC tag or a QR code.
+ *
+ * Privacy (CLAUDE.md non-negotiables 1–2): it is off until the user publishes it, shows only the
+ * fields they switch on, and never carries worship detail — no prayers, azkar, pages or tasks.
+ * Activity is limited to the level (from lifetime points), the streak length, the challenge day
+ * and streak-milestone badges.
+ */
+
+/** Lower-case latin letters, digits, `_` and `.`, 3–24 chars, starting with a letter. */
+export const PROFILE_HANDLE = /^[a-z][a-z0-9_.]{2,23}$/;
+export const Handle = z
+  .string()
+  .transform((s) => s.trim().toLowerCase())
+  .pipe(z.string().regex(PROFILE_HANDLE));
+
+/** Handles that would read as official or collide with routes. */
+export const RESERVED_HANDLES = new Set([
+  'admin', 'api', 'app', 'apps', 'assets', 'help', 'support', 'yaqeen', 'yaqin', 'yaqinbrand', 'official', 'store', 'shop',
+  'login', 'signup', 'settings', 'profile', 'me', 'u', 'www', 'about', 'privacy', 'terms', 'null', 'undefined',
+]);
+
+export const SOCIAL_KINDS = ['instagram', 'x', 'tiktok', 'facebook', 'youtube', 'snapchat', 'linkedin', 'whatsapp', 'website'] as const;
+export const SocialKind = z.enum(SOCIAL_KINDS);
+export type SocialKind = z.infer<typeof SocialKind>;
+
+/** A username for the platform (or a full https URL; a phone number for WhatsApp). */
+export const SocialLink = z.object({
+  kind: SocialKind,
+  value: z.string().trim().min(1).max(120),
+});
+export type SocialLink = z.infer<typeof SocialLink>;
+
+export const ProfileTheme = z.enum(['sky', 'gold', 'night']);
+export type ProfileTheme = z.infer<typeof ProfileTheme>;
+
+/** What the owner chose to show. Everything starts off except the name. */
+export const ProfileVisibility = z.object({
+  level: z.boolean().default(true),
+  streak: z.boolean().default(false),
+  challengeDay: z.boolean().default(false),
+  badges: z.boolean().default(false),
+  memberSince: z.boolean().default(false),
+});
+export type ProfileVisibility = z.infer<typeof ProfileVisibility>;
+
+/** PUT /v1/me/public-profile. */
+export const PublicProfileUpdate = z.object({
+  published: z.boolean(),
+  handle: Handle,
+  displayName: z.string().trim().min(1).max(40),
+  bio: z.string().trim().max(160).default(''),
+  links: z.array(SocialLink).max(8).default([]),
+  show: ProfileVisibility.default({ level: true, streak: false, challengeDay: false, badges: false, memberSince: false }),
+  theme: ProfileTheme.default('sky'),
+});
+export type PublicProfileUpdate = z.infer<typeof PublicProfileUpdate>;
+
+/** GET /v1/me/public-profile — the owner's settings plus the shareable URL and scan count. */
+export const PublicProfileSettings = PublicProfileUpdate.extend({
+  url: z.string().url(),
+  views: z.number().int(),
+});
+export type PublicProfileSettings = z.infer<typeof PublicProfileSettings>;
+
+/* ------------------------------------------------------------------ levels */
+
+/**
+ * Levels earned from **lifetime** points (sum of positive ledger rows), so spending points on a
+ * reward never lowers a level. Names describe the journey, not anyone's faith.
+ */
+export const LEVELS = [
+  { min: 0, ar: 'بداية الطريق', en: 'Setting out' },
+  { min: 500, ar: 'على الطريق', en: 'On the path' },
+  { min: 2000, ar: 'مواظب', en: 'Steadfast' },
+  { min: 5000, ar: 'ثابت', en: 'Unwavering' },
+  { min: 12000, ar: 'راسخ', en: 'Rooted' },
+  { min: 25000, ar: 'منارة', en: 'Beacon' },
+] as const;
+
+export interface LevelInfo {
+  /** 1-based. */
+  level: number;
+  nameAr: string;
+  nameEn: string;
+  /** 0…1 toward the next level (1 at the top level). */
+  progress: number;
+  /** Lifetime points needed for the next level; null at the top. */
+  nextAt: number | null;
+}
+
+export function levelFor(lifetimePoints: number): LevelInfo {
+  const pts = Math.max(0, Math.floor(lifetimePoints));
+  let i = 0;
+  while (i + 1 < LEVELS.length && pts >= LEVELS[i + 1]!.min) i++;
+  const cur = LEVELS[i]!;
+  const next = LEVELS[i + 1];
+  return {
+    level: i + 1,
+    nameAr: cur.ar,
+    nameEn: cur.en,
+    progress: next ? (pts - cur.min) / (next.min - cur.min) : 1,
+    nextAt: next ? next.min : null,
+  };
+}
+
+export const PublicLevel = z.object({
+  level: z.number().int(),
+  nameAr: z.string(),
+  nameEn: z.string(),
+  progress: z.number(),
+});
+
+/** GET /v1/public/profiles/:handle — exactly what a scanner may see. */
+export const PublicProfileView = z.object({
+  handle: z.string(),
+  displayName: z.string(),
+  bio: z.string(),
+  links: z.array(SocialLink),
+  theme: ProfileTheme,
+  level: PublicLevel.nullable(),
+  streak: z.number().int().nullable(),
+  challengeDay: z.object({ day: z.number().int(), of: z.number().int() }).nullable(),
+  /** Streak milestones reached, in days (e.g. [7, 30]). */
+  badges: z.array(z.number().int()).nullable(),
+  memberSince: z.string().nullable(),
+});
+export type PublicProfileView = z.infer<typeof PublicProfileView>;
+
+/** The link a social kind opens; `value` may be a username or a full URL. */
+export function socialUrl(link: SocialLink): string | null {
+  const v = link.value.trim();
+  if (/^https:\/\//i.test(v)) return v;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(v)) return null; // http:, javascript:, data: … never
+  const user = v.replace(/^@/, '').replace(/[^\w.\-]/g, '');
+  switch (link.kind) {
+    case 'instagram':
+      return user ? `https://instagram.com/${user}` : null;
+    case 'x':
+      return user ? `https://x.com/${user}` : null;
+    case 'tiktok':
+      return user ? `https://www.tiktok.com/@${user}` : null;
+    case 'facebook':
+      return user ? `https://facebook.com/${user}` : null;
+    case 'youtube':
+      return user ? `https://www.youtube.com/@${user}` : null;
+    case 'snapchat':
+      return user ? `https://www.snapchat.com/add/${user}` : null;
+    case 'linkedin':
+      return user ? `https://www.linkedin.com/in/${user}` : null;
+    case 'whatsapp': {
+      const phone = v.replace(/[^\d]/g, '');
+      return phone.length >= 8 ? `https://wa.me/${phone}` : null;
+    }
+    case 'website':
+      return /^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(v) ? `https://${v}` : null;
+  }
+}
