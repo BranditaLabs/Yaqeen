@@ -17,6 +17,8 @@ import '../../../core/widgets/liquid_glass.dart';
 import '../../../core/widgets/yq_button.dart';
 import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_layout.dart';
+import '../../../core/widgets/yq_ring.dart';
+import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../challenge/presentation/challenge_controller.dart';
@@ -49,44 +51,52 @@ class RedeemScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: YqColors.porcelain,
-      body: AmbientBackground(
+      body: YqCanvas(
         lights: AmbientBackground.goldLights,
-        child: SafeArea(
-          child: YqPage(
-            header: YqTopBar(
-              title: t.redeemTitle,
-              actions: [
-                TextButton(onPressed: () => context.push('/challenge/redeem/codes'), child: Text(t.myCodes)),
-              ],
-            ),
+        bottom: YqSpace.xxl,
+        stage: YqStage(
+          compact: true,
+          gold: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (balance != null) ...[
-                LiquidGlass(
-                  tone: GlassTone.gold,
-                  child: Text(t.redeemBalance(YqFormat.number(balance)), style: text.titleMedium),
-                ),
-                const SizedBox(height: YqSpace.l),
-              ],
-              Text(t.redeemChoose, style: text.titleMedium),
-              const SizedBox(height: YqSpace.m),
-              ...rewards.when(
-                loading: () => [
-                  for (var i = 0; i < 3; i++)
-                    const Padding(padding: EdgeInsets.only(bottom: 12), child: YqSkeleton(child: YqSkeletonBox(height: 76))),
-                ],
-                error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(rewardsProvider))],
-                data: (list) => [
-                  for (final r in list) ...[
-                    _RewardRow(reward: r, balance: balance, locale: locale, onRedeem: () => _confirm(context, ref, r, balance)),
-                    const SizedBox(height: YqSpace.m),
-                  ],
-                ],
+              YqStageBar(
+                back: true,
+                title: t.redeemTitle,
+                actions: [TextButton(onPressed: () => context.push('/challenge/redeem/codes'), child: Text(t.myCodes))],
               ),
-              const SizedBox(height: YqSpace.s),
-              Text(t.redeemNote, style: text.bodySmall, textAlign: TextAlign.center),
+              if (balance != null) ...[
+                const SizedBox(height: YqSpace.l),
+                YqMoment(
+                  value: Text(
+                    YqFormat.number(balance),
+                    textDirection: TextDirection.ltr,
+                    style: YqMoment.numeral(size: 56, color: YqColors.goldDeep),
+                  ),
+                  caption: Text(t.redeemBalance(YqFormat.number(balance))),
+                ),
+              ],
             ],
           ),
         ),
+        children: [
+          YqHeading(t.redeemChoose),
+          ...rewards.when(
+            loading: () => [
+              for (var i = 0; i < 3; i++)
+                const Padding(padding: EdgeInsets.only(bottom: 12), child: YqSkeleton(child: YqSkeletonBox(height: 96))),
+            ],
+            error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(rewardsProvider))],
+            data: (list) => [
+              for (final r in list) ...[
+                _RewardRow(reward: r, balance: balance, locale: locale, onRedeem: () => _confirm(context, ref, r, balance)),
+                const SizedBox(height: YqSpace.m),
+              ],
+            ],
+          ),
+          const SizedBox(height: YqSpace.s),
+          Text(t.redeemNote, style: text.bodySmall, textAlign: TextAlign.center),
+        ],
       ),
     );
   }
@@ -111,10 +121,19 @@ class _RewardRow extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     final short = balance == null ? 0 : reward.costPoints - balance!;
     final can = reward.available && short <= 0;
+    // The ring fills toward the cost: how close the balance is to this reward.
+    final progress = balance == null || reward.costPoints == 0 ? 0.0 : balance! / reward.costPoints;
     return LiquidGlass(
+      tone: can ? GlassTone.gold : GlassTone.clear,
       child: Row(
         children: [
-          const YqIconTile(YqIcons.store, gold: true, size: 44),
+          YqRing(
+            value: progress,
+            gold: true,
+            size: 60,
+            stroke: 4,
+            child: YqIcon(YqIcons.store, size: 24, tone: can ? YqIconTone.gold : YqIconTone.idle),
+          ),
           const SizedBox(width: YqSpace.m),
           Expanded(
             child: Column(
@@ -244,61 +263,69 @@ class _SuccessScreenState extends ConsumerState<_SuccessScreen> {
     final code = widget.redemption.code;
     return Scaffold(
       backgroundColor: YqColors.porcelain,
-      body: AmbientBackground(
+      body: YqCanvas(
         lights: AmbientBackground.goldLights,
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(YqSpace.gutter),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+        bottom: YqSpace.l,
+        stage: YqStage(
+          gold: true,
+          child: Column(
+            children: [
+              const SizedBox(height: YqSpace.xl),
+              const YqRing(value: 1, gold: true, size: 112, stroke: 6, child: Icon(Icons.check_rounded, size: 52, color: YqColors.goldDeep)),
+              const SizedBox(height: YqSpace.l),
+              YqMoment(
+                value: Text(t.redeemSuccess, style: YqMoment.display(context, size: 36)),
+                caption: Text(t.redeemSuccessBody(widget.reward.title(locale)), style: text.bodyLarge),
+              ),
+            ],
+          ),
+        ),
+        footer: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            YqButton(
+              label: t.redeemShop,
+              onPressed: () async {
+                await ref.read(analyticsProvider).log(AdEvent.storeClick);
+                await ref.read(deviceServicesProvider).openUrl(storeLinkFor(Env.storeUrl, code));
+              },
+            ),
+            const SizedBox(height: YqSpace.s),
+            YqButton.secondary(label: t.redeemBack, onPressed: () => Navigator.of(context).pop()),
+          ],
+        ),
+        children: [
+          LiquidGlass(
+            tone: GlassTone.gold,
+            padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.l),
+            child: Row(
               children: [
-                const Spacer(),
-                Text(t.redeemSuccess, textAlign: TextAlign.center, style: YqText.display.copyWith(fontSize: 34)),
-                const SizedBox(height: YqSpace.m),
-                Text(t.redeemSuccessBody(widget.reward.title(locale)), textAlign: TextAlign.center, style: text.bodyLarge),
-                const SizedBox(height: YqSpace.xl),
-                LiquidGlass(
-                  tone: GlassTone.gold,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: SelectableText(
-                          code,
-                          textAlign: TextAlign.center,
-                          textDirection: TextDirection.ltr,
-                          style: YqText.numeral.copyWith(fontSize: 24, letterSpacing: 2),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () async {
-                          await Clipboard.setData(ClipboardData(text: code));
-                          setState(() => _copied = true);
-                        },
-                        child: Text(_copied ? t.copied : t.copy),
-                      ),
-                    ],
+                Expanded(
+                  child: SelectableText(
+                    code,
+                    textAlign: TextAlign.center,
+                    textDirection: TextDirection.ltr,
+                    style: YqText.numeral.copyWith(fontSize: 26, letterSpacing: 2.5),
                   ),
                 ),
-                const SizedBox(height: YqSpace.s),
-                Text(
-                  t.redeemEmailed(YqFormat.fullDate(widget.redemption.expiresAt.toLocal(), locale)),
-                  textAlign: TextAlign.center,
-                  style: text.bodySmall,
-                ),
-                const Spacer(),
-                YqButton(
-                  label: t.redeemShop,
+                TextButton(
                   onPressed: () async {
-                    await ref.read(analyticsProvider).log(AdEvent.storeClick);
-                    await ref.read(deviceServicesProvider).openUrl(storeLinkFor(Env.storeUrl, code));
+                    await Clipboard.setData(ClipboardData(text: code));
+                    setState(() => _copied = true);
                   },
+                  child: Text(_copied ? t.copied : t.copy),
                 ),
-                const SizedBox(height: YqSpace.s),
-                YqButton.secondary(label: t.redeemBack, onPressed: () => Navigator.of(context).pop()),
               ],
             ),
           ),
-        ),
+          const SizedBox(height: YqSpace.s),
+          Text(
+            t.redeemEmailed(YqFormat.fullDate(widget.redemption.expiresAt.toLocal(), locale)),
+            textAlign: TextAlign.center,
+            style: text.bodySmall,
+          ),
+        ],
       ),
     );
   }
@@ -316,19 +343,16 @@ class CodesScreen extends ConsumerWidget {
     final now = ref.watch(clockProvider)();
     return Scaffold(
       backgroundColor: YqColors.porcelain,
-      body: AmbientBackground(
-        child: SafeArea(
-          child: YqPage(
-            header: YqTopBar(title: t.myCodes),
+      body: YqCanvas(
+            bottom: YqSpace.xxl,
+            stage: YqStage(compact: true, child: YqStageBar(back: true, title: t.myCodes)),
             children: codes.when(
               loading: () => [const YqSkeleton(child: YqSkeletonBox(height: 72))],
               error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(codesProvider))],
               data: (list) => list.isEmpty
                   ? [LiquidGlass(child: YqEmptyState(icon: YqIcons.store, title: t.codesEmpty))]
                   : [
-                      LiquidGlass(
-                        padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
-                        child: Column(
+                      YqGroup(
                           children: [
                             for (final c in list)
                               YqListRow(
@@ -351,12 +375,9 @@ class CodesScreen extends ConsumerWidget {
                                     : null,
                               ),
                           ],
-                        ),
                       ),
                     ],
             ),
-          ),
-        ),
       ),
     );
   }

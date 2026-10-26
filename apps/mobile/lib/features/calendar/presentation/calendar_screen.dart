@@ -11,8 +11,12 @@ import '../../../core/time/zoned.dart';
 import '../../../core/widgets/ambient_background.dart';
 import '../../../core/widgets/liquid_glass.dart';
 import '../../../core/widgets/yq_button.dart';
-import '../../../core/widgets/yq_layout.dart';
+import '../../../core/widgets/yq_icon.dart';
+import '../../../core/widgets/yq_orb.dart';
+import '../../../core/widgets/yq_ring.dart';
+import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/yq_states.dart';
+import '../../../core/widgets/yq_timeline.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../challenge/domain/challenge_models.dart';
 import '../../challenge/presentation/challenge_controller.dart';
@@ -80,48 +84,61 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final cal = ref.watch(calendarMonthProvider(_key));
     final locale = ref.watch(settingsProvider.select((s) => s.locale));
 
+    final c = cal.valueOrNull;
     return Scaffold(
       backgroundColor: YqColors.porcelain,
-      body: AmbientBackground(
+      body: YqCanvas(
         lights: AmbientBackground.goldLights,
-        child: SafeArea(
-          child: YqPage(
-            header: YqTopBar(title: t.challengeCalendar, backLabel: t.calendarBack),
+        bottom: YqSpace.xxl,
+        stage: YqStage(
+          compact: true,
+          gold: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              ...cal.when(
-                loading: () => [const YqSkeleton(child: YqSkeletonBox(height: 360, radius: YqRadii.card))],
-                error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(calendarMonthProvider(_key)))],
-                data: (c) => [
-                  if (c.enrolled) ...[_Journey(cal: c, locale: locale), const SizedBox(height: YqSpace.l)],
-                  Row(
-                    children: [
-                      IconButton(
-                        tooltip: t.calendarPrev,
-                        onPressed: () => _shift(-1),
-                        icon: const Icon(Icons.chevron_left_rounded),
-                      ),
-                      Expanded(child: _MonthHeader(cal: c, locale: locale, month: _month)),
-                      IconButton(
-                        tooltip: t.calendarNext,
-                        onPressed: () => _shift(1),
-                        icon: const Icon(Icons.chevron_right_rounded),
-                      ),
-                    ],
+              YqStageBar(back: true, title: t.challengeCalendar, backLabel: t.calendarBack),
+              const SizedBox(height: YqSpace.l),
+              Row(
+                children: [
+                  GlassIconButton(
+                    tooltip: t.calendarPrev,
+                    size: 40,
+                    onPressed: () => _shift(-1),
+                    icon: const Icon(Icons.chevron_left_rounded, color: YqColors.ink),
                   ),
-                  const SizedBox(height: YqSpace.m),
-                  LiquidGlass(
-                    padding: const EdgeInsets.all(YqSpace.m),
-                    child: _Grid(cal: c, onTap: (cell) => _daySheet(context, c, cell)),
+                  Expanded(
+                    child: c == null
+                        ? Text('${YqFormat.month(_month.month, locale)} ${_month.year}', textAlign: TextAlign.center)
+                        : _MonthHeader(cal: c, locale: locale, month: _month),
                   ),
-                  const SizedBox(height: YqSpace.m),
-                  const _Legend(),
+                  GlassIconButton(
+                    tooltip: t.calendarNext,
+                    size: 40,
+                    onPressed: () => _shift(1),
+                    icon: const Icon(Icons.chevron_right_rounded, color: YqColors.ink),
+                  ),
                 ],
               ),
-              const SizedBox(height: YqSpace.l),
-              Text(t.calFooter, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
             ],
           ),
         ),
+        children: [
+          ...cal.when(
+            loading: () => [const YqSkeleton(child: YqSkeletonBox(height: 360, radius: YqRadii.card))],
+            error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(calendarMonthProvider(_key)))],
+            data: (c) => [
+              if (c.enrolled) ...[_Journey(cal: c, locale: locale), const SizedBox(height: YqSpace.xl)],
+              LiquidGlass(
+                padding: const EdgeInsets.fromLTRB(YqSpace.s, YqSpace.m, YqSpace.s, YqSpace.s),
+                child: _Grid(cal: c, onTap: (cell) => _daySheet(context, c, cell)),
+              ),
+              const SizedBox(height: YqSpace.m),
+              const _Legend(),
+            ],
+          ),
+          const SizedBox(height: YqSpace.l),
+          Text(t.calFooter, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
+        ],
       ),
     );
   }
@@ -131,6 +148,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   }
 }
 
+/// The journey as complications: the year as a gold ring, the streak, the balance.
 class _Journey extends StatelessWidget {
   const _Journey({required this.cal, required this.locale});
   final ChallengeCalendar cal;
@@ -139,22 +157,50 @@ class _Journey extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
-    final text = Theme.of(context).textTheme;
     final start = cal.startedOn == null ? null : DateTime.parse(cal.startedOn!);
     final end = cal.endsOn == null ? null : DateTime.parse(cal.endsOn!);
-    return LiquidGlass(
-      tone: GlassTone.gold,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(t.calendarJourney, style: text.labelMedium?.copyWith(color: YqColors.goldText)),
-          const SizedBox(height: YqSpace.xs),
-          Text(t.dayOfTotal(cal.dayNumber, 365), style: text.titleMedium),
-          Text('${t.streakDays(cal.streak)} · ${t.challengePointsLabel(YqFormat.number(cal.balance))}', style: text.bodySmall),
-          if (start != null && end != null)
-            Text(t.calendarStarted(YqFormat.fullDate(start, locale), YqFormat.fullDate(end, locale)), style: text.bodySmall),
+    return Column(
+      children: [
+        YqOrbRow(
+          orbs: [
+            YqOrb(
+              title: t.calendarJourney,
+              status: t.dayOfTotal(cal.dayNumber, 365),
+              statusColor: YqColors.goldText,
+              disc: YqRing(
+                value: cal.dayNumber / 365,
+                gold: true,
+                size: YqOrb.defaultSize - 12,
+                stroke: 5,
+                child: Text(
+                  YqFormat.number(cal.dayNumber),
+                  textDirection: TextDirection.ltr,
+                  style: YqText.numberSmall.copyWith(fontSize: 22, fontWeight: FontWeight.w500, color: YqColors.ink),
+                ),
+              ),
+            ),
+            YqOrb(
+              title: t.challengeStreak,
+              status: t.streakDays(cal.streak),
+              disc: const Center(child: YqIcon(YqIcons.streak, size: 30, tone: YqIconTone.gold)),
+            ),
+            YqOrb(
+              title: t.profileBalance,
+              status: t.challengePointsLabel(YqFormat.number(cal.balance)),
+              glow: true,
+              disc: YqOrb.number(YqFormat.number(cal.balance), size: 20, color: YqColors.goldDeep),
+            ),
+          ],
+        ),
+        if (start != null && end != null) ...[
+          const SizedBox(height: YqSpace.m),
+          Text(
+            t.calendarStarted(YqFormat.fullDate(start, locale), YqFormat.fullDate(end, locale)),
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
         ],
-      ),
+      ],
     );
   }
 }
@@ -174,8 +220,8 @@ class _MonthHeader extends StatelessWidget {
     final hijri = first == null ? '' : (first.hijriMonth == last!.hijriMonth ? h(first) : '${hijriMonthName(first, locale)} – ${h(last)}');
     return Column(
       children: [
-        Text(hijri, textAlign: TextAlign.center, style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-        Text('${YqFormat.month(month.month, locale)} ${month.year}', style: text.bodySmall),
+        Text(hijri, textAlign: TextAlign.center, style: YqMoment.display(context, size: 28)),
+        Text('${YqFormat.month(month.month, locale)} ${month.year}', style: text.bodySmall?.copyWith(fontSize: 13)),
       ],
     );
   }
@@ -211,7 +257,7 @@ class _Grid extends StatelessWidget {
               for (var c = 0; c < 7; c++)
                 Expanded(
                   child: AspectRatio(
-                    aspectRatio: 0.82,
+                    aspectRatio: 0.9,
                     child: switch (r * 7 + c < cells.length ? cells[r * 7 + c] : null) {
                       final CalendarCell cell => _Cell(cell: cell, today: cell.gregorian == cal.today, onTap: () => onTap(cell)),
                       null => const SizedBox.shrink(),
@@ -250,51 +296,62 @@ class _Cell extends StatelessWidget {
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(2),
-          child: Opacity(
-            opacity: outside ? 0.55 : 1,
-            child: Container(
-              decoration: BoxDecoration(
-                color: fill,
-                borderRadius: BorderRadius.circular(12),
-                border: today
-                    ? Border.all(color: YqColors.ink, width: 1.6)
-                    : ring == null
-                        ? null
-                        : Border.all(color: ring, width: status == DayStatus.missed ? 0.8 : 1.4),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    YqFormat.number(cell.hijriDay),
-                    style: YqText.numberSmall.copyWith(fontSize: 16, color: ink, fontWeight: FontWeight.w600),
-                  ),
-                  Text(
-                    YqFormat.number(greg),
-                    style: YqText.numberSmall.copyWith(fontSize: 10, color: fill == YqColors.lapis ? YqColors.sky200 : YqColors.muted),
-                  ),
-                  SizedBox(
-                    height: 6,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        for (final d in cell.special.take(3))
-                          Container(
-                            width: 4,
-                            height: 4,
-                            margin: const EdgeInsets.symmetric(horizontal: 1),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: d == SpecialDay.whiteDay ? YqColors.sky400 : YqColors.gold,
-                            ),
-                          ),
-                      ],
+        customBorder: const CircleBorder(),
+        child: Opacity(
+          opacity: outside ? 0.5 : 1,
+          child: Center(
+            // A luminous disc: filled for done (with a soft glow), ringed for partial, warm for
+            // make-up, a hairline for missed — never red.
+            child: AspectRatio(
+              aspectRatio: 1,
+              child: AnimatedContainer(
+                duration: YqMotion.base,
+                margin: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: fill,
+                  border: today
+                      ? Border.all(color: YqColors.ink, width: 1.8)
+                      : ring == null
+                          ? null
+                          : Border.all(color: ring, width: status == DayStatus.missed ? 0.8 : 1.5),
+                  boxShadow: status == DayStatus.done
+                      ? const [BoxShadow(color: Color(0x591F3F94), blurRadius: 12, spreadRadius: -4, offset: Offset(0, 4))]
+                      : status == DayStatus.qada
+                          ? const [BoxShadow(color: Color(0x59C6A867), blurRadius: 12, spreadRadius: -4, offset: Offset(0, 4))]
+                          : null,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      YqFormat.number(cell.hijriDay),
+                      style: YqText.numberSmall.copyWith(fontSize: 15, height: 1.1, color: ink, fontWeight: today ? FontWeight.w700 : FontWeight.w600),
                     ),
-                  ),
-                ],
+                    Text(
+                      YqFormat.number(greg),
+                      style: YqText.numberSmall.copyWith(fontSize: 9, height: 1.1, color: fill == YqColors.lapis ? YqColors.sky200 : YqColors.muted),
+                    ),
+                    SizedBox(
+                      height: 5,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          for (final d in cell.special.take(3))
+                            Container(
+                              width: 3.5,
+                              height: 3.5,
+                              margin: const EdgeInsets.symmetric(horizontal: 1),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: d == SpecialDay.whiteDay ? YqColors.sky400 : YqColors.gold,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -383,7 +440,7 @@ class _DaySheetState extends ConsumerState<_DaySheet> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('${cell.hijriDay} ${hijriMonthName(cell, locale)} ${cell.hijriYear}', style: text.titleLarge),
+        Text('${cell.hijriDay} ${hijriMonthName(cell, locale)} ${cell.hijriYear}', style: YqMoment.display(context, size: 26)),
         Text(YqFormat.weekdayDayMonth(greg, locale), style: text.bodySmall),
         if (cell.special.isNotEmpty) ...[
           const SizedBox(height: YqSpace.s),
@@ -399,16 +456,19 @@ class _DaySheetState extends ConsumerState<_DaySheet> {
             style: text.titleSmall?.copyWith(color: YqColors.lapis),
           ),
           const SizedBox(height: YqSpace.s),
-          for (final task in tasks)
-            YqListRow(
-              dense: true,
-              title: locale == 'ar' ? task.labelAr : task.labelEn,
-              leading: Icon(
-                _done.contains(task.key) ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-                color: _done.contains(task.key) ? YqColors.lapis : YqColors.slate200,
-              ),
-              onTap: _makingUp && !_done.contains(task.key) ? () => _tick(task.key) : null,
-            ),
+          YqTimeline(
+            timeWidth: 0,
+            stops: [
+              for (final task in tasks)
+                YqStop(
+                  title: locale == 'ar' ? task.labelAr : task.labelEn,
+                  done: _done.contains(task.key),
+                  highlight: _makingUp && !_done.contains(task.key),
+                  trailing: Text(t.pointsPlus(YqFormat.number(task.points)), style: YqText.numberSmall.copyWith(color: YqColors.goldText)),
+                  onTap: _makingUp && !_done.contains(task.key) ? () => _tick(task.key) : null,
+                ),
+            ],
+          ),
           for (final b in day.bonuses)
             Padding(
               padding: const EdgeInsets.only(top: YqSpace.xs),
