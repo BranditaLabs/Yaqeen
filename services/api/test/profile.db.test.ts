@@ -186,7 +186,7 @@ describe.skipIf(!url)('public profile cards (Postgres)', () => {
     const res = await app.inject({ method: 'POST', url: `/admin/users/${u.id}/public-profile/unpublish`, headers: auth(admin), payload: { reason: 'abusive bio' } });
     expect(res.statusCode).toBe(200);
     expect((await app.inject({ method: 'GET', url: '/u/rude' })).statusCode).toBe(404);
-    const log = await db.select().from(s.auditLog).where(eq(s.auditLog.action, 'user.public_profile.unpublish'));
+    const log = await db.select().from(s.auditLog).where(eq(s.auditLog.action, 'card.moderate'));
     expect(log).toHaveLength(1);
   });
 
@@ -264,6 +264,123 @@ describe.skipIf(!url)('public profile cards (Postgres)', () => {
     expect((await app.inject({ method: 'GET', url: `/t/${other}` })).statusCode).toBe(404);
     const log = await db.select().from(s.auditLog).where(eq(s.auditLog.targetType, 'tag'));
     expect(log.map((l) => l.action)).toEqual(['tags.release']);
+  });
+
+  it('admin runs the programme: moderation, settings, switches, batches, assignment and counters', async () => {
+    const mk = async (role: 'support' | 'marketing' | 'super_admin', email: string) => {
+      const [a] = await db.insert(s.adminUsers).values({ name: role, email, role, passwordHash: 'x', totpSecret: 'x' }).returning();
+      return signAdminToken({ sub: a!.id, role }, env.ADMIN_JWT_SECRET);
+    };
+    const sup = await mk('support', 'p-sup@example.com');
+    const mkt = await mk('marketing', 'p-mkt@example.com');
+    const root = await mk('super_admin', 'p-root@example.com');
+    const human = { 'user-agent': 'Mozilla/5.0 (iPhone)' };
+    const base = (await app.inject({ method: 'GET', url: '/admin/cards/stats?days=7', headers: auth(mkt) })).json().totals;
+    const owner = await makeUser('Mod');
+    await app.inject({ method: 'PUT', url: '/v1/me/public-profile', headers: auth(owner.token), payload: card({ handle: 'modme' }) });
+
+    // Directory: public fields only.
+    const dir = (await app.inject({ method: 'GET', url: '/admin/cards?search=modme', headers: auth(mkt) })).json();
+    expect(dir.items).toEqual([expect.objectContaining({ handle: 'modme', published: true, moderated: false, url: 'https://id.test/u/modme' })]);
+    expect(JSON.stringify(dir)).not.toMatch(/five_prayers|wird|azkar|task/);
+
+    // Moderation: hidden, owner can't republish, restore lifts the block (all audited).
+    expect((await app.inject({ method: 'POST', url: `/admin/cards/${owner.id}/moderate`, headers: auth(mkt), payload: { reason: 'spam' } })).statusCode).toBe(403);
+    expect((await app.inject({ method: 'POST', url: `/admin/cards/${owner.id}/moderate`, headers: auth(sup), payload: { reason: 'spam links' } })).statusCode).toBe(200);
+    expect((await app.inject({ method: 'GET', url: '/u/modme' })).statusCode).toBe(404);
+    const mine = (await app.inject({ method: 'GET', url: '/v1/me/public-profile', headers: auth(owner.token) })).json();
+    expect(mine).toMatchObject({ published: false, moderated: true });
+    const again = await app.inject({ method: 'PUT', url: '/v1/me/public-profile', headers: auth(owner.token), payload: card({ handle: 'modme' }) });
+    expect(again.statusCode).toBe(403);
+    expect(again.json().error.code).toBe('card_moderated');
+    const modded = (await app.inject({ method: 'GET', url: '/admin/cards?status=moderated', headers: auth(sup) })).json().items;
+    expect(modded.find((c: { handle: string }) => c.handle === 'modme')).toMatchObject({ moderated: true, moderationReason: 'spam links' });
+    await app.inject({ method: 'POST', url: `/admin/cards/${owner.id}/restore`, headers: auth(sup), payload: { reason: 'cleaned up' } });
+    expect((await app.inject({ method: 'PUT', url: '/v1/me/public-profile', headers: auth(owner.token), payload: card({ handle: 'modme' }) })).statusCode).toBe(200);
+    expect((await app.inject({ method: 'GET', url: '/u/modme' })).statusCode).toBe(200);
+
+    // Release a handle (impersonation): the card moves to a neutral handle, the name is free again.
+    const rel = (await app.inject({ method: 'POST', url: `/admin/cards/${owner.id}/release-handle`, headers: auth(sup), payload: { reason: 'impersonation' } })).json();
+    expect(rel.handle).toMatch(/^yaqeen_[0-9a-f]{6}$/);
+    expect((await app.inject({ method: 'GET', url: '/u/modme' })).statusCode).toBe(404);
+    const other = await makeUser('Other');
+    expect((await app.inject({ method: 'GET', url: '/v1/me/public-profile/available?handle=modme', headers: auth(other.token) })).json().available).toBe(true);
+
+    // Settings: marketing edits; reserved handles refused; page copy and shop link follow; apps see only the product link.
+    expect((await app.inject({ method: 'PUT', url: '/admin/cards/settings', headers: auth(mkt), payload: { storeUrl: 'http://plain.test' } })).statusCode).toBe(400);
+    const put = await app.inject({
+      method: 'PUT',
+      url: '/admin/cards/settings',
+      headers: auth(mkt),
+      payload: { medalProductUrl: 'https://store.test/medal', storeUrl: 'https://store.test/', ctaTitleAr: 'هديتك من يقين', reservedHandles: ['Brandx', 'brandx'] },
+    });
+    expect(put.statusCode).toBe(200);
+    expect(put.json().reservedHandles).toEqual(['brandx']);
+    const bad = await app.inject({ method: 'PUT', url: '/v1/me/public-profile', headers: auth(other.token), payload: card({ handle: 'brandx' }) });
+    expect(bad.json().error.code).toBe('handle_reserved');
+    await app.inject({ method: 'PUT', url: '/v1/me/public-profile', headers: auth(other.token), payload: card({ handle: 'other1' }) });
+    const page = (await app.inject({ method: 'GET', url: '/u/other1', headers: human })).body;
+    expect(page).toContain('هديتك من يقين');
+    expect(page).toContain('https://id.test/go/store?src=card&amp;ref=other1');
+    const go = await app.inject({ method: 'GET', url: '/go/store?src=card&ref=other1', headers: human });
+    expect(go.statusCode).toBe(302);
+    expect(go.headers.location).toBe('https://store.test/?utm_source=yaqeen_card&utm_medium=nfc&utm_campaign=other1');
+    const config = (await app.inject({ method: 'GET', url: '/v1/config' })).json();
+    expect(config.cards).toEqual({ medalProductUrl: 'https://store.test/medal' });
+    expect(JSON.stringify(config)).not.toContain('brandx');
+
+    // Switches: cards paused → pages 404, publishing refused; medal activation paused → feature_off.
+    await app.inject({ method: 'PATCH', url: '/admin/settings/config', headers: auth(root), payload: { features: { ...config.features, publicCards: false, medalActivation: false } } });
+    expect((await app.inject({ method: 'GET', url: '/u/other1' })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'GET', url: '/v1/public/profiles/other1' })).statusCode).toBe(404);
+    const paused = await app.inject({ method: 'PUT', url: '/v1/me/public-profile', headers: auth(other.token), payload: card({ handle: 'other1' }) });
+    expect(paused.json().error.code).toBe('feature_off');
+    expect((await app.inject({ method: 'POST', url: '/v1/me/tags', headers: auth(other.token), payload: { code: 'AAAAAAAA' } })).json().error.code).toBe('feature_off');
+    await app.inject({ method: 'PATCH', url: '/admin/settings/config', headers: auth(root), payload: { features: { ...config.features, publicCards: true, medalActivation: true } } });
+    expect((await app.inject({ method: 'GET', url: '/u/other1' })).statusCode).toBe(200);
+
+    // Batches: lifecycle, assignment for a customer, void switches every tag off.
+    await app.inject({ method: 'POST', url: '/admin/tags/batches', headers: auth(mkt), payload: { batch: 'b2', kind: 'card', count: 3 } });
+    let batches = (await app.inject({ method: 'GET', url: '/admin/tags/batches', headers: auth(sup) })).json();
+    expect(batches.find((b: { batch: string }) => b.batch === 'b2')).toMatchObject({ status: 'ordered', total: 3, kind: 'card' });
+    expect((await app.inject({ method: 'PATCH', url: '/admin/tags/batches/b2', headers: auth(mkt), payload: { status: 'on_sale', note: 'Factory A' } })).statusCode).toBe(200);
+    expect((await app.inject({ method: 'PATCH', url: '/admin/tags/batches/b2', headers: auth(mkt), payload: { status: 'void' } })).statusCode).toBe(400);
+    const codes = (await app.inject({ method: 'GET', url: '/admin/tags?batch=b2', headers: auth(sup) })).json().items.map((t: { code: string }) => t.code);
+    const guest = await makeUser('G2', true);
+    expect((await app.inject({ method: 'POST', url: `/admin/tags/${codes[0]}/assign`, headers: auth(sup), payload: { userId: guest.id, reason: 'phone call' } })).statusCode).toBe(400);
+    const assigned = await app.inject({ method: 'POST', url: `/admin/tags/${codes[0]}/assign`, headers: auth(sup), payload: { userId: other.id, reason: 'customer could not scan' } });
+    expect(assigned.statusCode).toBe(200);
+    expect((await app.inject({ method: 'POST', url: `/admin/tags/${codes[0]}/assign`, headers: auth(sup), payload: { userId: owner.id, reason: 'again' } })).statusCode).toBe(404);
+    const scan = await app.inject({ method: 'GET', url: `/t/${codes[0]}`, headers: human });
+    expect(scan.headers.location).toBe('https://id.test/u/other1');
+    await app.inject({ method: 'GET', url: `/t/${codes[1]}`, headers: human }); // a blank one: the activation page
+    await app.inject({ method: 'GET', url: '/get-app', headers: human });
+    await app.inject({ method: 'GET', url: `/t/${codes[1]}`, headers: { 'user-agent': 'Googlebot' } }); // bots don't count
+    const voided = (await app.inject({ method: 'POST', url: '/admin/tags/batches/b2/void', headers: auth(sup), payload: { reason: 'chips fail' } })).json();
+    expect(voided).toMatchObject({ switchedOff: 3, linked: 1 });
+    expect((await app.inject({ method: 'GET', url: `/t/${codes[0]}` })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'POST', url: '/v1/me/tags', headers: auth(owner.token), payload: { code: codes[2] } })).statusCode).toBe(404);
+    batches = (await app.inject({ method: 'GET', url: '/admin/tags/batches', headers: auth(sup) })).json();
+    expect(batches.find((b: { batch: string }) => b.batch === 'b2')).toMatchObject({ status: 'void', note: 'Factory A', disabled: 3 });
+
+    // Counters: numbers per day only.
+    const st = (await app.inject({ method: 'GET', url: '/admin/cards/stats?days=7', headers: auth(mkt) })).json();
+    const d = (m: string) => st.totals[m] - base[m];
+    expect(d('tag_scan')).toBe(1);
+    expect(d('activation_open')).toBe(1); // the bot's open isn't counted
+    expect(d('store_click')).toBe(1);
+    expect(d('get_app')).toBe(1);
+    expect(d('page_open')).toBe(3); // the three 200 page loads above (inject doesn't follow the medal's redirect)
+    expect(d('card_published')).toBe(3); // modme, modme again after restore, other1
+    expect(st.series.every((r: { date: string }) => /^\d{4}-\d{2}-\d{2}$/.test(r.date))).toBe(true);
+    expect(JSON.stringify(st)).not.toMatch(/other1|modme|[0-9a-f]{8}-[0-9a-f]{4}/);
+
+    const actions = (await db.select({ a: s.auditLog.action }).from(s.auditLog)).map((r) => r.a);
+    for (const a of ['card.moderate', 'card.restore', 'card.release_handle', 'cards.settings', 'tags.batch.update', 'tags.assign', 'tags.batch.void']) {
+      expect(actions).toContain(a);
+    }
+    // Leave the shared settings as other tests expect them.
+    await app.inject({ method: 'PUT', url: '/admin/cards/settings', headers: auth(mkt), payload: {} });
   });
 
   it('get-app sends each phone to its store', async () => {

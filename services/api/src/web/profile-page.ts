@@ -21,6 +21,8 @@ export interface PageLinks {
   self: string;
   /** Absolute URL of the share image. */
   image: string;
+  /** Admin-set CTA copy for this language (empty = the built-in copy). */
+  copy?: { ctaTitle?: string; ctaBody?: string };
 }
 
 const COPY = {
@@ -198,8 +200,8 @@ function cta(lang: PageLang, links: PageLinks): string {
   const t = COPY[lang];
   return `<section class="cta rise" style="--d:6">
 <p class="eyebrow">${t.ctaEyebrow}</p>
-<h2>${t.ctaTitle}</h2>
-<p class="cta-body">${t.ctaBody}</p>
+<h2>${links.copy?.ctaTitle ? escapeHtml(links.copy.ctaTitle) : t.ctaTitle}</h2>
+<p class="cta-body">${links.copy?.ctaBody ? escapeHtml(links.copy.ctaBody) : t.ctaBody}</p>
 <a class="btn primary" href="${escapeHtml(links.getApp)}">${t.getApp}</a>
 <a class="btn ghost" href="${escapeHtml(links.store)}">${t.shop}</a>
 </section>`;

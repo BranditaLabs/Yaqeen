@@ -30,6 +30,7 @@ Base URL: `API_URL` (local `http://localhost:4000`). JSON only. Schemas: `packag
 | GET | `/v1/me/export` | user | PDPL data access — everything held about the user |
 | GET · PUT | `/v1/me/public-profile` | user (PUT: not guest) | «بطاقة يقين» settings: handle, name, bio, ≤ 8 links, visibility switches, theme; GET returns a suggested draft before the first save, plus `url` and `views`. Errors `handle_taken` (409), `handle_reserved`, `account_required` |
 | GET | `/v1/me/public-profile/available?handle=` | user | `{available}` |
+| GET | `/go/store?src=card·medal·missing&ref=` | — | The card page's shop button: counts the click, 302 to the store (admin link or `STORE_URL`) with UTM |
 | GET | `/t/:code` | — | A physical tag: 302 → `/u/<handle>` when activated and published (no-store), activation page when blank, 404 page otherwise |
 | GET · POST | `/v1/me/tags` | user (POST: not guest; 10 / 10 min) | Key medals / cards: list the active ones `[{code, kind, url, linkedAt, scans}]`; activate `{code}` (any case, dashes, or a pasted `/t/` link). Errors `not_found` (unknown, taken or switched off — indistinguishable), `tag_limit` (409, max 10), `account_required` |
 | DELETE | `/v1/me/tags/:code` | user | Switch a lost tag off for good (204) |
@@ -93,6 +94,13 @@ Roles: `super_admin` (always allowed), `content_editor`, `religious_reviewer`, `
 
 ### Public profile moderation
 
+| GET | `/admin/cards?search=&status=published·hidden·moderated` | support, marketing | Cards directory (public fields, opens, active medals) |
+| POST | `/admin/cards/:userId/moderate` · `/restore` · `/release-handle` | support | `{reason}`, audited. Moderated cards 404 and the owner's PUT `published:true` → 403 `card_moderated` |
+| GET · PUT | `/admin/cards/settings` | read: support, marketing · write: marketing | `CardsSettings` (https links, CTA copy ar/en, reserved handles), audited |
+| GET | `/admin/cards/stats?days=30` | support, marketing | `CardsStats`: daily counters + totals, published cards, active tags, activation per batch |
+| PATCH | `/admin/tags/batches/:batch` | marketing | `{status: ordered·received·on_sale, note}`, audited |
+| POST | `/admin/tags/batches/:batch/void` | marketing, support | `{reason}`: batch void + every tag switched off, audited |
+| POST | `/admin/tags/:code/assign` | support | `{userId, reason}`: link a blank tag to an active signed-in account, audited |
 | GET · POST | `/admin/tags/batches` | read: support, marketing · mint: marketing | Batches with totals; mint `{batch, kind: medal·card, count ≤ 5000}` (audited, `batch_exists`) |
 | GET | `/admin/tags/batches/:batch.csv` | support, marketing | `code,printed_code,url,kind` for the manufacturer (NFC NDEF URI + QR print) |
 | GET | `/admin/tags?batch=&status=unclaimed·active·disabled&code=` | support, marketing | Tags with the linked card's handle (never worship) |

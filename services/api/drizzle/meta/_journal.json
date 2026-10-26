@@ -57,6 +57,13 @@
       "when": 1793051085496,
       "tag": "0007_profile_tags",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793054812665,
+      "tag": "0008_cards_admin",
+      "breakpoints": true
     }
   ]
 }

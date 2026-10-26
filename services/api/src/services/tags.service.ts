@@ -11,8 +11,10 @@ import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import { type ProfileTag, type TagKind, TAG_ALPHABET, TAG_CODE_LENGTH, TAG_LIMIT_PER_USER } from '@yaqeen/contracts';
 import type { AppContext } from '../context.js';
 import type { Db } from '../db/client.js';
-import { profileTags, publicProfiles, users } from '../db/schema.js';
+import { profileTags, publicProfiles, tagBatches, users } from '../db/schema.js';
 import { conflict, forbidden, notFound } from '../lib/errors.js';
+import * as stats from './card-stats.service.js';
+import { cardFeatureOn } from './cards-settings.service.js';
 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 
@@ -26,7 +28,8 @@ export function newCode(): string {
 }
 
 /** Mint [count] new codes in [batch]; collisions are simply redrawn. */
-export async function mintBatch(tx: Db | Tx, input: { batch: string; kind: TagKind; count: number }): Promise<string[]> {
+export async function mintBatch(tx: Db | Tx, input: { batch: string; kind: TagKind; count: number }, createdBy?: string): Promise<string[]> {
+  await tx.insert(tagBatches).values({ batch: input.batch, kind: input.kind, status: 'ordered', createdBy: createdBy ?? null });
   const codes: string[] = [];
   while (codes.length < input.count) {
     const want = Math.min(500, input.count - codes.length);
@@ -40,7 +43,7 @@ export async function mintBatch(tx: Db | Tx, input: { batch: string; kind: TagKi
   return codes;
 }
 
-function toTag(ctx: AppContext, r: typeof profileTags.$inferSelect): ProfileTag {
+export function toTag(ctx: AppContext, r: typeof profileTags.$inferSelect): ProfileTag {
   return { code: r.code, kind: r.kind as TagKind, url: tagUrl(ctx, r.code), linkedAt: (r.linkedAt ?? r.createdAt).toISOString(), scans: r.scans };
 }
 
@@ -55,30 +58,36 @@ export async function mine(ctx: AppContext, uid: string): Promise<ProfileTag[]> 
 }
 
 /**
- * Activate a tag for the user. Idempotent for its owner; taken, switched-off and unknown codes all
- * answer the same way so codes can't be probed for their state.
+ * Activate a tag for the user. Idempotent for its owner; taken, switched-off (incl. a voided batch)
+ * and unknown codes all answer the same way so codes can't be probed for their state.
  */
 export async function claim(ctx: AppContext, uid: string, guest: boolean, code: string): Promise<ProfileTag> {
   if (guest) throw forbidden('account_required', 'Sign in to activate a Yaqeen medal or card');
+  if (!(await cardFeatureOn(ctx, 'medalActivation'))) throw forbidden('feature_off', 'Medal activation is paused');
   const [owned] = await ctx.db
     .select()
     .from(profileTags)
     .where(and(eq(profileTags.code, code), eq(profileTags.userId, uid), isNull(profileTags.disabledAt)));
   if (owned) return toTag(ctx, owned);
+  const row = await linkTo(ctx.db, ctx.now(), uid, code);
+  await stats.bump(ctx, 'tag_activated');
+  return toTag(ctx, row);
+}
 
-  const [count] = await ctx.db
+/** Link a blank, working tag to [uid] (owner activation or support on a customer's behalf). */
+export async function linkTo(tx: Db | Tx, now: Date, uid: string, code: string) {
+  const [count] = await tx
     .select({ n: sql<number>`count(*)::int` })
     .from(profileTags)
     .where(and(eq(profileTags.userId, uid), isNull(profileTags.disabledAt)));
   if ((count?.n ?? 0) >= TAG_LIMIT_PER_USER) throw conflict('tag_limit', `At most ${TAG_LIMIT_PER_USER} active tags`);
-
-  const [row] = await ctx.db
+  const [row] = await tx
     .update(profileTags)
-    .set({ userId: uid, linkedAt: ctx.now() })
+    .set({ userId: uid, linkedAt: now })
     .where(and(eq(profileTags.code, code), isNull(profileTags.userId), isNull(profileTags.disabledAt)))
     .returning();
   if (!row) throw notFound('tag');
-  return toTag(ctx, row);
+  return row;
 }
 
 /** The owner switches a tag off (lost, given away). It stays off; support can re-issue it. */
@@ -110,6 +119,7 @@ export async function resolve(ctx: AppContext, code: string): Promise<TagTarget>
       disabledAt: profileTags.disabledAt,
       handle: publicProfiles.handle,
       published: publicProfiles.published,
+      moderatedAt: publicProfiles.moderatedAt,
       status: users.status,
     })
     .from(profileTags)
@@ -118,7 +128,7 @@ export async function resolve(ctx: AppContext, code: string): Promise<TagTarget>
     .where(eq(profileTags.code, code));
   if (!row || row.disabledAt) return { state: 'missing' };
   if (!row.userId) return { state: 'unclaimed', kind: row.kind as TagKind };
-  return { state: 'linked', handle: row.published && row.status === 'active' ? row.handle : null };
+  return { state: 'linked', handle: row.published && !row.moderatedAt && row.status === 'active' ? row.handle : null };
 }
 
 export async function countScan(ctx: AppContext, code: string) {

@@ -1644,5 +1644,8 @@
   "medalLostTitle": "Switch this one off?",
   "medalLostBody": "It will stop opening your card and nobody can activate it. This can't be undone in the app.",
   "medalLostConfirm": "Switch it off",
-  "medalBuy": "Get a Yaqeen medal from the store"
+  "medalBuy": "Get a Yaqeen medal from the store",
+  "cardModerated": "Yaqeen support has hidden your card for breaking the guidelines. Contact us to review it.",
+  "cardPaused": "Public cards are paused for now and will be back soon.",
+  "medalPaused": "Medal activation is paused for now, try again later."
 }

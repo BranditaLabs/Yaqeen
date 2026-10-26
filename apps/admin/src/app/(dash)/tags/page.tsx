@@ -4,13 +4,19 @@ import { ActionForm } from '@/components/action-form';
 import { Badge, Button, Card, CardTitle, Kpi, Notice, PageHeader, Table, Td } from '@/components/ui';
 import { api } from '@/lib/api';
 import { date, num } from '@/lib/format';
-import { disableTag, mintBatch, releaseTag } from './actions';
+import { assignTag, disableTag, mintBatch, releaseTag, updateBatch, voidBatch } from './actions';
 
 const KIND = { medal: 'ميدالية مفاتيح', card: 'بطاقة' } as const;
 const STATUS: Record<AdminTagRow['status'], [string, 'blue' | 'green' | 'gray' | 'red']> = {
   unclaimed: ['غير مفعّلة', 'gray'],
   active: ['مفعّلة', 'green'],
   disabled: ['موقوفة', 'red'],
+};
+const BATCH: Record<AdminTagBatch['status'], [string, 'blue' | 'green' | 'gray' | 'red' | 'gold']> = {
+  ordered: ['طُلبت من المصنع', 'gold'],
+  received: ['استُلمت', 'blue'],
+  on_sale: ['في المتجر', 'green'],
+  void: ['ملغاة', 'red'],
 };
 const printed = (c: string) => `${c.slice(0, 4)}-${c.slice(4)}`;
 
@@ -41,29 +47,59 @@ export default async function TagsPage({ searchParams }: { searchParams: Promise
         <Kpi label="دفعات" value={num(batches.length)} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+      <div className="grid gap-6 2xl:grid-cols-[1fr_360px]">
         <Card>
           <CardTitle>الدفعات</CardTitle>
           {batches.length === 0 ? (
             <p className="text-sm text-muted">لا توجد دفعات بعد.</p>
           ) : (
-            <Table head={['الدفعة', 'النوع', 'العدد', 'مفعّلة', 'موقوفة', 'التاريخ', '']}>
+            <Table head={['الدفعة', 'الحالة', 'النوع', 'العدد', 'مفعّلة', 'موقوفة', 'التاريخ', '']}>
               {batches.map((b) => (
                 <tr key={b.batch}>
                   <Td>
-                    <Link href={`/tags?batch=${encodeURIComponent(b.batch)}`} className="font-medium text-lapis" dir="ltr">
+                    <Link href={`/tags?batch=${encodeURIComponent(b.batch)}`} className="whitespace-nowrap font-medium text-lapis" dir="ltr">
                       {b.batch}
                     </Link>
+                  </Td>
+                  <Td>
+                    <Badge tone={BATCH[b.status][1]}>{BATCH[b.status][0]}</Badge>
+                    {b.note && <p className="mt-1 max-w-48 truncate text-xs text-muted">{b.note}</p>}
                   </Td>
                   <Td>{KIND[b.kind]}</Td>
                   <Td className="num">{num(b.total)}</Td>
                   <Td className="num">{num(b.active)}</Td>
                   <Td className="num">{num(b.disabled)}</Td>
-                  <Td>{date(b.createdAt)}</Td>
+                  <Td className="whitespace-nowrap">{date(b.createdAt)}</Td>
                   <Td>
-                    <a href={`/tags-export/${encodeURIComponent(b.batch)}`} className="text-sm text-lapis underline-offset-4 hover:underline">
-                      تنزيل CSV
-                    </a>
+                    <div className="flex items-center gap-3">
+                      <a href={`/tags-export/${encodeURIComponent(b.batch)}`} className="whitespace-nowrap text-sm text-lapis underline-offset-4 hover:underline">
+                        تنزيل CSV
+                      </a>
+                      {b.status !== 'void' && (canMint || canModerate) && (
+                        <details>
+                          <summary className="cursor-pointer text-sm text-lapis">إدارة</summary>
+                          <div className="mt-2 grid min-w-64 gap-3">
+                            {canMint && (
+                              <ActionForm action={updateBatch.bind(null, b.batch)} className="space-y-2">
+                                <select name="status" defaultValue={b.status} className="field">
+                                  {(['ordered', 'received', 'on_sale'] as const).map((st) => (
+                                    <option key={st} value={st}>
+                                      {BATCH[st][0]}
+                                    </option>
+                                  ))}
+                                </select>
+                                <input name="note" defaultValue={b.note} maxLength={500} placeholder="ملاحظة: المصنع، رقم الطلب…" className="field" />
+                                <Button variant="ghost">حفظ</Button>
+                              </ActionForm>
+                            )}
+                            <ActionForm action={voidBatch.bind(null, b.batch)} className="space-y-2" success="أُلغيت الدفعة وأُوقفت كل قطعها">
+                              <input name="reason" placeholder="سبب الإلغاء: عيب تصنيع…" required minLength={3} className="field" />
+                              <Button variant="danger">إلغاء الدفعة وإيقاف كل قطعها</Button>
+                            </ActionForm>
+                          </div>
+                        </details>
+                      )}
+                    </div>
                   </Td>
                 </tr>
               ))}
@@ -146,6 +182,16 @@ export default async function TagsPage({ searchParams }: { searchParams: Promise
                 <Td className="num">{num(t.scans)}</Td>
                 <Td>{t.linkedAt ? date(t.linkedAt) : '—'}</Td>
                 <Td>
+                  {canModerate && t.status === 'unclaimed' && (
+                    <details>
+                      <summary className="cursor-pointer text-sm text-lapis">ربط بمستخدم</summary>
+                      <ActionForm action={assignTag.bind(null, t.code)} className="mt-2 grid min-w-64 gap-2" success="رُبطت بالحساب">
+                        <input name="userId" placeholder="معرّف الحساب (من صفحة المستخدم)" required dir="ltr" className="field text-left" />
+                        <input name="reason" placeholder="السبب: العميل لم يستطع التفعيل…" required minLength={3} className="field" />
+                        <Button variant="ghost">ربط</Button>
+                      </ActionForm>
+                    </details>
+                  )}
                   {canModerate && t.status !== 'unclaimed' && (
                     <details>
                       <summary className="cursor-pointer text-sm text-lapis">إجراء</summary>

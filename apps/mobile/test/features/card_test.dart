@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:yaqeen/core/config/remote_config.dart';
 import 'package:yaqeen/core/di/providers.dart';
 import 'package:yaqeen/core/network/api_client.dart';
 import 'package:yaqeen/core/notifications/push_service.dart';
@@ -99,6 +100,19 @@ void main() {
       expect(routeForDeepLink(Uri.parse('yaqeen://card')), '/profile/card');
     });
 
+    test('remote config: card switches default on; the medal product link comes from admin', () {
+      expect(const RemoteConfig().isOn(Flags.publicCards), isTrue);
+      expect(const RemoteConfig().isOn(Flags.medalActivation), isTrue);
+      final c = RemoteConfig.fromJson({
+        'features': {'medalActivation': false},
+        'cards': {'medalProductUrl': 'https://store.test/medal'},
+      });
+      expect(c.isOn(Flags.medalActivation), isFalse);
+      expect(c.isOn(Flags.publicCards), isTrue);
+      expect(c.medalProductUrl, 'https://store.test/medal');
+      expect(PublicCard.fromJson({...cardJson(), 'moderated': true}).moderated, isTrue);
+    });
+
     test('journey parses, skipping kinds a newer server may add', () {
       final j = MyJourney.fromJson(journeyJson());
       expect(j.events.map((e) => e.kind), [
@@ -123,11 +137,13 @@ void main() {
 
     late List<http.Request> requests;
     late List<Map<String, Object?>> tags;
-    http.Client server({bool published = false}) => MockClient((req) async {
+    http.Client server({bool published = false, bool moderated = false}) => MockClient((req) async {
           requests.add(req);
           final p = req.url.path;
           final h = {'content-type': 'application/json'};
-          if (p == '/v1/me/public-profile' && req.method == 'GET') return http.Response(jsonEncode(cardJson(published: published)), 200, headers: h);
+          if (p == '/v1/me/public-profile' && req.method == 'GET') {
+            return http.Response(jsonEncode({...cardJson(published: published), 'moderated': moderated}), 200, headers: h);
+          }
           if (p == '/v1/me/public-profile' && req.method == 'PUT') {
             final body = (jsonDecode(req.body) as Map).cast<String, Object?>();
             return http.Response(jsonEncode({...body, 'url': 'https://id.test/u/${body['handle']}', 'views': 12}), 200, headers: h);
@@ -162,7 +178,7 @@ void main() {
           return http.Response('{}', 404, headers: h);
         });
 
-    Future<List<Override>> overrides({bool published = false, bool guest = false}) async {
+    Future<List<Override>> overrides({bool published = false, bool guest = false, RemoteConfig? config, bool moderated = false}) async {
       requests = [];
       tags = [];
       final secure = MemoryKvStore();
@@ -172,7 +188,8 @@ void main() {
           guest ? const Session(provider: SignInProvider.guest) : const Session(provider: SignInProvider.google, userId: 'u1', displayName: 'أحمد'),
         ),
         tokenStoreProvider.overrideWithValue(TokenStore(secure)),
-        apiClientProvider.overrideWith((ref) => ApiClient(baseUrl: 'https://api.test', tokens: ref.watch(tokenStoreProvider), client: server(published: published))),
+        apiClientProvider.overrideWith((ref) => ApiClient(baseUrl: 'https://api.test', tokens: ref.watch(tokenStoreProvider), client: server(published: published, moderated: moderated))),
+        if (config != null) initialConfigProvider.overrideWithValue(config),
       ];
     }
 
@@ -296,6 +313,27 @@ void main() {
       await settle(tester);
       expect(requests.where((r) => r.method == 'DELETE' && r.url.path == '/v1/me/tags/AB23CD45'), hasLength(1));
       expect(find.text('ميدالية مفاتيح · AB23-CD45'), findsNothing);
+    });
+
+    testWidgets('admin switches: medals off hides the orb; cards off pauses the screen; moderation explains itself', (tester) async {
+      tall(tester);
+      final medalsOff = RemoteConfig(features: Map.of(RemoteConfig.defaultFeatures)..[Flags.medalActivation] = false);
+      await tester.pumpWidget(harness(const CardScreen(), overrides: await overrides(config: medalsOff)));
+      await settle(tester);
+      expect(find.text('ميدالياتي'), findsNothing);
+      expect(find.text('حفظ البطاقة'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox()); // a fresh scope for each case
+      final cardsOff = RemoteConfig(features: Map.of(RemoteConfig.defaultFeatures)..[Flags.publicCards] = false);
+      await tester.pumpWidget(harness(const CardScreen(), overrides: await overrides(config: cardsOff)));
+      await settle(tester);
+      expect(find.text('البطاقات العامة متوقفة مؤقتاً، وستعود قريباً.'), findsOneWidget);
+      expect(find.text('حفظ البطاقة'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(harness(const CardScreen(), overrides: await overrides(moderated: true)));
+      await settle(tester);
+      expect(find.text('أوقف فريق يقين ظهور بطاقتك لمخالفتها الإرشادات. تواصل معنا لمراجعتها.'), findsOneWidget);
     });
 
     testWidgets('a wrong or mistyped code says why, and a mistyped one never reaches the server', (tester) async {

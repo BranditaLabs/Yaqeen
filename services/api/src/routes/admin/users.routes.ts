@@ -10,6 +10,7 @@ import { maskEmail } from '../../lib/crypto.js';
 import { badRequest, notFound } from '../../lib/errors.js';
 import { DELETION_GRACE_DAYS, exportUser } from '../public/me.routes.js';
 import { adminOf } from '../../plugins/auth.js';
+import { moderateCard } from './cards.routes.js';
 
 export const adminUsersRoutes: FastifyPluginAsync = async (app) => {
   const { db } = app.ctx;
@@ -79,7 +80,13 @@ export const adminUsersRoutes: FastifyPluginAsync = async (app) => {
       .limit(50);
     const reds = await db.select().from(redemptions).where(eq(redemptions.userId, id)).orderBy(desc(redemptions.createdAt));
     const [card] = await db
-      .select({ handle: publicProfiles.handle, published: publicProfiles.published, views: publicProfiles.views })
+      .select({
+        handle: publicProfiles.handle,
+        published: publicProfiles.published,
+        views: publicProfiles.views,
+        moderated: sql<boolean>`${publicProfiles.moderatedAt} is not null`,
+        moderationReason: publicProfiles.moderationReason,
+      })
       .from(publicProfiles)
       .where(eq(publicProfiles.userId, id));
     const tagRows = await db
@@ -145,12 +152,8 @@ export const adminUsersRoutes: FastifyPluginAsync = async (app) => {
   app.post('/:id/public-profile/unpublish', { preHandler: write }, async (req) => {
     const { id } = z.object({ id: z.uuid() }).parse(req.params);
     const body = z.object({ reason: z.string().min(3).max(200) }).parse(req.body);
-    await db.transaction(async (tx) => {
-      const [before] = await tx.select({ handle: publicProfiles.handle, published: publicProfiles.published }).from(publicProfiles).where(eq(publicProfiles.userId, id));
-      if (!before) throw notFound('public_profile');
-      await tx.update(publicProfiles).set({ published: false, updatedAt: app.ctx.now() }).where(eq(publicProfiles.userId, id));
-      await audit(tx, req, { action: 'user.public_profile.unpublish', targetType: 'user', targetId: id, reason: body.reason, before, after: { published: false } });
-    });
+    // Same as /admin/cards/:userId/moderate: hidden until support restores it.
+    await db.transaction((tx) => moderateCard(tx, req, id, body.reason, app.ctx.now()));
     await app.ctx.cache.bumpNamespace('profile');
     return { ok: true };
   });

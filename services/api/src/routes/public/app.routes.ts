@@ -15,17 +15,19 @@ import { adjustmentsFor, hijriRange } from '../../services/calendar.service.js';
 import * as challenge from '../../services/challenge.service.js';
 import { POINTS_CONFIG_KEY, getPointsSettings } from '../../services/program.service.js';
 import { redeem } from '../../services/rewards.service.js';
+import { CARDS_CONFIG_KEY, readCardsSettings } from '../../services/cards-settings.service.js';
 
 const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 export const DEFAULT_CONFIG: RemoteConfig = {
-  features: { challenge: true, rewards: true, hifz: true, listen: true, bonuses: false, recite: false, ramadan: false, tafsirFull: false },
+  features: { challenge: true, rewards: true, hifz: true, listen: true, bonuses: false, recite: false, ramadan: false, tafsirFull: false, publicCards: true, medalActivation: true },
   featureRollout: {},
   // 0.0.0 = no forced update; only an admin-set minimum may block clients.
   minVersion: { ios: '0.0.0', android: '0.0.0' },
   maintenance: { enabled: false, messageAr: '', messageEn: '' },
   splashVerse: { textAr: 'وَٱعْبُدْ رَبَّكَ حَتَّىٰ يَأْتِيَكَ ٱلْيَقِينُ', reference: 'الحجر: 99' },
   hijri: { region: 'EG', offsetDays: 0, effectiveFrom: null },
+  cards: { medalProductUrl: '' },
   points: { dailyTotal: 100, qadaDayPoints: 80, qadaWindowDays: 7, challengeLengthDays: 365, cheapestRewardPoints: null },
 };
 
@@ -36,7 +38,7 @@ export async function readConfig(app: Parameters<FastifyPluginAsync>[0]): Promis
   const rows = await app.ctx.db.select().from(appConfig);
   const merged: Record<string, unknown> = { ...DEFAULT_CONFIG };
   for (const r of rows) {
-    if (r.key === POINTS_CONFIG_KEY) continue;
+    if (r.key === POINTS_CONFIG_KEY || r.key === CARDS_CONFIG_KEY) continue;
     // Stored flags are merged over the defaults so new flags appear without a migration.
     merged[r.key] = r.key === 'features' ? { ...DEFAULT_CONFIG.features, ...(r.value as object) } : r.value;
   }
@@ -47,6 +49,9 @@ export async function readConfig(app: Parameters<FastifyPluginAsync>[0]): Promis
     .where(eq(rewards.active, true))
     .orderBy(asc(rewards.costPoints))
     .limit(1);
+  // Only the public part of the card settings reaches apps (reserved handles and copy stay server-side).
+  const cards = await readCardsSettings(app.ctx);
+  merged.cards = { medalProductUrl: cards.medalProductUrl || app.ctx.env.STORE_URL };
   merged.points = {
     dailyTotal: ps.dailyTotal,
     qadaDayPoints: ps.qadaDayPoints,

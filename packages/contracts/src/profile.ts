@@ -64,6 +64,8 @@ export type PublicProfileUpdate = z.infer<typeof PublicProfileUpdate>;
 export const PublicProfileSettings = PublicProfileUpdate.extend({
   url: z.string().url(),
   views: z.number().int(),
+  /** Hidden by Yaqeen support (audited); the owner can't publish until it is restored. */
+  moderated: z.boolean().default(false),
 });
 export type PublicProfileSettings = z.infer<typeof PublicProfileSettings>;
 
@@ -265,12 +267,89 @@ export const AdminTagRow = z.object({
 });
 export type AdminTagRow = z.infer<typeof AdminTagRow>;
 
+export const TagBatchStatus = z.enum(['ordered', 'received', 'on_sale', 'void']);
+export type TagBatchStatus = z.infer<typeof TagBatchStatus>;
+
 export const AdminTagBatch = z.object({
   batch: z.string(),
   kind: TagKind,
+  status: TagBatchStatus,
+  note: z.string(),
   total: z.number().int(),
   active: z.number().int(),
   disabled: z.number().int(),
   createdAt: z.string(),
 });
 export type AdminTagBatch = z.infer<typeof AdminTagBatch>;
+
+/** PATCH /admin/tags/batches/:batch — production status and a note (void has its own route). */
+export const AdminTagBatchPatch = z.object({
+  status: TagBatchStatus.exclude(['void']).optional(),
+  note: z.string().trim().max(500).optional(),
+});
+
+/** POST /admin/tags/:code/assign — support links a blank tag for a customer. */
+export const AdminAssignTag = z.object({
+  userId: z.string().uuid(),
+  reason: z.string().trim().min(3).max(500),
+});
+
+/* ------------------------------------------------------------ admin: cards programme */
+
+const httpsOrEmpty = z
+  .string()
+  .trim()
+  .max(500)
+  .refine((v) => v === '' || /^https:\/\/[^\s]+$/i.test(v), 'https link');
+
+/** Admin-editable settings for public cards and medals (`app_config` key `cards`). Empty = default. */
+export const CardsSettings = z.object({
+  /** The medal / card product in the Yaqeen store (the app's «get a medal» link). */
+  medalProductUrl: httpsOrEmpty.default(''),
+  /** Where the card page's «shop» button goes. */
+  storeUrl: httpsOrEmpty.default(''),
+  ctaTitleAr: z.string().trim().max(80).default(''),
+  ctaTitleEn: z.string().trim().max(80).default(''),
+  ctaBodyAr: z.string().trim().max(300).default(''),
+  ctaBodyEn: z.string().trim().max(300).default(''),
+  /** Handles nobody may take, on top of `RESERVED_HANDLES` (brands, staff, look-alikes). */
+  reservedHandles: z
+    .array(z.string().trim().toLowerCase().regex(PROFILE_HANDLE, 'handle format'))
+    .max(500)
+    .default([]),
+});
+export type CardsSettings = z.infer<typeof CardsSettings>;
+
+export const AdminCardRow = z.object({
+  userId: z.string(),
+  handle: z.string(),
+  displayName: z.string(),
+  bio: z.string(),
+  url: z.string(),
+  published: z.boolean(),
+  moderated: z.boolean(),
+  moderationReason: z.string().nullable(),
+  views: z.number().int(),
+  tags: z.number().int(),
+  updatedAt: z.string(),
+});
+export type AdminCardRow = z.infer<typeof AdminCardRow>;
+
+export const AdminReason = z.object({ reason: z.string().trim().min(3).max(500) });
+
+/** Daily counters only — no visitor, user or handle data. */
+export const CARD_METRICS = ['page_open', 'tag_scan', 'activation_open', 'get_app', 'store_click', 'card_published', 'tag_activated'] as const;
+export const CardMetric = z.enum(CARD_METRICS);
+export type CardMetric = z.infer<typeof CardMetric>;
+
+export const CardsStats = z.object({
+  days: z.number().int(),
+  /** Last day of the range (today in Africa/Cairo); the series runs `days` days up to it. */
+  to: z.string(),
+  totals: z.record(CardMetric, z.number().int()),
+  publishedCards: z.number().int(),
+  activeTags: z.number().int(),
+  series: z.array(z.object({ date: z.string(), metric: CardMetric, value: z.number().int() })),
+  activationsByBatch: z.array(z.object({ batch: z.string(), total: z.number().int(), active: z.number().int() })),
+});
+export type CardsStats = z.infer<typeof CardsStats>;

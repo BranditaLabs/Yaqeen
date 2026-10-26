@@ -5,6 +5,7 @@ import { Badge, Button, Card, CardTitle, Kpi, Notice, PageHeader, Table, Td } fr
 import { api } from '@/lib/api';
 import { date, dateTime, num } from '@/lib/format';
 import { adjustPoints, setStatus, unpublishCard } from '../actions';
+import { restoreCard } from '../../cards/actions';
 import { USER_STATUS as STATUS } from '@/lib/labels';
 
 interface UserDetail {
@@ -20,7 +21,7 @@ interface UserDetail {
   balance: number;
   ledger: LedgerEntry[];
   redemptions: { id: string; code: string; status: string; costPoints: number; createdAt: string }[];
-  publicProfile: { handle: string; published: boolean; views: number; url: string } | null;
+  publicProfile: { handle: string; published: boolean; views: number; url: string; moderated?: boolean; moderationReason?: string | null } | null;
   tags?: { code: string; kind: string; scans: number; linkedAt: string | null; active: boolean }[];
 }
 
@@ -145,7 +146,11 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
                 <a href={u.publicProfile.url} target="_blank" rel="noreferrer" dir="ltr" className="num text-lapis">
                   @{u.publicProfile.handle}
                 </a>{' '}
-                <Badge tone={u.publicProfile.published ? 'green' : 'gray'}>{u.publicProfile.published ? 'منشورة' : 'مخفية'}</Badge>
+                {u.publicProfile.moderated ? (
+                  <Badge tone="red">موقوفة بقرار إداري</Badge>
+                ) : (
+                  <Badge tone={u.publicProfile.published ? 'green' : 'gray'}>{u.publicProfile.published ? 'منشورة' : 'مخفية'}</Badge>
+                )}
               </p>
               <p className="mt-1 text-sm text-muted">
                 فُتحت <span className="num">{num(u.publicProfile.views)}</span> مرة
@@ -164,6 +169,15 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
                     </li>
                   ))}
                 </ul>
+              )}
+              {u.publicProfile.moderated && (
+                <>
+                  {u.publicProfile.moderationReason && <p className="mt-2 text-sm text-error">السبب: {u.publicProfile.moderationReason}</p>}
+                  <ActionForm action={restoreCard.bind(null, u.id)} className="mt-3 space-y-3" success="رُفع الإيقاف">
+                    <input name="reason" placeholder="سبب رفع الإيقاف (يُسجَّل في سجل التدقيق)" required minLength={3} className="field" />
+                    <Button variant="ghost">رفع الإيقاف</Button>
+                  </ActionForm>
+                </>
               )}
               {u.publicProfile.published && (
                 <ActionForm action={unpublishCard.bind(null, u.id)} className="mt-3 space-y-3">

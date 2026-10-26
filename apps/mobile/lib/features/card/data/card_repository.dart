@@ -41,6 +41,7 @@ class CardRepository {
     } on ApiException catch (e) {
       throw TagException(switch (e.status) {
         404 => TagProblem.notFound,
+        403 when e.code == 'feature_off' => TagProblem.paused,
         409 => TagProblem.limit,
         400 => TagProblem.format,
         _ => TagProblem.network,

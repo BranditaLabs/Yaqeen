@@ -100,6 +100,8 @@ export const RemoteConfig = z.object({
   maintenance: z.object({ enabled: z.boolean(), messageAr: z.string(), messageEn: z.string() }),
   splashVerse: z.object({ textAr: z.string(), reference: z.string() }),
   hijri: z.object({ region: z.string(), offsetDays: z.number().int(), effectiveFrom: z.string().nullable() }),
+  /** Public cards / medals: the store product the app's «get a medal» opens ('' = the store). */
+  cards: z.object({ medalProductUrl: z.string() }).default({ medalProductUrl: '' }),
   /** Read-only here; edited via /admin/rewards/program. */
   points: z.object({
     dailyTotal: z.number().int(),
@@ -516,7 +518,13 @@ export type ShopifyStatus = z.infer<typeof ShopifyStatus>;
 export const ShopifyCollection = z.object({ id: z.string(), title: z.string(), productsCount: z.number().int().nullable() });
 export type ShopifyCollection = z.infer<typeof ShopifyCollection>;
 
-export const ConfigPatch = RemoteConfig.partial();
+/**
+ * Fields an admin may patch. Defaults are dropped so a patch never writes fields it didn't name
+ * (a flags save must not reset the rollouts); card settings have their own endpoint.
+ */
+export const ConfigPatch = RemoteConfig.omit({ cards: true })
+  .extend({ featureRollout: z.record(z.string(), z.number().int().min(0).max(100)) })
+  .partial();
 export type ConfigPatch = z.infer<typeof ConfigPatch>;
 
 export const Paged = <T extends z.ZodTypeAny>(item: T) =>

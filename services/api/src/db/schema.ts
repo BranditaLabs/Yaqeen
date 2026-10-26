@@ -184,6 +184,9 @@ export const publicProfiles = pgTable(
     theme: text('theme').notNull().default('sky'),
     /** Page opens (bots excluded). A count only — no visitor data is kept. */
     views: integer('views').notNull().default(0),
+    /** Hidden by support (audited); the owner can't publish again until it is restored. */
+    moderatedAt: ts('moderated_at'),
+    moderationReason: text('moderation_reason'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -208,6 +211,32 @@ export const profileTags = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index('profile_tags_user_idx').on(t.userId), index('profile_tags_batch_idx').on(t.batch)],
+);
+
+/** A production run of tags: what the factory was asked for and where it stands. */
+export const tagBatches = pgTable('tag_batches', {
+  batch: text('batch').primaryKey(),
+  kind: text('kind').notNull().default('medal'),
+  /** ordered → received → on_sale; void = faulty run, every tag switched off. */
+  status: text('status').notNull().default('ordered'),
+  note: text('note').notNull().default(''),
+  createdBy: uuid('created_by').references(() => adminUsers.id, { onDelete: 'set null' }),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+/**
+ * Card programme counters per day (Africa/Cairo): page opens, medal scans, app / store clicks,
+ * publishes, activations. Counts only — no visitor, user or handle is stored.
+ */
+export const cardDailyStats = pgTable(
+  'card_daily_stats',
+  {
+    date: date('date', { mode: 'string' }).notNull(),
+    metric: text('metric').notNull(),
+    value: integer('value').notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.date, t.metric] })],
 );
 
 /** Current consent state per bucket. */

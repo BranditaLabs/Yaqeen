@@ -697,6 +697,20 @@ badges and member-since. It is also Yaqeen's front door for whoever scans it.
   a code activates for one account only (≤ 10 per user, rate-limited, guests can't); a lost piece is
   switched off for good by its owner — never passed to a finder — and support can re-issue a returned
   one (audited). No `/t` universal link: scanners must always see the web card.
+- **Admin runs the programme** (`/cards` «البطاقات العامة» + `/tags` «الميداليات والبطاقات»):
+  - **Directory** of cards (public fields only: name, @handle, bio, published, opens, medals) with
+    support actions, each audited with a reason: **moderate** (hidden; the owner can't republish —
+    the app explains it), **restore**, **release handle** (moves the card to `yaqeen_xxxxxx`, frees
+    the name — impersonation, trademarks).
+  - **Settings** (marketing, `app_config.cards`): medal product link (the app's «get a medal»), the
+    page's shop link (`/go/store`, UTM-tagged), the page CTA title/text in ar/en, extra reserved
+    handles. Switches `features.publicCards` / `features.medalActivation` (Settings → المزايا) pause
+    the pages + publishing, or activation, at once.
+  - **Batches**: status ordered → received → on sale with a note; **void** a faulty run (every tag
+    switched off, linked ones too); support can **link a blank tag to a customer** who can't activate.
+  - **Numbers** (aggregates only, `card_daily_stats`): card opens, medal scans, blank-medal page
+    opens, «get the app» and «shop» clicks, publishes, activations per day + per-batch activation.
+    No visitor, user or handle is stored; bots and link previews don't count.
 - **App screen**: stage = live preview in the chosen look + live/hidden state; orbs = «ميدالياتي»
   (activate, list with scans, switch off, «اطلب ميدالية يقين من المتجر»), branded QR (share/copy), open count;
   editor = publish switch, name, handle (live availability, reserved names), bio (160), ≤ 8 links

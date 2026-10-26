@@ -5,7 +5,7 @@
  * worship detail — the level comes from lifetime points, the streak is a number of days, badges are
  * the streak milestones reached. A guest cannot publish (the card would vanish with the device).
  */
-import { and, eq, gt, like, sql } from 'drizzle-orm';
+import { and, eq, gt, isNull, like, sql } from 'drizzle-orm';
 import {
   type JourneyEvent,
   type MyJourney,
@@ -15,13 +15,14 @@ import {
   type PublicProfileUpdate,
   type PublicProfileView,
   PROFILE_HANDLE,
-  RESERVED_HANDLES,
   levelFor,
 } from '@yaqeen/contracts';
 import type { AppContext } from '../context.js';
 import { challengeEnrollments, pointsLedger, publicProfiles, users } from '../db/schema.js';
 import { addDays } from '../domain/points.js';
 import { conflict, forbidden, badRequest } from '../lib/errors.js';
+import * as stats from './card-stats.service.js';
+import { cardFeatureOn, isReservedHandle } from './cards-settings.service.js';
 import * as challenge from './challenge.service.js';
 
 const DEFAULT_SHOW = { level: true, streak: false, challengeDay: false, badges: false, memberSince: false, timeline: false };
@@ -46,7 +47,7 @@ async function suggestHandle(ctx: AppContext, name: string | null, uid: string):
 
 export async function handleAvailable(ctx: AppContext, handle: string, uid?: string): Promise<boolean> {
   const h = handle.trim().toLowerCase();
-  if (!PROFILE_HANDLE.test(h) || RESERVED_HANDLES.has(h)) return false;
+  if (!PROFILE_HANDLE.test(h) || (await isReservedHandle(ctx, h))) return false;
   const [row] = await ctx.db.select({ userId: publicProfiles.userId }).from(publicProfiles).where(eq(publicProfiles.handle, h));
   return !row || row.userId === uid;
 }
@@ -64,6 +65,7 @@ export async function settings(ctx: AppContext, uid: string): Promise<PublicProf
       theme: row.theme as PublicProfileSettings['theme'],
       url: profileUrl(ctx, row.handle),
       views: row.views,
+      moderated: row.moderatedAt !== null,
     };
   }
   // Not created yet: a draft the app shows in the editor (nothing is public until saved + published).
@@ -79,14 +81,21 @@ export async function settings(ctx: AppContext, uid: string): Promise<PublicProf
     theme: 'sky',
     url: profileUrl(ctx, handle),
     views: 0,
+    moderated: false,
   };
 }
 
 export async function update(ctx: AppContext, uid: string, isGuest: boolean, input: PublicProfileUpdate): Promise<PublicProfileSettings> {
   if (isGuest) throw forbidden('account_required', 'Sign in to publish a profile card');
-  if (RESERVED_HANDLES.has(input.handle)) throw badRequest('handle_reserved');
+  if (await isReservedHandle(ctx, input.handle)) throw badRequest('handle_reserved');
   const [u] = await ctx.db.select({ status: users.status }).from(users).where(eq(users.id, uid));
   if (!u || u.status !== 'active') throw forbidden('account_inactive');
+  const [before] = await ctx.db
+    .select({ published: publicProfiles.published, moderatedAt: publicProfiles.moderatedAt })
+    .from(publicProfiles)
+    .where(eq(publicProfiles.userId, uid));
+  if (input.published && before?.moderatedAt) throw forbidden('card_moderated', 'This card was hidden by Yaqeen support');
+  if (input.published && !(await cardFeatureOn(ctx, 'publicCards'))) throw forbidden('feature_off', 'Public cards are paused');
   try {
     await ctx.db
       .insert(publicProfiles)
@@ -120,6 +129,7 @@ export async function update(ctx: AppContext, uid: string, isGuest: boolean, inp
     throw e;
   }
   await ctx.cache.bumpNamespace('profile');
+  if (input.published && !before?.published) await stats.bump(ctx, 'card_published');
   return settings(ctx, uid);
 }
 
@@ -137,7 +147,7 @@ export async function publicView(ctx: AppContext, handle: string): Promise<Publi
     .select({ p: publicProfiles, status: users.status, createdAt: users.createdAt })
     .from(publicProfiles)
     .innerJoin(users, eq(users.id, publicProfiles.userId))
-    .where(and(eq(publicProfiles.handle, h), eq(publicProfiles.published, true)));
+    .where(and(eq(publicProfiles.handle, h), eq(publicProfiles.published, true), isNull(publicProfiles.moderatedAt)));
   if (!row || row.status !== 'active') return null;
   const p = row.p;
   const show = { ...DEFAULT_SHOW, ...p.show };

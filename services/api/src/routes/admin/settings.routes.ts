@@ -36,6 +36,7 @@ export const adminSettingsRoutes: FastifyPluginAsync = async (app) => {
       }
       await audit(tx, req, { action: 'config.patch', targetType: 'config', before, after: patch });
     });
+    await app.ctx.cache.bumpNamespace('config');
     return readConfig(app);
   });
 

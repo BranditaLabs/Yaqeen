@@ -122,6 +122,7 @@ class PublicCard {
     this.theme = CardLook.sky,
     this.url = '',
     this.views = 0,
+    this.moderated = false,
   });
 
   final bool published;
@@ -133,6 +134,9 @@ class PublicCard {
   final CardLook theme;
   final String url;
   final int views;
+
+  /// Hidden by Yaqeen support; can't be published until support restores it.
+  final bool moderated;
 
   static const maxLinks = 8;
   static const maxBio = 160;
@@ -148,6 +152,7 @@ class PublicCard {
         theme: CardLook.values.asNameMap()[j['theme']] ?? CardLook.sky,
         url: j['url'] as String? ?? '',
         views: (j['views'] as num?)?.toInt() ?? 0,
+        moderated: j['moderated'] == true,
       );
 
   /// The PUT body (server fields left out).
@@ -182,6 +187,7 @@ class PublicCard {
         theme: theme ?? this.theme,
         url: url ?? this.url,
         views: views ?? this.views,
+        moderated: moderated,
       );
 
   /// What the server would accept; null when valid.
@@ -396,4 +402,4 @@ class CardTag {
       );
 }
 
-enum TagProblem { format, notFound, limit, network }
+enum TagProblem { format, notFound, limit, paused, network }

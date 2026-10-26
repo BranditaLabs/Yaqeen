@@ -5,7 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../../../core/config/config_controller.dart';
 import '../../../core/config/env.dart';
+import '../../../core/config/remote_config.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/format.dart';
 import '../../../core/network/api_client.dart';
@@ -163,6 +165,8 @@ class _CardScreenState extends ConsumerState<CardScreen> {
         switch (e.code) {
           'handle_taken' => t.cardHandleTaken,
           'handle_reserved' => t.cardHandleReserved,
+          'card_moderated' => t.cardModerated,
+          'feature_off' => t.cardPaused,
           _ => t.errorGeneric,
         },
       );
@@ -177,6 +181,7 @@ class _CardScreenState extends ConsumerState<CardScreen> {
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
     final session = ref.watch(sessionProvider);
+    if (!ref.watch(remoteConfigProvider).isOn(Flags.publicCards)) return const _PausedView();
     if (!session.canEarnPoints) return _GuestView(onSignIn: () => showSignInSheet(context));
 
     final mine = ref.watch(myCardProvider);
@@ -235,7 +240,7 @@ class _CardScreenState extends ConsumerState<CardScreen> {
     return [
       YqOrbRow(
         orbs: [
-          _MedalsOrb(onTap: () => _medalsSheet(context)),
+          if (ref.watch(remoteConfigProvider).isOn(Flags.medalActivation)) _MedalsOrb(onTap: () => _medalsSheet(context)),
           YqOrb(
             title: t.cardQr,
             status: t.cardQrStatus,
@@ -261,6 +266,20 @@ class _CardScreenState extends ConsumerState<CardScreen> {
         ],
       ),
       const SizedBox(height: YqSpace.xl),
+      if (saved.moderated) ...[
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: YqSpace.s),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(padding: EdgeInsets.only(top: 2), child: Icon(Icons.info_outline_rounded, size: 18, color: YqColors.error)),
+              const SizedBox(width: YqSpace.s),
+              Expanded(child: Text(t.cardModerated, style: text.bodySmall?.copyWith(color: YqColors.error, height: 1.6))),
+            ],
+          ),
+        ),
+        const SizedBox(height: YqSpace.m),
+      ],
       LiquidGlass(
         padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.s),
         child: YqListRow(
@@ -780,6 +799,12 @@ class _LinkSheetState extends State<_LinkSheet> {
   }
 }
 
+/// The medal product link from remote config (set by admin), else the store.
+String _medalUrl(WidgetRef ref) {
+  final url = ref.read(remoteConfigProvider).medalProductUrl;
+  return url.startsWith('https://') ? url : Env.storeUrl;
+}
+
 final myTagsProvider = FutureProvider.autoDispose((ref) => ref.watch(cardRepositoryProvider).tags());
 
 /// The medals orb: how many are active, or an invitation to activate the first.
@@ -886,6 +911,7 @@ class _MedalsSheetState extends ConsumerState<_MedalsSheet> {
       TagProblem.format => t.medalErrFormat,
       TagProblem.notFound => t.medalErrNotFound,
       TagProblem.limit => t.medalErrLimit,
+      TagProblem.paused => t.medalPaused,
       TagProblem.network => t.medalErrNetwork,
     };
     return Column(
@@ -956,7 +982,7 @@ class _MedalsSheetState extends ConsumerState<_MedalsSheet> {
         YqButton.text(
           label: t.medalBuy,
           onPressed: () => ref.read(deviceServicesProvider).openUrl(
-                Uri.parse(Env.storeUrl).replace(queryParameters: {'utm_source': 'yaqeen_app', 'utm_medium': 'card', 'utm_campaign': 'medal'}),
+                Uri.parse(_medalUrl(ref)).replace(queryParameters: {'utm_source': 'yaqeen_app', 'utm_medium': 'card', 'utm_campaign': 'medal'}),
               ),
         ),
       ],
@@ -1150,6 +1176,35 @@ class _QrSheet extends ConsumerWidget {
           },
         ),
       ],
+    );
+  }
+}
+
+/// Shown while admin has public cards switched off.
+class _PausedView extends StatelessWidget {
+  const _PausedView();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    return Scaffold(
+      body: YqCanvas(
+        bottom: YqSpace.l,
+        stage: YqStage(
+          compact: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              YqStageBar(back: true, title: t.cardTitle),
+              const SizedBox(height: YqSpace.xl),
+              const Center(child: _NfcGlyph(size: 72)),
+              const SizedBox(height: YqSpace.l),
+              YqMoment(value: Text(t.cardTeaserTitle, style: YqMoment.display(context, size: 28)), caption: Text(t.cardPaused)),
+            ],
+          ),
+        ),
+        children: const [],
+      ),
     );
   }
 }

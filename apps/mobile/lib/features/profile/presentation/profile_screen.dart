@@ -178,7 +178,7 @@ class ProfileScreen extends ConsumerWidget {
           const SizedBox(height: YqSpace.xl),
         ],
         if (session.canEarnPoints) const JourneySection(),
-        const _CardTeaser(),
+        if (config.isOn(Flags.publicCards)) const _CardTeaser(),
         const SizedBox(height: YqSpace.xl),
         YqHeading(t.profileSettings),
         YqGroup(

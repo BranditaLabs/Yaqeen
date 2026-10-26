@@ -6,47 +6,97 @@
  *   GET  /admin/tags                    tags (filter by batch, status, code)
  *   POST /admin/tags/:code/disable      switch a tag off, e.g. reported lost (audited)
  *   POST /admin/tags/:code/release      re-issue a returned tag as blank (audited)
+ *   PATCH /admin/tags/batches/:batch    production status (ordered → received → on_sale) + note (audited)
+ *   POST /admin/tags/batches/:batch/void a faulty run: every tag in it switched off at once (audited)
+ *   POST /admin/tags/:code/assign       link a blank tag to a customer who can't activate it (audited)
  * Rows show the linked card's handle — never worship data.
  */
 import { and, desc, eq, isNotNull, isNull, lt, sql } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { type AdminTagBatch, AdminTagBatchRequest, type AdminTagRow, TagCode, TagStatus, normalizeTagCode } from '@yaqeen/contracts';
-import { profileTags, publicProfiles } from '../../db/schema.js';
+import { AdminAssignTag, type AdminTagBatch, AdminTagBatchPatch, AdminTagBatchRequest, type AdminTagRow, TagCode, TagStatus, normalizeTagCode } from '@yaqeen/contracts';
+import { profileTags, publicProfiles, tagBatches, users } from '../../db/schema.js';
+import { adminOf } from '../../plugins/auth.js';
 import { audit } from '../../lib/audit.js';
 import { badRequest, notFound } from '../../lib/errors.js';
 import * as tags from '../../services/tags.service.js';
 
 const Reason = z.object({ reason: z.string().trim().min(3).max(500) });
+const BatchParam = z.object({ batch: z.string().regex(/^[A-Za-z0-9_-]{1,40}$/) });
 
 export const adminTagsRoutes: FastifyPluginAsync = async (app) => {
   const { db } = app.ctx;
   const read = app.requireAdmin(['support', 'marketing']);
   const mint = app.requireAdmin(['marketing']);
   const write = app.requireAdmin(['support']);
+  const voider = app.requireAdmin(['marketing', 'support']);
 
   app.get('/batches', { preHandler: read }, async (): Promise<AdminTagBatch[]> => {
     const rows = await db
       .select({
-        batch: profileTags.batch,
-        kind: sql<string>`min(${profileTags.kind})`,
-        total: sql<number>`count(*)::int`,
-        active: sql<number>`count(*) filter (where ${profileTags.userId} is not null and ${profileTags.disabledAt} is null)::int`,
-        disabled: sql<number>`count(*) filter (where ${profileTags.disabledAt} is not null)::int`,
-        createdAt: sql<Date>`min(${profileTags.createdAt})`,
+        batch: tagBatches.batch,
+        kind: tagBatches.kind,
+        status: tagBatches.status,
+        note: tagBatches.note,
+        createdAt: tagBatches.createdAt,
+        // Correlated subqueries: columns are qualified by hand (drizzle renders them bare here).
+        total: sql<number>`(select count(*) from profile_tags t where t.batch = tag_batches.batch)::int`,
+        active: sql<number>`(select count(*) from profile_tags t where t.batch = tag_batches.batch and t.user_id is not null and t.disabled_at is null)::int`,
+        disabled: sql<number>`(select count(*) from profile_tags t where t.batch = tag_batches.batch and t.disabled_at is not null)::int`,
       })
-      .from(profileTags)
-      .groupBy(profileTags.batch)
-      .orderBy(sql`min(${profileTags.createdAt}) desc`);
-    return rows.map((r) => ({ ...r, kind: r.kind as AdminTagBatch['kind'], createdAt: new Date(r.createdAt).toISOString() }));
+      .from(tagBatches)
+      .orderBy(desc(tagBatches.createdAt));
+    return rows.map((r) => ({
+      ...r,
+      kind: r.kind as AdminTagBatch['kind'],
+      status: r.status as AdminTagBatch['status'],
+      createdAt: r.createdAt.toISOString(),
+    }));
+  });
+
+  app.patch('/batches/:batch', { preHandler: mint }, async (req) => {
+    const { batch } = BatchParam.parse(req.params);
+    const body = AdminTagBatchPatch.parse(req.body);
+    return db.transaction(async (tx) => {
+      const [before] = await tx.select().from(tagBatches).where(eq(tagBatches.batch, batch));
+      if (!before) throw notFound('batch');
+      if (before.status === 'void') throw badRequest('batch_void', 'A voided batch stays void');
+      await tx
+        .update(tagBatches)
+        .set({ ...(body.status ? { status: body.status } : {}), ...(body.note !== undefined ? { note: body.note } : {}), updatedAt: app.ctx.now() })
+        .where(eq(tagBatches.batch, batch));
+      await audit(tx, req, { action: 'tags.batch.update', targetType: 'tag_batch', targetId: batch, before: { status: before.status, note: before.note }, after: body });
+      return { ok: true };
+    });
+  });
+
+  app.post('/batches/:batch/void', { preHandler: voider }, async (req) => {
+    const { batch } = BatchParam.parse(req.params);
+    const { reason } = Reason.parse(req.body);
+    const result = await db.transaction(async (tx) => {
+      const [before] = await tx.select().from(tagBatches).where(eq(tagBatches.batch, batch));
+      if (!before) throw notFound('batch');
+      await tx.update(tagBatches).set({ status: 'void', updatedAt: app.ctx.now() }).where(eq(tagBatches.batch, batch));
+      const off = await tx
+        .update(profileTags)
+        .set({ disabledAt: app.ctx.now() })
+        .where(and(eq(profileTags.batch, batch), isNull(profileTags.disabledAt)))
+        .returning({ userId: profileTags.userId });
+      const linked = off.filter((t) => t.userId).length;
+      await audit(tx, req, { action: 'tags.batch.void', targetType: 'tag_batch', targetId: batch, reason, before: { status: before.status }, after: { status: 'void', switchedOff: off.length, linked } });
+      return { ok: true, switchedOff: off.length, linked };
+    });
+    await app.ctx.cache.bumpNamespace('profile');
+    return result;
   });
 
   app.post('/batches', { preHandler: mint }, async (req, reply) => {
     const body = AdminTagBatchRequest.parse(req.body);
-    const [exists] = await db.select({ code: profileTags.code }).from(profileTags).where(eq(profileTags.batch, body.batch)).limit(1);
-    if (exists) throw badRequest('batch_exists', 'Choose a new batch name');
+    const [exists] = await db.select({ b: tagBatches.batch }).from(tagBatches).where(eq(tagBatches.batch, body.batch)).limit(1);
+    const [legacy] = await db.select({ code: profileTags.code }).from(profileTags).where(eq(profileTags.batch, body.batch)).limit(1);
+    if (exists || legacy) throw badRequest('batch_exists', 'Choose a new batch name');
     const codes = await db.transaction(async (tx) => {
-      const minted = await tags.mintBatch(tx, body);
+      const minted = await tags.mintBatch(tx, body, adminOf(req).sub);
       await audit(tx, req, { action: 'tags.batch.mint', targetType: 'tag_batch', targetId: body.batch, after: { kind: body.kind, count: minted.length } });
       return minted;
     });
@@ -111,6 +161,19 @@ export const adminTagsRoutes: FastifyPluginAsync = async (app) => {
       await tx.update(profileTags).set({ disabledAt: app.ctx.now() }).where(eq(profileTags.code, code));
       await audit(tx, req, { action: 'tags.disable', targetType: 'tag', targetId: code, reason, before: { userId: before.userId, disabledAt: before.disabledAt }, after: { disabled: true } });
       return { ok: true };
+    });
+  });
+
+  app.post('/:code/assign', { preHandler: write }, async (req) => {
+    const { code } = z.object({ code: TagCode }).parse(req.params);
+    const body = AdminAssignTag.parse(req.body);
+    return db.transaction(async (tx) => {
+      const [u] = await tx.select({ status: users.status, isGuest: users.isGuest }).from(users).where(eq(users.id, body.userId));
+      if (!u) throw notFound('user');
+      if (u.isGuest || u.status !== 'active') throw badRequest('user_not_eligible', 'Only active, signed-in accounts can own a tag');
+      const row = await tags.linkTo(tx, app.ctx.now(), body.userId, code);
+      await audit(tx, req, { action: 'tags.assign', targetType: 'tag', targetId: code, reason: body.reason, after: { userId: body.userId } });
+      return tags.toTag(app.ctx, row);
     });
   });
 
