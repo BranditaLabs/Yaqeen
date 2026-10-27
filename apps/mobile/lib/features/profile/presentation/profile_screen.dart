@@ -207,9 +207,9 @@ class ProfileScreen extends ConsumerWidget {
         YqGroup(
           children: [
             row(t.profileAbout, onTap: () => ref.read(deviceServicesProvider).openUrl(Uri.parse('${Env.storeUrl}/pages/about'))),
-            row(t.terms, onTap: () => ref.read(deviceServicesProvider).openUrl(Uri.parse('${Env.storeUrl}/policies/terms-of-service'))),
-            row(t.privacyPolicy, onTap: () => ref.read(deviceServicesProvider).openUrl(Uri.parse('${Env.storeUrl}/policies/privacy-policy'))),
-            row(t.profileContact, onTap: () => ref.read(deviceServicesProvider).openUrl(Uri.parse('${Env.storeUrl}/pages/contact'))),
+            row(t.terms, onTap: () => ref.read(deviceServicesProvider).openUrl(Env.site('terms', s.locale))),
+            row(t.privacyPolicy, onTap: () => ref.read(deviceServicesProvider).openUrl(Env.site('privacy', s.locale))),
+            row(t.profileContact, onTap: () => ref.read(deviceServicesProvider).openUrl(Env.site('support', s.locale))),
           ],
         ),
         if (session.signedIn && session.userId != null) ...[

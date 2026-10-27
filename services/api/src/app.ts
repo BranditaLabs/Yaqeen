@@ -25,6 +25,7 @@ import { appRoutes } from './routes/public/app.routes.js';
 import { authRoutes } from './routes/public/auth.routes.js';
 import { meRoutes } from './routes/public/me.routes.js';
 import { profileRoutes } from './routes/public/profile.routes.js';
+import { siteRoutes } from './routes/public/site.routes.js';
 import { shopifyWebhookRoutes } from './routes/webhooks/shopify.routes.js';
 
 /** Which public caches an admin write under each prefix can change. */
@@ -119,6 +120,7 @@ export async function buildApp(input: Omit<AppContext, 'cache'> & { cache?: Resp
   await app.register(meRoutes, { prefix: '/v1/me' });
   await app.register(appRoutes, { prefix: '/v1' });
   await app.register(profileRoutes);
+  await app.register(siteRoutes);
   await app.register(shopifyWebhookRoutes, { prefix: '/webhooks/shopify' });
 
   // Admin API (separate token audience + RBAC on every route)

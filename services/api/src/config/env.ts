@@ -38,6 +38,8 @@ const EnvSchema = z.object({
   PLAY_STORE_URL: z.string().url().default('https://play.google.com/store/apps/details?id=com.yaqinbrand.yaqeen'),
   /** Empty until the App Store listing exists; iPhone visitors then go to the store site. */
   APP_STORE_URL: z.string().default(''),
+  /** Shown on the website's help, privacy and deletion pages ('' = a visible placeholder). */
+  SUPPORT_EMAIL: z.string().default(''),
 
   /* Observability — all optional; empty = off. */
   /** Sentry project DSN (errors; traces only when SENTRY_TRACES_SAMPLE_RATE > 0). */

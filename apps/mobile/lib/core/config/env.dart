@@ -6,6 +6,12 @@ abstract final class Env {
   static const flavor = String.fromEnvironment('FLAVOR', defaultValue: 'dev');
   static const storeUrl = String.fromEnvironment('STORE_URL', defaultValue: 'https://www.yaqin-brand.com');
 
+  /// The Yaqeen website (privacy policy, terms, help) — served by the API on the cards host.
+  static const siteUrl = String.fromEnvironment('SITE_URL', defaultValue: 'https://api.yaqin-brand.com');
+
+  /// A website page in the user's language, e.g. `site('privacy', 'ar')`.
+  static Uri site(String page, String locale) => Uri.parse('$siteUrl/$page?lang=$locale');
+
   /// OAuth client id of the API (Google "server client id"); the ID token's audience.
   static const googleServerClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
 

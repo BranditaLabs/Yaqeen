@@ -11,6 +11,7 @@ import '../../../core/config/remote_config.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/format.dart';
 import '../../../core/settings/app_settings.dart';
+import '../../../core/config/env.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
@@ -717,7 +718,7 @@ class _ConsentStepState extends ConsumerState<ConsentStep> {
                     Text(t.consentPrivacyNote, style: text.bodySmall?.copyWith(color: YqColors.success)),
                     GestureDetector(
                       onTap: () =>
-                          ref.read(deviceServicesProvider).openUrl(Uri.parse('https://www.yaqin-brand.com/policies/privacy-policy')),
+                          ref.read(deviceServicesProvider).openUrl(Env.site('privacy', ref.read(settingsProvider).locale)),
                       child: Text(
                         t.privacyPolicy,
                         style: text.bodySmall?.copyWith(color: YqColors.success, decoration: TextDecoration.underline),
