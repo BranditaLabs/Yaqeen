@@ -26,7 +26,11 @@ class ReminderInputs {
     this.hifzDue = const {},
     this.ramadanDates = const {},
     this.hijriToday,
+    this.khatma = false,
   });
+
+  /// A khatma plan is running (the daily Quran reminder becomes its portion).
+  final bool khatma;
   final bool wirdDoneToday;
   final int wirdPages;
 
@@ -68,6 +72,7 @@ final reminderInputsProvider = FutureProvider<ReminderInputs>((ref) async {
     wirdDoneToday: wird != null && wird.date == today && wird.count >= s.wirdGoalPages,
     wirdPages: pagesToday,
     hijriToday: hijri,
+    khatma: (await ref.read(readingRepositoryProvider).khatma())?.finished == false,
     hifzDue: hifz?.dueDates() ?? const {},
     ramadanDates: ramadan,
   );
@@ -118,6 +123,7 @@ class RemindersController extends Notifier<DateTime?> {
       wirdDone: inputs.wirdDoneToday,
       hifzDue: inputs.hifzDue,
       ramadanDates: inputs.ramadanDates,
+      khatma: inputs.khatma,
     );
     state = plan.replanBefore;
     _scheduleNext(plan.replanBefore);

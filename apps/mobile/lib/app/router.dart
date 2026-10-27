@@ -22,6 +22,8 @@ import '../features/profile/presentation/profile_screen.dart';
 import '../features/prayer/presentation/qibla_screen.dart';
 import '../features/ramadan/presentation/ramadan_screen.dart';
 import '../features/quran/presentation/quran_index_screen.dart';
+import '../features/quran/domain/quran_data.dart';
+import '../features/quran/presentation/khatma_screen.dart';
 import '../features/quran/presentation/reader_screen.dart';
 import '../features/recite/presentation/recite_screen.dart';
 import '../features/rewards/presentation/redeem_screen.dart';
@@ -85,11 +87,15 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
                   builder: (_, s) => QuranIndexScreen(key: ValueKey(s.uri.query), focusSearch: s.uri.queryParameters['search'] == '1'),
                   routes: [
                     GoRoute(path: 'hifz', builder: (_, __) => const HifzScreen()),
+                    GoRoute(path: 'khatma', builder: (_, __) => const KhatmaScreen()),
                     GoRoute(path: 'reciters', builder: (_, __) => const RecitersScreen()),
                     GoRoute(
                       parentNavigatorKey: rootNavigatorKey,
                       path: 'read/:page',
-                      builder: (_, s) => ReaderScreen(initialPage: (int.tryParse(s.pathParameters['page'] ?? '') ?? 1).clamp(1, 604)),
+                      builder: (_, s) => ReaderScreen(
+                        initialPage: (int.tryParse(s.pathParameters['page'] ?? '') ?? 1).clamp(1, 604),
+                        focus: parseAyahRef(s.uri.queryParameters['ayah']),
+                      ),
                     ),
                     GoRoute(
                       parentNavigatorKey: rootNavigatorKey,

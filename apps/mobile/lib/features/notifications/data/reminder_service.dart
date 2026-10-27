@@ -53,6 +53,7 @@ class ReminderService {
     required bool wirdDone,
     Set<DateTime> hifzDue = const {},
     Set<DateTime> ramadanDates = const {},
+    bool khatma = false,
   }) =>
       ReminderPrefs(
         modes: {for (final e in s.alertModes.entries) _prayer(e.key): _alert(e.value)},
@@ -66,6 +67,7 @@ class ReminderService {
         wirdMissing: s.wirdMissing && !wirdDone,
         hifzDueDates: s.hifzDue ? hifzDue : const {},
         ramadanDates: ramadanDates,
+        khatma: khatma,
         suhoorMinutes: s.suhoorReminder ? s.suhoorMinutes : null,
         iftarMinutes: s.iftarReminder ? s.iftarMinutes : null,
         quietStartMinutes: s.quietHours ? s.quietStartMinutes : null,
@@ -96,6 +98,7 @@ class ReminderService {
     bool wirdDone = false,
     Set<DateTime> hifzDue = const {},
     Set<DateTime> ramadanDates = const {},
+    bool khatma = false,
   }) async {
     if (!worshipConsent) {
       await scheduler.cancelAll();
@@ -105,7 +108,7 @@ class ReminderService {
     final nowZoned = tz.TZDateTime.from(now.toUtc(), Zoned.location(s.placeOrDefault.timezone));
     final plan = NotificationPlanner.plan(
       days: daysFor(s, now, ramadanDates: ramadanDates),
-      prefs: prefsFor(s, wirdDone: wirdDone, hifzDue: hifzDue, ramadanDates: ramadanDates),
+      prefs: prefsFor(s, wirdDone: wirdDone, hifzDue: hifzDue, ramadanDates: ramadanDates, khatma: khatma),
       now: nowZoned,
     );
     await scheduler.replaceAll(plan.items);
@@ -184,6 +187,7 @@ class NotificationCopy {
       ReminderKind.dhikr => (t.notifDhikrTitle, t.notifDhikrBody),
       ReminderKind.suhoor => (t.notifSuhoorTitle, t.notifSuhoorBody(n.minutesBefore ?? s.suhoorMinutes)),
       ReminderKind.iftar => (t.notifIftarTitle, t.notifIftarBody(n.minutesBefore ?? s.iftarMinutes)),
+      ReminderKind.khatma => (t.notifKhatmaTitle, t.notifKhatmaBody),
     };
   }
 }

@@ -11,7 +11,7 @@
 enum Prayer { fajr, dhuhr, asr, maghrib, isha, sunrise }
 
 /// Append only: the index is part of each notification's stable id.
-enum ReminderKind { adhan, prePrayer, morningAzkar, eveningAzkar, wird, kahfFriday, wirdMissing, hifzDue, dhikr, suhoor, iftar }
+enum ReminderKind { adhan, prePrayer, morningAzkar, eveningAzkar, wird, kahfFriday, wirdMissing, hifzDue, dhikr, suhoor, iftar, khatma }
 
 /// How a prayer alerts (mirrors the settings screen: «أذان | تنبيه | صامت»).
 enum PrayerAlert { adhan, notify, silent }
@@ -59,6 +59,7 @@ class ReminderPrefs {
     this.hifz = const SlotTime.at(9 * 60),
     this.dhikr,
     this.ramadanDates = const {},
+    this.khatma = false,
     this.suhoorMinutes,
     this.iftarMinutes,
     this.quietStartMinutes,
@@ -97,6 +98,9 @@ class ReminderPrefs {
 
   /// Daily dhikr session reminder at the user's routine time, or null.
   final SlotTime? dhikr;
+
+  /// A khatma plan is active: the daily Quran reminder speaks of its portion and opens it.
+  final bool khatma;
 
   /// Ramadan days (local midnight). Suhoor/iftar reminders are planned only on these.
   final Set<DateTime> ramadanDates;
@@ -149,6 +153,7 @@ class PlannedNotification {
         ReminderKind.hifzDue => 'yaqeen://hifz',
         ReminderKind.dhikr => 'yaqeen://home',
         ReminderKind.suhoor || ReminderKind.iftar => 'yaqeen://ramadan',
+        ReminderKind.khatma => 'yaqeen://khatma',
       };
 
   @override
@@ -222,7 +227,7 @@ abstract final class NotificationPlanner {
         reminder(d, ReminderKind.eveningAzkar, asr.add(Duration(minutes: prefs.eveningAfterAsrMinutes)));
       }
       final wirdAt = prefs.wird?.on(day);
-      if (wirdAt != null) reminder(d, ReminderKind.wird, wirdAt);
+      if (wirdAt != null) reminder(d, prefs.khatma ? ReminderKind.khatma : ReminderKind.wird, wirdAt);
       final dhikrAt = prefs.dhikr?.on(day);
       if (dhikrAt != null) reminder(d, ReminderKind.dhikr, dhikrAt);
       if (prefs.kahfFriday && d.weekday == DateTime.friday) {

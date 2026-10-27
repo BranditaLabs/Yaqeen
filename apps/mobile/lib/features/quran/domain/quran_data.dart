@@ -39,6 +39,15 @@ class AyahRef implements Comparable<AyahRef> {
   String toString() => '$surah:$ayah';
 }
 
+/// `"18:10"` → AyahRef(18, 10); null when malformed or out of range.
+AyahRef? parseAyahRef(String? raw) {
+  final m = RegExp(r'^(\d{1,3}):(\d{1,3})$').firstMatch(raw ?? '');
+  if (m == null) return null;
+  final s = int.parse(m.group(1)!);
+  final a = int.parse(m.group(2)!);
+  return s >= 1 && s <= 114 && a >= 1 && a <= 286 ? AyahRef(s, a) : null;
+}
+
 /// One verse on a page.
 class PageAyah {
   const PageAyah(this.ref, this.text);
@@ -138,6 +147,11 @@ class QuranData {
 
   /// 1–60.
   int hizbOf(AyahRef r) => (quarterOf(r) - 1) ~/ 4 + 1;
+
+  late final Map<AyahRef, int> _quarterIndex = {for (final (i, r) in _quarterStarts.indexed) r: i + 1};
+
+  /// The hizb quarter (1–240) that starts at [r], or null.
+  int? quarterStartingAt(AyahRef r) => _quarterIndex[r];
 
   AyahRef firstOfPage(int page) => _pageStarts[page - 1];
   AyahRef firstOfJuz(int juz) => _juzStarts[juz - 1];

@@ -10,6 +10,9 @@ enum AdhanVoice { makkah, madinah, calm, takbir }
 
 enum MushafTheme { paper, white, night }
 
+/// How reader pages turn: like a book (page lifts from the spine) or a flat slide.
+enum PageTurn { book, slide }
+
 enum QuranScript { uthmani, indopak }
 
 /// A place used for prayer times. Coordinates never leave the device (spec §5.5).
@@ -58,6 +61,9 @@ class AppSettings {
     this.quranFontSize = 26,
     this.mushafTheme = MushafTheme.paper,
     this.comfortableSpacing = false,
+    this.pageTurn = PageTurn.book,
+    this.autoNight = false,
+    this.immersiveReading = true,
     this.keepAwake = true,
     this.place,
     this.method = CalcMethod.egypt,
@@ -113,6 +119,12 @@ class AppSettings {
   final double quranFontSize;
   final MushafTheme mushafTheme;
   final bool comfortableSpacing;
+
+  /// Reader: page-turn style; night pages after Maghrib until sunrise; hide the system bars with
+  /// the reader's own chrome.
+  final PageTurn pageTurn;
+  final bool autoNight;
+  final bool immersiveReading;
   final bool keepAwake;
   final Place? place;
   final CalcMethod method;
@@ -169,6 +181,9 @@ class AppSettings {
     double? quranFontSize,
     MushafTheme? mushafTheme,
     bool? comfortableSpacing,
+    PageTurn? pageTurn,
+    bool? autoNight,
+    bool? immersiveReading,
     bool? keepAwake,
     Place? place,
     CalcMethod? method,
@@ -209,6 +224,9 @@ class AppSettings {
         quranFontSize: quranFontSize ?? this.quranFontSize,
         mushafTheme: mushafTheme ?? this.mushafTheme,
         comfortableSpacing: comfortableSpacing ?? this.comfortableSpacing,
+        pageTurn: pageTurn ?? this.pageTurn,
+        autoNight: autoNight ?? this.autoNight,
+        immersiveReading: immersiveReading ?? this.immersiveReading,
         keepAwake: keepAwake ?? this.keepAwake,
         place: place ?? this.place,
         method: method ?? this.method,
@@ -250,6 +268,9 @@ class AppSettings {
         'quranFontSize': quranFontSize,
         'mushafTheme': mushafTheme.name,
         'comfortableSpacing': comfortableSpacing,
+        'pageTurn': pageTurn.name,
+        'autoNight': autoNight,
+        'immersiveReading': immersiveReading,
         'keepAwake': keepAwake,
         'place': place?.toJson(),
         'method': method.wire,
@@ -297,6 +318,9 @@ class AppSettings {
       quranFontSize: (j['quranFontSize'] as num?)?.toDouble().clamp(22.0, 34.0) ?? d.quranFontSize,
       mushafTheme: byName(MushafTheme.values, 'mushafTheme', d.mushafTheme),
       comfortableSpacing: pick('comfortableSpacing', d.comfortableSpacing),
+      pageTurn: byName(PageTurn.values, 'pageTurn', d.pageTurn),
+      autoNight: pick('autoNight', d.autoNight),
+      immersiveReading: pick('immersiveReading', d.immersiveReading),
       keepAwake: pick('keepAwake', d.keepAwake),
       place: j['place'] is Map ? Place.fromJson((j['place'] as Map).cast<String, dynamic>()) : null,
       method: CalcMethod.fromWire(j['method'] as String?),

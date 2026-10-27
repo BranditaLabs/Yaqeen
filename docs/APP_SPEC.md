@@ -242,6 +242,7 @@ Push payload: `data.link`, `data.campaignId` (opened → `POST /v1/me/campaigns/
 | 21·ب | Yaqeen card (NFC/QR) | `/profile/card` | ✅ | §5.26 |
 | 22 | Hifz plan | `/quran/hifz` | ✅ | — |
 | 23 | Ramadan | `/prayer/ramadan` | ✅ flag `ramadan` | Ramadan bonus values (seeded off) |
+| 24 | Khatma | `/quran/khatma` | ✅ | — |
 | — | Home-screen widgets | Android / iOS | ✅ | App Group + widget profile in the Apple account |
 | — | Website | `/`, `/privacy`, `/terms`, `/support`, `/delete-account` | ✅ | legal entity, DPO, support email, counsel review |
 
@@ -472,7 +473,9 @@ Footer verse «وَرَتِّلِ ٱلْقُرْءَانَ تَرْتِيلًا�
    - المحفوظات: bookmarks (page marks + ayah marks), newest first.
 5. Empty search: «لا توجد نتائج» / «جرّب اسماً آخر أو رقم السورة». Empty bookmarks: «لا توجد علامات بعد» / «اضغط مطولاً على أي آية لحفظ علامة».
 
-**Search rules** Normalise Arabic (strip tashkeel, unify أإآا, ة/ه, ى/ي), match surah name, number, or `surah:ayah` (e.g. «18:10» → page of that ayah). Phase 2: full-text ayah search (local FTS5 index over the plain text).
+**Search rules** Normalise Arabic (strip tashkeel, unify أإآا, ة/ه, ى/ي), match surah name, number, or `surah:ayah` (e.g. «18:10» → page of that ayah). **Full-text ayah search ✅**: every ayah reduced once (off the UI thread) to a search key that reads Uthmani spelling the everyday way — alefs dropped, «وٰ» read as alef (صلوٰة ↔ صلاة، حيوٰة ↔ حياة) — so «الصلاة», «العالمين» or «الحي القيوم» find their ayat; all words must occur (any order), exact phrases first, then mushaf order. Results «في الآيات · N نتيجة» show the ayah with the match lit in the original text; tap → the reader on that page with the ayah lit (`/quran/read/<page>?ayah=s:a`). Arabic-only queries; offline; < 400 ms worst case for the whole mushaf.
+
+**Saved tab** Filters الكل · العلامات · الملاحظات · التظليل; bookmarks carry their colour; every row opens the ayah lit.
 
 **Data** Local SQLite `quran.db` (surahs, juz, hizb, page → ayah ranges); bookmarks in local DB (synced only if the user enables backup — §6.13).
 
@@ -493,6 +496,16 @@ Footer verse «وَرَتِّلِ ٱلْقُرْءَانَ تَرْتِيلًا�
 **Ayah long-press** → highlight + glass sheet «خيارات الآية»: علامة (toggle, «محفوظة») · استماع (from this ayah) · تفسير (expands «التفسير الميسر» panel with the licensed text) · مشاركة (image card with ayah + reference, brand footer mark) · نسخ («تم النسخ»; copies text + «[سورة البقرة: 2]»).
 
 **Settings sheet «إعدادات القراءة»** «لون الصفحة» (ورقي · أبيض · ليلي) · «حجم الخط» (S/M/L/XL) · «تباعد مريح بين الأسطر» · «إبقاء الشاشة مضاءة أثناء القراءة» · shortcuts «وضع الاستماع» / «وضع التسميع».
+
+**Moving around** Tap the title pill → «انتقل إلى»: surah (filterable list), juz (30 chips), page number, or surah + ayah. The page header shows juz · hizb; inside the text a quiet hairline pill marks where a juz, hizb or hizb quarter starts («الجزء 3» · «الحزب 5» · «¼ الحزب 5»), and «سجدة» follows a prostration ayah.
+
+**Layout & turning** A two-page spread (right/left, like the printed mushaf) when the screen is wide (tablet, or landscape ≥ 700 pt); chrome stays ≤ 640 pt wide, centred. Page turn «كالكتاب» (default: the page lifts from the spine with a soft shade, transform only; off with reduce-motion) or «انزلاق». The system bars hide with the chrome («إخفاء شريط الحالة أثناء القراءة», on by default). «الوضع الليلي تلقائياً بعد المغرب» switches to night pages from Maghrib to sunrise.
+
+**Annotations (device only)** Ayah sheet adds تظليل (4 token colours or none), ملاحظة (private reflection ≤ 2,000 chars; a small note icon after the ayah opens it) and a colour for an ayah bookmark. Highlights tint the ayah on the page.
+
+**Memorise mode** «حفظ» in the bottom bar: إخفاء الآيات, or إخفاء كلمة وترك كلمة (first word kept as a cue). Hidden text keeps its exact place (transparent ink over a dotted line), so revealing never moves the page; tap an ayah to show/hide it; banner with «إظهار الكل · إخفاء الكل» and exit. Long-press options pause while memorising.
+
+**Reading stats** Each page view adds its time (≤ 5 min per view) and each counted page to a per-day log (120 days, device only): the khatma screen shows the week's pages, minutes, reading days and streak.
 
 **Lock mode** Hides chrome, ignores taps/swipes; overlay pill «الشاشة مقفلة · اضغط مطولاً لإلغاء القفل» (1.2 s hold with ring «استمر بالضغط…»).
 
@@ -749,6 +762,16 @@ Android «NextPrayerWidget» and iOS «YaqeenWidget» (small, medium, lock-scree
 ### 5.29 Website ✅
 
 Served by the API on the cards host: landing `/`, `/privacy`, `/terms`, `/support` (FAQ + contact), `/delete-account` (Play's deletion URL), `robots.txt` (cards and API excluded), `sitemap.xml`. Arabic first (`?lang=en`, or the browser's language), no scripts, works without the database. Legal text matches what the code does; owner-only facts stay bracketed until set. The app's privacy/terms/contact rows open these pages (`SITE_URL`). Store copy and privacy answers: `docs/STORE_LISTING.md`.
+
+### 5.30 `24 · Khatma` — `/quran/khatma` ✅
+
+**Purpose** Finish the mushaf on a plan, without guilt.
+
+**Setup** «بحلول تاريخ» (7 · 15 · 30 · 60 days, or any date) or «صفحات يومياً» (2 · 4 · 5 · 10 · 20); start from the beginning or from the last page read; «اجعل حصّة الختمة وِردي اليومي» sets the wird goal to the daily portion (on by default). One plan at a time; edit keeps the pages already read.
+
+**Screen** Gold stage: progress ring (% · «N من 604 صفحة»), due date and days left (or the projected finish at a fixed pace). «حصّة اليوم»: from the first unread page, today's target (what's left ÷ days left, today's pages included), a liquid orb of today's read/target, status «على الخطة · متقدّم N · متأخّر N — اقرأ أكثر قليلاً اليوم», «اقرأ الآن» → the reader on that page. «هذا الأسبوع»: seven bars, pages · minutes · reading days, streak. «ختمات سابقة». Edit / end plan (confirmed).
+
+**Rules** A page counts once it has been visible ≥ 20 s (the wird rule), in any order; reading all 604 finishes the plan (toast «تمّت الختمة — تقبّل الله منك», moved to history). The routine's daily Quran reminder becomes «حصّتك من الختمة» while a plan runs (deep link `yaqeen://khatma`). The Quran index's khatma orb shows plan % and today's progress. Device only; stored as page ranges.
 
 ## 6. Cross-cutting functions
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,7 +17,6 @@ import '../../../core/widgets/liquid_glass.dart';
 import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_layout.dart';
 import '../../../core/widgets/yq_orb.dart';
-import '../../../core/widgets/yq_ring.dart';
 import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
@@ -23,6 +24,11 @@ import '../data/reading_repository.dart';
 import '../domain/quran_data.dart';
 import '../../home/widgets/orbs.dart';
 import 'reader_screen.dart';
+import '../domain/ayah_search.dart';
+import 'ayah_results.dart';
+import 'khatma_screen.dart';
+import '../domain/annotations.dart';
+import 'quran_providers.dart';
 
 final bookmarksProvider = FutureProvider.autoDispose((ref) => ref.watch(readingRepositoryProvider).bookmarks());
 final lastReadProvider = FutureProvider.autoDispose((ref) => ref.watch(readingRepositoryProvider).lastRead());
@@ -56,12 +62,26 @@ class _QuranIndexScreenState extends ConsumerState<QuranIndexScreen> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _query.dispose();
     _focus.dispose();
     super.dispose();
   }
 
   void _openPage(int page) => context.push('/quran/read/$page');
+  void _openAyah(AyahRef ref, int page) => context.push('/quran/read/$page?ayah=${ref.surah}:${ref.ayah}');
+
+  /// Ayah search waits for a pause in typing; surah matches update on every key.
+  Timer? _debounce;
+  String _ayahQuery = '';
+
+  void _onQueryChanged() {
+    setState(() {});
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 220), () {
+      if (mounted) setState(() => _ayahQuery = _query.text);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -107,7 +127,7 @@ class _QuranIndexScreenState extends ConsumerState<QuranIndexScreen> {
                   focusNode: _focus,
                   hint: t.quranSearchHint,
                   clearLabel: t.clearSearch,
-                  onChanged: () => setState(() {}),
+                  onChanged: _onQueryChanged,
                 ),
               ],
             ),
@@ -129,24 +149,28 @@ class _QuranIndexScreenState extends ConsumerState<QuranIndexScreen> {
               ),
           ],
           children: [
-            if (searching)
-              hits.isEmpty
-                  ? LiquidGlass(child: YqEmptyState(icon: YqIcons.search, title: t.quranNoResults, hint: t.quranNoResultsHint))
-                  : YqGroup(
-                      children: [
-                        for (final h in hits.take(30))
-                          switch (h) {
-                            SurahHit(:final surah) => _SurahRow(surah: surah, locale: locale, onTap: () => _openPage(surah.startPage)),
-                            AyahHit(:final surah, :final ref, :final page) => YqListRow(
-                                dense: true,
-                                title: '${t.quranSurahName(surah.nameAr)} · ${t.quranAyahN(ref.ayah)}',
-                                subtitle: t.quranPageN(page),
-                                onTap: () => _openPage(page),
-                              ),
-                          },
-                      ],
-                    )
-            else ...[
+            if (searching) ...[
+              if (hits.isNotEmpty)
+                YqGroup(
+                  children: [
+                    for (final h in hits.take(30))
+                      switch (h) {
+                        SurahHit(:final surah) => _SurahRow(surah: surah, locale: locale, onTap: () => _openPage(surah.startPage)),
+                        AyahHit(:final surah, :final ref, :final page) => YqListRow(
+                            dense: true,
+                            title: '${t.quranSurahName(surah.nameAr)} · ${t.quranAyahN(ref.ayah)}',
+                            subtitle: t.quranPageN(page),
+                            onTap: () => _openAyah(ref, page),
+                          ),
+                      },
+                  ],
+                ),
+              AyahResults(quran: q, query: _ayahQuery, onOpen: _openAyah),
+              if (hits.isEmpty && AyahSearchIndex.terms(_query.text).isEmpty)
+                LiquidGlass(child: YqEmptyState(icon: YqIcons.search, title: t.quranNoResults, hint: t.quranNoResultsHint)),
+              if (hits.isEmpty && AyahSearchIndex.terms(_query.text).isNotEmpty && _ayahQuery == _query.text)
+                _NoAyahResults(query: _ayahQuery),
+            ] else ...[
               _Orbs(q: q, listen: config.isOn(Flags.listen)),
               const SizedBox(height: YqSpace.xl),
               _SavedCards(q: q, locale: locale, onOpen: _openPage),
@@ -174,7 +198,8 @@ class _QuranIndexScreenState extends ConsumerState<QuranIndexScreen> {
                               subtitle: t.quranJuzStarts(q.surah(q.firstOfJuz(j).surah).name(locale), q.firstOfJuz(j).ayah),
                               trailing: IconButton(
                                 tooltip: t.quranHizbQuarter(j),
-                                icon: Icon(_expandedJuz == j ? Icons.expand_less_rounded : Icons.expand_more_rounded, color: YqColors.muted),
+                                icon:
+                                    Icon(_expandedJuz == j ? Icons.expand_less_rounded : Icons.expand_more_rounded, color: YqColors.muted),
                                 onPressed: () => setState(() => _expandedJuz = _expandedJuz == j ? null : j),
                               ),
                               onTap: () => _openPage(q.juzStartPage(j)),
@@ -186,7 +211,8 @@ class _QuranIndexScreenState extends ConsumerState<QuranIndexScreen> {
                                   child: YqListRow(
                                     dense: true,
                                     title: t.quranHizbQuarter(k),
-                                    subtitle: '${q.surah(q.firstOfQuarter(k).surah).name(locale)} ${YqFormat.number(q.firstOfQuarter(k).ayah)}',
+                                    subtitle:
+                                        '${q.surah(q.firstOfQuarter(k).surah).name(locale)} ${YqFormat.number(q.firstOfQuarter(k).ayah)}',
                                     trailing: Text(YqFormat.number(q.pageOf(q.firstOfQuarter(k))), style: YqText.numberSmall),
                                     onTap: () => _openPage(q.pageOf(q.firstOfQuarter(k))),
                                   ),
@@ -195,7 +221,7 @@ class _QuranIndexScreenState extends ConsumerState<QuranIndexScreen> {
                         ),
                     ],
                   ),
-                _Browse.saved => _Bookmarks(q: q, locale: locale, onOpen: _openPage),
+                _Browse.saved => _Bookmarks(q: q, locale: locale, onOpen: _openPage, onOpenAyah: _openAyah),
               },
             ],
           ],
@@ -250,7 +276,13 @@ class _Resume extends ConsumerWidget {
 }
 
 class _SearchField extends StatelessWidget {
-  const _SearchField({required this.controller, required this.focusNode, required this.hint, required this.clearLabel, required this.onChanged});
+  const _SearchField({
+    required this.controller,
+    required this.focusNode,
+    required this.hint,
+    required this.clearLabel,
+    required this.onChanged,
+  });
   final TextEditingController controller;
   final FocusNode focusNode;
   final String hint;
@@ -259,7 +291,8 @@ class _SearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final border = OutlineInputBorder(borderRadius: BorderRadius.circular(YqRadii.pill), borderSide: const BorderSide(color: Color(0xF2FFFFFF)));
+    final border =
+        OutlineInputBorder(borderRadius: BorderRadius.circular(YqRadii.pill), borderSide: const BorderSide(color: Color(0xF2FFFFFF)));
     return TextField(
       controller: controller,
       focusNode: focusNode,
@@ -301,29 +334,11 @@ class _Orbs extends ConsumerWidget {
     final today = ref.watch(prayerRepositoryProvider).today(s, ref.watch(clockProvider)());
     final done = wird != null && wird.date == Zoned.isoDate(today) ? wird.count : 0;
     final last = ref.watch(lastReadProvider).valueOrNull;
-    final page = last?.page ?? 0;
-    final khatma = t.quranKhatmaStatus(YqFormat.number(page), YqFormat.number(QuranData.pageCount));
     final surah = last == null ? 1 : q.firstOfPage(last.page).surah;
     return YqOrbRow(
       orbs: [
         WirdOrb(done: done, goal: s.wirdGoalPages),
-        YqOrb(
-          title: t.quranKhatma,
-          status: khatma,
-          semanticLabel: '${t.quranKhatma}، $khatma',
-          onTap: last == null ? null : () => context.push('/quran/read/${last.page}'),
-          disc: YqRing(
-            value: page / QuranData.pageCount,
-            gold: true,
-            size: YqOrb.defaultSize - 12,
-            stroke: 5,
-            child: Text(
-              '${YqFormat.number((page * 100 / QuranData.pageCount).floor())}%',
-              textDirection: TextDirection.ltr,
-              style: YqText.numberSmall.copyWith(fontSize: 18, fontWeight: FontWeight.w500, color: YqColors.ink),
-            ),
-          ),
-        ),
+        const KhatmaOrb(),
         if (listen)
           YqOrb(
             title: t.quranListen,
@@ -465,34 +480,109 @@ class _ContinueCard extends StatelessWidget {
   }
 }
 
-class _Bookmarks extends ConsumerWidget {
-  const _Bookmarks({required this.q, required this.locale, required this.onOpen});
+enum _SavedFilter { all, marks, notes, highlights }
+
+/// «المحفوظات»: bookmarks (with their colour), notes and highlights — filterable; each opens the
+/// reader on its page with the ayah lit.
+class _Bookmarks extends ConsumerStatefulWidget {
+  const _Bookmarks({required this.q, required this.locale, required this.onOpen, required this.onOpenAyah});
   final QuranData q;
   final String locale;
   final ValueChanged<int> onOpen;
+  final void Function(AyahRef ref, int page) onOpenAyah;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_Bookmarks> createState() => _BookmarksState();
+}
+
+class _BookmarksState extends ConsumerState<_Bookmarks> {
+  _SavedFilter _filter = _SavedFilter.all;
+
+  static Color _swatch(MarkColor c) => switch (c) {
+        MarkColor.gold => YqColors.gold,
+        MarkColor.lapis => YqColors.lapis,
+        MarkColor.sky => YqColors.sky,
+        MarkColor.green => YqColors.success,
+      };
+
+  Widget _dot(MarkColor c) => Container(
+        width: 12,
+        height: 12,
+        decoration: BoxDecoration(color: _swatch(c), shape: BoxShape.circle),
+      );
+
+  @override
+  Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
+    final q = widget.q;
     final marks = ref.watch(bookmarksProvider);
-    return marks.when(
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => YqErrorState(onRetry: () => ref.invalidate(bookmarksProvider)),
-      data: (list) => list.isEmpty
-          ? LiquidGlass(child: YqEmptyState(icon: YqIcons.bookmark, title: t.quranNoBookmarks, hint: t.quranNoBookmarksHint))
-          : YqGroup(
-                  children: [
-                  for (final b in list)
-                    YqListRow(
-                      dense: true,
-                      leading: const YqIconTile(YqIcons.bookmark, gold: true),
-                      title: t.quranSurahName(q.surah(b.ref?.surah ?? q.firstOfPage(b.page).surah).name(locale)),
-                      subtitle:
-                          b.kind == BookmarkKind.ayah ? '${t.quranAyahN(b.ref!.ayah)} · ${t.quranPageN(b.page)}' : t.quranPageN(b.page),
-                      onTap: () => onOpen(b.page),
-                    ),
-                ],
-            ),
+    final notes = ref.watch(annotationsProvider).valueOrNull ?? Annotations.empty;
+    String name(int surah) => t.quranSurahName(q.surah(surah).name(widget.locale));
+
+    final markRows = [
+      for (final b in marks.valueOrNull ?? const <Bookmark>[])
+        YqListRow(
+          dense: true,
+          leading: const YqIconTile(YqIcons.bookmark, gold: true),
+          title: name(b.ref?.surah ?? q.firstOfPage(b.page).surah),
+          subtitle: b.kind == BookmarkKind.ayah ? '${t.quranAyahN(b.ref!.ayah)} · ${t.quranPageN(b.page)}' : t.quranPageN(b.page),
+          trailing: _dot(b.color),
+          onTap: () => b.ref == null ? widget.onOpen(b.page) : widget.onOpenAyah(b.ref!, b.page),
+        ),
+    ];
+    final noteRows = [
+      for (final n in notes.notes.values.toList()..sort((a, b) => b.at.compareTo(a.at)))
+        YqListRow(
+          dense: true,
+          leading: const YqIconTile(YqIcons.dua),
+          title: '${name(n.ref.surah)} · ${t.quranAyahN(n.ref.ayah)}',
+          subtitle: n.text.replaceAll('\n', ' '),
+          onTap: () => widget.onOpenAyah(n.ref, q.pageOf(n.ref)),
+        ),
+    ];
+    final highlightRows = [
+      for (final e in notes.highlights.entries.toList()..sort((a, b) => a.key.compareTo(b.key)))
+        YqListRow(
+          dense: true,
+          leading: const YqIconTile(YqIcons.quran),
+          title: '${name(e.key.surah)} · ${t.quranAyahN(e.key.ayah)}',
+          subtitle: q.text(e.key),
+          trailing: _dot(e.value),
+          onTap: () => widget.onOpenAyah(e.key, q.pageOf(e.key)),
+        ),
+    ];
+
+    final (rows, emptyTitle, emptyHint) = switch (_filter) {
+      _SavedFilter.all => ([...markRows, ...noteRows, ...highlightRows], t.quranNoBookmarks, t.quranNoBookmarksHint),
+      _SavedFilter.marks => (markRows, t.quranNoBookmarks, t.quranNoBookmarksHint),
+      _SavedFilter.notes => (noteRows, t.savedNoNotes, t.savedNoNotesHint),
+      _SavedFilter.highlights => (highlightRows, t.savedNoHighlights, t.savedNoHighlightsHint),
+    };
+    if (marks.hasError) return YqErrorState(onRetry: () => ref.invalidate(bookmarksProvider));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: YqSpace.s,
+          runSpacing: YqSpace.s,
+          children: [
+            for (final (f, label) in [
+              (_SavedFilter.all, t.savedAll),
+              (_SavedFilter.marks, t.savedMarks),
+              (_SavedFilter.notes, t.savedNotes),
+              (_SavedFilter.highlights, t.savedHighlights),
+            ])
+              YqChip(label: label, selected: _filter == f, onTap: () => setState(() => _filter = f)),
+          ],
+        ),
+        const SizedBox(height: YqSpace.m),
+        if (marks.isLoading)
+          const SizedBox.shrink()
+        else if (rows.isEmpty)
+          LiquidGlass(child: YqEmptyState(icon: YqIcons.bookmark, title: emptyTitle, hint: emptyHint))
+        else
+          YqGroup(children: rows),
+      ],
     );
   }
 }
@@ -528,3 +618,17 @@ final _cardDecoration = BoxDecoration(
   // No shadow: under the translucent fill it would show through as a grey patch.
   border: Border.all(color: const Color(0xE6FFFFFF)),
 );
+
+/// Empty state once the ayah index has answered with nothing.
+class _NoAyahResults extends ConsumerWidget {
+  const _NoAyahResults({required this.query});
+  final String query;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(context);
+    final ix = ref.watch(ayahSearchIndexProvider).valueOrNull;
+    if (ix == null || ix.search(query, limit: 1).total > 0) return const SizedBox.shrink();
+    return LiquidGlass(child: YqEmptyState(icon: YqIcons.search, title: t.quranNoResults, hint: t.quranNoResultsHint));
+  }
+}

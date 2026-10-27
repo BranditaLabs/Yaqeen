@@ -442,7 +442,7 @@
   "quranTitle": "القرآن الكريم",
   "quranListen": "الاستماع",
   "quranHifzPlan": "خطة الحفظ",
-  "quranSearchHint": "ابحث عن سورة أو رقمها",
+  "quranSearchHint": "ابحث في السور والآيات",
   "quranBrowse": "طريقة التصفح",
   "quranSurahs": "السور",
   "quranJuzs": "الأجزاء",
@@ -522,7 +522,7 @@
   "quranLastRead": "آخر قراءة",
   "quranSavedMark": "علامة محفوظة",
   "quranNoResults": "لا توجد نتائج",
-  "quranNoResultsHint": "جرّب اسماً آخر أو رقم السورة",
+  "quranNoResultsHint": "جرّب كلمة أخرى، أو اسم السورة أو رقمها",
   "quranNoBookmarks": "لا توجد علامات بعد",
   "quranNoBookmarksHint": "اضغط مطولاً على أي آية لحفظ علامة",
   "quranPageOf": "{page} من 604",
@@ -1824,5 +1824,294 @@
   "calBonusTaraweeh": "رمضان · صلاة التراويح",
   "calBonusRamadanJuz": "رمضان · جزء من الختمة",
   "widgetWird": "ورد اليوم",
-  "widgetStale": "افتح يقين لتحديث المواقيت"
+  "widgetStale": "افتح يقين لتحديث المواقيت",
+  "quranInAyat": "{count, plural, =1{في الآيات · نتيجة واحدة} =2{في الآيات · نتيجتان} few{في الآيات · {count} نتائج} other{في الآيات · {count} نتيجة}}",
+  "@quranInAyat": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "quranShowMore": "عرض المزيد",
+  "quranSearching": "جارٍ البحث في الآيات…",
+  "quranAyahResultA11y": "{surah}، الآية {ayah}، الصفحة {page}",
+  "@quranAyahResultA11y": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      },
+      "ayah": {
+        "type": "String"
+      },
+      "page": {
+        "type": "String"
+      }
+    }
+  },
+  "quranMarkJuz": "الجزء {n}",
+  "@quranMarkJuz": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "quranMarkHizb": "الحزب {n}",
+  "@quranMarkHizb": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "quranMarkQuarter": "{fraction} الحزب {n}",
+  "@quranMarkQuarter": {
+    "placeholders": {
+      "fraction": {
+        "type": "String"
+      },
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "quranMarkSajdah": "سجدة",
+  "quranNoteA11y": "ملاحظتك على الآية",
+  "quranHiddenAyahA11y": "آية مخفية للحفظ، اضغط لإظهارها",
+  "jumpTitle": "انتقل إلى",
+  "jumpSurah": "السورة",
+  "jumpJuz": "الجزء",
+  "jumpPage": "الصفحة",
+  "jumpAyah": "الآية",
+  "jumpFilter": "ابحث عن سورة",
+  "jumpPageField": "رقم الصفحة (1–604)",
+  "jumpAyahField": "رقم الآية",
+  "jumpGo": "انتقل",
+  "jumpAyahOf": "من {count} آية",
+  "@jumpAyahOf": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "noteTitle": "ملاحظتي",
+  "noteHint": "اكتب ما تتدبّره في هذه الآية…",
+  "noteSave": "حفظ",
+  "noteDelete": "حذف الملاحظة",
+  "notePrivate": "تُحفظ على جهازك فقط",
+  "readerPageTurn": "تقليب الصفحات",
+  "pageTurnBook": "كالكتاب",
+  "pageTurnSlide": "انزلاق",
+  "readerAutoNight": "الوضع الليلي تلقائياً بعد المغرب",
+  "readerImmersive": "إخفاء شريط الحالة أثناء القراءة",
+  "readerMemorise": "حفظ",
+  "memoriseTitle": "وضع الحفظ",
+  "memoriseOff": "إيقاف",
+  "memoriseAyat": "إخفاء الآيات",
+  "memoriseWords": "إخفاء كلمة وترك كلمة",
+  "memoriseHint": "اضغط على الآية لإظهارها، واضغط مرة أخرى لإخفائها.",
+  "memoriseShowAll": "إظهار الكل",
+  "memoriseHideAll": "إخفاء الكل",
+  "memoriseBanner": "وضع الحفظ · {mode}",
+  "@memoriseBanner": {
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "memoriseExit": "إنهاء وضع الحفظ",
+  "khatmaDoneToast": "تمّت الختمة — تقبّل الله منك",
+  "readerOpenJump": "انتقل إلى سورة أو جزء أو صفحة",
+  "ayahHighlight": "تظليل",
+  "ayahNote": "ملاحظة",
+  "ayahNoteEdit": "تعديل الملاحظة",
+  "ayahHighlightRemove": "بلا تظليل",
+  "ayahBookmarkColor": "لون العلامة",
+  "markColorGold": "ذهبي",
+  "markColorLapis": "أزرق",
+  "markColorSky": "سماوي",
+  "markColorGreen": "أخضر",
+  "khatmaTitle": "الختمة",
+  "khatmaSubtitle": "خطة لختم المصحف، على جهازك",
+  "khatmaPagesDone": "{done} من 604 صفحة",
+  "@khatmaPagesDone": {
+    "placeholders": {
+      "done": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaStart": "ابدأ ختمة",
+  "khatmaEmptyTitle": "لا توجد ختمة جارية",
+  "khatmaEmptyHint": "حدّد موعداً للختم أو عدد صفحات يومياً، ونحسب لك حصّة كل يوم.",
+  "khatmaSetupTitle": "خطة الختمة",
+  "khatmaByDate": "بحلول تاريخ",
+  "khatmaByPace": "صفحات يومياً",
+  "khatmaInDays": "{n} يوماً",
+  "@khatmaInDays": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaPickDate": "اختر تاريخاً",
+  "khatmaFinishOn": "الختم في {date}",
+  "@khatmaFinishOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaPerDay": "{n} صفحة يومياً",
+  "@khatmaPerDay": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaFromStart": "من أول المصحف",
+  "khatmaFromHere": "من حيث توقفت (الصفحة {page})",
+  "@khatmaFromHere": {
+    "placeholders": {
+      "page": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaSetWird": "اجعل حصّة الختمة وِردي اليومي",
+  "khatmaCreate": "ابدأ",
+  "khatmaSave": "حفظ التعديل",
+  "khatmaToday": "حصّة اليوم",
+  "khatmaPortion": "من الصفحة {from} إلى {to}",
+  "@khatmaPortion": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaPortionCount": "{n} صفحة · قرأت {read}",
+  "@khatmaPortionCount": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      },
+      "read": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaReadNow": "اقرأ الآن",
+  "khatmaOnTrack": "على الخطة",
+  "khatmaAhead": "متقدّم {n} صفحة",
+  "@khatmaAhead": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaBehind": "متأخّر {n} صفحة — اقرأ أكثر قليلاً اليوم",
+  "@khatmaBehind": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaTarget": "الموعد {date} · بقي {days} يوماً",
+  "@khatmaTarget": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "days": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaProjected": "بهذا المعدل تختم في {date}",
+  "@khatmaProjected": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaWeek": "هذا الأسبوع",
+  "khatmaWeekSummary": "{pages} صفحة · {minutes} دقيقة · {days} أيام قراءة",
+  "@khatmaWeekSummary": {
+    "placeholders": {
+      "pages": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "String"
+      },
+      "days": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaStreak": "{n} يوماً متتالياً",
+  "@khatmaStreak": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaHistory": "ختمات سابقة",
+  "khatmaRecord": "{days} يوماً · {from} – {to}",
+  "@khatmaRecord": {
+    "placeholders": {
+      "days": {
+        "type": "String"
+      },
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaEdit": "تعديل الخطة",
+  "khatmaEnd": "إنهاء الخطة",
+  "khatmaEndConfirm": "إنهاء الختمة الحالية؟ يبقى سجلّك في الإحصاءات.",
+  "khatmaDoneTitle": "تمّت الختمة",
+  "khatmaDoneBody": "تقبّل الله منك. ابدأ ختمة جديدة متى شئت.",
+  "khatmaOrbStatus": "{pct}% · اليوم {today}/{target}",
+  "@khatmaOrbStatus": {
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      },
+      "today": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "notifKhatmaTitle": "حصّتك من الختمة",
+  "notifKhatmaBody": "صفحات اليوم بانتظارك",
+  "savedAll": "الكل",
+  "savedMarks": "العلامات",
+  "savedNotes": "الملاحظات",
+  "savedHighlights": "التظليل",
+  "savedNoNotes": "لا توجد ملاحظات بعد",
+  "savedNoNotesHint": "اضغط مطولاً على آية ثم «ملاحظة» لتكتب تدبّرك",
+  "savedNoHighlights": "لا يوجد تظليل بعد",
+  "savedNoHighlightsHint": "اضغط مطولاً على آية ثم «تظليل»"
 }

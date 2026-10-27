@@ -415,7 +415,7 @@
   "quranTitle": "The Holy Quran",
   "quranListen": "Listen",
   "quranHifzPlan": "Hifz plan",
-  "quranSearchHint": "Search a surah or its number",
+  "quranSearchHint": "Search surahs and ayat",
   "quranBrowse": "Browse by",
   "quranSurahs": "Surahs",
   "quranJuzs": "Juz",
@@ -495,7 +495,7 @@
   "quranLastRead": "Last read",
   "quranSavedMark": "Saved bookmark",
   "quranNoResults": "No results",
-  "quranNoResultsHint": "Try another name or the surah number",
+  "quranNoResultsHint": "Try another word, or a surah name or number",
   "quranNoBookmarks": "No bookmarks yet",
   "quranNoBookmarksHint": "Long-press any ayah to save one",
   "quranPageOf": "{page} of 604",
@@ -1797,5 +1797,294 @@
   "calBonusTaraweeh": "Ramadan · taraweeh",
   "calBonusRamadanJuz": "Ramadan · a juz of the khatma",
   "widgetWird": "Today's wird",
-  "widgetStale": "Open Yaqeen to refresh the times"
+  "widgetStale": "Open Yaqeen to refresh the times",
+  "quranInAyat": "{count, plural, =1{In the ayat · 1 result} other{In the ayat · {count} results}}",
+  "@quranInAyat": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "quranShowMore": "Show more",
+  "quranSearching": "Searching the ayat…",
+  "quranAyahResultA11y": "{surah}, ayah {ayah}, page {page}",
+  "@quranAyahResultA11y": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      },
+      "ayah": {
+        "type": "String"
+      },
+      "page": {
+        "type": "String"
+      }
+    }
+  },
+  "quranMarkJuz": "Juz {n}",
+  "@quranMarkJuz": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "quranMarkHizb": "Hizb {n}",
+  "@quranMarkHizb": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "quranMarkQuarter": "{fraction} Hizb {n}",
+  "@quranMarkQuarter": {
+    "placeholders": {
+      "fraction": {
+        "type": "String"
+      },
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "quranMarkSajdah": "Sajdah",
+  "quranNoteA11y": "Your note on this ayah",
+  "quranHiddenAyahA11y": "Hidden for memorising — tap to show",
+  "jumpTitle": "Go to",
+  "jumpSurah": "Surah",
+  "jumpJuz": "Juz",
+  "jumpPage": "Page",
+  "jumpAyah": "Ayah",
+  "jumpFilter": "Find a surah",
+  "jumpPageField": "Page number (1–604)",
+  "jumpAyahField": "Ayah number",
+  "jumpGo": "Go",
+  "jumpAyahOf": "of {count} ayat",
+  "@jumpAyahOf": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "noteTitle": "My note",
+  "noteHint": "Write your reflection on this ayah…",
+  "noteSave": "Save",
+  "noteDelete": "Delete note",
+  "notePrivate": "Kept on this device only",
+  "readerPageTurn": "Page turn",
+  "pageTurnBook": "Like a book",
+  "pageTurnSlide": "Slide",
+  "readerAutoNight": "Night pages automatically after Maghrib",
+  "readerImmersive": "Hide the status bar while reading",
+  "readerMemorise": "Memorise",
+  "memoriseTitle": "Memorise mode",
+  "memoriseOff": "Off",
+  "memoriseAyat": "Hide ayat",
+  "memoriseWords": "Hide every other word",
+  "memoriseHint": "Tap an ayah to show it; tap again to hide it.",
+  "memoriseShowAll": "Show all",
+  "memoriseHideAll": "Hide all",
+  "memoriseBanner": "Memorise · {mode}",
+  "@memoriseBanner": {
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "memoriseExit": "Exit memorise mode",
+  "khatmaDoneToast": "Khatma complete — may Allah accept it from you",
+  "readerOpenJump": "Go to a surah, juz or page",
+  "ayahHighlight": "Highlight",
+  "ayahNote": "Note",
+  "ayahNoteEdit": "Edit note",
+  "ayahHighlightRemove": "No highlight",
+  "ayahBookmarkColor": "Bookmark colour",
+  "markColorGold": "Gold",
+  "markColorLapis": "Blue",
+  "markColorSky": "Sky",
+  "markColorGreen": "Green",
+  "khatmaTitle": "Khatma",
+  "khatmaSubtitle": "A plan to finish the mushaf, on your phone",
+  "khatmaPagesDone": "{done} of 604 pages",
+  "@khatmaPagesDone": {
+    "placeholders": {
+      "done": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaStart": "Start a khatma",
+  "khatmaEmptyTitle": "No khatma in progress",
+  "khatmaEmptyHint": "Pick a finish date or a daily pace and we'll work out each day's portion.",
+  "khatmaSetupTitle": "Khatma plan",
+  "khatmaByDate": "By a date",
+  "khatmaByPace": "Pages a day",
+  "khatmaInDays": "{n} days",
+  "@khatmaInDays": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaPickDate": "Pick a date",
+  "khatmaFinishOn": "Finish on {date}",
+  "@khatmaFinishOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaPerDay": "{n} pages a day",
+  "@khatmaPerDay": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaFromStart": "From the start",
+  "khatmaFromHere": "From where I stopped (page {page})",
+  "@khatmaFromHere": {
+    "placeholders": {
+      "page": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaSetWird": "Make the daily portion my wird goal",
+  "khatmaCreate": "Start",
+  "khatmaSave": "Save changes",
+  "khatmaToday": "Today's portion",
+  "khatmaPortion": "Pages {from} to {to}",
+  "@khatmaPortion": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaPortionCount": "{n} pages · {read} read",
+  "@khatmaPortionCount": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      },
+      "read": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaReadNow": "Read now",
+  "khatmaOnTrack": "On track",
+  "khatmaAhead": "{n} pages ahead",
+  "@khatmaAhead": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaBehind": "{n} pages behind — read a little more today",
+  "@khatmaBehind": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaTarget": "Due {date} · {days} days left",
+  "@khatmaTarget": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "days": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaProjected": "At this pace you finish on {date}",
+  "@khatmaProjected": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaWeek": "This week",
+  "khatmaWeekSummary": "{pages} pages · {minutes} min · {days} reading days",
+  "@khatmaWeekSummary": {
+    "placeholders": {
+      "pages": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "String"
+      },
+      "days": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaStreak": "{n}-day streak",
+  "@khatmaStreak": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaHistory": "Past khatmas",
+  "khatmaRecord": "{days} days · {from} – {to}",
+  "@khatmaRecord": {
+    "placeholders": {
+      "days": {
+        "type": "String"
+      },
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaEdit": "Edit plan",
+  "khatmaEnd": "End plan",
+  "khatmaEndConfirm": "End the current khatma? Your stats stay.",
+  "khatmaDoneTitle": "Khatma complete",
+  "khatmaDoneBody": "May Allah accept it from you. Start a new one whenever you like.",
+  "khatmaOrbStatus": "{pct}% · today {today}/{target}",
+  "@khatmaOrbStatus": {
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      },
+      "today": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "notifKhatmaTitle": "Your khatma portion",
+  "notifKhatmaBody": "Today's pages are waiting for you",
+  "savedAll": "All",
+  "savedMarks": "Bookmarks",
+  "savedNotes": "Notes",
+  "savedHighlights": "Highlights",
+  "savedNoNotes": "No notes yet",
+  "savedNoNotesHint": "Long-press an ayah, then «Note» to write your reflection",
+  "savedNoHighlights": "No highlights yet",
+  "savedNoHighlightsHint": "Long-press an ayah, then «Highlight»"
 }
