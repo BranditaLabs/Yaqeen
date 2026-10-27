@@ -377,7 +377,13 @@ export const ReviewDecision = z.object({
 });
 export type ReviewDecision = z.infer<typeof ReviewDecision>;
 
-export const ContentAdminRow = ContentItem.extend({ status: ContentStatus, reviewNote: z.string().nullable(), editorName: z.string().nullable().optional() });
+export const ContentAdminRow = ContentItem.extend({
+  status: ContentStatus,
+  reviewNote: z.string().nullable(),
+  editorName: z.string().nullable().optional(),
+  /** The approved version the app is served right now (null = never approved). */
+  liveVersion: z.number().int().nullable().optional(),
+});
 export type ContentAdminRow = z.infer<typeof ContentAdminRow>;
 
 export const DailyTaskUpsert = z.object({
@@ -512,6 +518,8 @@ export const ShopifyStatus = z.object({
   scopes: z.array(z.string()),
   lastError: z.string().nullable(),
   lastErrorAt: z.string().nullable(),
+  /** orders/paid webhook: whether its secret is set and when a code was last marked used. */
+  webhook: z.object({ configured: z.boolean(), lastUsedAt: z.string().nullable() }),
 });
 export type ShopifyStatus = z.infer<typeof ShopifyStatus>;
 

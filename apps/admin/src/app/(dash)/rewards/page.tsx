@@ -132,8 +132,22 @@ export default async function RewardsPage({ searchParams }: { searchParams: Prom
       <div className="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Kpi label="نقاط مُنحت" value={num(issued)} hint={`اليوم الكامل ${num(program.settings.dailyTotal)} · قضاء حتى ${num(program.settings.qadaDayPoints)}`} />
         <Kpi label="نقاط استُبدلت" value={num(Math.max(0, redeemed))} hint={`${num(codes.length)} كوداً في آخر 200 استبدال`} />
-        <Kpi label="نسبة استخدام الأكواد" value={codes.length ? pct((100 * used) / codes.length) : '—'} hint="تُحدَّث عند ربط طلبات Shopify" />
-        <Kpi label="مبيعات من الأكواد" value="—" hint="المرحلة الثانية: ربط Webhook الطلبات" />
+        <Kpi
+          label="نسبة استخدام الأكواد"
+          value={codes.length ? pct((100 * used) / codes.length) : '—'}
+          hint={shopify.webhook.configured ? 'من طلبات Shopify المدفوعة' : 'فعّل Webhook الطلبات لتُحتسب'}
+        />
+        <Kpi
+          label="طلبات بأكواد يقين"
+          value={shopify.webhook.configured ? num(used) : '—'}
+          hint={
+            shopify.webhook.configured
+              ? shopify.webhook.lastUsedAt
+                ? `آخر طلب ${dateTime(shopify.webhook.lastUsedAt)}`
+                : 'لم يصل طلب بعد'
+              : 'orders/paid → SHOPIFY_WEBHOOK_SECRET'
+          }
+        />
       </div>
 
       <nav className="mb-4 flex gap-2 overflow-x-auto pb-1">

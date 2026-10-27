@@ -5,7 +5,7 @@
  *   SEED_ADMIN_EMAIL=you@yaqin-brand.com SEED_ADMIN_PASSWORD='…' pnpm db:seed
  */
 import { loadEnv } from '../config/env.js';
-import { generateTotpSecret, hashPassword } from '../lib/crypto.js';
+import { generateTotpSecret, hashPassword, sealSecret, secretsKey } from '../lib/crypto.js';
 import { createDb } from './client.js';
 import { adminUsers, bonusRules, contentItems, contentPacks, reciters, rewards, streakMilestones, taskRules } from './schema.js';
 
@@ -138,7 +138,13 @@ if (email && password) {
   const totpSecret = generateTotpSecret();
   const inserted = await db
     .insert(adminUsers)
-    .values({ name: 'Super Admin', email, passwordHash: await hashPassword(password), totpSecret, role: 'super_admin' })
+    .values({
+      name: 'Super Admin',
+      email,
+      passwordHash: await hashPassword(password),
+      totpSecret: sealSecret(totpSecret, secretsKey(process.env.ADMIN_SECRETS_KEY ?? '')),
+      role: 'super_admin',
+    })
     .onConflictDoNothing()
     .returning({ id: adminUsers.id });
   if (inserted.length) {

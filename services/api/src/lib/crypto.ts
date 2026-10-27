@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomBytes, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 
 const scrypt = promisify(scryptCb) as (pw: string, salt: Buffer, keylen: number, opts: object) => Promise<Buffer>;
@@ -90,6 +90,39 @@ export function verifyTotp(secretB32: string, code: string, nowMs = Date.now()):
     if (expected.length === code.length && timingSafeEqual(Buffer.from(expected), Buffer.from(code))) return true;
   }
   return false;
+}
+
+/* --------------------------------------------------------- sealed secrets */
+
+const SEAL_PREFIX = 'enc:v1:';
+
+/** The 32-byte key from ADMIN_SECRETS_KEY (base64), or null when unset (dev/test only). */
+export function secretsKey(b64: string): Buffer | null {
+  if (!b64) return null;
+  const key = Buffer.from(b64, 'base64');
+  if (key.length !== 32) throw new Error('ADMIN_SECRETS_KEY must be 32 bytes, base64-encoded');
+  return key;
+}
+
+/** AES-256-GCM: "enc:v1:<iv>.<tag>.<ciphertext>" (base64url). Without a key the value stays as is. */
+export function sealSecret(plain: string, key: Buffer | null): string {
+  if (!key) return plain;
+  const iv = randomBytes(12);
+  const c = createCipheriv('aes-256-gcm', key, iv);
+  const ct = Buffer.concat([c.update(plain, 'utf8'), c.final()]);
+  return `${SEAL_PREFIX}${iv.toString('base64url')}.${c.getAuthTag().toString('base64url')}.${ct.toString('base64url')}`;
+}
+
+export const isSealed = (stored: string) => stored.startsWith(SEAL_PREFIX);
+
+/** Opens a sealed value; a legacy plain value (written before the key existed) is returned as is. */
+export function openSecret(stored: string, key: Buffer | null): string {
+  if (!isSealed(stored)) return stored;
+  if (!key) throw new Error('ADMIN_SECRETS_KEY is required to read sealed secrets');
+  const [iv, tag, ct] = stored.slice(SEAL_PREFIX.length).split('.');
+  const d = createDecipheriv('aes-256-gcm', key, Buffer.from(iv ?? '', 'base64url'));
+  d.setAuthTag(Buffer.from(tag ?? '', 'base64url'));
+  return Buffer.concat([d.update(Buffer.from(ct ?? '', 'base64url')), d.final()]).toString('utf8');
 }
 
 /* ---------------------------------------------------------------- tokens */

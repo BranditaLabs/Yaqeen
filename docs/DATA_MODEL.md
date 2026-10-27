@@ -39,8 +39,8 @@ erDiagram
 | `tag_batches` | A production run: `batch` PK, `kind`, `status` ordered·received·on_sale·void, `note`, `created_by`. Migration 0008 back-fills earlier batches as `on_sale`. |
 | `card_daily_stats` | `(date, metric)` → `value`: Cairo-day counters of the card programme (page_open, tag_scan, activation_open, get_app, store_click, card_published, tag_activated). Numbers only. |
 | `profile_tags` | Key medals / cards. `code` (PK, 8 chars from `TAG_ALPHABET`), `kind` medal·card, `batch`, `user_id` (null until activated; set null if the user row is deleted), `linked_at`, `disabled_at` (lost / erasure — never re-activated by a finder; support may re-issue), `scans` (a counter only). |
-| `rewards` / `redemptions` | Catalogue (cost, value, validity days, monthly cap, per-user monthly limit) and issued Shopify codes. |
-| `content_items` | Duas / azkar with workflow `draft → pending_review → published / changes_requested`. |
+| `rewards` / `redemptions` | Catalogue (cost, value, validity days, monthly cap, per-user monthly limit) and issued Shopify codes (`issued → used` by the orders/paid webhook, `→ expired` daily, `void` when Shopify failed and the points came back). |
+| `content_items` | Duas / azkar with workflow `draft → pending_review → published / changes_requested`. `live` + `live_at` hold the last approved snapshot — what the app is served — so an edit in review never takes an item offline. |
 | `daily_tasks` | One "مهمة اليوم" per date. |
 | `campaigns` / `campaign_deliveries` | Push campaigns; deliveries enforce the daily cap and dedupe. |
 | `app_config` | Remote config by key (features, minVersion, maintenance, splashVerse). |

@@ -5,6 +5,8 @@
  * identities, sessions, devices, consents, worship records and activity are deleted; the user
  * row stays as an anonymous tombstone so the append-only points ledger and redemptions still
  * add up for accounting. Consent events (the legal record of what was agreed) are kept.
+ *
+ * The same daily run drops product events past retention and marks unused reward codes expired.
  */
 import { and, eq, inArray, lt } from 'drizzle-orm';
 import { loadEnv } from '../config/env.js';
@@ -23,6 +25,7 @@ import {
 import { DELETION_GRACE_DAYS } from '../routes/public/me.routes.js';
 import { runJob } from '../lib/observability.js';
 import { RETENTION_DAYS, purgeOld } from '../services/product-analytics.service.js';
+import { expireDue } from '../services/rewards.service.js';
 import { withJobLock } from './lock.js';
 
 export async function purgeDeleted(db: Db, now: Date): Promise<number> {
@@ -50,6 +53,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const { db, pool } = createDb(env.DATABASE_URL);
   const res = await runJob(env, 'yaqeen-purge', '17 1 * * *', () => withJobLock(pool, 'purge-deleted', () => purgeDeleted(db, new Date())));
   console.log(res.ran ? `[purge] anonymised ${res.result} account(s)` : '[purge] another run in progress — skipped');
-  if (res.ran) console.log(`[purge] removed ${await purgeOld(db, new Date())} product event(s) older than ${RETENTION_DAYS} days`);
+  if (res.ran) {
+    console.log(`[purge] removed ${await purgeOld(db, new Date())} product event(s) older than ${RETENTION_DAYS} days`);
+    console.log(`[purge] expired ${await expireDue(db, new Date())} unused reward code(s)`);
+  }
   await pool.end();
 }

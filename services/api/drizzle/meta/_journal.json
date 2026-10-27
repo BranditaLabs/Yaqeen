@@ -71,6 +71,13 @@
       "when": 1793056780278,
       "tag": "0009_product_analytics",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793082252259,
+      "tag": "0010_store_loop_live_content",
+      "breakpoints": true
     }
   ]
 }

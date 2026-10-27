@@ -1,7 +1,7 @@
 /**
  * Public app endpoints: remote config, Hijri calendar, challenge, rewards, content.
  */
-import { and, asc, eq, gt, inArray } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNotNull } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { BonusKind, type ChallengeCalendar, CompleteTaskRequest, ContentType, type RemoteConfig, TaskKey } from '@yaqeen/contracts';
@@ -99,28 +99,19 @@ export const appRoutes: FastifyPluginAsync = async (app) => {
     const q = z
       .object({ type: ContentType.exclude(['splash_verse']).optional(), since: z.iso.datetime().optional() })
       .parse(req.query);
-    const conds = [eq(contentItems.status, 'published'), inArray(contentItems.type, [...SYNCED_TYPES])];
+    // Served from the reviewer-approved snapshot, so an edit in review never takes an item offline.
+    const conds = [isNotNull(contentItems.live), inArray(contentItems.type, [...SYNCED_TYPES])];
     if (q.type) conds.push(eq(contentItems.type, q.type));
-    if (q.since) conds.push(gt(contentItems.updatedAt, new Date(q.since)));
-    const load = () => db
-      .select({
-        id: contentItems.id,
-        type: contentItems.type,
-        category: contentItems.category,
-        title: contentItems.title,
-        textAr: contentItems.textAr,
-        translationEn: contentItems.translationEn,
-        source: contentItems.source,
-        virtue: contentItems.virtue,
-        repeatCount: contentItems.repeatCount,
-        sortOrder: contentItems.sortOrder,
-        featured: contentItems.featured,
-        version: contentItems.version,
-        updatedAt: contentItems.updatedAt,
-      })
-      .from(contentItems)
-      .where(and(...conds))
-      .orderBy(asc(contentItems.category), asc(contentItems.sortOrder), asc(contentItems.title));
+    if (q.since) conds.push(gt(contentItems.liveAt, new Date(q.since)));
+    const load = async () => {
+      const rows = await db
+        .select({ id: contentItems.id, type: contentItems.type, live: contentItems.live, liveAt: contentItems.liveAt })
+        .from(contentItems)
+        .where(and(...conds));
+      return rows
+        .map((r) => ({ id: r.id, type: r.type, ...r.live!, updatedAt: r.liveAt }))
+        .sort((a, b) => a.category.localeCompare(b.category) || a.sortOrder - b.sortOrder || a.title.localeCompare(b.title));
+    };
     const json = await app.ctx.cache.getJson('content', `list:${q.type ?? '*'}:${q.since ?? ''}`, 300, load);
     return sendCachedJson(req, reply, json, 600);
   });

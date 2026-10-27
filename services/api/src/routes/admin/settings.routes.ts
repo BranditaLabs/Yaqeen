@@ -5,7 +5,7 @@ import { AdminRole, ConfigPatch, HijriAdjustRequest, SplashVerseUpdate } from '@
 import { adminUsers, appConfig, auditLog, contentItems, hijriAdjustments } from '../../db/schema.js';
 import { localToday } from '../../domain/points.js';
 import { audit } from '../../lib/audit.js';
-import { generateTotpSecret, hashPassword } from '../../lib/crypto.js';
+import { generateTotpSecret, hashPassword, sealSecret, secretsKey } from '../../lib/crypto.js';
 import { badRequest } from '../../lib/errors.js';
 import { adminOf } from '../../plugins/auth.js';
 import { previewAdjustment } from '../../services/calendar.service.js';
@@ -120,7 +120,13 @@ export const adminSettingsRoutes: FastifyPluginAsync = async (app) => {
     const row = await db.transaction(async (tx) => {
       const [a] = await tx
         .insert(adminUsers)
-        .values({ name: body.name, email: body.email, role: body.role, passwordHash: await hashPassword(body.password), totpSecret })
+        .values({
+          name: body.name,
+          email: body.email,
+          role: body.role,
+          passwordHash: await hashPassword(body.password),
+          totpSecret: sealSecret(totpSecret, secretsKey(app.ctx.env.ADMIN_SECRETS_KEY)),
+        })
         .returning({ id: adminUsers.id });
       await audit(tx, req, { action: 'admin.create', targetType: 'admin', targetId: a!.id, after: { email: body.email, role: body.role } });
       return a!;

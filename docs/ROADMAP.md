@@ -36,11 +36,11 @@
 
 ## Phase 3 — hardening before launch
 
-- [ ] Hard-delete job for `deletion_requested` users after 14 days
-- [ ] Encrypt admin TOTP secrets with KMS
-- [ ] Keep the previous published content version live while an edit is in review
-- [ ] Shopify webhook (`orders/paid`) → mark redemption `used`, server-side `purchase` event
-- [ ] Expire unused codes (`expired`) job
-- [ ] Per-user prayer coordinates for the dispatcher (city lookup) instead of Cairo default
-- [ ] Load test redeem + complete endpoints; Sentry/OpenTelemetry
+- [x] Erasure job for `deletion_requested` users (30-day grace, `job:purge`)
+- [x] Admin TOTP secrets sealed at rest (`ADMIN_SECRETS_KEY`, AES-256-GCM)
+- [x] The approved content version stays live while an edit is in review (`content_items.live`)
+- [x] Shopify webhook (`orders/paid`) → redemption `used` (signed, idempotent). Server-side `purchase` to ad platforms is **not** built — needs a decision (new third-party data flow)
+- [x] Unused codes → `expired` (daily, in `job:purge`)
+- [x] Dispatcher uses each user's picked city (coarse coordinates) + prayer method, else their zone's largest city, else Cairo
+- [x] Load test (`pnpm --filter @yaqeen/api load`); Sentry + Prometheus
 - [ ] App Store privacy labels & Play data-safety form from SECURITY_PRIVACY.md

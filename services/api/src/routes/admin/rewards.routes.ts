@@ -154,12 +154,14 @@ export const adminRewardsRoutes: FastifyPluginAsync = async (app) => {
   /** Connection pill «متصل · yaqin-brand.com». Never throws: a broken connection is a status. */
   app.get('/shopify/status', { preHandler: read }, async (): Promise<ShopifyStatus> => {
     const shop = app.ctx.shopify;
-    const base = { configured: shop.configured, connected: false, shopName: null, domain: shop.domain || null, scopes: [] as string[] };
+    const [w] = await db.select({ at: sql<Date | null>`max(${redemptions.usedAt})` }).from(redemptions);
+    const webhook = { configured: Boolean(app.ctx.env.SHOPIFY_WEBHOOK_SECRET), lastUsedAt: w?.at ? new Date(w.at).toISOString() : null };
+    const base = { configured: shop.configured, connected: false, shopName: null, domain: shop.domain || null, scopes: [] as string[], webhook };
     const last = () => ({ lastError: shop.lastError?.message ?? null, lastErrorAt: shop.lastError?.at.toISOString() ?? null });
     if (!shop.configured) return { ...base, ...last() };
     try {
       const info = await shop.shopInfo();
-      return { configured: true, connected: true, shopName: info.shopName, domain: info.domain, scopes: info.scopes, ...last() };
+      return { configured: true, connected: true, shopName: info.shopName, domain: info.domain, scopes: info.scopes, webhook, ...last() };
     } catch {
       return { ...base, ...last() };
     }

@@ -18,12 +18,16 @@ const EnvSchema = z.object({
   REDIS_URL: z.string().default('redis://localhost:6379'),
   JWT_SECRET: z.string().min(32).default('dev-only-secret-change-me-dev-only-secret'),
   ADMIN_JWT_SECRET: z.string().min(32).default('dev-only-admin-secret-change-me-dev-only'),
+  /** 32 random bytes, base64 — seals admin TOTP secrets at rest (AES-256-GCM). Keep it in the secret manager. */
+  ADMIN_SECRETS_KEY: z.string().default(''),
   CORS_ORIGINS: csv,
   GOOGLE_CLIENT_IDS: csv,
   APPLE_CLIENT_IDS: csv,
   SHOPIFY_SHOP_DOMAIN: z.string().default(''),
   SHOPIFY_ADMIN_TOKEN: z.string().default(''),
   SHOPIFY_API_VERSION: z.string().default('2025-10'),
+  /** Signing secret of the shop's orders/paid webhook (Settings → Notifications → Webhooks). Empty = webhook off. */
+  SHOPIFY_WEBHOOK_SECRET: z.string().default(''),
   FIREBASE_SERVICE_ACCOUNT_JSON: z.string().default(''),
   ALADHAN_BASE_URL: z.string().url().default('https://api.aladhan.com/v1'),
   HIJRI_REGION: z.string().default('EG'),
@@ -68,6 +72,9 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   }
   if (env.NODE_ENV === 'production' && env.ADMIN_JWT_SECRET.startsWith('dev-only')) {
     throw new Error('ADMIN_JWT_SECRET must be set in production');
+  }
+  if (env.NODE_ENV === 'production' && !env.ADMIN_SECRETS_KEY) {
+    throw new Error('ADMIN_SECRETS_KEY must be set in production (openssl rand -base64 32)');
   }
   return env;
 }

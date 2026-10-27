@@ -1,5 +1,5 @@
-# Non-secret settings. Secrets (DATABASE_URL, REDIS_URL, JWT_SECRET, ADMIN_JWT_SECRET,
-# SHOPIFY_ADMIN_TOKEN, FIREBASE_SERVICE_ACCOUNT_JSON, GOOGLE_CLIENT_IDS, APPLE_CLIENT_IDS) live in
+# Non-secret settings. Secrets (DATABASE_URL, REDIS_URL, JWT_SECRET, ADMIN_JWT_SECRET, ADMIN_SECRETS_KEY,
+# SHOPIFY_ADMIN_TOKEN, SHOPIFY_WEBHOOK_SECRET, FIREBASE_SERVICE_ACCOUNT_JSON, GOOGLE_CLIENT_IDS, APPLE_CLIENT_IDS) live in
 # the `yaqeen-api-secrets` Secret, created from your secret manager — never committed:
 #   kubectl -n yaqeen create secret generic yaqeen-api-secrets --from-env-file=prod.env
 apiVersion: v1

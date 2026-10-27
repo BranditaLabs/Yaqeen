@@ -17,7 +17,7 @@ Base URL: `API_URL` (local `http://localhost:4000`). JSON only. Schemas: `packag
 | POST | `/v1/auth/link` | guest | `{provider: google\|apple, idToken}` → session. New identity: the guest becomes the account. Existing identity: guest points move over as two ledger rows (`merge-out:` / `merge:`), audited, guest sessions revoked. `not_a_guest` if already linked |
 | GET | `/v1/config` | — | Remote config: `features` (+ `featureRollout` %), min versions, maintenance, splash verse, Hijri offset, `points` (incl. `dailyTotal`, `cheapestRewardPoints`). Cached 5 min |
 | GET | `/v1/calendar/hijri?year&month&offset` | — | Gregorian month → Hijri days (UAQ + Egypt adjustment + personal offset) |
-| GET | `/v1/content?type&since` | — | Published duas/azkar only; `since` for incremental sync |
+| GET | `/v1/content?type&since` | — | The reviewer-approved version of each dua/zikr (an edit in review keeps serving the last approved one); `since` compares the approval time for incremental sync |
 | GET | `/v1/content/reciters` | — | Active licensed recitations `{id, nameAr, nameEn, style, riwaya, baseUrl, timingUrl, sampleUrl, sizeBytes}`. Files: `<baseUrl>/<sss>.mp3` (zero-padded surah); `timingUrl` → `{"<surah>": [[startMs, endMs], …]}` (index 0 = ayah 1). The CDN must honour `Range` (resumable downloads). |
 | GET | `/v1/content/packs` | — | Downloadable packs `{id, kind, version, url, sha256, sizeBytes}` — verify sha256 before installing |
 | GET | `/v1/daily-task?date` | — | مهمة اليوم |
@@ -48,6 +48,12 @@ Base URL: `API_URL` (local `http://localhost:4000`). JSON only. Schemas: `packag
 | POST | `/v1/challenge/bonuses/:kind/claim` | user | Today only; eligibility computed server-side from the Hijri date |
 | GET | `/v1/rewards` | user | Catalogue with `available` for the caller's balance |
 | POST | `/v1/rewards/:id/redeem` | user | Debits points, creates a single-use Shopify code; refunds on Shopify failure. Send `Idempotency-Key` (one per confirm tap): a retry returns the same code without a second debit (`redemption_in_progress` while the first is still with Shopify) |
+
+## Webhooks
+
+| Method | Path | Auth | Notes |
+| --- | --- | --- | --- |
+| POST | `/webhooks/shopify/orders-paid` | `X-Shopify-Hmac-Sha256` over the raw body with `SHOPIFY_WEBHOOK_SECRET` (401 `unauthorized` otherwise) | Our `YQ-XXXX-XXXX` codes on the paid order become `used` (`usedAt`, `shopifyOrderId`). Idempotent — Shopify retries are no-ops. Nothing about the customer is stored. → `{ ok, used }` |
 
 ## Admin
 
@@ -84,7 +90,7 @@ Roles: `super_admin` (always allowed), `content_editor`, `religious_reviewer`, `
 | POST | `/admin/rewards/grants/preview` · `/admin/rewards/grants` | super_admin — gift points to a segment; one ledger row per user, idempotent |
 | GET · POST · PUT | `/admin/rewards` · `/admin/rewards/:id` | read: marketing, support · write: marketing — cost, value, validity, monthly cap, per-user monthly limit, collections |
 | GET | `/admin/rewards/redemptions` | marketing, support |
-| GET | `/admin/rewards/shopify/status` | marketing, support — `{configured, connected, shopName, domain, scopes, lastError}` |
+| GET | `/admin/rewards/shopify/status` | marketing, support — `{configured, connected, shopName, domain, scopes, lastError, webhook: {configured, lastUsedAt}}` |
 | GET | `/admin/rewards/shopify/collections?search` | marketing |
 | GET | `/admin/settings/config` | any |
 | PATCH | `/admin/settings/config` | super_admin — not `hijri`, `points` or `splashVerse` (own endpoints) |

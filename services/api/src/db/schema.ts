@@ -429,6 +429,9 @@ export const redemptions = pgTable(
     expiresAt: ts('expires_at').notNull(),
     /** Client key for one confirm tap: a retry returns the same code instead of spending twice. */
     idempotencyKey: text('idempotency_key'),
+    /** Set by the Shopify orders/paid webhook when the code is used at checkout. */
+    usedAt: ts('used_at'),
+    shopifyOrderId: text('shopify_order_id'),
     createdAt: createdAt(),
   },
   (t) => [
@@ -437,10 +440,25 @@ export const redemptions = pgTable(
     index('redemptions_user_idx').on(t.userId),
     // Monthly caps count per reward per month inside the redeem transaction.
     index('redemptions_reward_created_idx').on(t.rewardId, t.createdAt),
+    // The expiry job scans issued codes past their date.
+    index('redemptions_status_expires_idx').on(t.status, t.expiresAt),
   ],
 );
 
 /* ---------------------------------------------------------------- content */
+
+export interface LiveContent {
+  category: string;
+  title: string;
+  textAr: string;
+  translationEn: string | null;
+  source: string;
+  virtue: string | null;
+  repeatCount: number;
+  sortOrder: number;
+  featured: boolean;
+  version: number;
+}
 
 export const contentItems = pgTable(
   'content_items',
@@ -462,10 +480,16 @@ export const contentItems = pgTable(
     createdBy: uuid('created_by'),
     reviewedBy: uuid('reviewed_by'),
     publishedAt: ts('published_at'),
+    /**
+     * The reviewer-approved text the app is served. An edit goes back through review while this
+     * snapshot stays live; approving the edit replaces it.
+     */
+    live: jsonb('live').$type<LiveContent>(),
+    liveAt: ts('live_at'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [index('content_items_status_idx').on(t.status, t.type)],
+  (t) => [index('content_items_status_idx').on(t.status, t.type), index('content_items_live_idx').on(t.type, t.liveAt)],
 );
 
 /** Licensed recitations offered in the app (GET /v1/content/reciters). */

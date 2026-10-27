@@ -48,7 +48,7 @@ Both are listed in the privacy policy and can be switched off by removing their 
 
 - App tokens and admin tokens use different secrets **and** audiences; an app token can't reach `/admin`.
 - Admin: scrypt passwords, mandatory TOTP, 8-hour sessions in httpOnly `SameSite=Strict` cookies, never readable by browser JS. Put the dashboard behind SSO/VPN or an IP allowlist too.
-- TOTP secrets are stored plain in v1 — encrypt with a KMS key before production (ROADMAP).
+- TOTP secrets are sealed at rest with AES-256-GCM under `ADMIN_SECRETS_KEY` (32 bytes from the secret manager / KMS; required in production). Secrets from before the key are sealed on the admin's next good login. Losing the key means every admin re-enrols 2FA — back it up with the other production secrets.
 - Every admin write is audited in the same DB transaction as the change.
 - Point balances can't race: per-user advisory locks around awards and redemptions; unique `(user, ref_key)` on the ledger.
 - Logs redact `authorization`, `x-admin-session`, `idToken`, `password`, `totp`.

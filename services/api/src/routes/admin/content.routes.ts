@@ -1,12 +1,28 @@
-import { and, asc, desc, eq, getTableColumns, gte } from 'drizzle-orm';
+import { and, asc, desc, eq, getTableColumns, gte, sql } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { ContentStatus, ContentType, DailyTaskUpsert, ReviewDecision, UpsertContentRequest } from '@yaqeen/contracts';
-import { adminUsers, appConfig, contentItems, dailyTasks } from '../../db/schema.js';
+import { type LiveContent, adminUsers, appConfig, contentItems, dailyTasks } from '../../db/schema.js';
 import { localToday } from '../../domain/points.js';
 import { audit } from '../../lib/audit.js';
 import { conflict, forbidden, notFound } from '../../lib/errors.js';
 import { adminOf } from '../../plugins/auth.js';
+
+/** What the app is served once a reviewer approves this version. */
+export function liveSnapshot(r: typeof contentItems.$inferSelect): LiveContent {
+  return {
+    category: r.category,
+    title: r.title,
+    textAr: r.textAr,
+    translationEn: r.translationEn,
+    source: r.source,
+    virtue: r.virtue,
+    repeatCount: r.repeatCount,
+    sortOrder: r.sortOrder,
+    featured: r.featured,
+    version: r.version,
+  };
+}
 
 /**
  * Content workflow:  draft → pending_review → (published | changes_requested → pending_review …)
@@ -18,6 +34,8 @@ export const adminContentRoutes: FastifyPluginAsync = async (app) => {
   const reviewer = app.requireAdmin(['religious_reviewer']);
   const anyContent = app.requireAdmin(['content_editor', 'religious_reviewer']);
 
+  const { live: _live, liveAt: _liveAt, ...rest } = getTableColumns(contentItems);
+
   app.get('/', { preHandler: anyContent }, async (req) => {
     const q = z.object({ type: ContentType.optional(), status: ContentStatus.optional() }).parse(req.query);
     const conds = [];
@@ -25,7 +43,7 @@ export const adminContentRoutes: FastifyPluginAsync = async (app) => {
     if (q.status) conds.push(eq(contentItems.status, q.status));
     // `editorName` feeds the «آخر تعديل» history line.
     return db
-      .select({ ...getTableColumns(contentItems), editorName: adminUsers.name })
+      .select({ ...rest, editorName: adminUsers.name, liveVersion: sql<number | null>`(${contentItems.live}->>'version')::int` })
       .from(contentItems)
       .leftJoin(adminUsers, eq(adminUsers.id, contentItems.createdBy))
       .where(conds.length ? and(...conds) : undefined)
@@ -46,8 +64,8 @@ export const adminContentRoutes: FastifyPluginAsync = async (app) => {
   });
 
   /**
-   * Any edit sends the item back to draft and through review again. v1 unpublishes it while
-   * in review; ROADMAP has "keep previous published version live during review".
+   * Any edit sends the item back to draft and through review again. The last approved version
+   * (`live`) keeps being served meanwhile; approving the edit replaces it.
    */
   app.put('/:id', { preHandler: editor }, async (req) => {
     const { id } = z.object({ id: z.uuid() }).parse(req.params);
@@ -97,7 +115,15 @@ export const adminContentRoutes: FastifyPluginAsync = async (app) => {
         .update(contentItems)
         .set(
           body.decision === 'approve'
-            ? { status: 'published', reviewedBy: adminOf(req).sub, reviewNote: body.note ?? null, publishedAt: now, updatedAt: now }
+            ? {
+                status: 'published',
+                reviewedBy: adminOf(req).sub,
+                reviewNote: body.note ?? null,
+                publishedAt: now,
+                updatedAt: now,
+                live: liveSnapshot(before),
+                liveAt: now,
+              }
             : { status: 'changes_requested', reviewedBy: adminOf(req).sub, reviewNote: body.note ?? null, updatedAt: now },
         )
         .where(eq(contentItems.id, id))
