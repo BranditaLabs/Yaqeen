@@ -5,7 +5,7 @@ import { and, asc, eq, gt, inArray, isNotNull } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { BonusKind, type ChallengeCalendar, CompleteTaskRequest, ContentType, type RemoteConfig, TaskKey } from '@yaqeen/contracts';
-import { appConfig, contentItems, contentPacks, dailyTasks, reciters, rewards, users } from '../../db/schema.js';
+import { appConfig, bonusRules, contentItems, contentPacks, dailyTasks, reciters, rewards, users } from '../../db/schema.js';
 import { specialDays } from '../../domain/hijri.js';
 import { addDays, localToday } from '../../domain/points.js';
 import { sendCachedJson } from '../../lib/cache.js';
@@ -28,7 +28,7 @@ export const DEFAULT_CONFIG: RemoteConfig = {
   splashVerse: { textAr: 'وَٱعْبُدْ رَبَّكَ حَتَّىٰ يَأْتِيَكَ ٱلْيَقِينُ', reference: 'الحجر: 99' },
   hijri: { region: 'EG', offsetDays: 0, effectiveFrom: null },
   cards: { medalProductUrl: '' },
-  points: { dailyTotal: 100, qadaDayPoints: 80, qadaWindowDays: 7, challengeLengthDays: 365, cheapestRewardPoints: null },
+  points: { dailyTotal: 100, qadaDayPoints: 80, qadaWindowDays: 7, challengeLengthDays: 365, cheapestRewardPoints: null, bonuses: [] },
 };
 
 /** Content types the app syncs from /v1/content (the splash verse ships in /v1/config). */
@@ -58,6 +58,10 @@ export async function readConfig(app: Parameters<FastifyPluginAsync>[0]): Promis
     qadaWindowDays: ps.qadaWindowDays,
     challengeLengthDays: ps.challengeLengthDays,
     cheapestRewardPoints: cheapest?.cost ?? null,
+    bonuses: await app.ctx.db
+      .select({ kind: bonusRules.kind, points: bonusRules.points })
+      .from(bonusRules)
+      .where(eq(bonusRules.enabled, true)),
   };
   const adj = (await adjustmentsFor(app.ctx, app.ctx.env.HIJRI_REGION))[0];
   merged.hijri = adj
@@ -221,7 +225,9 @@ export const appRoutes: FastifyPluginAsync = async (app) => {
 
     r.post('/challenge/bonuses/:kind/claim', async (req) => {
       const { kind } = z.object({ kind: BonusKind }).parse(req.params);
-      return { awarded: await challenge.claimBonus(app.ctx, userId(req), kind) };
+      // `date`: the day the app ticked it — a claim that synced after that day is refused, not moved.
+      const { date } = z.object({ date: IsoDate.optional() }).parse(req.body ?? {});
+      return { awarded: await challenge.claimBonus(app.ctx, userId(req), kind, date) };
     });
 
     /* ------------------------------------------------------------ rewards */

@@ -205,15 +205,16 @@ export async function completeTask(
   return { awarded, milestoneAwarded: milestonePoints, day };
 }
 
-export async function claimBonus(ctx: AppContext, userId: string, kind: BonusKind): Promise<number> {
+export async function claimBonus(ctx: AppContext, userId: string, kind: BonusKind, forDate?: string): Promise<number> {
   const date = await userToday(ctx, userId);
+  if (forDate && forDate !== date) throw badRequest('day_closed');
   const [rule] = await ctx.db.select().from(bonusRules).where(eq(bonusRules.kind, kind));
   if (!rule?.enabled) throw notFound('bonus');
   const [u] = await ctx.db.select({ off: users.hijriOffsetDays }).from(users).where(eq(users.id, userId));
   // Hijri day is computed server-side — never trusted from the client.
   const hijri = await hijriFor(ctx, date, u?.off ?? 0);
   if (!hijri) throw badRequest('hijri_unavailable');
-  if (!eligibleBonuses({ weekday: hijri.weekday, hijriDay: hijri.hijriDay }).includes(kind)) {
+  if (!eligibleBonuses({ weekday: hijri.weekday, hijriDay: hijri.hijriDay, hijriMonth: hijri.hijriMonth }).includes(kind)) {
     throw badRequest('bonus_not_eligible');
   }
   const inserted = await ctx.db

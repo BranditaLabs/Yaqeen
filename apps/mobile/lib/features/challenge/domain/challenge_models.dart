@@ -19,7 +19,10 @@ enum TaskKey {
 enum BonusKind {
   whiteDaysFast('white_days_fast'),
   monThuFast('mon_thu_fast'),
-  fridayKahf('friday_kahf');
+  fridayKahf('friday_kahf'),
+  ramadanFast('ramadan_fast'),
+  taraweeh('taraweeh'),
+  ramadanJuz('ramadan_juz');
 
   const BonusKind(this.wire);
   final String wire;

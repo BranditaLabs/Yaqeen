@@ -178,4 +178,15 @@ describe.skipIf(!url)('store loop + hardening (Postgres)', () => {
     expect(isSealed(fresh!.totpSecret)).toBe(true);
     expect(openSecret(fresh!.totpSecret, key)).toBe(res.json().totpSecret);
   });
+
+  it('Ramadan bonus rules appear in the dashboard switched off, and existing rules are left alone', async () => {
+    await db.insert(s.bonusRules).values({ kind: 'friday_kahf', labelAr: 'الكهف', points: 25, enabled: true });
+    const [a] = await db.insert(s.adminUsers).values({ name: 'S', email: 'sup-r@example.com', role: 'support', passwordHash: 'x', totpSecret: 'x' }).returning();
+    const res = await app.inject({ method: 'GET', url: '/admin/rewards/program', headers: auth(await signAdminToken({ sub: a!.id, role: 'support' }, env.ADMIN_JWT_SECRET)) });
+    const bonuses = res.json().bonuses as { kind: string; enabled: boolean; points: number }[];
+    for (const k of ['ramadan_fast', 'taraweeh', 'ramadan_juz', 'white_days_fast']) {
+      expect(bonuses.find((b) => b.kind === k)).toMatchObject({ enabled: false });
+    }
+    expect(bonuses.find((b) => b.kind === 'friday_kahf')).toMatchObject({ enabled: true, points: 25 });
+  });
 });

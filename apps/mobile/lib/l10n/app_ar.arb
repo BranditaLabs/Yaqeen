@@ -1676,5 +1676,151 @@
   "cardPaused": "البطاقات العامة متوقفة مؤقتاً، وستعود قريباً.",
   "medalPaused": "تفعيل الميداليات متوقف مؤقتاً، حاول لاحقاً.",
   "consentAnalytics": "تحسين التطبيق",
-  "consentAnalyticsDetail": "إحصاءات استخدام مجهولة تساعدنا على تحسين يقين: الصفحات والخطوات فقط، بلا حسابك ولا أي عبادة."
+  "consentAnalyticsDetail": "إحصاءات استخدام مجهولة تساعدنا على تحسين يقين: الصفحات والخطوات فقط، بلا حسابك ولا أي عبادة.",
+  "ramadanTitle": "رمضان",
+  "ramadanYearTitle": "رمضان {year}",
+  "@ramadanYearTitle": {
+    "placeholders": {
+      "year": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanDayOf": "اليوم {day} من رمضان",
+  "@ramadanDayOf": {
+    "placeholders": {
+      "day": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanUntilIftar": "حتى الإفطار",
+  "ramadanUntilFajr": "حتى أذان الفجر",
+  "ramadanIftarAt": "المغرب {time}",
+  "@ramadanIftarAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanImsakAt": "الإمساك {imsak} · الفجر {fajr}",
+  "@ramadanImsakAt": {
+    "placeholders": {
+      "imsak": {
+        "type": "String"
+      },
+      "fajr": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanAccepted": "تقبّل الله صيامك",
+  "ramadanEidTomorrow": "العيد غداً",
+  "ramadanApproaching": "رمضان يقترب",
+  "ramadanInDays": "{n, plural, =1{غداً} =2{بعد يومين} few{بعد {n} أيام} other{بعد {n} يوماً}}",
+  "@ramadanInDays": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ramadanSoon": "قريباً",
+  "ramadanOrbFast": "صيام اليوم",
+  "ramadanOrbTaraweeh": "التراويح",
+  "ramadanOrbKhatma": "الختمة",
+  "ramadanDone": "تم",
+  "ramadanMark": "سجّل",
+  "ramadanNights": "{n, plural, =0{لا ليالٍ بعد} =1{ليلة واحدة} =2{ليلتان} few{{n} ليالٍ} other{{n} ليلة}}",
+  "@ramadanNights": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ramadanJuz": "الجزء {n}",
+  "@ramadanJuz": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanKhatmaDone": "اكتملت",
+  "ramadanBonus": "+{points} نقطة",
+  "@ramadanBonus": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanImsakiyya": "الإمساكية",
+  "ramadanColDay": "اليوم",
+  "ramadanColDate": "التاريخ",
+  "ramadanColImsak": "الإمساك",
+  "ramadanTodayTag": "اليوم",
+  "ramadanImsakNote": "الإمساك: 10 دقائق قبل أذان الفجر، كما في الإمساكيات المصرية. المواقيت محسوبة لمدينتك على جهازك.",
+  "ramadanEmpty": "تظهر الإمساكية بعد أول اتصال بالإنترنت",
+  "ramadanKhatmaTitle": "ختمة رمضان",
+  "ramadanKhatmaSub": "{n} من 30 جزءاً",
+  "@ramadanKhatmaSub": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanReminders": "تنبيهات السحور والإفطار",
+  "ramadanTrackerPrivate": "سجلّ رمضان يُحفظ على جهازك فقط",
+  "ramadanHomeChip": "رمضان · اليوم {day}",
+  "@ramadanHomeChip": {
+    "placeholders": {
+      "day": {
+        "type": "String"
+      }
+    }
+  },
+  "notifSuhoorTitle": "السحور",
+  "notifSuhoorBody": "أذان الفجر بعد {minutes} دقيقة",
+  "@notifSuhoorBody": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "notifIftarTitle": "الإفطار قريب",
+  "notifIftarBody": "المغرب بعد {minutes} دقيقة",
+  "@notifIftarBody": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "notifSectionRamadan": "رمضان",
+  "notifSuhoorRow": "تنبيه السحور",
+  "notifSuhoorSub": "قبل الفجر بـ {minutes} دقيقة",
+  "@notifSuhoorSub": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "notifIftarRow": "تنبيه الإفطار",
+  "notifIftarSub": "قبل المغرب بـ {minutes} دقيقة",
+  "@notifIftarSub": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "calBonusRamadanFast": "رمضان · صيام اليوم",
+  "calBonusTaraweeh": "رمضان · صلاة التراويح",
+  "calBonusRamadanJuz": "رمضان · جزء من الختمة"
 }

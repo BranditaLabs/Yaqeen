@@ -1649,5 +1649,151 @@
   "cardPaused": "Public cards are paused for now and will be back soon.",
   "medalPaused": "Medal activation is paused for now, try again later.",
   "consentAnalytics": "Improve the app",
-  "consentAnalyticsDetail": "Anonymous usage stats that help us improve Yaqeen: screens and steps only, never your account or any worship."
+  "consentAnalyticsDetail": "Anonymous usage stats that help us improve Yaqeen: screens and steps only, never your account or any worship.",
+  "ramadanTitle": "Ramadan",
+  "ramadanYearTitle": "Ramadan {year}",
+  "@ramadanYearTitle": {
+    "placeholders": {
+      "year": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanDayOf": "Day {day} of Ramadan",
+  "@ramadanDayOf": {
+    "placeholders": {
+      "day": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanUntilIftar": "Until iftar",
+  "ramadanUntilFajr": "Until the Fajr adhan",
+  "ramadanIftarAt": "Maghrib {time}",
+  "@ramadanIftarAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanImsakAt": "Imsak {imsak} · Fajr {fajr}",
+  "@ramadanImsakAt": {
+    "placeholders": {
+      "imsak": {
+        "type": "String"
+      },
+      "fajr": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanAccepted": "May Allah accept your fast",
+  "ramadanEidTomorrow": "Eid is tomorrow",
+  "ramadanApproaching": "Ramadan is near",
+  "ramadanInDays": "{n, plural, =1{Tomorrow} other{In {n} days}}",
+  "@ramadanInDays": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ramadanSoon": "Soon",
+  "ramadanOrbFast": "Today's fast",
+  "ramadanOrbTaraweeh": "Taraweeh",
+  "ramadanOrbKhatma": "Khatma",
+  "ramadanDone": "Done",
+  "ramadanMark": "Mark",
+  "ramadanNights": "{n, plural, =0{No nights yet} =1{1 night} other{{n} nights}}",
+  "@ramadanNights": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ramadanJuz": "Juz {n}",
+  "@ramadanJuz": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanKhatmaDone": "Complete",
+  "ramadanBonus": "+{points} pts",
+  "@ramadanBonus": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanImsakiyya": "Imsakiyya",
+  "ramadanColDay": "Day",
+  "ramadanColDate": "Date",
+  "ramadanColImsak": "Imsak",
+  "ramadanTodayTag": "Today",
+  "ramadanImsakNote": "Imsak: 10 minutes before the Fajr adhan, as printed on Egyptian imsakiyyas. Times are computed for your city on this device.",
+  "ramadanEmpty": "The imsakiyya appears after you've been online once",
+  "ramadanKhatmaTitle": "Ramadan khatma",
+  "ramadanKhatmaSub": "{n} of 30 juz",
+  "@ramadanKhatmaSub": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanReminders": "Suhoor & iftar reminders",
+  "ramadanTrackerPrivate": "Your Ramadan log stays on this device",
+  "ramadanHomeChip": "Ramadan · day {day}",
+  "@ramadanHomeChip": {
+    "placeholders": {
+      "day": {
+        "type": "String"
+      }
+    }
+  },
+  "notifSuhoorTitle": "Suhoor",
+  "notifSuhoorBody": "Fajr adhan in {minutes} minutes",
+  "@notifSuhoorBody": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "notifIftarTitle": "Iftar is near",
+  "notifIftarBody": "Maghrib in {minutes} minutes",
+  "@notifIftarBody": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "notifSectionRamadan": "Ramadan",
+  "notifSuhoorRow": "Suhoor reminder",
+  "notifSuhoorSub": "{minutes} min before Fajr",
+  "@notifSuhoorSub": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "notifIftarRow": "Iftar reminder",
+  "notifIftarSub": "{minutes} min before Maghrib",
+  "@notifIftarSub": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "calBonusRamadanFast": "Ramadan · today's fast",
+  "calBonusTaraweeh": "Ramadan · taraweeh",
+  "calBonusRamadanJuz": "Ramadan · a juz of the khatma"
 }

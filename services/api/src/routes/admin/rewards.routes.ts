@@ -20,7 +20,7 @@ import { validateTaskRules } from '../../domain/points.js';
 import { audit } from '../../lib/audit.js';
 import { badRequest, notFound } from '../../lib/errors.js';
 import { adminOf } from '../../plugins/auth.js';
-import { POINTS_CONFIG_KEY, getAllRules, getMilestones, getPointsSettings, totalByReason } from '../../services/program.service.js';
+import { POINTS_CONFIG_KEY, ensureBonusRules, getAllRules, getMilestones, getPointsSettings, totalByReason } from '../../services/program.service.js';
 
 /** WHERE clause (on `users u`) for a grant segment. */
 function grantWhere(ctx: AppContext, segment: GrantSegment): SQL {
@@ -53,6 +53,7 @@ export const adminRewardsRoutes: FastifyPluginAsync = async (app) => {
   /* ------------------------------------------------------------ program */
 
   app.get('/program', { preHandler: read }, async () => {
+    await ensureBonusRules(db);
     const [settings, tasks, bonuses, milestones, totals] = await Promise.all([
       getPointsSettings(app.ctx),
       getAllRules(app.ctx),

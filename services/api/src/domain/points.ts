@@ -177,12 +177,24 @@ export function computeStreak(statusByDate: Map<string, DayStatus>, today: strin
 
 /* ----------------------------------------------------------------- bonuses */
 
-/** Which bonuses are *eligible* on a date (the user still has to claim them). */
-export function eligibleBonuses(args: { weekday: number; hijriDay: number }): BonusKind[] {
+export const RAMADAN = 9;
+
+/** Days on which fasting is not voluntary: Ramadan itself, Eid al-Fitr, Eid al-Adha + tashreeq. */
+function noVoluntaryFast(hijriMonth: number, hijriDay: number): boolean {
+  return hijriMonth === RAMADAN || (hijriMonth === 10 && hijriDay === 1) || (hijriMonth === 12 && hijriDay >= 10 && hijriDay <= 13);
+}
+
+/**
+ * Which bonuses are *eligible* on a date (the user still has to claim them). Voluntary-fast
+ * bonuses are never offered in Ramadan or on Eid / tashreeq days; the Ramadan ones only in Ramadan.
+ */
+export function eligibleBonuses(args: { weekday: number; hijriDay: number; hijriMonth: number }): BonusKind[] {
   const out: BonusKind[] = [];
-  if (args.hijriDay >= 13 && args.hijriDay <= 15) out.push('white_days_fast');
-  if (args.weekday === 1 || args.weekday === 4) out.push('mon_thu_fast');
+  const voluntary = !noVoluntaryFast(args.hijriMonth, args.hijriDay);
+  if (voluntary && args.hijriDay >= 13 && args.hijriDay <= 15) out.push('white_days_fast');
+  if (voluntary && (args.weekday === 1 || args.weekday === 4)) out.push('mon_thu_fast');
   if (args.weekday === 5) out.push('friday_kahf');
+  if (args.hijriMonth === RAMADAN) out.push('ramadan_fast', 'taraweeh', 'ramadan_juz');
   return out;
 }
 

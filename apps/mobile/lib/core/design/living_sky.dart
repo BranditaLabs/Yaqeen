@@ -7,8 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/prayer/data/prayer_repository.dart';
 import '../../features/prayer/domain/prayer_calculator.dart';
 import '../../features/prayer/domain/prayer_clock.dart';
-import '../config/config_controller.dart';
-import '../config/remote_config.dart';
+import '../../features/ramadan/presentation/ramadan_controller.dart';
 import '../di/providers.dart';
 import '../settings/app_settings.dart';
 import '../settings/settings_controller.dart';
@@ -277,7 +276,7 @@ class LivingSky extends ConsumerWidget {
     final s = ref.watch(settingsProvider);
     final repo = ref.watch(prayerRepositoryProvider);
     final clock = ref.watch(skyClockProvider);
-    final ramadan = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.ramadan)));
+    final ramadan = ref.watch(ramadanStatusProvider.select((r) => r.active));
     return YqTicker(
         now: clock, interval: interval, builder: (context, now) => builder(context, skyNow(s, repo, now, ramadan: ramadan)),);
   }

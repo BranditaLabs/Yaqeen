@@ -95,6 +95,17 @@ class _NotificationSettingsScreenState extends ConsumerState<NotificationSetting
     await _update((x) => start ? x.copyWith(quietStartMinutes: v) : x.copyWith(quietEndMinutes: v));
   }
 
+  Widget _minuteChips(List<int> options, int selected, ValueChanged<int> onPick, AppLocalizations t) => Padding(
+        padding: const EdgeInsets.only(bottom: YqSpace.m),
+        child: Wrap(
+          spacing: YqSpace.s,
+          runSpacing: YqSpace.s,
+          children: [
+            for (final m in options) YqChip(label: t.minutesShort(m), selected: selected == m, onTap: () => onPick(m)),
+          ],
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
@@ -216,6 +227,46 @@ class _NotificationSettingsScreenState extends ConsumerState<NotificationSetting
                   ],
                 ),
               ),
+              // Ramadan reminders are configurable whenever the season is switched on (also in Sha'ban);
+              // they fire only on Ramadan days.
+              if (ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.ramadan)))) ...[
+                const SizedBox(height: YqSpace.l),
+                YqSection(
+                  title: t.notifSectionRamadan,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      toggle(
+                        t.notifSuhoorRow,
+                        t.notifSuhoorSub(YqFormat.number(s.suhoorMinutes)),
+                        s.suhoorReminder,
+                        (v) => _update((x) => x.copyWith(suhoorReminder: v)),
+                      ),
+                      if (s.suhoorReminder)
+                        _minuteChips(
+                          const [15, 30, 45, 60],
+                          s.suhoorMinutes,
+                          (m) => _update((x) => x.copyWith(suhoorMinutes: m)),
+                          t,
+                        ),
+                      const YqDivider(),
+                      toggle(
+                        t.notifIftarRow,
+                        t.notifIftarSub(YqFormat.number(s.iftarMinutes)),
+                        s.iftarReminder,
+                        (v) => _update((x) => x.copyWith(iftarReminder: v)),
+                      ),
+                      if (s.iftarReminder)
+                        _minuteChips(
+                          const [5, 10, 15, 30],
+                          s.iftarMinutes,
+                          (m) => _update((x) => x.copyWith(iftarMinutes: m)),
+                          t,
+                        ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: YqSpace.l),
               YqSection(
                 title: t.notifChallengeSection,

@@ -20,6 +20,7 @@ import '../features/prayer/presentation/prayer_screen.dart';
 import '../features/card/presentation/card_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/prayer/presentation/qibla_screen.dart';
+import '../features/ramadan/presentation/ramadan_screen.dart';
 import '../features/quran/presentation/quran_index_screen.dart';
 import '../features/quran/presentation/reader_screen.dart';
 import '../features/recite/presentation/recite_screen.dart';
@@ -119,6 +120,7 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
                   builder: (_, __) => const PrayerScreen(),
                   routes: [
                     GoRoute(path: 'notifications', builder: (_, __) => const NotificationSettingsScreen()),
+                    GoRoute(path: 'ramadan', builder: (_, __) => const RamadanScreen()),
                     GoRoute(parentNavigatorKey: rootNavigatorKey, path: 'qibla', builder: (_, __) => const QiblaScreen()),
                   ],
                 ),

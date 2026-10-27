@@ -9,8 +9,6 @@ import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
-import '../../../core/config/config_controller.dart';
-import '../../../core/config/remote_config.dart';
 import '../../../core/design/living_sky.dart';
 import '../../../core/widgets/liquid_glass.dart';
 import '../../../core/widgets/liquid_orb.dart';
@@ -26,6 +24,7 @@ import '../../../l10n/gen/app_localizations.dart';
 import '../domain/prayer_calculator.dart';
 import '../domain/prayer_clock.dart';
 import '../domain/qibla.dart';
+import '../../ramadan/presentation/ramadan_controller.dart';
 import '../../home/widgets/orbs.dart';
 import 'city_picker_sheet.dart';
 import 'prayer_labels.dart';
@@ -171,7 +170,7 @@ class _NextPrayer extends ConsumerWidget {
     final s = ref.watch(settingsProvider);
     final repo = ref.watch(prayerRepositoryProvider);
     final clock = ref.watch(clockProvider);
-    final ramadan = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.ramadan)));
+    final ramadan = ref.watch(ramadanStatusProvider.select((r) => r.active));
     return YqTicker(
       now: clock,
       interval: const Duration(seconds: 15),

@@ -78,6 +78,13 @@
       "when": 1793082252259,
       "tag": "0010_store_loop_live_content",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793082610978,
+      "tag": "0011_ramadan_bonuses",
+      "breakpoints": true
     }
   ]
 }

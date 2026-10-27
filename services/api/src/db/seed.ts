@@ -7,7 +7,8 @@
 import { loadEnv } from '../config/env.js';
 import { generateTotpSecret, hashPassword, sealSecret, secretsKey } from '../lib/crypto.js';
 import { createDb } from './client.js';
-import { adminUsers, bonusRules, contentItems, contentPacks, reciters, rewards, streakMilestones, taskRules } from './schema.js';
+import { ensureBonusRules } from '../services/program.service.js';
+import { adminUsers, contentItems, contentPacks, reciters, rewards, streakMilestones, taskRules } from './schema.js';
 
 const env = loadEnv();
 const { db, pool } = createDb(env.DATABASE_URL);
@@ -24,15 +25,8 @@ await db
   ])
   .onConflictDoNothing();
 
-// Proposed values — disabled until the product owner confirms them.
-await db
-  .insert(bonusRules)
-  .values([
-    { kind: 'white_days_fast', labelAr: 'صيام الأيام البيض', points: 30, enabled: false },
-    { kind: 'mon_thu_fast', labelAr: 'صيام الاثنين والخميس', points: 30, enabled: false },
-    { kind: 'friday_kahf', labelAr: 'سورة الكهف يوم الجمعة', points: 20, enabled: false },
-  ])
-  .onConflictDoNothing();
+// Proposed values (incl. Ramadan) — disabled until the product owner confirms them.
+await ensureBonusRules(db);
 
 // Proposed streak milestones — disabled until approved; edit in the dashboard.
 await db

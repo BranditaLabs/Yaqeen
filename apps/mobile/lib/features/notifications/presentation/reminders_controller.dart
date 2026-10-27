@@ -11,12 +11,17 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../core/time/zoned.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../onboarding/data/consent_repository.dart';
+import '../../ramadan/presentation/ramadan_controller.dart';
+import '../data/reminder_service.dart';
 
 /// Inputs from other features that change the reminder schedule.
 class ReminderInputs {
-  const ReminderInputs({this.wirdDoneToday = false, this.hifzDue = const {}});
+  const ReminderInputs({this.wirdDoneToday = false, this.hifzDue = const {}, this.ramadanDates = const {}});
   final bool wirdDoneToday;
   final Set<DateTime> hifzDue;
+
+  /// Ramadan days in the planning window — only while the admin's `ramadan` flag is on.
+  final Set<DateTime> ramadanDates;
 }
 
 /// Today's wird and the hifz review days, both read from the device stores.
@@ -25,9 +30,19 @@ final reminderInputsProvider = FutureProvider<ReminderInputs>((ref) async {
   final today = Zoned.isoDate(Zoned.today(s.placeOrDefault.timezone, ref.read(clockProvider)()));
   final wird = await ref.read(readingRepositoryProvider).wird();
   final hifz = await ref.read(hifzRepositoryProvider).load();
+  final config = ref.read(remoteConfigProvider);
+  final ramadan = config.isOn(Flags.ramadan)
+      ? await ref.read(ramadanRepositoryProvider).ramadanDatesAhead(
+            Zoned.today(s.placeOrDefault.timezone, ref.read(clockProvider)()),
+            ReminderService.daysAhead,
+            personalOffset: s.hijriOffsetDays,
+            regionalOffset: config.hijriOffsetDays,
+          )
+      : const <DateTime>{};
   return ReminderInputs(
     wirdDoneToday: wird != null && wird.date == today && wird.count >= s.wirdGoalPages,
     hifzDue: hifz?.dueDates() ?? const {},
+    ramadanDates: ramadan,
   );
 });
 
@@ -75,7 +90,7 @@ class RemindersController extends Notifier<DateTime?> {
       worshipConsent: consents.granted(ConsentKind.worshipReminders),
       wirdDone: inputs.wirdDoneToday,
       hifzDue: inputs.hifzDue,
-      ramadan: ref.read(remoteConfigProvider).isOn(Flags.ramadan),
+      ramadanDates: inputs.ramadanDates,
     );
     state = plan.replanBefore;
     _scheduleNext(plan.replanBefore);

@@ -46,7 +46,7 @@ export const taskKey = pgEnum('task_key', [
   'listen',
   'daily_task',
 ]);
-export const bonusKind = pgEnum('bonus_kind', ['white_days_fast', 'mon_thu_fast', 'friday_kahf']);
+export const bonusKind = pgEnum('bonus_kind', ['white_days_fast', 'mon_thu_fast', 'friday_kahf', 'ramadan_fast', 'taraweeh', 'ramadan_juz']);
 export const ledgerReason = pgEnum('ledger_reason', [
   'task',
   'bonus',

@@ -10,7 +10,8 @@
 ///  - Quiet hours silence reminders, never a prayer alert (spec §5.17).
 enum Prayer { fajr, dhuhr, asr, maghrib, isha, sunrise }
 
-enum ReminderKind { adhan, prePrayer, morningAzkar, eveningAzkar, wird, kahfFriday, wirdMissing, hifzDue, dhikr }
+/// Append only: the index is part of each notification's stable id.
+enum ReminderKind { adhan, prePrayer, morningAzkar, eveningAzkar, wird, kahfFriday, wirdMissing, hifzDue, dhikr, suhoor, iftar }
 
 /// How a prayer alerts (mirrors the settings screen: «أذان | تنبيه | صامت»).
 enum PrayerAlert { adhan, notify, silent }
@@ -57,6 +58,9 @@ class ReminderPrefs {
     this.hifzDueDates = const {},
     this.hifz = const SlotTime.at(9 * 60),
     this.dhikr,
+    this.ramadanDates = const {},
+    this.suhoorMinutes,
+    this.iftarMinutes,
     this.quietStartMinutes,
     this.quietEndMinutes,
   });
@@ -93,6 +97,16 @@ class ReminderPrefs {
 
   /// Daily dhikr session reminder at the user's routine time, or null.
   final SlotTime? dhikr;
+
+  /// Ramadan days (local midnight). Suhoor/iftar reminders are planned only on these.
+  final Set<DateTime> ramadanDates;
+
+  /// Minutes before Fajr for «السحور» (null = off). Like a prayer alert, quiet hours don't apply:
+  /// suhoor is by nature at night.
+  final int? suhoorMinutes;
+
+  /// Minutes before Maghrib for «الإفطار قريب» (null = off).
+  final int? iftarMinutes;
 
   /// Quiet window in minutes since midnight (may wrap past midnight). Null = off.
   final int? quietStartMinutes;
@@ -134,6 +148,7 @@ class PlannedNotification {
         ReminderKind.wird || ReminderKind.wirdMissing || ReminderKind.kahfFriday => 'yaqeen://quran',
         ReminderKind.hifzDue => 'yaqeen://hifz',
         ReminderKind.dhikr => 'yaqeen://home',
+        ReminderKind.suhoor || ReminderKind.iftar => 'yaqeen://ramadan',
       };
 
   @override
@@ -154,7 +169,8 @@ abstract final class NotificationPlanner {
 
   static int stableId(DateTime day, ReminderKind kind, [Prayer? prayer]) {
     final d = day.year * 10000 + day.month * 100 + day.day; // 8 digits
-    return (d % 1000000) * 100 + kind.index * 10 + (prayer?.index ?? 9);
+    // yymmdd · kind (2 digits) · prayer — stays under 2^31 for Android's int ids.
+    return (d % 1000000) * 1000 + kind.index * 10 + (prayer?.index ?? 9);
   }
 
   static NotificationPlan plan({
@@ -215,6 +231,31 @@ abstract final class NotificationPlanner {
       // Only today's: tomorrow's goal is not "missing" yet; re-planned when the wird is done.
       if (prefs.wirdMissing && isha != null && d.year == now.year && d.month == now.month && d.day == now.day) {
         reminder(d, ReminderKind.wirdMissing, isha.subtract(Duration(minutes: prefs.wirdMissingBeforeIshaMinutes)));
+      }
+      if (prefs.ramadanDates.any((r) => r.year == d.year && r.month == d.month && r.day == d.day)) {
+        final suhoor = prefs.suhoorMinutes;
+        if (suhoor != null && fajr != null) {
+          out.add(
+            PlannedNotification(
+              id: stableId(d, ReminderKind.suhoor),
+              at: fajr.subtract(Duration(minutes: suhoor)),
+              kind: ReminderKind.suhoor,
+              minutesBefore: suhoor,
+            ),
+          );
+        }
+        final iftar = prefs.iftarMinutes;
+        final maghrib = day.times[Prayer.maghrib];
+        if (iftar != null && maghrib != null) {
+          out.add(
+            PlannedNotification(
+              id: stableId(d, ReminderKind.iftar),
+              at: maghrib.subtract(Duration(minutes: iftar)),
+              kind: ReminderKind.iftar,
+              minutesBefore: iftar,
+            ),
+          );
+        }
       }
       if (prefs.hifzDueDates.any((h) => h.year == d.year && h.month == d.month && h.day == d.day)) {
         final hifzAt = prefs.hifz.on(day);

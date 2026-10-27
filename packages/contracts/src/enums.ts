@@ -21,7 +21,8 @@ export type ConsentKind = z.infer<typeof ConsentKind>;
 export const TaskKey = z.enum(['wird', 'morning_azkar', 'five_prayers', 'evening_azkar', 'listen', 'daily_task']);
 export type TaskKey = z.infer<typeof TaskKey>;
 
-export const BonusKind = z.enum(['white_days_fast', 'mon_thu_fast', 'friday_kahf']);
+/** Self-reported extras, each enabled by the admin. The Ramadan ones are eligible only in Ramadan. */
+export const BonusKind = z.enum(['white_days_fast', 'mon_thu_fast', 'friday_kahf', 'ramadan_fast', 'taraweeh', 'ramadan_juz']);
 export type BonusKind = z.infer<typeof BonusKind>;
 
 export const DayStatus = z.enum(['done', 'partial', 'qada', 'missed', 'today', 'future']);
@@ -68,7 +69,7 @@ export type CampaignSegment = z.infer<typeof CampaignSegment>;
 export const CampaignSchedule = z.enum(['now', 'smart', 'scheduled']);
 export type CampaignSchedule = z.infer<typeof CampaignSchedule>;
 
-export const DeepLink = z.enum(['home', 'challenge', 'calendar', 'redeem', 'store', 'quran', 'prayer', 'azkar', 'hifz']);
+export const DeepLink = z.enum(['home', 'challenge', 'calendar', 'redeem', 'store', 'quran', 'prayer', 'azkar', 'hifz', 'ramadan']);
 export type DeepLink = z.infer<typeof DeepLink>;
 
 export const Platform = z.enum(['ios', 'android']);

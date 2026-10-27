@@ -5,7 +5,7 @@ import { dateTime, num, pct } from '@/lib/format';
 import { cancelCampaign } from './actions';
 
 const LINK_LABEL: Record<string, string> = {
-  redeem: 'المكافآت', challenge: 'التحدي', calendar: 'التقويم', store: 'المتجر', home: 'الرئيسية', quran: 'المصحف', azkar: 'الأذكار', hifz: 'الحفظ', prayer: 'الصلاة',
+  redeem: 'المكافآت', challenge: 'التحدي', calendar: 'التقويم', store: 'المتجر', home: 'الرئيسية', quran: 'المصحف', azkar: 'الأذكار', hifz: 'الحفظ', prayer: 'الصلاة', ramadan: 'رمضان',
 };
 
 interface CampaignRow {

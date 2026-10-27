@@ -41,6 +41,7 @@ const deepLinkRoutes = {
   'qibla': '/prayer/qibla',
   'store': '/challenge/redeem',
   'card': '/profile/card',
+  'ramadan': '/prayer/ramadan',
 };
 
 /// Maps a deep link to a router location. Unknown targets go home.

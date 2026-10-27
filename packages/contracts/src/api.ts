@@ -110,6 +110,8 @@ export const RemoteConfig = z.object({
     challengeLengthDays: z.number().int(),
     /** Cost of the cheapest active reward (onboarding: «1,000 نقطة = مكافأة»). null when none. */
     cheapestRewardPoints: z.number().int().nullable(),
+    /** Bonuses the admin has enabled (others can't be claimed). The app offers them on eligible days. */
+    bonuses: z.array(z.object({ kind: BonusKind, points: z.number().int() })).default([]),
   }),
 });
 export type RemoteConfig = z.infer<typeof RemoteConfig>;

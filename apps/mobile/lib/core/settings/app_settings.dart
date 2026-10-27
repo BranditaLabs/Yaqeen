@@ -72,6 +72,10 @@ class AppSettings {
     this.kahfFriday = true,
     this.wirdMissing = false,
     this.hifzDue = true,
+    this.suhoorReminder = true,
+    this.suhoorMinutes = 45,
+    this.iftarReminder = true,
+    this.iftarMinutes = 15,
     this.quietStartMinutes = 21 * 60,
     this.quietEndMinutes = 5 * 60,
     this.quietHours = true,
@@ -126,6 +130,12 @@ class AppSettings {
   final bool wirdMissing;
   final bool hifzDue;
 
+  /// Ramadan only: «السحور» [suhoorMinutes] before Fajr and «الإفطار قريب» [iftarMinutes] before Maghrib.
+  final bool suhoorReminder;
+  final int suhoorMinutes;
+  final bool iftarReminder;
+  final int iftarMinutes;
+
   /// Minutes since midnight. Quiet hours never silence the adhan.
   final int quietStartMinutes;
   final int quietEndMinutes;
@@ -173,6 +183,10 @@ class AppSettings {
     bool? kahfFriday,
     bool? wirdMissing,
     bool? hifzDue,
+    bool? suhoorReminder,
+    int? suhoorMinutes,
+    bool? iftarReminder,
+    int? iftarMinutes,
     int? quietStartMinutes,
     int? quietEndMinutes,
     bool? quietHours,
@@ -209,6 +223,10 @@ class AppSettings {
         kahfFriday: kahfFriday ?? this.kahfFriday,
         wirdMissing: wirdMissing ?? this.wirdMissing,
         hifzDue: hifzDue ?? this.hifzDue,
+        suhoorReminder: suhoorReminder ?? this.suhoorReminder,
+        suhoorMinutes: suhoorMinutes ?? this.suhoorMinutes,
+        iftarReminder: iftarReminder ?? this.iftarReminder,
+        iftarMinutes: iftarMinutes ?? this.iftarMinutes,
         quietStartMinutes: quietStartMinutes ?? this.quietStartMinutes,
         quietEndMinutes: quietEndMinutes ?? this.quietEndMinutes,
         quietHours: quietHours ?? this.quietHours,
@@ -246,6 +264,10 @@ class AppSettings {
         'kahfFriday': kahfFriday,
         'wirdMissing': wirdMissing,
         'hifzDue': hifzDue,
+        'suhoorReminder': suhoorReminder,
+        'suhoorMinutes': suhoorMinutes,
+        'iftarReminder': iftarReminder,
+        'iftarMinutes': iftarMinutes,
         'quietStartMinutes': quietStartMinutes,
         'quietEndMinutes': quietEndMinutes,
         'quietHours': quietHours,
@@ -292,6 +314,10 @@ class AppSettings {
       kahfFriday: pick('kahfFriday', d.kahfFriday),
       wirdMissing: pick('wirdMissing', d.wirdMissing),
       hifzDue: pick('hifzDue', d.hifzDue),
+      suhoorReminder: pick('suhoorReminder', d.suhoorReminder),
+      suhoorMinutes: pick('suhoorMinutes', d.suhoorMinutes),
+      iftarReminder: pick('iftarReminder', d.iftarReminder),
+      iftarMinutes: pick('iftarMinutes', d.iftarMinutes),
       quietStartMinutes: pick('quietStartMinutes', d.quietStartMinutes),
       quietEndMinutes: pick('quietEndMinutes', d.quietEndMinutes),
       quietHours: pick('quietHours', d.quietHours),

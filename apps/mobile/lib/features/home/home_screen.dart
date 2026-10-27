@@ -26,6 +26,8 @@ import '../prayer/presentation/prayer_labels.dart';
 import '../quran/domain/quran_data.dart';
 import '../quran/presentation/quran_index_screen.dart';
 import '../quran/presentation/reader_screen.dart';
+import '../ramadan/domain/ramadan.dart';
+import '../ramadan/presentation/ramadan_controller.dart';
 import '../routine/domain/routine.dart';
 import '../routine/presentation/habit_picker.dart';
 import 'widgets/orbs.dart';
@@ -71,6 +73,7 @@ class HomeScreen extends ConsumerWidget {
               sliver: SliverList.list(
                 children: [
                   const YqRise(order: 1, child: _Complications()),
+                  const _RamadanBand(),
                   const SizedBox(height: YqSpace.xxl),
                   YqRise(order: 2, child: _SectionTitle(t.homeDayTitle)),
                   const SizedBox(height: YqSpace.m),
@@ -187,7 +190,7 @@ class _Sky extends ConsumerWidget {
     final s = ref.watch(settingsProvider);
     final repo = ref.watch(prayerRepositoryProvider);
     final clock = ref.watch(clockProvider);
-    final ramadan = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.ramadan)));
+    final ramadan = ref.watch(ramadanStatusProvider.select((r) => r.active));
     return YqTicker(
       now: clock,
       interval: const Duration(seconds: 15),
@@ -296,7 +299,7 @@ class _Journey extends ConsumerWidget {
     final repo = ref.watch(prayerRepositoryProvider);
     final clock = ref.watch(clockProvider);
     final challenge = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.challenge)));
-    final ramadan = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.ramadan)));
+    final ramadan = ref.watch(ramadanStatusProvider.select((r) => r.active));
     final hifzOn = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.hifz)));
 
     return YqTicker(
@@ -602,6 +605,67 @@ class _Services extends ConsumerWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Ramadan (or Sha'ban's countdown) as one gold band under the orbs: the day of the month and the
+/// time to iftar / Fajr. Tap → the imsakiyya. Hidden outside the season or with the flag off.
+class _RamadanBand extends ConsumerWidget {
+  const _RamadanBand();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = ref.watch(ramadanStatusProvider);
+    if (!status.visible) return const SizedBox.shrink();
+    final t = AppLocalizations.of(context);
+    final s = ref.watch(settingsProvider);
+    final repo = ref.watch(prayerRepositoryProvider);
+    final clock = ref.watch(clockProvider);
+    return Padding(
+      padding: const EdgeInsets.only(top: YqSpace.l),
+      child: GlassTap(
+        onTap: () => context.push('/prayer/ramadan'),
+        semanticLabel: t.ramadanTitle,
+        child: LiquidGlass(
+          tone: GlassTone.gold,
+          padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.m),
+          child: Row(
+            children: [
+              const YqIcon(YqIcons.calendar, size: 22, tone: YqIconTone.gold),
+              const SizedBox(width: YqSpace.m),
+              Expanded(
+                child: Text(
+                  status.active ? t.ramadanHomeChip(YqFormat.number(status.hijriDay)) : t.ramadanApproaching,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+              if (status.active)
+                YqTicker(
+                  now: clock,
+                  interval: const Duration(seconds: 30),
+                  builder: (context, now) {
+                    final d = repo.today(s, now);
+                    final m = FastMoment.at(
+                      today: repo.forDate(s, d, ramadan: true),
+                      tomorrow: repo.forDate(s, DateTime(d.year, d.month, d.day + 1), ramadan: true),
+                      now: now,
+                    );
+                    final target = m.target;
+                    if (target == null) return const SizedBox.shrink();
+                    final left = YqCountdown.format(target.difference(now.toUtc()));
+                    return Text(
+                      '${m.phase == FastPhase.fasting ? t.ramadanUntilIftar : t.ramadanUntilFajr} $left',
+                      style: YqText.numberSmall.copyWith(color: YqColors.goldText, fontSize: 13),
+                    );
+                  },
+                ),
+              const SizedBox(width: YqSpace.xs),
+              const Icon(Icons.chevron_right_rounded, color: YqColors.muted),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
