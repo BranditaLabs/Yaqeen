@@ -121,6 +121,7 @@ jobs:
           ASC_KEY: ${{ secrets.ASC_API_PRIVATE_KEY }}
           TEAM: ${{ secrets.APPLE_TEAM_ID }}
           GID: ${{ secrets.GOOGLE_IOS_CLIENT_ID }}
+          WPROFILE: ${{ secrets.IOS_WIDGET_PROFILE_NAME }}
           API: ${{ vars.API_BASE_URL }}
         run: |
           missing=""
@@ -128,6 +129,7 @@ jobs:
           [ -n "$ASC_KEY" ] || missing="$missing ASC_API_PRIVATE_KEY"
           [ -n "$TEAM" ] || missing="$missing APPLE_TEAM_ID"
           [ -n "$GID" ] || missing="$missing GOOGLE_IOS_CLIENT_ID"
+          [ -n "$WPROFILE" ] || missing="$missing IOS_WIDGET_PROFILE_NAME"
           [ -n "$API" ] || missing="$missing vars.API_BASE_URL"
           if [ -n "$missing" ]; then echo "::error::Missing:$missing — see docs/RELEASE_MOBILE.md"; exit 1; fi
       - uses: subosito/flutter-action@v2
@@ -145,10 +147,19 @@ jobs:
           issuer-id: ${{ secrets.ASC_ISSUER_ID }}
           api-key-id: ${{ secrets.ASC_API_KEY_ID }}
           api-private-key: ${{ secrets.ASC_API_PRIVATE_KEY }}
+      - name: Download the widget extension's provisioning profile
+        uses: apple-actions/download-provisioning-profiles@v7
+        with:
+          bundle-id: com.yaqinbrand.yaqeen.YaqeenWidget
+          profile-type: IOS_APP_STORE
+          issuer-id: ${{ secrets.ASC_ISSUER_ID }}
+          api-key-id: ${{ secrets.ASC_API_KEY_ID }}
+          api-private-key: ${{ secrets.ASC_API_PRIVATE_KEY }}
       - name: Signing + Google ids (Secrets.xcconfig, never committed)
         env:
           TEAM: ${{ secrets.APPLE_TEAM_ID }}
           PROFILE: ${{ secrets.IOS_PROFILE_NAME }}
+          WPROFILE: ${{ secrets.IOS_WIDGET_PROFILE_NAME }}
           GID: ${{ secrets.GOOGLE_IOS_CLIENT_ID }}
           GREV: ${{ secrets.GOOGLE_REVERSED_CLIENT_ID }}
         run: |
@@ -160,6 +171,7 @@ jobs:
           CODE_SIGN_STYLE = Manual
           CODE_SIGN_IDENTITY = Apple Distribution
           PROVISIONING_PROFILE_SPECIFIER = $PROFILE
+          WIDGET_PROVISIONING_PROFILE_SPECIFIER = $WPROFILE
           EOF
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
@@ -168,7 +180,10 @@ jobs:
             <key>method</key><string>app-store-connect</string>
             <key>teamID</key><string>$TEAM</string>
             <key>signingStyle</key><string>manual</string>
-            <key>provisioningProfiles</key><dict><key>com.yaqinbrand.yaqeen</key><string>$PROFILE</string></dict>
+            <key>provisioningProfiles</key><dict>
+              <key>com.yaqinbrand.yaqeen</key><string>$PROFILE</string>
+              <key>com.yaqinbrand.yaqeen.YaqeenWidget</key><string>$WPROFILE</string>
+            </dict>
             <key>uploadSymbols</key><true/>
           </dict></plist>
           EOF

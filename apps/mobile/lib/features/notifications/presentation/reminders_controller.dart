@@ -7,17 +7,31 @@ import 'package:timezone/timezone.dart' as tz;
 import '../../../core/config/config_controller.dart';
 import '../../../core/config/remote_config.dart';
 import '../../../core/di/providers.dart';
+import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/time/zoned.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../onboarding/data/consent_repository.dart';
+import '../../calendar/domain/hijri_day.dart';
+import '../../home/data/widget_snapshot.dart';
+import '../../ramadan/domain/ramadan.dart';
 import '../../ramadan/presentation/ramadan_controller.dart';
 import '../data/reminder_service.dart';
 
 /// Inputs from other features that change the reminder schedule.
 class ReminderInputs {
-  const ReminderInputs({this.wirdDoneToday = false, this.hifzDue = const {}, this.ramadanDates = const {}});
+  const ReminderInputs({
+    this.wirdDoneToday = false,
+    this.wirdPages = 0,
+    this.hifzDue = const {},
+    this.ramadanDates = const {},
+    this.hijriToday,
+  });
   final bool wirdDoneToday;
+  final int wirdPages;
+
+  /// Today's Hijri date from the cached calendar (for the home-screen widget), null if unknown.
+  final HijriDay? hijriToday;
   final Set<DateTime> hifzDue;
 
   /// Ramadan days in the planning window — only while the admin's `ramadan` flag is on.
@@ -39,8 +53,21 @@ final reminderInputsProvider = FutureProvider<ReminderInputs>((ref) async {
             regionalOffset: config.hijriOffsetDays,
           )
       : const <DateTime>{};
+  HijriDay? hijri;
+  try {
+    final d = Zoned.today(s.placeOrDefault.timezone, ref.read(clockProvider)());
+    final month = await ref
+        .read(calendarRepositoryProvider)
+        .month(d.year, d.month, personalOffset: s.hijriOffsetDays, regionalOffset: config.hijriOffsetDays, preferCache: true);
+    hijri = month.where((h) => h.gregorian == today).firstOrNull;
+  } on Exception {
+    hijri = null; // offline and never cached: the widget simply shows no Hijri line
+  }
+  final pagesToday = wird != null && wird.date == today ? wird.count : 0;
   return ReminderInputs(
     wirdDoneToday: wird != null && wird.date == today && wird.count >= s.wirdGoalPages,
+    wirdPages: pagesToday,
+    hijriToday: hijri,
     hifzDue: hifz?.dueDates() ?? const {},
     ramadanDates: ramadan,
   );
@@ -94,6 +121,28 @@ class RemindersController extends Notifier<DateTime?> {
     );
     state = plan.replanBefore;
     _scheduleNext(plan.replanBefore);
+    await _publishWidget(s, now, inputs);
+  }
+
+  /// The home-screen widgets follow the same inputs (spec §5.28). Never fails a re-plan.
+  Future<void> _publishWidget(AppSettings s, DateTime now, ReminderInputs inputs) async {
+    try {
+      final h = inputs.hijriToday;
+      final todayDate = Zoned.today(s.placeOrDefault.timezone, now);
+      final json = WidgetSnapshot.build(
+        settings: s,
+        prayers: ref.read(prayerRepositoryProvider),
+        now: now,
+        t: lookupAppLocalizations(Locale(s.locale)),
+        hijri: h == null ? null : '${h.hijriDay} ${h.monthNameAr} ${h.hijriYear}',
+        wirdPages: inputs.wirdPages,
+        ramadanDay: inputs.ramadanDates.contains(todayDate) && h != null && h.hijriMonth == ramadanMonth ? h.hijriDay : null,
+        ramadanDates: inputs.ramadanDates,
+      );
+      await ref.read(homeWidgetPublisherProvider).publish(json);
+    } catch (_) {
+      // No widget on this platform / plugin unavailable: the app is unaffected.
+    }
   }
 }
 

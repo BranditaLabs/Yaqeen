@@ -79,6 +79,16 @@
             </intent-filter>
         </receiver>
 
+        <!-- Home-screen widget «الصلاة القادمة» (spec §5.28): data from the app, no network. -->
+        <receiver android:name=".NextPrayerWidget" android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/next_prayer_widget_info" />
+        </receiver>
+
         <!-- flutter_local_notifications: scheduled + reboot rescheduling. -->
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">

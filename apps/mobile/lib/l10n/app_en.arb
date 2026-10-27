@@ -1795,5 +1795,7 @@
   },
   "calBonusRamadanFast": "Ramadan · today's fast",
   "calBonusTaraweeh": "Ramadan · taraweeh",
-  "calBonusRamadanJuz": "Ramadan · a juz of the khatma"
+  "calBonusRamadanJuz": "Ramadan · a juz of the khatma",
+  "widgetWird": "Today's wird",
+  "widgetStale": "Open Yaqeen to refresh the times"
 }

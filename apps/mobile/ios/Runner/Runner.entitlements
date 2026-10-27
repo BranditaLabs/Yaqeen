@@ -8,6 +8,11 @@
 		<string>applinks:yaqin-brand.com</string>
 		<string>applinks:www.yaqin-brand.com</string>
 	</array>
+	<!-- Shared with the YaqeenWidget extension: the snapshot the home-screen widget reads. -->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.yaqinbrand.yaqeen</string>
+	</array>
 	<key>com.apple.developer.applesignin</key>
 	<array>
 		<string>Default</string>

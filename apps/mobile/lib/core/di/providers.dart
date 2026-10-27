@@ -44,6 +44,7 @@ import '../settings/app_settings.dart';
 import '../settings/settings_repository.dart';
 import '../storage/kv_store.dart';
 import '../storage/local_store.dart';
+import '../platform/home_widget_publisher.dart';
 
 /// Dependency graph. Platform-backed providers are overridden in `main.dart`
 /// (real plugins) and in tests (fakes) — features only depend on these providers.
@@ -54,6 +55,9 @@ final localStoreProvider = Provider((ref) => LocalStore(ref.watch(kvStoreProvide
 
 /// Injectable clock (tests pin "now").
 final clockProvider = Provider<DateTime Function()>((_) => DateTime.now);
+
+/// Home-screen widgets' data sink; the plugin one is set in main().
+final homeWidgetPublisherProvider = Provider<HomeWidgetPublisher>((_) => NoopHomeWidgetPublisher());
 
 final tokenStoreProvider = Provider((ref) => TokenStore(ref.watch(secureStoreProvider)));
 final apiClientProvider = Provider((ref) => ApiClient(baseUrl: Env.apiBaseUrl, tokens: ref.watch(tokenStoreProvider)));

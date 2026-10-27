@@ -1822,5 +1822,7 @@
   },
   "calBonusRamadanFast": "رمضان · صيام اليوم",
   "calBonusTaraweeh": "رمضان · صلاة التراويح",
-  "calBonusRamadanJuz": "رمضان · جزء من الختمة"
+  "calBonusRamadanJuz": "رمضان · جزء من الختمة",
+  "widgetWird": "ورد اليوم",
+  "widgetStale": "افتح يقين لتحديث المواقيت"
 }

@@ -36,6 +36,7 @@ import 'core/theme/theme.dart';
 import 'core/time/zoned.dart';
 import 'features/onboarding/data/auth_repository.dart';
 import 'l10n/gen/app_localizations.dart';
+import 'core/platform/home_widget_publisher.dart';
 
 void main() {
   Boot.reporter = SentryErrorReporter();
@@ -105,6 +106,7 @@ Future<void> _start() async {
       localNotificationsProvider.overrideWithValue(notifier),
       notificationTapsProvider.overrideWith((_) => notifier.taps),
       audioEngineProvider.overrideWithValue(JustAudioEngine()),
+      homeWidgetPublisherProvider.overrideWithValue(PluginHomeWidgetPublisher()),
       filesDirProvider.overrideWithValue(getApplicationSupportDirectory),
       // Phase 2: pushServiceProvider (Firebase) and adSinksProvider (ad SDKs) — see README.
     ],
