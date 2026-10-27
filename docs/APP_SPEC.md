@@ -241,6 +241,9 @@ Push payload: `data.link`, `data.campaignId` (opened → `POST /v1/me/campaigns/
 | 21 | Profile & settings | `/profile` | ✅ | — |
 | 21·ب | Yaqeen card (NFC/QR) | `/profile/card` | ✅ | §5.26 |
 | 22 | Hifz plan | `/quran/hifz` | ✅ | — |
+| 23 | Ramadan | `/prayer/ramadan` | ✅ flag `ramadan` | Ramadan bonus values (seeded off) |
+| — | Home-screen widgets | Android / iOS | ✅ | App Group + widget profile in the Apple account |
+| — | Website | `/`, `/privacy`, `/terms`, `/support`, `/delete-account` | ✅ | legal entity, DPO, support email, counsel review |
 
 Each section below uses the same headings: **Purpose · Layout · Data · Interactions · States · Analytics &
 notifications · Acceptance**. Arabic strings are the real UI copy (put them in the ARB files).
@@ -722,6 +725,31 @@ badges and member-since. It is also Yaqeen's front door for whoever scans it.
 - **Acceptance** [x] nothing public until published · [x] only switched-on fields appear · [x] unsafe
   links never render · [x] journey shows only when switched on, newest first · [x] a blank medal explains activation; an activated one follows the handle; a switched-off one never resolves or re-activates · [x] works in ar/en.
 
+### 5.27 `23 · Ramadan` — `/prayer/ramadan` ✅ · flag `ramadan`
+
+**Purpose** The month's companion: when to stop eating and when to break the fast, and a private log of the month.
+
+**When** Only while the admin flag is on **and** today's Hijri date (Umm al-Qura + Egypt offset + personal offset) is in Ramadan; in Sha'ban the screen and Home's band show «رمضان يقترب» with the days left once the calendar knows the first of Ramadan. Umm al-Qura's later Isha applies on Ramadan days only.
+
+**Layout** Gold `YqStage`: «رمضان 1448», «اليوم N من رمضان · date»; the moment is the countdown to iftar (Fajr→Maghrib) or to the Fajr adhan (night), with «الإمساك HH:MM · الفجر HH:MM» (imsak = Fajr − 10 min, as printed on Egyptian imsakiyyas; never called the deadline). Orbs: today's fast (liquid fills Fajr→Maghrib; tap marks it), taraweeh (ring of nights), the khatma (ring of 30 juz; tap ticks the next). Then the imsakiyya (day · date · imsak · Fajr · Maghrib, today lifted, past days receded), the 30-juz khatma grid, a link to suhoor/iftar reminders, and «سجلّ رمضان يُحفظ على جهازك فقط». Home shows a gold band «رمضان · اليوم N» with the live countdown → this screen.
+
+**Data** All on-device: prayer times from the engine, Ramadan days from the cached Hijri calendar, the log in `ramadan.log.<hijriYear>.v1`. Reminders: «السحور» N min before Fajr (15/30/45/60, default 45 — not muted by quiet hours) and «الإفطار قريب» N min before Maghrib (5/10/15/30, default 15), Ramadan days only, in Notification settings › رمضان.
+
+**Bonuses** `ramadan_fast`, `taraweeh`, `ramadan_juz` — eligible only in Ramadan, seeded **disabled**; when the admin enables bonuses and one of these, ticking today's fast/taraweeh or a juz claims it (outbox, with the tick's date; a claim that syncs on a later day is refused `day_closed`). Un-ticking never takes points back. Voluntary-fast bonuses are never offered in Ramadan, on Eid al-Fitr or 10–13 Dhul-Hijjah.
+
+**Acceptance**
+- [x] Hidden with the flag off or outside Sha'ban/Ramadan; countdown rolls suhoor → fasting → evening; the last evening shows «العيد غداً».
+- [x] Imsakiyya and log work offline; the log never leaves the device.
+- [x] Reminders only on Ramadan days; ids never collide across days.
+
+### 5.28 Home-screen widgets ✅
+
+Android «NextPrayerWidget» and iOS «YaqeenWidget» (small, medium, lock-screen rectangular on iOS 16+): next prayer + time + live countdown, the Hijri (or Ramadan) line and place, today's wird progress; tap → Prayer. The app writes one snapshot after every re-plan (`yq.widget.v1`: a week of the five prayers, localised and formatted, Western digits) — the widgets never call the network and stay right for a week; then they show «افتح يقين لتحديث المواقيت». Android wakes itself at each prayer; iOS uses one timeline entry per prayer. Colours from tokens (generated `yq_tokens.xml` / `YqTokens.swift`), the mark from artwork. iOS needs the App Group `group.com.yaqinbrand.yaqeen` on both bundle ids.
+
+### 5.29 Website ✅
+
+Served by the API on the cards host: landing `/`, `/privacy`, `/terms`, `/support` (FAQ + contact), `/delete-account` (Play's deletion URL), `robots.txt` (cards and API excluded), `sitemap.xml`. Arabic first (`?lang=en`, or the browser's language), no scripts, works without the database. Legal text matches what the code does; owner-only facts stay bracketed until set. The app's privacy/terms/contact rows open these pages (`SITE_URL`). Store copy and privacy answers: `docs/STORE_LISTING.md`.
+
 ## 6. Cross-cutting functions
 
 Each function: **what · where in code · rules · tests**. Pure logic goes in `domain/` (Dart) or
@@ -1098,7 +1126,7 @@ IDs are referenced in commits (`YQ-12: …`).
 
 ### Later (flagged)
 
-`recite` (YQ-70, 6.8) · Ramadan mode with imsakiyya + Ramadan challenge (YQ-71) · full-screen tafsir (YQ-72) · encrypted backup (YQ-73) · Shopify order webhook → `purchase` (YQ-74) · AR Qibla (YQ-75) · Indo-Pak script (YQ-76).
+`recite` (YQ-70, 6.8) · ~~Ramadan mode with imsakiyya + Ramadan challenge (YQ-71)~~ ✅ §5.27 · full-screen tafsir (YQ-72) · encrypted backup (YQ-73) · Shopify order webhook ✅ (codes marked `used`; server-side `purchase` to ad platforms still needs a decision) (YQ-74) · AR Qibla (YQ-75) · Indo-Pak script (YQ-76).
 
 ---
 
@@ -1111,7 +1139,7 @@ IDs are referenced in commits (`YQ-12: …`).
 5. `recite` model choice and accuracy gate.
 6. Brand fonts licences (ZEYADA Arabic 1, Canela Text) — app uses Amiri/Tajawal until then.
 7. Reward catalogue at launch (50 ج.م / 15 % rugs / free shipping / package) and monthly budget.
-8. Ramadan 1448 (≈ Feb 2027) scope — needs decision by Dec 2026.
+8. Ramadan 1448 (≈ Feb 2027): mode built (§5.27); decide the Ramadan bonus values and switch them on, and turn the `ramadan` flag on in Sha'ban.
 
 ---
 

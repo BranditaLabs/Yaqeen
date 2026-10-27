@@ -108,3 +108,13 @@ config under `sentry:` in `pubspec.yaml`) for release `yaqeen@<version>+<build n
 same release the app reports — so crashes show readable stack traces. Reports carry no user,
 URLs, navigation or screenshots (docs/SECURITY_PRIVACY.md).
 
+
+## Home-screen widget (iOS extension)
+
+The app embeds the `YaqeenWidget` WidgetKit extension (`com.yaqinbrand.yaqeen.YaqeenWidget`), which shares data with the app through the App Group `group.com.yaqinbrand.yaqeen`. One-time, in the Apple Developer account:
+
+1. Create the App Group `group.com.yaqinbrand.yaqeen`.
+2. Enable *App Groups* (with that group) on **both** App IDs: `com.yaqinbrand.yaqeen` and `com.yaqinbrand.yaqeen.YaqeenWidget`.
+3. Create an App Store provisioning profile for the widget's App ID and put its name in the secret `IOS_WIDGET_PROFILE_NAME` (the workflow downloads it and passes it as `WIDGET_PROVISIONING_PROFILE_SPECIFIER`). Regenerate the app's own profile too, so it includes the App Group.
+
+Android needs nothing: `NextPrayerWidget` ships inside the APK/AAB.

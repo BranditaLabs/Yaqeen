@@ -124,6 +124,9 @@ Each environment rollout (`tools/deploy/deploy.sh <env> <tag>`, also runnable fr
 | | `SENTRY_ORG`, `ADMIN_SENTRY_DSN`, `APP_SENTRY_DSN` | Sentry organisation and the admin/app project DSNs (DSNs are not secrets) |
 | Repository secret | `SENTRY_AUTH_TOKEN` | Sentry internal integration token (releases, source maps, app symbols) |
 | Cluster secret `yaqeen-api-secrets` | `SENTRY_DSN`, `POSTHOG_KEY` | API project DSN; PostHog EU project key (optional) |
+| | `ADMIN_SECRETS_KEY` | **required in production** — `openssl rand -base64 32`; seals admin 2FA secrets. Back it up: losing it means every admin re-enrols 2FA |
+| | `SHOPIFY_WEBHOOK_SECRET` | signing secret of the shop's `orders/paid` webhook → `<api>/webhooks/shopify/orders-paid` (marks reward codes used) |
+| ConfigMap / env | `SUPPORT_EMAIL` | shown on the website's help, privacy and deletion pages |
 | Packages | GHCR | the cluster pulls `ghcr.io/branditalabs/*`: make the packages public or add an image pull secret |
 
 Namespaces: `yaqeen-staging` (1 replica, HPA 1–4, campaigns suspended, 20 % traces) and `yaqeen`
