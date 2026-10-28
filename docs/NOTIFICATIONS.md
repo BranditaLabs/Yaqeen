@@ -38,26 +38,26 @@ Deep links: `yaqeen://<target>` → `routeForDeepLink()` in the app.
 
 Channels: Android `yaqeen_updates` (campaigns, normal priority) must be separate from the adhan channel so users can mute marketing without muting adhan.
 
-## 3. Sounds — «أصوات السكينة»
+## 3. Sounds — «أصوات يقين» (sonic identity)
 
-Yaqeen's own notification sounds, synthesised in `packages/brand/sounds/generate_sounds.py` from physical models
-(no samples, no licences). **Halal by design**: no musical instruments, no bells, no melodies, chords or tuned
-tones. Every sound is a natural event from the app's world. The premium comes from realism: modelled water
-bubbles, wood and stone that differ on every knock, a page turned right to left, a stone courtyard acoustic,
-stereo movement, and mastered loudness (≈ −17 LUFS prayer … −22 LUFS offers, true peak ≤ −1 dBTP), all under 3 s.
-The adhan is never synthesised; it stays a licensed recording on the `adhan` channel (`ADHAN_SOUNDS`).
+Yaqeen's own notification sounds, synthesised in `packages/brand/sounds/generate_sounds.py` (no samples, no
+licences). One **signature voice** («صوت يقين»: soft, glassy, harmonic partials only) and one **signature
+interval — D opening to A** — run through the whole family, so a user knows it's Yaqeen before reading the
+screen. Halal-conscious by the owner's decision: soft tones are fine; **no instrument timbres, no bells, no
+melodies**, three tones at most. Mastered to matched loudness (≈ −17 LUFS prayer … −22 LUFS offers, true peak
+≤ −1 dBTP), all under 3 s. The adhan is never synthesised; it stays a licensed recording (`ADHAN_SOUNDS`).
 
-| Sound | Plays for | Idea |
+| Sound | Plays for | What it is |
 | --- | --- | --- |
-| `yq_prayer` | prayer time when the alert is «تنبيه» | «ماء الوضوء»: water running into a stone basin in a mosque courtyard |
-| `yq_prayer_soon` | N minutes before a prayer | «قطرات»: the first drops of wudu |
-| `yq_azkar` | morning/evening azkar, dhikr routine | «السبحة»: three beads drawn along the cord, right to left |
-| `yq_quran` | wird, wird missing, Friday al-Kahf, khatma | «الصفحة»: a mushaf page turned right to left |
-| `yq_hifz` | hifz review due | «قطرتان»: two drops in a stone well |
-| `yq_suhoor` | suhoor | «سَحَر»: pre-dawn air through palm fronds, one drop |
-| `yq_iftar` | iftar | «ماءٌ وتمرة»: water poured into a clay cup, you hear it fill |
-| `yq_challenge` | challenge + reward pushes | «حبات الكهرمان»: amber beads poured onto a wooden tray |
-| `yq_offers` | store offer pushes | «حصاة»: one stone set down (the quietest sound) |
+| `yq_prayer` | prayer time when the alert is «تنبيه» | the full signature D → A, warm and wide |
+| `yq_prayer_soon` | N minutes before a prayer | the signature's first tone alone |
+| `yq_azkar` | morning/evening azkar, dhikr routine | three soft taps of the second tone, like counting |
+| `yq_quran` | wird, wird missing, Friday al-Kahf, khatma | the signature an octave down, slow to open |
+| `yq_hifz` | hifz review due | the signature turned around (A → D): something returning |
+| `yq_suhoor` | suhoor | both tones together, swelling out of the night |
+| `yq_iftar` | iftar | the signature, then its octave: opening up |
+| `yq_challenge` | challenge + reward pushes | the signature quick and bright, an octave up |
+| `yq_offers` | store offer pushes | one muted tone (the quietest sound) |
 
 Wiring: `NotificationSound` (`notification_planner.dart`) maps each `ReminderKind` to a sound. Android has **one
 reminders channel per sound** (a channel's sound is fixed once created; ids = resource names; push channels keep
