@@ -13,6 +13,7 @@ import 'app/bootstrap.dart';
 import 'app/router.dart';
 import 'core/analytics/product_analytics.dart';
 import 'core/di/providers.dart';
+import 'core/notifications/firebase_push_service.dart';
 import 'core/notifications/local_notifier.dart';
 import 'core/notifications/notification_planner.dart';
 import 'features/notifications/data/reminder_service.dart';
@@ -91,6 +92,7 @@ Future<void> _start() async {
     adhanVoice: () => current().adhanVoice.name,
   );
 
+  final push = FirebasePushService();
   container = ProviderContainer(
     overrides: [
       kvStoreProvider.overrideWithValue(kv),
@@ -108,7 +110,8 @@ Future<void> _start() async {
       audioEngineProvider.overrideWithValue(JustAudioEngine()),
       homeWidgetPublisherProvider.overrideWithValue(PluginHomeWidgetPublisher()),
       filesDirProvider.overrideWithValue(getApplicationSupportDirectory),
-      // Phase 2: pushServiceProvider (Firebase) and adSinksProvider (ad SDKs) — see README.
+      pushServiceProvider.overrideWithValue(push),
+      // Phase 2: adSinksProvider (ad SDKs) — see README.
     ],
   );
   await Boot.step('consents', container.read(consentRepositoryProvider).load, null);
@@ -124,6 +127,7 @@ Future<void> _start() async {
   Boot.afterFirstFrame({
     'notifications': notifier.init,
     'audio': JustAudioEngine.init,
+    'push': push.start,
     'analytics': () async {
       product.start();
       await product.track(ProductEvent.appOpen);

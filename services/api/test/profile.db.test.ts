@@ -4,7 +4,7 @@
  * Skipped without TEST_DATABASE_URL — see integration.db.test.ts.
  */
 import { fileURLToPath } from 'node:url';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { eq } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
@@ -241,9 +241,13 @@ describe.skipIf(!url)('public profile cards (Postgres)', () => {
     expect(hop.headers['cache-control']).toBe('no-store');
     await app.inject({ method: 'PUT', url: '/v1/me/public-profile', headers: auth(owner.token), payload: card({ handle: 'owner2' }) });
     expect((await app.inject({ method: 'GET', url: `/t/${code}` })).headers.location).toBe('https://id.test/u/owner2');
-    const mine = (await app.inject({ method: 'GET', url: '/v1/me/tags', headers: auth(owner.token) })).json();
+    // Scans are counted after the redirect is sent (fire-and-forget), so wait for the second one.
+    const mine = await vi.waitFor(async () => {
+      const list = (await app.inject({ method: 'GET', url: '/v1/me/tags', headers: auth(owner.token) })).json();
+      expect(list[0]?.scans).toBe(2); // both opens above were people (no bot user-agent)
+      return list;
+    });
     expect(mine).toHaveLength(1);
-    expect(mine[0].scans).toBe(2); // both opens above were people (no bot user-agent)
 
     // Admin list shows the handle, never worship.
     const list = (await app.inject({ method: 'GET', url: '/admin/tags?batch=b1&status=active', headers: auth(sup) })).json();

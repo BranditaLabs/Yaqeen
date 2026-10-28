@@ -55,7 +55,7 @@ first review. Then set it to `completed`.
 2. **Identifier** `com.yaqinbrand.yaqeen` with these capabilities:
    - Associated Domains;
    - Sign in with Apple;
-   - Push Notifications (for phase 2).
+   - Push Notifications (FCM campaigns; regenerate the App Store profile after enabling it).
 3. **App Store Connect** → New App with the same bundle id.
 4. **Apple Distribution** certificate. Export it from Keychain as a `.p12` with a password, then
    `base64 -i dist.p12`.

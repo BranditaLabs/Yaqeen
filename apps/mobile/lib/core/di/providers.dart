@@ -33,6 +33,7 @@ import '../network/download_queue.dart';
 import '../network/api_client.dart';
 import '../network/connectivity.dart';
 import '../notifications/notification_planner.dart';
+import '../notifications/push_registration.dart';
 import '../notifications/push_service.dart';
 import '../offline/outbox.dart';
 import '../platform/audio_engine.dart';
@@ -183,6 +184,7 @@ final filesDirProvider = Provider<Future<Directory> Function()>((_) {
   Future<Directory>? dir;
   return () => dir ??= Directory.systemTemp.createTemp('yaqeen');
 });
+
 /// One queue for every large download, alive for the whole session (never tied to a screen).
 final downloadQueueProvider = Provider((_) => DownloadQueue());
 final audioDownloadsProvider = Provider(
@@ -215,3 +217,15 @@ final reminderServiceProvider = Provider(
   ),
 );
 final pushServiceProvider = Provider<PushService>((_) => NoopPushService());
+final pushRegistrarProvider = Provider((ref) {
+  final device = ref.watch(deviceServicesProvider);
+  final r = PushRegistrar(
+    api: ref.watch(apiClientProvider),
+    push: ref.watch(pushServiceProvider),
+    store: ref.watch(kvStoreProvider),
+    platform: device.isIOS ? 'ios' : 'android',
+    appVersion: device.appVersion,
+  );
+  ref.onDispose(r.dispose);
+  return r;
+});

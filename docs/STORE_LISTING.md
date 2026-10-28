@@ -80,7 +80,7 @@ Golden screenshots in `apps/mobile/test/goldens/` are the reference framing.
 
 ## App Store — App Privacy ("nutrition label")
 
-Answer for the build being submitted. **Today's build ships no ad SDKs and no Firebase** (`adSinksProvider` is the debug sink, `pushServiceProvider` the no-op), so:
+Answer for the build being submitted. **Today's build ships no ad SDKs** (`adSinksProvider` is the debug sink). Firebase is used **only for push** (Cloud Messaging, project `yaqeen-eg`; no Firebase Analytics), so:
 
 | Data type | Collected? | Linked to the user | Tracking | Purposes |
 | --- | --- | --- | --- | --- |
@@ -89,11 +89,12 @@ Answer for the build being submitted. **Today's build ships no ad SDKs and no Fi
 | Sensitive info (religious practice: challenge task completions) | Yes | Yes | No | App functionality |
 | Purchases → Purchase history (reward redemptions) | Yes | Yes | No | App functionality |
 | Usage data → Product interaction | Yes, only with «تحسين التطبيق» | **No** (random install id) | No | Analytics |
+| Identifiers → Device ID (push token) | Yes | Yes | No | App functionality |
 | Diagnostics → Crash data, Performance data | Yes (Sentry, scrubbed) | No | No | App functionality |
 | Location | **No** (computed on device; the city name picked is a setting) | — | — | — |
 | User content | Yes, only if the user publishes a card (name, avatar, chosen fields) | Yes | No | App functionality |
 
-**When ad SDKs ship** (Google/Meta/TikTok with `ads_measurement`): add *Identifiers → Device ID* and *Usage data → Advertising data* as **Used to track you**, purpose *Third-party advertising*, and keep the ATT prompt behind the in-app consent (already built). **When Firebase push ships:** add *Identifiers → Device ID* (push token), linked, App functionality.
+**When ad SDKs ship** (Google/Meta/TikTok with `ads_measurement`): add *Identifiers → Device ID* and *Usage data → Advertising data* as **Used to track you**, purpose *Third-party advertising*, and keep the ATT prompt behind the in-app consent (already built).
 
 ## Google Play — Data safety
 
@@ -109,8 +110,9 @@ Answer for the build being submitted. **Today's build ships no ad SDKs and no Fi
 | Financial info → Purchase history (redemptions) | Yes | No | Yes | App functionality |
 | App activity → App interactions | Yes | No | Yes (consent) | Analytics |
 | App info & performance → Crash logs, Diagnostics | Yes | No | No | App functionality, Analytics |
+| Device or other IDs → push token (Firebase Cloud Messaging) | Yes | No | No | App functionality |
 | Location | **No** | — | — | — |
-| Device or other IDs | **No** today; **Yes** once Firebase push / ad SDKs ship (push token; advertising ID shared with ad networks only with `ads_measurement`) | | | |
+| Device or other IDs → advertising ID | **No** today; **Yes** once ad SDKs ship (shared with ad networks only with `ads_measurement`) | | | |
 
 Service providers that process data on our behalf (Shopify, Sentry, PostHog EU, hosting) are not "sharing" under Play's definition.
 

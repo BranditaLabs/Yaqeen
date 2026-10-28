@@ -40,8 +40,11 @@ dependencies:
   qr_flutter: ^4.1.0
   sentry_flutter: ^9.0.0
   home_widget: ^0.10.0
+  # Remote push only (FCM → PushService); no Firebase Analytics or other Firebase SDKs.
+  firebase_core: ^5.1.0
+  firebase_messaging: ^17.0.1
   # Phase 2 (need accounts/keys — see README "Native integrations"):
-  # firebase_core, firebase_messaging → PushService · facebook_app_events, TikTok SDK → AdSink
+  # facebook_app_events, TikTok SDK → AdSink
 
 dev_dependencies:
   flutter_test:

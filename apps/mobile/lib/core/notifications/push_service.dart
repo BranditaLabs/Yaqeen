@@ -11,8 +11,15 @@ abstract interface class PushService {
   /// Emits a token whenever FCM rotates it — re-register with POST /v1/me/devices.
   Stream<String> get onTokenRefresh;
 
-  /// Emits the deep link (e.g. "yaqeen://redeem") when the user taps a push.
-  Stream<Uri> get onOpened;
+  /// Emits when the user taps a push (including the one that launched the app).
+  Stream<PushOpened> get onOpened;
+}
+
+/// A tapped push: where it leads, and the campaign it came from (for the open count).
+class PushOpened {
+  const PushOpened(this.link, {this.campaignId});
+  final Uri link;
+  final String? campaignId;
 }
 
 class NoopPushService implements PushService {
@@ -23,7 +30,7 @@ class NoopPushService implements PushService {
   @override
   Stream<String> get onTokenRefresh => const Stream.empty();
   @override
-  Stream<Uri> get onOpened => const Stream.empty();
+  Stream<PushOpened> get onOpened => const Stream.empty();
 }
 
 /// Deep-link targets (`yaqeen://<target>` and `https://yaqin-brand.com/app/<target>`, spec §4.2).

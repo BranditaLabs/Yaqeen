@@ -56,6 +56,8 @@
 	<array>
 		<!-- Recitation keeps playing with the screen off (spec §5.13). -->
 		<string>audio</string>
+		<!-- FCM delivers campaign pushes through APNs. -->
+		<string>remote-notification</string>
 	</array>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
