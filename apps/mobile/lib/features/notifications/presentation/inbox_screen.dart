@@ -1,3 +1,4 @@
+import 'package:yaqeen/core/time/zoned.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -54,7 +55,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       final d = DateTime(at.year, at.month, at.day);
       final today = DateTime(now.year, now.month, now.day);
       if (d == today) return t.inboxToday;
-      if (d == today.subtract(const Duration(days: 1))) return t.inboxYesterday;
+      if (d == Zoned.addDays(today, -1)) return t.inboxYesterday;
       return t.inboxEarlier;
     }
 
@@ -158,4 +159,3 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     );
   }
 }
-

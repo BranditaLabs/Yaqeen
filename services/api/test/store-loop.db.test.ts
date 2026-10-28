@@ -3,6 +3,7 @@
  * idempotent), unused codes expire, an edit in review never takes approved content offline, and
  * admin TOTP secrets are sealed at rest (legacy plain ones sealed on the next good login).
  */
+import { fileURLToPath } from 'node:url';
 import { createHmac, randomBytes } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
@@ -43,7 +44,7 @@ describe.skipIf(!url)('store loop + hardening (Postgres)', () => {
     await reset.query('drop schema if exists public cascade; drop schema if exists drizzle cascade; create schema public;');
     await reset.end();
     ({ db, pool } = createDb(url!));
-    await migrate(db, { migrationsFolder: new URL('../drizzle', import.meta.url).pathname });
+    await migrate(db, { migrationsFolder: fileURLToPath(new URL('../drizzle', import.meta.url)) });
     app = await buildApp({
       env,
       db,

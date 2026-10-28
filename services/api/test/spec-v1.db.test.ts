@@ -3,6 +3,7 @@
  * calendar, catalogues, admin aggregates, exports, splash-verse review, erasure). Skipped
  * without TEST_DATABASE_URL — see integration.db.test.ts.
  */
+import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { eq, sql } from 'drizzle-orm';
@@ -65,7 +66,7 @@ describe.skipIf(!url)('spec v1 endpoints (Postgres)', () => {
     await reset.query('drop schema if exists public cascade; drop schema if exists drizzle cascade; create schema public;');
     await reset.end();
     ({ db, pool } = createDb(url!));
-    await migrate(db, { migrationsFolder: new URL('../drizzle', import.meta.url).pathname });
+    await migrate(db, { migrationsFolder: fileURLToPath(new URL('../drizzle', import.meta.url)) });
     await db.insert(s.taskRules).values([
       { key: 'wird', labelAr: 'وِرد', labelEn: 'Wird', points: 20, sortOrder: 1 },
       { key: 'morning_azkar', labelAr: 'الصباح', labelEn: 'Morning', points: 10, sortOrder: 2 },

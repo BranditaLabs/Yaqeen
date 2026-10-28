@@ -74,9 +74,10 @@ class KhatmaScreen extends ConsumerWidget {
             YqGroup(
               children: [
                 YqListRow(
-                    leading: const YqIconTile(YqIcons.settings),
-                    title: t.khatmaEdit,
-                    onTap: () => showKhatmaSetup(context, ref, editing: k),),
+                  leading: const YqIconTile(YqIcons.settings),
+                  title: t.khatmaEdit,
+                  onTap: () => showKhatmaSetup(context, ref, editing: k),
+                ),
                 YqListRow(
                   title: t.khatmaEnd,
                   titleColor: YqColors.goldText,
@@ -283,7 +284,7 @@ class _WeekCard extends ConsumerWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              _shortDay(YqFormat.weekday(today.subtract(Duration(days: 6 - i)), s.locale), s.locale),
+                              _shortDay(YqFormat.weekday(Zoned.addDays(today, -(6 - i)), s.locale), s.locale),
                               style: const TextStyle(fontSize: 10, color: YqColors.muted),
                             ),
                           ],
@@ -354,7 +355,10 @@ class KhatmaOrb extends ConsumerWidget {
     if (active) {
       final read = _readToday(ref, k, today);
       status = t.khatmaOrbStatus(
-          YqFormat.number((k.progress * 100).round()), YqFormat.number(read), YqFormat.number(k.dailyTarget(today, readToday: read)),);
+        YqFormat.number((k.progress * 100).round()),
+        YqFormat.number(read),
+        YqFormat.number(k.dailyTarget(today, readToday: read)),
+      );
       value = k.progress;
     } else {
       final page = last?.page ?? 0;
@@ -419,7 +423,7 @@ class _SetupState extends ConsumerState<_Setup> {
     final today = Zoned.isoDate(todayDate);
     final last = await ref.read(readingRepositoryProvider).lastRead();
     final carried = widget.editing?.read ?? (_fromHere && last != null ? {for (var p = 1; p < last.page; p++) p} : <int>{});
-    final target = _mode == _Mode.date ? Zoned.isoDate(_customDate ?? todayDate.add(Duration(days: _days - 1))) : null;
+    final target = _mode == _Mode.date ? Zoned.isoDate(_customDate ?? Zoned.addDays(todayDate, _days - 1)) : null;
     final plan = Khatma(
       startedOn: widget.editing?.startedOn ?? today,
       targetDate: target,
@@ -443,10 +447,10 @@ class _SetupState extends ConsumerState<_Setup> {
     final todayDate = Zoned.today(s.placeOrDefault.timezone, ref.watch(clockProvider)());
     final last = ref.watch(lastReadProvider).valueOrNull;
     final text = Theme.of(context).textTheme;
-    final finish = _customDate ?? todayDate.add(Duration(days: _days - 1));
+    final finish = _customDate ?? Zoned.addDays(todayDate, _days - 1);
     final preview = _mode == _Mode.date
         ? t.khatmaFinishOn(YqFormat.fullDate(finish, s.locale))
-        : t.khatmaProjected(YqFormat.fullDate(todayDate.add(Duration(days: (Khatma.total / _pace).ceil() - 1)), s.locale));
+        : t.khatmaProjected(YqFormat.fullDate(Zoned.addDays(todayDate, (Khatma.total / _pace).ceil() - 1), s.locale));
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -481,7 +485,7 @@ class _SetupState extends ConsumerState<_Setup> {
                     context: context,
                     initialDate: finish,
                     firstDate: todayDate,
-                    lastDate: todayDate.add(const Duration(days: 730)),
+                    lastDate: Zoned.addDays(todayDate, 730),
                   );
                   if (picked != null) setState(() => _customDate = picked);
                 },

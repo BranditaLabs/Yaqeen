@@ -3,6 +3,7 @@
  * scanner sees, handle rules, guests, view counting, and erasure hiding the card at once.
  * Skipped without TEST_DATABASE_URL — see integration.db.test.ts.
  */
+import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { eq } from 'drizzle-orm';
@@ -34,7 +35,7 @@ describe.skipIf(!url)('public profile cards (Postgres)', () => {
     await reset.query('drop schema if exists public cascade; drop schema if exists drizzle cascade; create schema public;');
     await reset.end();
     ({ db, pool } = createDb(url!));
-    await migrate(db, { migrationsFolder: new URL('../drizzle', import.meta.url).pathname });
+    await migrate(db, { migrationsFolder: fileURLToPath(new URL('../drizzle', import.meta.url)) });
     resetActivityCache();
     app = await buildApp({
       env,

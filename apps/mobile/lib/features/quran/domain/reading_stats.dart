@@ -1,3 +1,5 @@
+import 'package:yaqeen/core/time/zoned.dart';
+
 /// Reading time and pages per day (spec §5.11 «إحصاءات القراءة») — device only. A page view counts
 /// at most [maxSecondsPerView] so a phone left open on a page doesn't inflate the time.
 class ReadingStats {
@@ -28,7 +30,7 @@ class ReadingStats {
     var seconds = 0;
     var active = 0;
     for (var i = 0; i < 7; i++) {
-      final d = days[_iso(today.subtract(Duration(days: i)))];
+      final d = days[_iso(Zoned.addDays(today, -i))];
       if (d == null) continue;
       pages += d.pages;
       seconds += d.seconds;
@@ -41,16 +43,16 @@ class ReadingStats {
   int streak(DateTime today) {
     var n = 0;
     var day = today;
-    if ((days[_iso(day)]?.pages ?? 0) == 0) day = day.subtract(const Duration(days: 1));
+    if ((days[_iso(day)]?.pages ?? 0) == 0) day = Zoned.addDays(day, -1);
     while ((days[_iso(day)]?.pages ?? 0) > 0) {
       n++;
-      day = day.subtract(const Duration(days: 1));
+      day = Zoned.addDays(day, -1);
     }
     return n;
   }
 
   /// Pages per day for the 7 days ending [today], oldest first (the bars).
-  List<int> lastSeven(DateTime today) => [for (var i = 6; i >= 0; i--) days[_iso(today.subtract(Duration(days: i)))]?.pages ?? 0];
+  List<int> lastSeven(DateTime today) => [for (var i = 6; i >= 0; i--) days[_iso(Zoned.addDays(today, -i))]?.pages ?? 0];
 
   Map<String, dynamic> toJson() => {
         for (final e in days.entries) e.key: [e.value.pages, e.value.seconds],

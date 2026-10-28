@@ -1,3 +1,4 @@
+import 'package:yaqeen/core/time/zoned.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -24,7 +25,7 @@ void main() {
       expect(p.today(q), (surah: 114, from: 1, to: 5));
       p = p.memorise(q, day);
       expect(p.today(q), (surah: 114, from: 6, to: 6));
-      p = p.memorise(q, day.add(const Duration(days: 1)));
+      p = p.memorise(q, Zoned.addDays(day, 1));
       expect(p.today(q), (surah: 113, from: 1, to: 5));
       expect(p.memorisedAyat(), 6);
       expect(p.memorisedToday(day), isTrue);
@@ -33,13 +34,13 @@ void main() {
     test('first review is tomorrow; ratings follow the scheduler; estimate and strip', () {
       var p = const HifzPlan(goal: HifzGoal.kahf, perDay: 10).memorise(q, day);
       expect(p.due(day), isEmpty);
-      final tomorrow = day.add(const Duration(days: 1));
+      final tomorrow = Zoned.addDays(day, 1);
       expect(p.due(tomorrow), hasLength(1));
       p = p.rate(p.portions.single.id, ReviewGrade.good, tomorrow);
       expect(p.portions.single.review.intervalDays, 3);
       expect(p.due(tomorrow), isEmpty);
       expect(p.upcoming(tomorrow), hasLength(1));
-      expect(p.finishEstimate(q, tomorrow), tomorrow.add(const Duration(days: 10)));
+      expect(p.finishEstimate(q, tomorrow), Zoned.addDays(tomorrow, 10));
       expect(p.activeInLast(14, tomorrow), 2);
       expect(p.progress(q), closeTo(10 / 110, 1e-9));
     });

@@ -1,3 +1,4 @@
+import 'package:yaqeen/core/time/zoned.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -92,7 +93,8 @@ class _HifzScreenState extends ConsumerState<HifzScreen> {
                         center: false,
                         eyebrow: t.hifzTitle,
                         value: Text(hifzGoalLabel(t, p.goal), style: YqMoment.display(context, size: 28)),
-                        caption: Text(finish == null ? t.hifzComplete : t.hifzFinish(YqFormat.fullDate(finish, locale)), style: text.bodySmall),
+                        caption:
+                            Text(finish == null ? t.hifzComplete : t.hifzFinish(YqFormat.fullDate(finish, locale)), style: text.bodySmall),
                       ),
                     ),
                   ],
@@ -262,47 +264,47 @@ class _ReviewCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: YqSpace.m),
       child: LiquidGlass(
-      tone: needsWork ? GlassTone.gold : GlassTone.clear,
-      padding: const EdgeInsets.all(YqSpace.l),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(child: Text(t.hifzRange(quran.surah(portion.surah).nameAr, portion.from, portion.to), style: text.titleSmall)),
-              _Tag(needsWork ? t.hifzNeedsWork : t.hifzDueToday, gold: needsWork),
-            ],
-          ),
-          const SizedBox(height: YqSpace.xs),
-          Text(t.hifzMemorisedAgo(ago, last), style: text.bodySmall),
-          const SizedBox(height: YqSpace.m),
-          Text(t.hifzHowWasIt, style: text.labelMedium),
-          const SizedBox(height: YqSpace.s),
-          Row(
-            children: [
-              for (final (g, label) in [
-                (ReviewGrade.hard, t.hifzHard),
-                (ReviewGrade.good, t.hifzGood(ReviewScheduler.nextInterval(ReviewGrade.good, prev))),
-                (ReviewGrade.easy, t.hifzEasy(ReviewScheduler.nextInterval(ReviewGrade.easy, prev))),
-              ]) ...[
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => onRate(g),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: g == ReviewGrade.hard ? YqColors.goldText : YqColors.lapis,
-                      side: const BorderSide(color: YqColors.line),
-                      padding: const EdgeInsets.symmetric(vertical: YqSpace.m, horizontal: YqSpace.xs),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(YqRadii.chip)),
-                    ),
-                    child: Text(label, textAlign: TextAlign.center, style: text.labelMedium?.copyWith(color: null)),
-                  ),
-                ),
-                if (g != ReviewGrade.easy) const SizedBox(width: YqSpace.s),
+        tone: needsWork ? GlassTone.gold : GlassTone.clear,
+        padding: const EdgeInsets.all(YqSpace.l),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(child: Text(t.hifzRange(quran.surah(portion.surah).nameAr, portion.from, portion.to), style: text.titleSmall)),
+                _Tag(needsWork ? t.hifzNeedsWork : t.hifzDueToday, gold: needsWork),
               ],
-            ],
-          ),
-        ],
-      ),
+            ),
+            const SizedBox(height: YqSpace.xs),
+            Text(t.hifzMemorisedAgo(ago, last), style: text.bodySmall),
+            const SizedBox(height: YqSpace.m),
+            Text(t.hifzHowWasIt, style: text.labelMedium),
+            const SizedBox(height: YqSpace.s),
+            Row(
+              children: [
+                for (final (g, label) in [
+                  (ReviewGrade.hard, t.hifzHard),
+                  (ReviewGrade.good, t.hifzGood(ReviewScheduler.nextInterval(ReviewGrade.good, prev))),
+                  (ReviewGrade.easy, t.hifzEasy(ReviewScheduler.nextInterval(ReviewGrade.easy, prev))),
+                ]) ...[
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => onRate(g),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: g == ReviewGrade.hard ? YqColors.goldText : YqColors.lapis,
+                        side: const BorderSide(color: YqColors.line),
+                        padding: const EdgeInsets.symmetric(vertical: YqSpace.m, horizontal: YqSpace.xs),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(YqRadii.chip)),
+                      ),
+                      child: Text(label, textAlign: TextAlign.center, style: text.labelMedium?.copyWith(color: null)),
+                    ),
+                  ),
+                  if (g != ReviewGrade.easy) const SizedBox(width: YqSpace.s),
+                ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -337,9 +339,9 @@ class _HeatStrip extends StatelessWidget {
                         height: 15,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: plan.activeDays.contains(iso(today.subtract(Duration(days: i)))) ? YqColors.gold : YqColors.white,
+                          color: plan.activeDays.contains(iso(Zoned.addDays(today, -i))) ? YqColors.gold : YqColors.white,
                           border: Border.all(color: i == 0 ? YqColors.ink : const Color(0x33C6A867), width: i == 0 ? 1.5 : 1),
-                          boxShadow: plan.activeDays.contains(iso(today.subtract(Duration(days: i))))
+                          boxShadow: plan.activeDays.contains(iso(Zoned.addDays(today, -i)))
                               ? const [BoxShadow(color: Color(0x59C6A867), blurRadius: 8, spreadRadius: -2)]
                               : null,
                         ),
