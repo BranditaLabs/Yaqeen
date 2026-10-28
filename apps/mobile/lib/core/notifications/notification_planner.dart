@@ -19,6 +19,38 @@ enum PrayerAlert { adhan, notify, silent }
 /// Android notification channels (spec §6.5) — users can silence each one in the OS.
 enum NotificationChannel { adhan, reminders, challenge, offers }
 
+/// Yaqeen's own notification sounds («أصوات السكينة», packages/brand/sounds) — synthesised, no
+/// bells or melodies. Files: `android/app/src/main/res/raw/<resource>.ogg`, `ios/Runner/Sounds/<resource>.caf`.
+/// The adhan itself is never one of these: it stays a licensed recording on the adhan channel.
+enum NotificationSound {
+  prayer('yq_prayer'),
+  prayerSoon('yq_prayer_soon'),
+  azkar('yq_azkar'),
+  quran('yq_quran'),
+  hifz('yq_hifz'),
+  suhoor('yq_suhoor'),
+  iftar('yq_iftar'),
+  challenge('yq_challenge'),
+  offers('yq_offers');
+
+  const NotificationSound(this.resource);
+
+  /// Raw resource name on Android, file name (without `.caf`) on iOS.
+  final String resource;
+
+  /// Android channel id. A channel's sound can't change after creation, so each sound has its own
+  /// reminders channel; challenge/offers keep their ids (the API posts pushes to them).
+  String get channelId => switch (this) {
+        NotificationSound.challenge => NotificationChannel.challenge.name,
+        NotificationSound.offers => NotificationChannel.offers.name,
+        _ => resource,
+      };
+
+  /// Sound of a push in [channel] (FCM campaigns land in challenge or offers).
+  static NotificationSound forPushChannel(NotificationChannel channel) =>
+      channel == NotificationChannel.challenge ? NotificationSound.challenge : NotificationSound.offers;
+}
+
 class PrayerDay {
   const PrayerDay(this.date, this.times);
   final DateTime date;
@@ -144,6 +176,20 @@ class PlannedNotification {
 
   NotificationChannel get channel =>
       kind == ReminderKind.adhan && alert == PrayerAlert.adhan ? NotificationChannel.adhan : NotificationChannel.reminders;
+
+  /// Yaqeen sound for this reminder; null on the adhan channel (licensed adhan voices).
+  NotificationSound? get sound => channel == NotificationChannel.adhan
+      ? null
+      : switch (kind) {
+          ReminderKind.adhan => NotificationSound.prayer,
+          ReminderKind.prePrayer => NotificationSound.prayerSoon,
+          ReminderKind.morningAzkar || ReminderKind.eveningAzkar || ReminderKind.dhikr => NotificationSound.azkar,
+          ReminderKind.wird || ReminderKind.wirdMissing || ReminderKind.kahfFriday || ReminderKind.khatma =>
+            NotificationSound.quran,
+          ReminderKind.hifzDue => NotificationSound.hifz,
+          ReminderKind.suhoor => NotificationSound.suhoor,
+          ReminderKind.iftar => NotificationSound.iftar,
+        };
 
   /// Where a tap opens (spec §4.2 deep links).
   String get link => switch (kind) {

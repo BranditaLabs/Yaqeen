@@ -88,6 +88,18 @@ Future<void> _start() async {
         NotificationChannel.offers: t.channelOffers,
       };
     },
+    soundNames: () {
+      final t = lookupAppLocalizations(Locale(current().locale));
+      return {
+        NotificationSound.prayer: t.soundPrayer,
+        NotificationSound.prayerSoon: t.soundPrayerSoon,
+        NotificationSound.azkar: t.soundAzkar,
+        NotificationSound.quran: t.soundQuran,
+        NotificationSound.hifz: t.soundHifz,
+        NotificationSound.suhoor: t.soundSuhoor,
+        NotificationSound.iftar: t.soundIftar,
+      };
+    },
     timezone: () => current().placeOrDefault.timezone,
     adhanVoice: () => current().adhanVoice.name,
   );

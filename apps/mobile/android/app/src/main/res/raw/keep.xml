@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Notification sounds are referenced by name from Dart (RawResourceAndroidNotificationSound) and
+     from FCM payloads, so R8 resource shrinking can't see them. Keep them, and the licensed adhan
+     voices once bundled. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/yq_*,@raw/adhan_*" />

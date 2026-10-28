@@ -87,6 +87,7 @@ flutter:
     - assets/quran/
     - assets/geo/
     - assets/content/
+    - assets/sounds/
 
   fonts:
     - family: Tajawal

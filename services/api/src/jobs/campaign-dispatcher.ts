@@ -87,6 +87,7 @@ export async function dispatchDue(ctx: AppContext): Promise<void> {
           body: localeOf.get(t.userId) === 'en' ? c.bodyEn : c.bodyAr,
           link: `${DEEP_LINK_PREFIX}${c.deepLink}`,
           campaignId: c.id,
+          kind,
         })),
       );
       if (result.invalidTokens.length) {

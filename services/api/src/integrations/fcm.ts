@@ -12,6 +12,19 @@ export interface PushMessage {
   /** Deep link handled by the app router, e.g. "yaqeen://challenge". */
   link: string;
   campaignId?: string;
+  /** Campaign kind — picks the Android channel and the Yaqeen sound. Defaults to offers. */
+  kind?: 'challenge' | 'rewards' | 'offers';
+}
+
+/**
+ * Channel + sound for a push. The app creates the `challenge` and `offers` Android channels with
+ * these sounds (apps/mobile NotificationSound); on iOS the `.caf` ships in the app bundle.
+ * Challenge and reward nudges glint (yq_challenge); store offers are the quiet pebble (yq_offers).
+ */
+export function pushSound(kind: PushMessage['kind']): { channelId: 'challenge' | 'offers'; sound: string } {
+  return kind === 'challenge' || kind === 'rewards'
+    ? { channelId: 'challenge', sound: 'yq_challenge' }
+    : { channelId: 'offers', sound: 'yq_offers' };
 }
 
 export interface PushResult {
@@ -40,13 +53,16 @@ export class FcmSender {
     for (let i = 0; i < messages.length; i += 500) {
       const batch = messages.slice(i, i + 500);
       const res = await messaging.sendEach(
-        batch.map((m) => ({
-          token: m.token,
-          notification: { title: m.title, body: m.body },
-          data: { link: m.link, ...(m.campaignId ? { campaignId: m.campaignId } : {}) },
-          android: { priority: 'normal', notification: { channelId: 'offers' } },
-          apns: { payload: { aps: { sound: 'default', 'thread-id': 'yaqeen-updates' } } },
-        })),
+        batch.map((m) => {
+          const { channelId, sound } = pushSound(m.kind);
+          return {
+            token: m.token,
+            notification: { title: m.title, body: m.body },
+            data: { link: m.link, ...(m.campaignId ? { campaignId: m.campaignId } : {}) },
+            android: { priority: 'normal' as const, notification: { channelId, sound } },
+            apns: { payload: { aps: { sound: `${sound}.caf`, 'thread-id': 'yaqeen-updates' } } },
+          };
+        }),
       );
       res.responses.forEach((r, idx) => {
         if (r.success) ok++;

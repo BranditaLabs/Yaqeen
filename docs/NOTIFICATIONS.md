@@ -37,3 +37,31 @@ Schedules: `now` (one pass, blocked users skipped), `smart` (blocked-by-time use
 Deep links: `yaqeen://<target>` → `routeForDeepLink()` in the app.
 
 Channels: Android `yaqeen_updates` (campaigns, normal priority) must be separate from the adhan channel so users can mute marketing without muting adhan.
+
+## 3. Sounds — «أصوات السكينة»
+
+Yaqeen's own notification sounds, synthesised in `packages/brand/sounds/generate_sounds.py` (no samples, no
+licences). Rules: **no bells, no melodies, no instruments**. Every sound comes from the app's world (beads,
+water, a page, dawn air, night wind, the gold diamond), is under 3 s and loudness-matched (≈ −18 LUFS, peak ≤ −1.5 dBFS).
+The adhan is never synthesised; it stays a licensed recording on the `adhan` channel (`ADHAN_SOUNDS`).
+
+| Sound | Plays for | Idea |
+| --- | --- | --- |
+| `yq_prayer` | prayer time when the alert is «تنبيه» | «الفجر يتنفس»: air rising into a wide, still glow |
+| `yq_prayer_soon` | N minutes before a prayer | a shorter breath of the same dawn |
+| `yq_azkar` | morning/evening azkar, dhikr routine | «السبحة»: three tasbih beads slide together |
+| `yq_quran` | wird, wird missing, Friday al-Kahf, khatma | «الصفحة»: a page turns, the room settles warm |
+| `yq_hifz` | hifz review due | «قطرتان»: two drops on still water |
+| `yq_suhoor` / `yq_iftar` | Ramadan | night wind and faint stars / water poured into a cup |
+| `yq_challenge` | challenge + reward pushes | «لمعة الماسة»: the gold diamond catches the light |
+| `yq_offers` | store offer pushes | «حصاة»: one pebble set down (the quietest sound) |
+
+Wiring: `NotificationSound` (`notification_planner.dart`) maps each `ReminderKind` to a sound. Android has **one
+reminders channel per sound** (a channel's sound is fixed once created; ids = resource names; push channels keep
+`challenge`/`offers`). iOS plays `<name>.caf` from the app bundle root (files in `ios/Runner/Sounds`, registered in
+the Runner target). The API picks channel + sound per campaign kind (`pushSound` in `integrations/fcm.ts`).
+`res/raw/keep.xml` stops R8 from stripping the files. In-app UI sounds (`ui_bead`, `ui_bead_round`,
+`ui_complete`) are in `assets/sounds/`, ready for the azkar «صوت نقرة خفيف» setting.
+
+To change a sound: edit the generator, run `python3 packages/brand/sounds/generate_sounds.py`, and **bump the
+Android channel id** if the app has shipped (installed channels keep their old sound).

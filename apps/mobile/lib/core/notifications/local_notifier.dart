@@ -13,6 +13,10 @@ typedef NotificationCopyFn = (String title, String body) Function(PlannedNotific
 /// Channel names (localised), keyed by [NotificationChannel].
 typedef ChannelNames = Map<NotificationChannel, String>;
 
+/// Short localised names of Yaqeen's sounds, shown in Android's per-channel settings
+/// («التذكيرات · الأذكار»).
+typedef SoundNames = Map<NotificationSound, String>;
+
 /// flutter_local_notifications adapter for [LocalNotificationScheduler] (spec §6.5).
 ///
 /// - Android channels: adhan · reminders · challenge · offers (users can silence each in the OS).
@@ -20,8 +24,16 @@ typedef ChannelNames = Map<NotificationChannel, String>;
 /// - Custom adhan audio is used only when the licensed recordings are bundled
 ///   (`--dart-define=ADHAN_SOUNDS=true`, files in android/app/src/main/res/raw and ios/Runner);
 ///   until then the adhan channel uses the default sound so a missing file can never crash.
+/// - Every other reminder plays its Yaqeen sound ([NotificationSound], always bundled): one Android
+///   channel per sound (a channel's sound is fixed once created), `<resource>.caf` on iOS.
 class PluginLocalNotifier implements LocalNotificationScheduler {
-  PluginLocalNotifier({required this.copy, required this.channelNames, required this.timezone, required this.adhanVoice});
+  PluginLocalNotifier({
+    required this.copy,
+    required this.channelNames,
+    required this.timezone,
+    required this.adhanVoice,
+    SoundNames Function()? soundNames,
+  }) : soundNames = soundNames ?? (() => const {});
 
   final NotificationCopyFn Function() copy;
   final ChannelNames Function() channelNames;
@@ -29,6 +41,7 @@ class PluginLocalNotifier implements LocalNotificationScheduler {
   /// The place's IANA zone (times are scheduled on its wall clock).
   final String Function() timezone;
   final String Function() adhanVoice;
+  final SoundNames Function() soundNames;
 
   static const bundledAdhan = bool.fromEnvironment('ADHAN_SOUNDS');
 
@@ -58,11 +71,20 @@ class PluginLocalNotifier implements LocalNotificationScheduler {
         if (link != null && link.isNotEmpty) _taps.add(Uri.parse(link));
       },
     );
-    // Campaign pushes (FCM) post to the offers channel; create it now so the first one, which can
-    // arrive before any local offer is scheduled, lands there with its localized name.
+    // Campaign pushes (FCM) post to the challenge or offers channel; create both now so the first
+    // one, which can arrive before anything local is scheduled, lands there with its name and sound.
     final android = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-    const offers = NotificationChannel.offers;
-    await android?.createNotificationChannel(AndroidNotificationChannel(offers.name, channelNames()[offers] ?? offers.name));
+    final names = channelNames();
+    for (final channel in [NotificationChannel.challenge, NotificationChannel.offers]) {
+      final sound = NotificationSound.forPushChannel(channel);
+      await android?.createNotificationChannel(AndroidNotificationChannel(
+        sound.channelId,
+        names[channel] ?? channel.name,
+        importance: Importance.defaultImportance, // "low" would mute the sound
+        sound: RawResourceAndroidNotificationSound(sound.resource),
+        playSound: true,
+      ));
+    }
     final launch = await _plugin.getNotificationAppLaunchDetails();
     final link = launch?.notificationResponse?.payload;
     if (launch?.didNotificationLaunchApp == true && link != null) _taps.add(Uri.parse(link));
@@ -92,11 +114,14 @@ class PluginLocalNotifier implements LocalNotificationScheduler {
     final channel = n.channel;
     final adhan = channel == NotificationChannel.adhan;
     final voice = adhanVoice();
-    final sound = adhan && bundledAdhan ? 'adhan_$voice${n.prayer == Prayer.fajr ? '_fajr' : ''}' : null;
+    final yq = n.sound;
+    final sound = yq?.resource ?? (adhan && bundledAdhan ? 'adhan_$voice${n.prayer == Prayer.fajr ? '_fajr' : ''}' : null);
+    final channelName = names[channel] ?? channel.name;
+    final soundName = yq == null ? null : soundNames()[yq];
     return NotificationDetails(
       android: AndroidNotificationDetails(
-        sound == null ? channel.name : 'adhan_$voice',
-        names[channel] ?? channel.name,
+        yq?.channelId ?? (sound == null ? channel.name : 'adhan_$voice'),
+        soundName == null ? channelName : '$channelName · $soundName',
         importance: adhan ? Importance.max : Importance.defaultImportance,
         priority: adhan ? Priority.high : Priority.defaultPriority,
         category: adhan ? AndroidNotificationCategory.alarm : AndroidNotificationCategory.reminder,
