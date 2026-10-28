@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
 """
-Yaqeen notification sounds — «أصوات يقين» (v7).
+Yaqeen notification sounds — «أصوات يقين» (v8: «سكينة», rest and quiet).
 
-Matched to the character of high-end app sounds — iPhone (Note, Rebound), Apple Pay / Revolut
-success sounds, Headspace / Calm warmth, Tarteel / Nusuk restraint:
-
-  * Very short (0.45–1.1 s). Nothing rings on.
-  * A round «pop» at the touch: each tone starts a few percent sharp and settles in ~12 ms,
-    with a fast-fading 2nd harmonic for shape, the octave below for warmth and 1 ms of air.
-  * A quick, confident gesture: notes 60–120 ms apart.
-  * A whisper of room only; band-limited for phone speakers; levelled by true peak
-    (−1 dBTP prayer … −9 dBTP offers).
-  * Signature: F♯ rising a fourth to B — short then long like «يَ‑قين».
+  * No strike, no pop, no edge: every tone breathes in (60–650 ms), glows, and breathes out on a
+    long cosine curve. Almost pure tones (2nd/3rd harmonics a whisper), two layers ±1.2 cents
+    apart so they move very slowly, gently low-passed.
+  * Notes arrive while the one before still glows, so they blend into a soft chord, never step.
+  * A warm, dark room (high damping, no shimmer); band-limited for phone speakers; quiet by
+    design (−3 dBTP prayer … −12 dBTP offers).
+  * Signature: F♯ → B, a rising fourth, the second note joining the first.
   * Owner's halal line: soft tones are fine; no instrument timbres, no bells, no melodies —
     three notes at most. The adhan is NOT generated — it stays a licensed recording (spec §10).
 
@@ -50,33 +47,34 @@ def n_of(sec: float) -> int:
 
 
 # ----------------------------------------------------------------------------- the voice
-#   The DNA shared by iPhone (Note, Rebound), Apple Pay / Revolut success sounds, Headspace and
-#   Tarteel: very short, a round «pop» at the touch, almost no reverb, a quick confident gesture,
-#   warmth underneath. Nothing rings on — that's what separates them from a desktop chime.
+#   «سكينة»: rest and quiet. No strike, no pop, no edge. Each tone breathes in, glows, and
+#   breathes out; notes arrive while the one before is still there, so they blend, never step.
 
 
 class Engine:
     def __init__(self, seed: int):
         self.rng = np.random.default_rng(seed)
 
-    def pop(self, f: float, *, decay: float = 0.16, vel: float = 1.0, blip: float = 0.035,
-            attack: float = 0.0018, warmth: float = 0.12, air: float = 0.25, pos: float = 0.0) -> np.ndarray:
-        """One round, tactile tone. `blip`: the pitch starts a few % sharp and settles in ~12 ms —
-        the «pop». A quieter 2nd harmonic that fades fast gives it shape; the octave below gives
-        warmth; a 1 ms touch of air gives it a surface."""
-        sec = min(1.6, decay * 7)
+    def glow(self, f: float, sec: float, *, attack: float = 0.16, vel: float = 1.0, warm: float = 1.0,
+             pos: float = 0.0) -> np.ndarray:
+        """A soft, dark, held tone: almost pure (2nd/3rd harmonics a whisper), two layers ±1.2 cents
+        apart so it moves very slowly, a raised-cosine breath in and a long cosine breath out."""
         t = np.arange(n_of(sec)) / SR
-        pitch = f * (1 + blip * np.exp(-t / 0.012))
-        ph = 2 * np.pi * np.cumsum(pitch) / SR
-        body = np.sin(ph) * np.exp(-t / decay)
-        body += 0.22 * np.sin(2 * ph + 0.6) * np.exp(-t / (decay * 0.35))
-        body += warmth * np.sin(0.5 * ph) * np.exp(-t / (decay * 1.2))
+        n = len(t)
+        sig = np.zeros(n)
+        for det in (-1.2, 1.2):
+            r = 2 ** (det / 1200)
+            ph = self.rng.uniform(0, 2 * np.pi)
+            sig += np.sin(2 * np.pi * f * r * t + ph)
+            sig += 0.14 * warm * np.sin(2 * np.pi * 2 * f * r * t + ph * 1.3) * np.exp(-t / (sec * 0.35))
+            sig += 0.04 * warm * np.sin(2 * np.pi * 3 * f * r * t + ph * 0.7) * np.exp(-t / (sec * 0.2))
+        sig /= 2
         a = n_of(attack)
-        body[:a] *= np.sin(np.linspace(0, np.pi / 2, a)) ** 2
-        touch = sosfilt(butter(2, [2 * f, min(8 * f, 15_000)], "bandpass", fs=SR, output="sos"),
-                        self.rng.standard_normal(len(t))) * np.exp(-t / 0.0009) * 0.06 * air
-        sig = (body + touch) * vel
-        sig[-n_of(0.01):] *= np.linspace(1, 0, n_of(0.01))
+        env = np.ones(n)
+        env[:a] = 0.5 - 0.5 * np.cos(np.linspace(0, np.pi, a))
+        rest = n - a
+        env[a:] = (0.5 + 0.5 * np.cos(np.linspace(0, np.pi, rest))) ** 1.4  # long breath out
+        sig = sosfilt(butter(2, min(4.5 * f, 6000), "lowpass", fs=SR, output="sos"), sig * env) * vel
         g = (pos + 1) * np.pi / 4
         return np.stack([sig * np.cos(g), sig * np.sin(g)], axis=1)
 
@@ -92,117 +90,115 @@ def canvas(sec: float) -> np.ndarray:
     return np.zeros((n_of(sec), 2))
 
 
-def finish(x: np.ndarray, peak_db: float, total: float, room: float = 0.14, wet: float = 0.06) -> np.ndarray:
-    """A whisper of room (polish, not echo) → band-limit for phones → set by true peak."""
-    x = Pedalboard([Reverb(room_size=room, damping=0.7, wet_level=wet, dry_level=1.0, width=0.8)])(
+def finish(x: np.ndarray, peak_db: float, total: float, room: float = 0.62, wet: float = 0.24) -> np.ndarray:
+    """A warm, dark room (high damping: no shimmer) → band-limit → level by true peak."""
+    x = Pedalboard([Reverb(room_size=room, damping=0.85, wet_level=wet, dry_level=1.0, width=1.0)])(
         x.T.astype(np.float32), SR).T.astype(np.float64)
     n = n_of(total)
     x = x[:n] if len(x) >= n else np.concatenate([x, np.zeros((n - len(x), 2))])
     x = sosfilt(butter(2, 260, "highpass", fs=SR, output="sos"), x, axis=0)
-    x = sosfilt(butter(2, 14_000, "lowpass", fs=SR, output="sos"), x, axis=0)
-    fade = n_of(total * 0.4)  # long, curved taper: the tail melts into silence, never stops
+    x = sosfilt(butter(2, 7000, "lowpass", fs=SR, output="sos"), x, axis=0)
+    fade = n_of(total * 0.35)
     x[-fade:] *= (0.5 + 0.5 * np.cos(np.linspace(0, np.pi, fade)))[:, None] ** 1.5
     tp = np.max(np.abs(resample_poly(x, 4, 1, axis=0))) or 1.0
     return x * (10 ** (peak_db / 20) / tp)
 
 
 # ----------------------------------------------------------------------------- the family
-#   Signature: F♯ → B, a rising fourth, short then long like «يَ‑قين» — now a quick, tactile gesture.
-
-Fs7 = 2959.96
+#   Signature: F♯ → B, the second note arriving while the first still glows.
 
 
 def yq_prayer(e: Engine) -> np.ndarray:
-    """Prayer time (alert «تنبيه»): the signature, crisp and clear — two pops, the second rings a little."""
-    x = canvas(0.8)
-    place(x, e.pop(Fs6, decay=0.07, pos=-0.12), 0.0, 0.8)
-    place(x, e.pop(B6, decay=0.2, pos=0.12), 0.085, 1.0)
-    return finish(x, -1.0, 0.8)
+    """Prayer time (alert «تنبيه»): F♯ breathes in, B joins it, both rest together."""
+    x = canvas(2.4)
+    place(x, e.glow(Fs5, 2.2, attack=0.14, pos=-0.18), 0.0, 0.85)
+    place(x, e.glow(B5, 2.0, attack=0.18, pos=0.18), 0.32, 0.8)
+    return finish(x, -3.0, 2.4)
 
 
 def yq_prayer_soon(e: Engine) -> np.ndarray:
-    """Before the prayer: the first note alone, a gentle heads-up."""
-    x = canvas(0.6)
-    place(x, e.pop(Fs6, decay=0.17, blip=0.025), 0.0)
-    return finish(x, -4.0, 0.6)
+    """Before the prayer: one tone, breathing in and out."""
+    x = canvas(1.7)
+    place(x, e.glow(Fs5, 1.6, attack=0.2), 0.0)
+    return finish(x, -6.0, 1.7)
 
 
 def yq_azkar(e: Engine) -> np.ndarray:
-    """Azkar & dhikr: three quick counts — tap, tap, taaap."""
-    x = canvas(0.7)
-    for at, d, v, p in [(0.0, 0.05, 0.75, -0.15), (0.075, 0.05, 0.72, 0.15), (0.15, 0.16, 0.95, 0.0)]:
-        place(x, e.pop(B6, decay=d, pos=p), at, v)
-    return finish(x, -3.5, 0.7)
+    """Azkar & dhikr: three soft breaths on B, each overlapping the last, like a slow count."""
+    x = canvas(2.0)
+    for at, v, p in [(0.0, 0.7, -0.2), (0.3, 0.7, 0.2), (0.6, 0.85, 0.0)]:
+        place(x, e.glow(B5, 1.3 if at < 0.6 else 1.4, attack=0.06, pos=p), at, v)
+    return finish(x, -5.0, 2.0)
 
 
 def yq_quran(e: Engine) -> np.ndarray:
-    """Wird, khatma, al-Kahf: the signature an octave lower and softer — the Headspace warmth."""
-    x = canvas(1.0)
-    place(x, e.pop(Fs5, decay=0.12, blip=0.012, attack=0.006, warmth=0.2, pos=-0.12), 0.0, 0.8)
-    place(x, e.pop(B5, decay=0.32, blip=0.012, attack=0.006, warmth=0.2, pos=0.12), 0.12, 1.0)
-    return finish(x, -3.0, 1.0, room=0.2, wet=0.08)
+    """Wird, khatma, al-Kahf: the signature an octave lower, slower to bloom, warmer."""
+    x = canvas(2.6)
+    place(x, e.glow(Fs4, 2.4, attack=0.3, warm=1.4, pos=-0.18), 0.0, 0.85)
+    place(x, e.glow(B4, 2.2, attack=0.34, warm=1.4, pos=0.18), 0.4, 0.8)
+    return finish(x, -4.0, 2.6, room=0.7, wet=0.26)
 
 
 def yq_hifz(e: Engine) -> np.ndarray:
-    """Hifz review: the signature turned around — B back home to F♯."""
-    x = canvas(0.8)
-    place(x, e.pop(B6, decay=0.07, pos=0.12), 0.0, 0.8)
-    place(x, e.pop(Fs6, decay=0.2, pos=-0.12), 0.09, 1.0)
-    return finish(x, -3.0, 0.8)
+    """Hifz review: the signature turned around, B settling back to F♯."""
+    x = canvas(2.2)
+    place(x, e.glow(B5, 2.0, attack=0.14, pos=0.18), 0.0, 0.8)
+    place(x, e.glow(Fs5, 1.9, attack=0.18, pos=-0.18), 0.32, 0.85)
+    return finish(x, -5.0, 2.2)
 
 
 def yq_suhoor(e: Engine) -> np.ndarray:
-    """Suhoor: both notes together, softened and low — quiet enough for the night."""
-    x = canvas(1.1)
-    place(x, e.pop(Fs5, decay=0.38, blip=0.0, attack=0.014, warmth=0.22, air=0, pos=-0.2), 0.0, 0.85)
-    place(x, e.pop(B5, decay=0.36, blip=0.0, attack=0.014, warmth=0.22, air=0, pos=0.2), 0.012, 0.7)
-    return finish(x, -6.0, 1.1, room=0.22, wet=0.09)
+    """Suhoor: both notes together, very slow and very soft — for the stillest hour."""
+    x = canvas(2.8)
+    place(x, e.glow(Fs4, 2.7, attack=0.6, warm=1.2, pos=-0.25), 0.0, 0.85)
+    place(x, e.glow(B4, 2.7, attack=0.65, warm=1.2, pos=0.25), 0.05, 0.75)
+    return finish(x, -9.0, 2.8, room=0.75, wet=0.28)
 
 
 def yq_iftar(e: Engine) -> np.ndarray:
-    """Iftar: the signature and its octave in one bright run — the evening opening up."""
-    x = canvas(0.9)
-    place(x, e.pop(Fs6, decay=0.06, pos=-0.2), 0.0, 0.75)
-    place(x, e.pop(B6, decay=0.07, pos=0.0), 0.075, 0.8)
-    place(x, e.pop(Fs7, decay=0.2, pos=0.2), 0.15, 0.8)
-    return finish(x, -2.5, 0.9)
+    """Iftar: F♯, then B, then F♯ above, each arriving gently into the last."""
+    x = canvas(2.5)
+    place(x, e.glow(Fs5, 2.3, attack=0.12, pos=-0.25), 0.0, 0.75)
+    place(x, e.glow(B5, 2.0, attack=0.14, pos=0.0), 0.28, 0.72)
+    place(x, e.glow(Fs6, 1.7, attack=0.16, warm=0.6, pos=0.25), 0.56, 0.55)
+    return finish(x, -4.0, 2.5)
 
 
 def yq_challenge(e: Engine) -> np.ndarray:
-    """Challenge, streaks, a reward is ready: the Revolut/Apple Pay moment — quick, bright, sure."""
-    x = canvas(0.7)
-    place(x, e.pop(B6, decay=0.05, blip=0.05, pos=-0.12), 0.0, 0.8)
-    place(x, e.pop(Fs7, decay=0.16, blip=0.05, pos=0.12), 0.065, 1.0)
-    return finish(x, -3.0, 0.7)
+    """Challenge, streaks, a reward is ready: the signature a little higher, a little quicker."""
+    x = canvas(1.9)
+    place(x, e.glow(B5, 1.7, attack=0.08, pos=-0.18), 0.0, 0.8)
+    place(x, e.glow(Fs6, 1.6, attack=0.1, warm=0.7, pos=0.18), 0.2, 0.8)
+    return finish(x, -5.0, 1.9)
 
 
 def yq_offers(e: Engine) -> np.ndarray:
-    """Store offers (consented): one soft pop — the quietest sound in the set."""
-    x = canvas(0.45)
-    place(x, e.pop(B6, decay=0.09, blip=0.02, attack=0.003), 0.0)
-    return finish(x, -9.0, 0.45)
+    """Store offers (consented): one faint tone — the quietest sound in the set."""
+    x = canvas(1.3)
+    place(x, e.glow(B5, 1.2, attack=0.12, warm=0.6), 0.0)
+    return finish(x, -12.0, 1.3, room=0.5, wet=0.2)
 
 
 def ui_bead(e: Engine) -> np.ndarray:
-    """One azkar count («صوت نقرة خفيف»): a tiny tick, fine at 10 taps a second."""
-    x = canvas(0.06)
-    place(x, e.pop(B6, decay=0.012, blip=0.04, warmth=0), 0.0)
-    return finish(x, -14.0, 0.06, wet=0.0)
+    """One azkar count («صوت نقرة خفيف»): the softest touch, fine at 10 taps a second."""
+    x = canvas(0.09)
+    place(x, e.glow(B6, 0.09, attack=0.006, warm=0.4), 0.0)
+    return finish(x, -18.0, 0.09, wet=0.0)
 
 
 def ui_bead_round(e: Engine) -> np.ndarray:
-    """A completed round («تقبّل الله»): the signature in miniature."""
-    x = canvas(0.5)
-    place(x, e.pop(Fs6, decay=0.04, pos=-0.12), 0.0, 0.7)
-    place(x, e.pop(B6, decay=0.12, pos=0.12), 0.06, 0.9)
-    return finish(x, -9.0, 0.5)
+    """A completed round («تقبّل الله»): the signature, small and soft."""
+    x = canvas(1.2)
+    place(x, e.glow(Fs6, 1.0, attack=0.05, warm=0.6, pos=-0.15), 0.0, 0.8)
+    place(x, e.glow(B6, 0.9, attack=0.06, warm=0.5, pos=0.15), 0.15, 0.7)
+    return finish(x, -12.0, 1.2, room=0.5, wet=0.2)
 
 
 def ui_complete(e: Engine) -> np.ndarray:
-    """A task ticked / Qibla aligned: one bright pop."""
-    x = canvas(0.4)
-    place(x, e.pop(B6, decay=0.09, blip=0.05), 0.0)
-    return finish(x, -10.0, 0.4)
+    """A task ticked / Qibla aligned: one soft glow."""
+    x = canvas(0.9)
+    place(x, e.glow(B6, 0.8, attack=0.04, warm=0.5), 0.0)
+    return finish(x, -13.0, 0.9, room=0.45, wet=0.18)
 
 
 NOTIFICATION_SOUNDS = {

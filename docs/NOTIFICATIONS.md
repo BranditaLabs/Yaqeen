@@ -38,32 +38,30 @@ Deep links: `yaqeen://<target>` → `routeForDeepLink()` in the app.
 
 Channels: Android `yaqeen_updates` (campaigns, normal priority) must be separate from the adhan channel so users can mute marketing without muting adhan.
 
-## 3. Sounds — «أصوات يقين»
+## 3. Sounds — «أصوات يقين»: سكينة (rest and quiet)
 
-Synthesised in `packages/brand/sounds/generate_sounds.py` (no samples, no licences), matched to the character of
-high-end app sounds the owner chose as references (iPhone Note/Rebound, Apple Pay/Revolut success, Headspace/Calm
-warmth, Tarteel/Nusuk restraint):
+Synthesised in `packages/brand/sounds/generate_sounds.py` (no samples, no licences):
 
-- **Very short** (0.45–1.1 s), nothing rings on; tails taper into silence.
-- **A round «pop» at the touch**: each tone starts a few percent sharp and settles in ~12 ms; a fast-fading 2nd
-  harmonic gives shape, the octave below warmth, 1 ms of air a surface.
-- **A quick, confident gesture**: notes 60–120 ms apart; a whisper of room only.
-- **Signature**: F♯ rising a fourth to B, short then long like «يَ‑قين».
-- Band-limited for phone speakers, levelled by true peak (−1 dBTP prayer … −9 dBTP offers).
+- **No strike, no pop, no edge**: every tone breathes in (60–650 ms), glows and breathes out on a long curve.
+  Almost pure, gently low-passed, two layers ±1.2 cents apart so they move very slowly.
+- **Notes blend, never step**: each arrives while the one before still glows.
+- **A warm, dark room** (high damping, no shimmer); band-limited for phone speakers; **quiet by design**
+  (−3 dBTP prayer … −12 dBTP offers).
+- **Signature**: F♯ → B, a rising fourth, the second note joining the first.
 - Owner's halal line: soft tones are fine; no instrument timbres, no bells, no melodies; three notes at most.
   The adhan is never synthesised (`ADHAN_SOUNDS`).
 
 | Sound | Plays for | What it is |
 | --- | --- | --- |
-| `yq_prayer` | prayer time when the alert is «تنبيه» | the signature: two pops, the second rings a little |
-| `yq_prayer_soon` | N minutes before a prayer | the first note alone, a gentle heads-up |
-| `yq_azkar` | morning/evening azkar, dhikr routine | three quick counts: tap, tap, taaap |
-| `yq_quran` | wird, wird missing, Friday al-Kahf, khatma | the signature an octave lower and softer |
-| `yq_hifz` | hifz review due | the signature reversed (B → F♯) |
-| `yq_suhoor` | suhoor | both notes together, soft and low |
-| `yq_iftar` | iftar | the signature and its octave in one bright run |
-| `yq_challenge` | challenge + reward pushes | quick, bright, sure (the Apple Pay moment) |
-| `yq_offers` | store offer pushes | one soft pop (the quietest sound) |
+| `yq_prayer` | prayer time when the alert is «تنبيه» | F♯ breathes in, B joins it, both rest together |
+| `yq_prayer_soon` | N minutes before a prayer | one tone, breathing in and out |
+| `yq_azkar` | morning/evening azkar, dhikr routine | three soft overlapping breaths, like a slow count |
+| `yq_quran` | wird, wird missing, Friday al-Kahf, khatma | the signature an octave lower, slower, warmer |
+| `yq_hifz` | hifz review due | the signature reversed, B settling back to F♯ |
+| `yq_suhoor` | suhoor | both notes together, very slow and very soft |
+| `yq_iftar` | iftar | three notes arriving gently into each other |
+| `yq_challenge` | challenge + reward pushes | the signature a little higher, a little quicker |
+| `yq_offers` | store offer pushes | one faint tone (the quietest sound) |
 
 Wiring: `NotificationSound` (`notification_planner.dart`) maps each `ReminderKind` to a sound. Android has **one
 reminders channel per sound** (a channel's sound is fixed once created; ids = resource names; push channels keep
