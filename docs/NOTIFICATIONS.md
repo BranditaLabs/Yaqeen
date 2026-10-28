@@ -38,33 +38,30 @@ Deep links: `yaqeen://<target>` → `routeForDeepLink()` in the app.
 
 Channels: Android `yaqeen_updates` (campaigns, normal priority) must be separate from the adhan channel so users can mute marketing without muting adhan.
 
-## 3. Sounds — «أصوات يقين»: the logo, as sound
+## 3. Sounds — «أصوات يقين»
 
-The mark is an abstracted «ن» (two wings + a gold diamond) and the splash animates it: wings spread, the diamond
-settles, a glint crosses. Every notification performs that same gesture, synthesised in
-`packages/brand/sounds/generate_sounds.py` (no samples, no licences):
+Synthesised in `packages/brand/sounds/generate_sounds.py` (no samples, no licences) to the rules premium system
+sounds follow: **short (0.5–1.7 s), clean, at most two elements**, pitched where phone speakers are clear, a pure
+decay, a small polished space, levelled by true peak (−1 dBTP prayer … −8 dBTP offers).
 
-- **«الجناحان» wings**: a warm resonance coloured like the ghunnah of «ن», starting as one point in the centre
-  and opening to full stereo width (mono-safe: < 2 dB loss on a single phone speaker).
-- **«الماسة» diamond**: a crystal point in the centre that strikes D and lifts a **neutral third** (350 cents),
-  an Arabic-mode colour no Western notification uses. Harmonic partials only, never a bell.
-- **«اللمعة» glint**: a thin shimmer crossing right → left, the Arabic reading direction.
+- **The voice**: a soft FM tone whose brightness blooms at the touch and melts away in ~80 ms (harmonic 1:1 ratio,
+  so never a bell, and not an imitation of any instrument).
+- **The signature is the name**: يَ‑قين is two syllables, short then long — a short tone rising a fifth (A → E)
+  into a long one. Every sound is the signature, part of it, or turned around.
+- Owner's halal line: soft tones are fine; no instrument timbres, no bells, no melodies; three tones at most.
+  The adhan is never synthesised; it stays a licensed recording (`ADHAN_SOUNDS`).
 
-Owner's halal line: soft tones are fine; no instrument timbres, no bells, no melodies; three tones at most.
-Matched loudness (≈ −17 LUFS prayer … −22 LUFS offers, true peak ≤ −1 dBTP), all under 3 s. The adhan is never
-synthesised; it stays a licensed recording (`ADHAN_SOUNDS`).
-
-| Sound | Plays for | The gesture |
+| Sound | Plays for | What it is |
 | --- | --- | --- |
-| `yq_prayer` | prayer time when the alert is «تنبيه» | the whole mark: wings open, diamond strikes and lifts, glint |
-| `yq_prayer_soon` | N minutes before a prayer | wings begin to open, one diamond strike |
-| `yq_azkar` | morning/evening azkar, dhikr routine | three diamond counts moving out from the centre, right to left |
-| `yq_quran` | wird, wird missing, Friday al-Kahf, khatma | the ghunnah alone, low and slow, a soft light at the end |
-| `yq_hifz` | hifz review due | the lift reversed as the wings fold in: something returning |
-| `yq_suhoor` | suhoor | dark, wide wings out of the night, a far glint like the last star |
-| `yq_iftar` | iftar | wings open fast, the diamond climbs: home, lift, octave |
-| `yq_challenge` | challenge + reward pushes | gold first: glint, then the lift an octave up |
-| `yq_offers` | store offer pushes | the diamond alone, muted, wings closed (the quietest sound) |
+| `yq_prayer` | prayer time when the alert is «تنبيه» | the full signature «يَ‑قين», short → long |
+| `yq_prayer_soon` | N minutes before a prayer | the first syllable alone, held |
+| `yq_azkar` | morning/evening azkar, dhikr routine | three light counts on the second note |
+| `yq_quran` | wird, wird missing, Friday al-Kahf, khatma | the signature an octave lower, softer, unhurried |
+| `yq_hifz` | hifz review due | the signature turned around: coming home |
+| `yq_suhoor` | suhoor | both notes at once, softly bloomed, quiet for the night |
+| `yq_iftar` | iftar | the signature, then its octave: opening up |
+| `yq_challenge` | challenge + reward pushes | the signature an octave up, quick and bright |
+| `yq_offers` | store offer pushes | one soft tone (the quietest sound) |
 
 Wiring: `NotificationSound` (`notification_planner.dart`) maps each `ReminderKind` to a sound. Android has **one
 reminders channel per sound** (a channel's sound is fixed once created; ids = resource names; push channels keep
