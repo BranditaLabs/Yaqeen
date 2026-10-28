@@ -1,6 +1,6 @@
 # Yaqeen sounds — «أصوات يقين»
 
-Synthesised notification and UI sounds: one signature voice and one interval (D → A) as a sonic identity; no instrument timbres, bells or melodies. See `docs/NOTIFICATIONS.md §3` for the mapping and rules.
+Synthesised notification and UI sounds: the logo as sound (wings open, the diamond lifts a neutral third, a glint crosses); no instrument timbres, bells or melodies. See `docs/NOTIFICATIONS.md §3` for the mapping and rules.
 
 ```bash
 pip install numpy scipy soundfile pyloudnorm   # + ffmpeg with libvorbis

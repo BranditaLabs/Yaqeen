@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
 """
-Yaqeen notification sounds — «أصوات يقين».
+Yaqeen notification sounds — «أصوات يقين»: the logo, as sound.
 
-A sonic identity, synthesised from scratch (no samples, no third-party audio): ours, reproducible,
-licence-free.
+The mark is an abstracted «ن» — two navy wings and a gold diamond — and the splash animates it:
+the wings spread, the diamond settles, a glint crosses. Every sound performs that same gesture:
 
-  * One signature voice, «صوت يقين»: soft, glassy, harmonic partials only, each fading at its own
-    rate (bright at the touch, dark as it rests), a breath of air at the onset, a quiet sub-octave
-    and two detuned layers for width.
-  * One signature interval is the brand: D opening to A. Every sound is that signature, a part of
-    it, or it turned around — so users know it's Yaqeen before they read the screen.
-  * Kept halal-conscious: no instrument timbres, no bells, no melodies. Three tones at most.
-  * One space: a warm hall whose highs fade faster than its lows, a subtle ping-pong echo, stereo.
-  * Product-grade mastering: phone low-cut, gentle EQ and compression, loudness by role
-    (≈ −17 LUFS prayer … −22 LUFS offers), true peak ≤ −1 dBTP. Nothing over 3 s.
-  * The adhan itself is NOT generated — it stays a licensed human recording (spec §10).
+  * «الجناحان» the wings: a warm resonance coloured like the ghunnah of «ن» (nasal murmur, closed-
+    mouth anti-resonance), starting as one point in the centre and opening to full stereo width.
+  * «الماسة» the diamond: a crystal point in the centre (harmonic partials only, never a bell) that
+    strikes D and lifts a neutral third (350 cents) — an Arabic-mode colour, not a Western chord,
+    and the part no other app sounds like.
+  * «اللمعة» the glint: a thin shimmer crossing right → left, the Arabic reading direction.
+
+Each sound is the gesture, part of it, or reversed. Owner's halal line: soft tones are fine; no
+instrument timbres, no bells, no melodies — three tones at most. Synthesised from scratch (no
+samples, no licences), warm hall + subtle ping-pong echo, mastered to matched loudness
+(≈ −17 LUFS prayer … −22 LUFS offers, true peak ≤ −1 dBTP), all under 3 s. On a mono phone
+speaker the timbre and gesture remain; on headphones and stereo iPhones the wings open.
+The adhan itself is NOT generated — it stays a licensed human recording (spec §10).
 
 Outputs (run from repo root):  python3 packages/brand/sounds/generate_sounds.py
   packages/brand/sounds/master/<name>.wav               48 kHz / 24-bit stereo masters
@@ -244,84 +247,167 @@ def echo(x: np.ndarray, gain: float = 0.12) -> np.ndarray:
     return out
 
 
+# ----------------------------------------------------------------------------- the logo, as sound
+#   The mark is an abstracted «ن»: two navy wings and a gold diamond. The splash animates it —
+#   wings spread, the diamond settles, a glint crosses. Every Yaqeen sound performs the same gesture.
+
+NEUTRAL_THIRD = 2 ** (350 / 1200)  # between minor and major: the colour of Arabic modes, not a Western chord
+D3, D4, D5, D6 = 146.83, 293.66, 587.33, 1174.66
+N4, N5, N6 = D4 * NEUTRAL_THIRD, D5 * NEUTRAL_THIRD, D6 * NEUTRAL_THIRD  # the diamond's lift
+
+
+def _nun_formant(f: np.ndarray) -> np.ndarray:
+    """Spectral envelope of a held «ن» (ghunnah): strong nasal murmur near 250 Hz, an anti-resonance
+    around 1 kHz (the closed mouth), soft nasal formants near 2.2 and 3 kHz."""
+    g = lambda c, w: np.exp(-0.5 * ((f - c) / w) ** 2)
+    env = 1.0 * g(260, 90) + 0.32 * g(2250, 260) + 0.18 * g(3000, 320) + 0.06
+    env *= 1 - 0.85 * g(1050, 230)
+    return env
+
+
+def wings(f0: float, sec: float, *, open_at: float = 0.05, open_for: float = 0.9, attack: float = 0.18,
+          tau: float = 1.2, gain: float = 1.0, air: float = 0.25) -> np.ndarray:
+    """«الجناحان»: a warm ghunnah-coloured resonance on f0 that starts as one point in the centre and
+    opens out to full stereo width — the wings spreading. Additive harmonics shaped by the «ن»
+    envelope, a slow living vibrato, and breath through the same formants."""
+    t = t_axis(sec)
+    n = len(t)
+    vib = 1 + (7 / 1200) * np.log(2) * np.sin(2 * np.pi * 4.6 * t) * raised(n, n_of(0.5), 0)
+    sides = []
+    phases = RNG.uniform(0, 2 * np.pi, 40)  # shared by both sides → the wings never cancel on a mono speaker
+    for detune in (-2.0, 2.0):
+        r = 2 ** (detune / 1200)
+        sig = np.zeros(n)
+        for k in range(1, 40):
+            fk = f0 * k * r
+            if fk > 5000:
+                break
+            amp = _nun_formant(np.array([fk]))[0] / k ** 0.75
+            sig += amp * np.sin(2 * np.pi * np.cumsum(fk * vib) / SR + phases[k])
+        noise = RNG.standard_normal(n)
+        spec = np.fft.rfft(noise)
+        spec *= _nun_formant(np.fft.rfftfreq(n, 1 / SR))
+        sig += air * np.fft.irfft(spec, n) * 1.2
+        sides.append(sig)
+    a, b = sides
+    mid, side = (a + b) / 2, (a - b) / 2
+    k = np.clip((t - open_at) / open_for, 0, 1)
+    w = 0.5 - 0.5 * np.cos(np.pi * k)  # 0 = a single point, 1 = wings fully open
+    env = raised(n, n_of(attack), n_of(min(0.4, sec / 2.5))) * np.exp(-np.maximum(0, t - attack) / tau)
+    out = np.stack([mid + w * side, mid - w * side], axis=1) * env[:, None]
+    return out / (np.max(np.abs(out)) + 1e-9) * gain
+
+
+def diamond(f: float, sec: float = 1.2, *, vel: float = 1.0, tau: float = 0.45, pos: float = 0.0) -> np.ndarray:
+    """«الماسة»: a crystal point in the centre — the signature voice, narrow and clear."""
+    return voice(f, sec, vel=vel, tau=tau, bright=0.7, attack=0.004, air=0.08, warmth=0.08, width=0.06, pos=pos)
+
+
+def glint(sec: float = 0.5, *, gain: float = 1.0, direction: float = -1.0) -> np.ndarray:
+    """«اللمعة»: a thin shimmer that crosses the sound right → left, like light over the mark."""
+    t = t_axis(sec)
+    n = len(t)
+    out = np.zeros((n, 2))
+    for i in range(6):
+        f_start = RNG.uniform(5200, 6800)
+        f = f_start * (1 + 0.35 * t / sec)
+        s = np.sin(2 * np.pi * np.cumsum(f) / SR + RNG.uniform(0, 6.28))
+        out += pan(s, 0) * RNG.uniform(0.5, 1.0)
+    p = np.clip(-direction * 0.8 + direction * 1.6 * (t / sec), -1, 1)
+    a = (p + 1) * np.pi / 4
+    mono = out[:, 0] * np.sin(np.pi * np.clip(t / sec, 0, 1)) ** 2
+    return np.stack([mono * np.cos(a), mono * np.sin(a)], axis=1) * gain / 6
+
+
 # ----------------------------------------------------------------------------- the family
-#   One interval is the brand: D opening to A. Every sound is that signature, a part of it, or it
-#   turned around. Never more than three tones, never a tune.
+#   Signature: wings open on D, the diamond strikes D and lifts a neutral third, the glint crosses.
+#   Each sound is that gesture, a part of it, or it reversed. Never more than three tones.
 
 
 def yq_prayer() -> np.ndarray:
-    """Prayer time (alert «تنبيه»): the full signature, warm and wide."""
-    x = stereo_silence(2.8)
-    place(x, voice(D5, 2.6, tau=0.68, pos=-0.15), 0.0, 0.85)
-    place(x, voice(A5, 2.5, tau=0.62, pos=0.15), 0.16, 0.75)
-    place(x, voice(D4, 2.6, tau=0.81, bright=0.5, air=0, warmth=0, attack=0.03), 0.0, 0.32)
-    place(x, halo(D6, 2.0, 0.05), 0.25)
-    return master(hall(echo(x, 0.1), 1.9, 0.22), -17.0, 2.8)
+    """Prayer time (alert «تنبيه»): the whole mark — wings open, diamond strikes and lifts, glint."""
+    x = stereo_silence(2.9)
+    place(x, wings(D3, 2.8, open_at=0.05, open_for=1.0, tau=1.4), 0.0, 0.5)
+    place(x, diamond(D5, 2.2, tau=0.55), 0.32, 0.75)
+    place(x, diamond(N5, 2.0, tau=0.6), 0.5, 0.65)
+    place(x, glint(0.55), 0.78, 0.05)
+    return master(hall(echo(x, 0.08), 2.0, 0.24), -17.0, 2.9)
 
 
 def yq_prayer_soon() -> np.ndarray:
-    """Before the prayer: the signature's first tone alone — an invitation, not an alarm."""
-    x = stereo_silence(1.8)
-    place(x, voice(D5, 1.7, tau=0.56), 0.0, 0.85)
-    place(x, halo(D6, 1.4, 0.04), 0.1)
-    return master(hall(echo(x, 0.09), 1.6, 0.21), -18.5, 1.8)
+    """Before the prayer: the wings begin to open, one diamond strike — an invitation."""
+    x = stereo_silence(1.9)
+    place(x, wings(D3, 1.8, open_at=0.0, open_for=0.8, tau=0.9, attack=0.12), 0.0, 0.42)
+    place(x, diamond(D5, 1.5, tau=0.5), 0.24, 0.75)
+    return master(hall(echo(x, 0.07), 1.7, 0.22), -18.5, 1.9)
 
 
 def yq_azkar() -> np.ndarray:
-    """Azkar & dhikr: three soft taps of the signature's second tone, like counting."""
+    """Azkar & dhikr: three diamond counts that move out from the centre, right to left — the
+    count spreading like the wings."""
     x = stereo_silence(1.6)
-    for at, vel, p in [(0.0, 0.62, -0.2), (0.17, 0.62, 0.2), (0.34, 0.85, 0.0)]:
-        place(x, voice(A5, 1.2, tau=0.20, bright=0.66, air=0.07, pos=p), at, vel)
-    place(x, halo(A6, 1.0, 0.03), 0.38)
-    return master(hall(x, 1.4, 0.21), -18.5, 1.6)
+    for at, p, v in [(0.0, 0.0, 0.62), (0.17, 0.35, 0.6), (0.34, -0.35, 0.82)]:
+        place(x, diamond(D5, 1.1, tau=0.2, pos=p), at, v)
+    place(x, wings(D3, 1.2, open_at=0.3, open_for=0.6, tau=0.5, attack=0.1), 0.32, 0.22)
+    return master(hall(x, 1.5, 0.22), -18.5, 1.6)
 
 
 def yq_quran() -> np.ndarray:
-    """Wird, khatma, al-Kahf: the signature an octave down, slow to open — calm, dignified."""
-    x = stereo_silence(2.4)
-    place(x, voice(D4, 2.3, tau=0.81, bright=0.6, attack=0.05, air=0.04, pos=-0.1), 0.0, 0.9)
-    place(x, voice(A4, 2.1, tau=0.74, bright=0.58, attack=0.05, air=0.03, pos=0.1), 0.22, 0.62)
-    return master(hall(x, 1.9, 0.23), -18.5, 2.4)
+    """Wird, khatma, al-Kahf: the ghunnah alone, low and slow — the wings opening like breath
+    before recitation, the diamond only a soft light at the end."""
+    x = stereo_silence(2.5)
+    place(x, wings(D3, 2.4, open_at=0.1, open_for=1.4, attack=0.35, tau=1.6, air=0.18), 0.0, 0.8)
+    place(x, diamond(D4, 1.6, tau=0.6), 0.75, 0.38)
+    return master(hall(x, 2.0, 0.24), -18.5, 2.5)
 
 
 def yq_hifz() -> np.ndarray:
-    """Hifz review: the signature turned around (A back to D) — something returning."""
-    x = stereo_silence(1.8)
-    place(x, voice(A5, 1.6, tau=0.43, pos=0.15), 0.0, 0.75)
-    place(x, voice(D5, 1.5, tau=0.50, pos=-0.15), 0.18, 0.8)
-    return master(hall(echo(x, 0.08), 1.6, 0.21), -18.5, 1.8)
+    """Hifz review: the diamond's lift reversed (high → home) as the wings fold in — what was
+    kept, returning."""
+    x = stereo_silence(1.9)
+    place(x, diamond(N5, 1.5, tau=0.45, pos=0.2), 0.0, 0.68)
+    place(x, diamond(D5, 1.6, tau=0.55, pos=-0.1), 0.18, 0.75)
+    folding = wings(D3, 1.6, open_at=0.0, open_for=0.01, tau=0.8, attack=0.08)
+    w = np.linspace(1, 0.15, len(folding))[:, None]
+    mid = folding.mean(axis=1, keepdims=True)
+    place(x, mid + (folding - mid) * w, 0.12, 0.35)
+    return master(hall(echo(x, 0.07), 1.6, 0.22), -18.5, 1.9)
 
 
 def yq_suhoor() -> np.ndarray:
-    """Suhoor: both tones together, swelling slowly out of the night, dark and wide."""
-    x = stereo_silence(2.6)
-    place(x, voice(D4, 2.5, tau=0.99, bright=0.5, attack=0.22, air=0, pos=-0.25), 0.0, 0.8)
-    place(x, voice(A4, 2.4, tau=0.93, bright=0.5, attack=0.24, air=0, pos=0.25), 0.05, 0.6)
-    place(x, halo(D6, 1.8, 0.025), 0.6)
-    return master(hall(x, 2.2, 0.25), -19.5, 2.6)
+    """Suhoor: dark, wide wings out of the night, and a far glint like the last star."""
+    x = stereo_silence(2.7)
+    place(x, wings(D3, 2.6, open_at=0.2, open_for=1.6, attack=0.5, tau=1.8, air=0.2), 0.0, 0.85)
+    place(x, diamond(N5, 1.4, vel=0.6, tau=0.5, pos=0.3), 1.2, 0.22)
+    place(x, glint(0.7, direction=1.0), 1.25, 0.03)
+    return master(hall(x, 2.4, 0.3), -19.5, 2.7)
 
 
 def yq_iftar() -> np.ndarray:
-    """Iftar: the signature, then its octave — opening up, warm."""
-    x = stereo_silence(2.2)
-    for i, (f, p, g) in enumerate([(D5, -0.25, 0.75), (A5, 0.05, 0.68), (D6, 0.3, 0.5)]):
-        place(x, voice(f, 2.0 - 0.1 * i, tau=0.59 - 0.1 * i, pos=p), 0.075 * i, g)
-    return master(hall(echo(x, 0.08), 1.8, 0.22), -18.0, 2.2)
+    """Iftar: the wings open quickly and the diamond climbs home, lift, octave — release."""
+    x = stereo_silence(2.3)
+    place(x, wings(D3, 2.2, open_at=0.0, open_for=0.45, attack=0.08, tau=1.1), 0.0, 0.45)
+    for i, (f, v) in enumerate([(D5, 0.7), (N5, 0.62), (D6, 0.5)]):
+        place(x, diamond(f, 1.8 - 0.2 * i, tau=0.55 - 0.05 * i, pos=(-0.2, 0.0, 0.2)[i]), 0.16 + 0.085 * i, v)
+    place(x, glint(0.5), 0.45, 0.04)
+    return master(hall(echo(x, 0.08), 1.8, 0.24), -18.0, 2.3)
 
 
 def yq_challenge() -> np.ndarray:
-    """Challenge, streaks, a reward is ready: the signature quick and bright, an octave up."""
-    x = stereo_silence(1.6)
-    place(x, voice(A5, 1.4, tau=0.34, bright=0.75, air=0.12, pos=-0.2), 0.0, 0.72)
-    place(x, voice(D6, 1.4, tau=0.37, bright=0.72, air=0.12, pos=0.2), 0.055, 0.68)
-    place(x, halo(A6, 1.1, 0.035), 0.1)
-    return master(hall(echo(x, 0.11), 1.5, 0.22), -18.0, 1.6)
+    """Challenge, streaks, a reward is ready: the gold first — glint, then the diamond's lift an
+    octave up, quick and bright."""
+    x = stereo_silence(1.7)
+    place(x, glint(0.35), 0.0, 0.06)
+    place(x, diamond(D6, 1.3, tau=0.35, pos=-0.15), 0.12, 0.62)
+    place(x, diamond(N6, 1.3, tau=0.4, pos=0.15), 0.19, 0.6)
+    place(x, wings(D4, 1.3, open_at=0.12, open_for=0.4, attack=0.06, tau=0.6), 0.1, 0.25)
+    return master(hall(echo(x, 0.1), 1.6, 0.24), -18.0, 1.7)
 
 
 def yq_offers() -> np.ndarray:
-    """Store offers (consented): one muted tone — the quietest sound in the set."""
+    """Store offers (consented): the diamond alone, muted, closed wings — the quietest sound."""
     x = stereo_silence(1.0)
-    place(x, voice(A5, 0.95, tau=0.22, bright=0.45, air=0.05), 0.0, 0.8)
+    place(x, voice(N5, 0.95, tau=0.28, bright=0.45, air=0.05, width=0.05), 0.0, 0.8)
     return master(hall(x, 1.1, 0.18), -22.0, 1.0)
 
 
@@ -329,25 +415,27 @@ def yq_offers() -> np.ndarray:
 
 
 def ui_bead() -> np.ndarray:
-    """One azkar count («صوت نقرة خفيف»): a tiny, soft tap — fine at 10 taps a second."""
+    """One azkar count («صوت نقرة خفيف»): a pinpoint of the diamond, fine at 10 taps a second."""
     x = stereo_silence(0.09)
-    place(x, voice(A6, 0.09, tau=0.01, bright=0.4, attack=0.0015, air=0.05, warmth=0, width=0.1), 0.0)
+    place(x, voice(D6, 0.09, tau=0.02, bright=0.45, attack=0.0015, air=0.05, warmth=0, width=0.05), 0.0)
     return master(x, -25.0, 0.09)
 
 
 def ui_bead_round() -> np.ndarray:
-    """A completed round («تقبّل الله»): the signature in miniature."""
-    x = stereo_silence(1.0)
-    place(x, voice(D6, 0.9, tau=0.22, bright=0.6, pos=-0.15), 0.0, 0.7)
-    place(x, voice(A6, 0.9, tau=0.22, bright=0.55, pos=0.15), 0.06, 0.55)
-    return master(hall(x, 1.1, 0.18), -22.0, 1.0)
+    """A completed round («تقبّل الله»): the diamond's lift in miniature as the wings open."""
+    x = stereo_silence(1.1)
+    place(x, wings(D4, 1.0, open_at=0.0, open_for=0.4, attack=0.05, tau=0.5), 0.0, 0.3)
+    place(x, diamond(D6, 0.9, tau=0.3), 0.03, 0.6)
+    place(x, diamond(N6, 0.9, tau=0.3), 0.1, 0.5)
+    return master(hall(x, 1.2, 0.2), -22.0, 1.1)
 
 
 def ui_complete() -> np.ndarray:
-    """A challenge task ticked / Qibla aligned: one bright touch."""
+    """A task ticked / Qibla aligned: one glint across one diamond."""
     x = stereo_silence(0.8)
-    place(x, voice(D6, 0.75, tau=0.19, bright=0.62), 0.0, 0.75)
-    return master(hall(x, 1.0, 0.17), -23.0, 0.8)
+    place(x, diamond(N6, 0.75, tau=0.25), 0.0, 0.7)
+    place(x, glint(0.3), 0.04, 0.04)
+    return master(hall(x, 1.0, 0.2), -23.0, 0.8)
 
 
 NOTIFICATION_SOUNDS = {

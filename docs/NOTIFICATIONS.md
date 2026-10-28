@@ -38,26 +38,33 @@ Deep links: `yaqeen://<target>` → `routeForDeepLink()` in the app.
 
 Channels: Android `yaqeen_updates` (campaigns, normal priority) must be separate from the adhan channel so users can mute marketing without muting adhan.
 
-## 3. Sounds — «أصوات يقين» (sonic identity)
+## 3. Sounds — «أصوات يقين»: the logo, as sound
 
-Yaqeen's own notification sounds, synthesised in `packages/brand/sounds/generate_sounds.py` (no samples, no
-licences). One **signature voice** («صوت يقين»: soft, glassy, harmonic partials only) and one **signature
-interval — D opening to A** — run through the whole family, so a user knows it's Yaqeen before reading the
-screen. Halal-conscious by the owner's decision: soft tones are fine; **no instrument timbres, no bells, no
-melodies**, three tones at most. Mastered to matched loudness (≈ −17 LUFS prayer … −22 LUFS offers, true peak
-≤ −1 dBTP), all under 3 s. The adhan is never synthesised; it stays a licensed recording (`ADHAN_SOUNDS`).
+The mark is an abstracted «ن» (two wings + a gold diamond) and the splash animates it: wings spread, the diamond
+settles, a glint crosses. Every notification performs that same gesture, synthesised in
+`packages/brand/sounds/generate_sounds.py` (no samples, no licences):
 
-| Sound | Plays for | What it is |
+- **«الجناحان» wings**: a warm resonance coloured like the ghunnah of «ن», starting as one point in the centre
+  and opening to full stereo width (mono-safe: < 2 dB loss on a single phone speaker).
+- **«الماسة» diamond**: a crystal point in the centre that strikes D and lifts a **neutral third** (350 cents),
+  an Arabic-mode colour no Western notification uses. Harmonic partials only, never a bell.
+- **«اللمعة» glint**: a thin shimmer crossing right → left, the Arabic reading direction.
+
+Owner's halal line: soft tones are fine; no instrument timbres, no bells, no melodies; three tones at most.
+Matched loudness (≈ −17 LUFS prayer … −22 LUFS offers, true peak ≤ −1 dBTP), all under 3 s. The adhan is never
+synthesised; it stays a licensed recording (`ADHAN_SOUNDS`).
+
+| Sound | Plays for | The gesture |
 | --- | --- | --- |
-| `yq_prayer` | prayer time when the alert is «تنبيه» | the full signature D → A, warm and wide |
-| `yq_prayer_soon` | N minutes before a prayer | the signature's first tone alone |
-| `yq_azkar` | morning/evening azkar, dhikr routine | three soft taps of the second tone, like counting |
-| `yq_quran` | wird, wird missing, Friday al-Kahf, khatma | the signature an octave down, slow to open |
-| `yq_hifz` | hifz review due | the signature turned around (A → D): something returning |
-| `yq_suhoor` | suhoor | both tones together, swelling out of the night |
-| `yq_iftar` | iftar | the signature, then its octave: opening up |
-| `yq_challenge` | challenge + reward pushes | the signature quick and bright, an octave up |
-| `yq_offers` | store offer pushes | one muted tone (the quietest sound) |
+| `yq_prayer` | prayer time when the alert is «تنبيه» | the whole mark: wings open, diamond strikes and lifts, glint |
+| `yq_prayer_soon` | N minutes before a prayer | wings begin to open, one diamond strike |
+| `yq_azkar` | morning/evening azkar, dhikr routine | three diamond counts moving out from the centre, right to left |
+| `yq_quran` | wird, wird missing, Friday al-Kahf, khatma | the ghunnah alone, low and slow, a soft light at the end |
+| `yq_hifz` | hifz review due | the lift reversed as the wings fold in: something returning |
+| `yq_suhoor` | suhoor | dark, wide wings out of the night, a far glint like the last star |
+| `yq_iftar` | iftar | wings open fast, the diamond climbs: home, lift, octave |
+| `yq_challenge` | challenge + reward pushes | gold first: glint, then the lift an octave up |
+| `yq_offers` | store offer pushes | the diamond alone, muted, wings closed (the quietest sound) |
 
 Wiring: `NotificationSound` (`notification_planner.dart`) maps each `ReminderKind` to a sound. Android has **one
 reminders channel per sound** (a channel's sound is fixed once created; ids = resource names; push channels keep
