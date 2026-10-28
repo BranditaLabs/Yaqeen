@@ -41,8 +41,10 @@ dependencies:
   sentry_flutter: ^9.0.0
   home_widget: ^0.10.0
   # Remote push only (FCM → PushService); no Firebase Analytics or other Firebase SDKs.
-  firebase_core: ^5.1.0
-  firebase_messaging: ^17.0.1
+  # Stay on firebase_core 4.x (Firebase iOS SDK 12): SDK 13 needs gtm-session-fetcher ≥4, which
+  # GoogleSignIn 9 (google_sign_in_ios) can't take — Swift packages then fail to resolve on iOS.
+  firebase_core: ^4.15.2
+  firebase_messaging: ^16.7.1
   # Phase 2 (need accounts/keys — see README "Native integrations"):
   # facebook_app_events, TikTok SDK → AdSink
 
