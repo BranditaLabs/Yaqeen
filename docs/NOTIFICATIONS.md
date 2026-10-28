@@ -40,21 +40,24 @@ Channels: Android `yaqeen_updates` (campaigns, normal priority) must be separate
 
 ## 3. Sounds — «أصوات السكينة»
 
-Yaqeen's own notification sounds, synthesised in `packages/brand/sounds/generate_sounds.py` (no samples, no
-licences). Rules: **no bells, no melodies, no instruments**. Every sound comes from the app's world (beads,
-water, a page, dawn air, night wind, the gold diamond), is under 3 s and loudness-matched (≈ −18 LUFS, peak ≤ −1.5 dBFS).
+Yaqeen's own notification sounds, synthesised in `packages/brand/sounds/generate_sounds.py` from physical models
+(no samples, no licences). **Halal by design**: no musical instruments, no bells, no melodies, chords or tuned
+tones. Every sound is a natural event from the app's world. The premium comes from realism: modelled water
+bubbles, wood and stone that differ on every knock, a page turned right to left, a stone courtyard acoustic,
+stereo movement, and mastered loudness (≈ −17 LUFS prayer … −22 LUFS offers, true peak ≤ −1 dBTP), all under 3 s.
 The adhan is never synthesised; it stays a licensed recording on the `adhan` channel (`ADHAN_SOUNDS`).
 
 | Sound | Plays for | Idea |
 | --- | --- | --- |
-| `yq_prayer` | prayer time when the alert is «تنبيه» | «الفجر يتنفس»: air rising into a wide, still glow |
-| `yq_prayer_soon` | N minutes before a prayer | a shorter breath of the same dawn |
-| `yq_azkar` | morning/evening azkar, dhikr routine | «السبحة»: three tasbih beads slide together |
-| `yq_quran` | wird, wird missing, Friday al-Kahf, khatma | «الصفحة»: a page turns, the room settles warm |
-| `yq_hifz` | hifz review due | «قطرتان»: two drops on still water |
-| `yq_suhoor` / `yq_iftar` | Ramadan | night wind and faint stars / water poured into a cup |
-| `yq_challenge` | challenge + reward pushes | «لمعة الماسة»: the gold diamond catches the light |
-| `yq_offers` | store offer pushes | «حصاة»: one pebble set down (the quietest sound) |
+| `yq_prayer` | prayer time when the alert is «تنبيه» | «ماء الوضوء»: water running into a stone basin in a mosque courtyard |
+| `yq_prayer_soon` | N minutes before a prayer | «قطرات»: the first drops of wudu |
+| `yq_azkar` | morning/evening azkar, dhikr routine | «السبحة»: three beads drawn along the cord, right to left |
+| `yq_quran` | wird, wird missing, Friday al-Kahf, khatma | «الصفحة»: a mushaf page turned right to left |
+| `yq_hifz` | hifz review due | «قطرتان»: two drops in a stone well |
+| `yq_suhoor` | suhoor | «سَحَر»: pre-dawn air through palm fronds, one drop |
+| `yq_iftar` | iftar | «ماءٌ وتمرة»: water poured into a clay cup, you hear it fill |
+| `yq_challenge` | challenge + reward pushes | «حبات الكهرمان»: amber beads poured onto a wooden tray |
+| `yq_offers` | store offer pushes | «حصاة»: one stone set down (the quietest sound) |
 
 Wiring: `NotificationSound` (`notification_planner.dart`) maps each `ReminderKind` to a sound. Android has **one
 reminders channel per sound** (a channel's sound is fixed once created; ids = resource names; push channels keep

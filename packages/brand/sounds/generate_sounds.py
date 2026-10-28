@@ -2,55 +2,63 @@
 """
 Yaqeen notification sounds — «أصوات السكينة».
 
-Every sound is synthesised from scratch here (no samples, no third-party audio), so the set is
-ours, reproducible and licence-free. Design rules (see README.md):
+Synthesised from scratch (physical models, no samples, no third-party audio): ours, reproducible,
+licence-free — and halal by design:
 
-  * No bells, no melodies, no musical instruments. Sounds are built from the world of the app:
-    tasbih beads, water, a turning page, dawn air, night wind and the gold diamond's glint.
-    Tones are sustained "glows" (one held chord-colour), never a tune.
-  * Calm: soft attacks, no sharp transients above the bead clicks, nothing longer than 3 s.
+  * No musical instruments, no bells, no melodies, no chords, no tuned tones. Every sound is a
+    physical, natural event from the app's world: wudu water in a stone basin, drops, tasbih beads
+    on their cord, a mushaf page turned right to left, pre-dawn air, a stone set down, amber beads.
+  * Premium through realism and craft rather than music: physically modelled bubbles (Minnaert),
+    inharmonic wood and stone modes that differ on every knock, fibre crackle in the page, a stone
+    courtyard acoustic whose highs fade faster than its lows, stereo movement, and product-grade
+    mastering (phone low-cut, gentle EQ/compression, matched loudness, −1 dBTP true peak).
+  * Calm: nothing over 3 s; loudness by role (≈ −17 LUFS prayer … −22 LUFS store offers).
   * The adhan itself is NOT generated — it stays a licensed human recording (spec §10).
 
 Outputs (run from repo root):  python3 packages/brand/sounds/generate_sounds.py
-  packages/brand/sounds/master/<name>.wav        48 kHz / 24-bit masters
-  apps/mobile/android/app/src/main/res/raw/<name>.ogg   Android (Vorbis)
-  apps/mobile/ios/Runner/Sounds/<name>.caf               iOS (16-bit PCM CAF, < 30 s)
-  apps/mobile/assets/sounds/<name>.ogg                    in-app UI sounds (ui_*)
+  packages/brand/sounds/master/<name>.wav               48 kHz / 24-bit stereo masters
+  apps/mobile/android/app/src/main/res/raw/<name>.ogg   Android (Vorbis, stereo)
+  apps/mobile/ios/Runner/Sounds/<name>.caf              iOS (16-bit PCM CAF, stereo, < 30 s)
+  apps/mobile/assets/sounds/<name>.ogg                  in-app UI sounds (ui_*)
 
 Requires: numpy, scipy, soundfile, pyloudnorm, ffmpeg (with libvorbis).
 """
 from __future__ import annotations
 
 import shutil
-import warnings
 import subprocess
 import sys
+import warnings
 from pathlib import Path
 
 import numpy as np
 import pyloudnorm as pyln
 import soundfile as sf
-from scipy.signal import butter, fftconvolve, sosfilt
+from scipy.signal import butter, fftconvolve, lfilter, resample_poly, sosfilt
 
 SR = 48_000
 ROOT = Path(__file__).resolve().parents[3]
 HERE = Path(__file__).resolve().parent
-warnings.filterwarnings("ignore", message="Possible clipped samples")  # limiter below handles peaks
+warnings.filterwarnings("ignore", message="Possible clipped samples")  # the limiter handles peaks
 RNG = np.random.default_rng(1448)  # fixed seed → identical files on every run
 
-# ----------------------------------------------------------------------------- primitives
+# ----------------------------------------------------------------------------- helpers
 
 
-def t_axis(dur: float) -> np.ndarray:
-    return np.arange(int(dur * SR)) / SR
+def n_of(sec: float) -> int:
+    return int(round(sec * SR))
 
 
-def silence(dur: float) -> np.ndarray:
-    return np.zeros(int(dur * SR))
+def t_axis(sec: float) -> np.ndarray:
+    return np.arange(n_of(sec)) / SR
+
+
+def stereo_silence(sec: float) -> np.ndarray:
+    return np.zeros((n_of(sec), 2))
 
 
 def place(buf: np.ndarray, sig: np.ndarray, at: float, gain: float = 1.0) -> None:
-    i = int(at * SR)
+    i = n_of(at)
     n = min(len(sig), len(buf) - i)
     if n > 0:
         buf[i : i + n] += gain * sig[:n]
@@ -63,228 +71,375 @@ def band(x: np.ndarray, lo: float | None, hi: float | None, order: int = 4) -> n
         sos = butter(order, lo, btype="highpass", fs=SR, output="sos")
     else:
         sos = butter(order, hi, btype="lowpass", fs=SR, output="sos")
-    return sosfilt(sos, x)
+    return sosfilt(sos, x, axis=0)
 
 
-def noise(dur: float) -> np.ndarray:
-    return RNG.standard_normal(int(dur * SR))
-
-
-def swell(n: int, attack: float, release: float) -> np.ndarray:
-    """Raised-cosine attack and release (seconds) — the 'breath' envelope used everywhere."""
+def raised(n: int, a: int, r: int) -> np.ndarray:
     env = np.ones(n)
-    a, r = int(attack * SR), int(release * SR)
-    if a:
-        env[:a] = 0.5 - 0.5 * np.cos(np.linspace(0, np.pi, a))
-    if r:
+    if a > 0:
+        env[: min(a, n)] = (0.5 - 0.5 * np.cos(np.linspace(0, np.pi, a)))[: min(a, n)]
+    if r > 0:
+        r = min(r, n)
         env[-r:] *= 0.5 + 0.5 * np.cos(np.linspace(0, np.pi, r))
     return env
 
 
-def glow(freqs: list[float], dur: float, attack: float, release: float, amps: list[float] | None = None) -> np.ndarray:
-    """A held, warm tone-colour: each partial is a slightly detuned pair (slow beating = 'light')."""
-    t = t_axis(dur)
-    out = np.zeros_like(t)
-    amps = amps or [1.0] * len(freqs)
-    for f, a in zip(freqs, amps):
-        ph = RNG.uniform(0, 2 * np.pi)
-        out += a * (np.sin(2 * np.pi * f * t + ph) + np.sin(2 * np.pi * (f + 0.35) * t + ph * 0.7)) / 2
-    return out * swell(len(t), attack, release)
+def pan(mono: np.ndarray, p: float) -> np.ndarray:
+    """Equal-power pan, p in [-1, 1]."""
+    a = (p + 1) * np.pi / 4
+    return np.stack([mono * np.cos(a), mono * np.sin(a)], axis=1)
 
 
-def bead(f0: float = 1750.0, hardness: float = 1.0) -> np.ndarray:
-    """One olive-wood tasbih bead knocking another: modal synthesis + a tiny noise exciter."""
-    dur = 0.12
-    t = t_axis(dur)
-    ratios = [1.0, 2.63, 4.91, 7.38]
-    amps = [1.0, 0.45, 0.2, 0.08]
-    decays = [0.022, 0.011, 0.006, 0.004]  # short = wood, long = glass
-    f0 *= RNG.uniform(0.97, 1.03)
-    body = sum(a * np.exp(-t / d) * np.sin(2 * np.pi * f0 * r * t) for r, a, d in zip(ratios, amps, decays))
-    exc = band(noise(dur), 2500, 9000) * np.exp(-t / 0.0015) * 0.6 * hardness
-    knock = body + exc
-    # beads are pairs — the second, softer contact a few ms later
-    out = knock.copy()
-    place(out, knock, 0.006 + RNG.uniform(0, 0.004), 0.35)
-    return out
+def biquad(x: np.ndarray, kind: str, f0: float, gain_db: float = 0.0, q: float = 0.707) -> np.ndarray:
+    """RBJ cookbook peaking / shelving filters."""
+    A = 10 ** (gain_db / 40)
+    w = 2 * np.pi * f0 / SR
+    cw, sw = np.cos(w), np.sin(w)
+    alpha = sw / (2 * q)
+    if kind == "peak":
+        b = [1 + alpha * A, -2 * cw, 1 - alpha * A]
+        a = [1 + alpha / A, -2 * cw, 1 - alpha / A]
+    elif kind == "highshelf":
+        sa = 2 * np.sqrt(A) * alpha
+        b = [A * ((A + 1) + (A - 1) * cw + sa), -2 * A * ((A - 1) + (A + 1) * cw), A * ((A + 1) + (A - 1) * cw - sa)]
+        a = [(A + 1) - (A - 1) * cw + sa, 2 * ((A - 1) - (A + 1) * cw), (A + 1) - (A - 1) * cw - sa]
+    else:
+        raise ValueError(kind)
+    b, a = np.array(b) / a[0], np.array(a) / a[0]
+    return lfilter(b, a, x, axis=0)
 
 
-def drop(f_start: float = 700, f_end: float = 1650, dur: float = 0.09) -> np.ndarray:
-    """Water drop: a bubble whose pitch rises as it closes."""
-    t = t_axis(dur)
-    f = f_start * (f_end / f_start) ** (t / dur)
-    phase = 2 * np.pi * np.cumsum(f) / SR
-    return np.sin(phase) * np.exp(-t / 0.028) * swell(len(t), 0.002, 0.01)
+# ----------------------------------------------------------------------------- the space
 
 
-def page_turn(dur: float = 0.42) -> np.ndarray:
-    """A mushaf page: paper rustle that grows, flutters and lands with a soft flap."""
-    t = t_axis(dur)
-    rustle = band(noise(dur), 1200, 7500)
-    shape = np.sin(np.pi * np.clip(t / dur, 0, 1)) ** 1.6
-    flutter = 0.65 + 0.35 * np.abs(np.sin(2 * np.pi * (14 + 22 * t / dur) * t))
-    paper = rustle * shape * flutter * 0.5
-    flap = band(noise(0.08), None, 420) * np.exp(-t_axis(0.08) / 0.02) * 1.4
-    out = paper.copy()
-    place(out, flap, dur - 0.09)
-    return out
-
-
-def sparkle(count: int, spread: float, base: float, dur: float = 1.2) -> np.ndarray:
-    """The gold diamond's glint: high partials catching the light at slightly different moments."""
-    out = silence(spread + dur)
-    ratios = [4, 5, 6, 7.5, 8, 9, 10, 12]
-    for i in range(count):
-        f = base * RNG.choice(ratios) * RNG.uniform(0.996, 1.004)
-        t = t_axis(dur)
-        ping = np.sin(2 * np.pi * f * t) * np.exp(-t / RNG.uniform(0.18, 0.42)) * swell(len(t), 0.004, 0.05)
-        place(out, ping, spread * (i / max(1, count - 1)) ** 1.3, RNG.uniform(0.25, 0.6))
-    return out
-
-
-def room(x: np.ndarray, rt60: float, wet: float, bright: float = 6000) -> np.ndarray:
-    """Small stone room (a quiet mosque courtyard): synthetic IR, early taps + dense tail."""
-    n = int(rt60 * SR)
+def hall(x: np.ndarray, rt: float = 2.2, wet: float = 0.3, pre: float = 0.018) -> np.ndarray:
+    """Warm stone hall: frequency-dependent decay (highs fade faster), diffuse build-up, early
+    reflections, decorrelated stereo. Wet path is low-cut and high-cut so the tail stays clean."""
+    n = n_of(rt * 1.1)
     t = np.arange(n) / SR
-    ir = band(RNG.standard_normal(n), None, bright) * np.exp(-6.9 * t / rt60)
-    for delay, g in [(0.011, 0.5), (0.019, 0.35), (0.031, 0.25)]:
-        ir[int(delay * SR)] += g
-    ir /= np.sqrt(np.sum(ir**2))
-    tail = fftconvolve(x, ir)
-    dry = np.concatenate([x, np.zeros(len(tail) - len(x))])
-    return (1 - wet) * dry + wet * tail * 0.9
+    edges = [20, 250, 500, 1000, 2000, 4000, 8000, 20_000]
+    rts = [1.15, 1.0, 0.95, 0.85, 0.7, 0.5, 0.33]
+    ir = np.zeros((n, 2))
+    for (lo, hi), k in zip(zip(edges[:-1], edges[1:]), rts):
+        nb = band(RNG.standard_normal((n, 2)), lo, hi, 2)
+        ir += nb * np.exp(-6.9 * t / (rt * k))[:, None]
+    ir *= (1 - np.exp(-t / 0.035))[:, None]  # diffusion builds up instead of a hard click
+    for ch in range(2):
+        for _ in range(7):
+            d = RNG.uniform(0.006, 0.045)
+            ir[n_of(d), ch] += RNG.uniform(0.15, 0.45) * (1 - d / 0.05)
+    ir /= np.sqrt(np.sum(ir ** 2, axis=0, keepdims=True))
+    ir = np.concatenate([np.zeros((n_of(pre), 2)), ir])
+    wet_sig = np.stack([fftconvolve(x[:, 0], ir[:, 0]) + 0.25 * fftconvolve(x[:, 1], ir[:, 0]),
+                        fftconvolve(x[:, 1], ir[:, 1]) + 0.25 * fftconvolve(x[:, 0], ir[:, 1])], axis=1)
+    wet_sig = band(band(wet_sig, 180, None, 2), None, 9000, 2)
+    dry = np.concatenate([x, np.zeros((len(wet_sig) - len(x), 2))])
+    return dry * (1 - wet * 0.5) + wet_sig * wet * 0.55
 
 
-def finish(x: np.ndarray, lufs: float, total: float | None = None) -> np.ndarray:
-    """Trim, fade, loudness-normalise and keep the peak under −1.5 dBFS."""
-    if total is not None:
-        x = x[: int(total * SR)] if len(x) > total * SR else np.concatenate([x, silence(total - len(x) / SR)])
-    x = x - np.mean(x)
-    x *= swell(len(x), 0.002, min(0.25, len(x) / SR / 4))
-    meter = pyln.Meter(SR, block_size=min(0.4, len(x) / SR * 0.9))
+# ----------------------------------------------------------------------------- mastering
+
+
+def compress(x: np.ndarray, thresh_db: float = -22, ratio: float = 2.0, att: float = 0.008, rel: float = 0.16) -> np.ndarray:
+    level = np.max(np.abs(x), axis=1)
+    env = np.zeros_like(level)
+    a_att, a_rel = np.exp(-1 / (att * SR)), np.exp(-1 / (rel * SR))
+    e = 0.0
+    for i, v in enumerate(level):
+        e = a_att * e + (1 - a_att) * v if v > e else a_rel * e + (1 - a_rel) * v
+        env[i] = e
+    db = 20 * np.log10(np.maximum(env, 1e-9))
+    over = np.maximum(0, db - thresh_db)
+    gain = 10 ** (-(over - over / ratio) / 20)
+    return x * gain[:, None]
+
+
+def limit(x: np.ndarray, ceiling_db: float = -1.0) -> np.ndarray:
+    """Look-ahead limiter on the 4× oversampled peak (≈ true peak)."""
+    ceiling = 10 ** (ceiling_db / 20)
+    up = resample_poly(x, 4, 1, axis=0)
+    peak = np.max(np.abs(up).reshape(-1, 4, 2), axis=(1, 2))[: len(x)]
+    need = np.minimum(1.0, ceiling / np.maximum(peak, 1e-9))
+    look = n_of(0.004)
+    # gain must already be down when the peak arrives: running min over the look-ahead window, smoothed
+    padded = np.concatenate([need, np.ones(look)])
+    g = np.array([padded[i : i + look].min() for i in range(len(need))])
+    k = np.hanning(2 * look + 1)
+    g = np.convolve(np.concatenate([np.ones(look), g, np.ones(look)]), k / k.sum(), mode="valid")[: len(x)]
+    y = x * g[:, None]
+    tp = np.max(np.abs(resample_poly(y, 4, 1, axis=0)))
+    return y * min(1.0, ceiling / tp)
+
+
+def master(x: np.ndarray, lufs: float, total: float) -> np.ndarray:
+    n = n_of(total)
+    x = x[:n] if len(x) >= n else np.concatenate([x, np.zeros((n - len(x), 2))])
+    x = band(x, 110, None, 2)                # phone speakers can't play below this; keeps it clean
+    x = biquad(x, "peak", 340, -2.0, 0.9)    # less box
+    x = biquad(x, "peak", 3200, -1.0, 1.2)   # less edge
+    x = biquad(x, "highshelf", 10_000, 1.5)  # air
+    x = compress(x)
+    x = np.tanh(x * 1.5) / np.tanh(1.5) if np.max(np.abs(x)) > 0 else x  # gentle warmth
+    x -= np.mean(x, axis=0)
+    x *= raised(n, n_of(0.002), n_of(min(0.3, total / 4)))[:, None]
+    meter = pyln.Meter(SR, block_size=min(0.4, total * 0.9))
     x = pyln.normalize.loudness(x, meter.integrated_loudness(x), lufs)
-    peak = np.max(np.abs(x))
-    limit = 10 ** (-1.5 / 20)
-    if peak > limit:
-        x *= limit / peak
-    return x
+    return limit(x)
+
+
+# ----------------------------------------------------------------------------- natural sources
+#   Physical models only. A water bubble or a wooden bead has a resonance, but nothing here is
+#   tuned to a scale, layered into a chord, or sequenced into a tune.
+
+
+def bubble(radius_mm: float, rise: float = 0.1, gain: float = 1.0) -> np.ndarray:
+    """One air bubble ringing in water (Minnaert resonance, van den Doel's model): pitch rises
+    as it reaches the surface; damping grows with frequency. Small radius = bright drop."""
+    f0 = 3260.0 / radius_mm
+    damp = 0.043 * f0 + 0.0014 * f0 ** 1.5
+    sec = min(0.25, 7.0 / damp)
+    t = t_axis(sec)
+    f = f0 * (1 + rise * (1 - np.exp(-t * damp / 2.5)))  # `rise` = total climb, e.g. 0.6 = +60 %
+    sig = np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-damp * t)
+    sig *= raised(len(t), n_of(0.0006), n_of(0.004))
+    return sig * gain * (radius_mm ** 0.3)
+
+
+def drop_into(radius_mm: float, pos: float = 0.0, gain: float = 1.0) -> np.ndarray:
+    """A drop hitting still water: a tiny splash transient, then its strongly rising bubble."""
+    b = bubble(radius_mm, rise=RNG.uniform(0.5, 0.85))
+    splash = band(RNG.standard_normal(n_of(0.012)), 3000, 12_000, 2) * np.exp(-t_axis(0.012) / 0.0018) * 0.12
+    out = np.zeros(max(len(b), len(splash)) + n_of(0.002))
+    out[: len(splash)] += splash
+    out[n_of(0.002) : n_of(0.002) + len(b)] += b
+    return pan(out, pos) * gain
+
+
+def stream(sec: float, rate: float, r_lo: float, r_hi: float, *, rise: float = 0.25, fill: float = 0.0,
+           pan_from: float = 0.0, pan_to: float = 0.0, flow: float = 0.08, shape: np.ndarray | None = None) -> np.ndarray:
+    """Running water: a Poisson cloud of bubbles over a soft flow noise. `fill` > 0 makes the
+    bubbles shrink over time — the rising sound of a cup filling."""
+    n = n_of(sec)
+    out = np.zeros((n, 2))
+    t = 0.0
+    while t < sec:
+        t += RNG.exponential(1 / rate)
+        if t >= sec:
+            break
+        k = t / sec
+        lo, hi = r_lo * (1 - fill * k), r_hi * (1 - fill * k)
+        r = np.exp(RNG.uniform(np.log(lo), np.log(hi)))
+        p = pan_from + (pan_to - pan_from) * k + RNG.uniform(-0.25, 0.25)
+        b = pan(bubble(r, rise=rise * RNG.uniform(0.6, 1.4)), np.clip(p, -1, 1))
+        w = 1.0 if shape is None else shape[min(len(shape) - 1, n_of(t))]
+        place(out, b, t, RNG.uniform(0.25, 1.0) * w)
+    rush = band(RNG.standard_normal((n, 2)), 300, 2600, 2) * flow
+    env = raised(n, n_of(min(0.3, sec / 3)), n_of(min(0.5, sec / 2.5)))
+    if shape is not None:
+        env = env * shape[:n]
+    return (out + rush) * env[:, None]
+
+
+def wood(gain: float = 1.0, size: float = 1.0, pos: float = 0.0) -> np.ndarray:
+    """An olive-wood tasbih bead knocking another: 8 inharmonic, heavily damped modes and a
+    felt-soft contact. Every knock is a little different (no two beads are the same)."""
+    sec = 0.09
+    t = t_axis(sec)
+    base = 1350 / size * RNG.uniform(0.93, 1.07)
+    ratios = [1.0, 1.58, 2.31, 2.97, 3.82, 4.66, 5.71, 6.93]
+    sig = np.zeros(len(t))
+    for i, r in enumerate(ratios):
+        d = 0.0065 / (1 + 0.6 * i) * RNG.uniform(0.8, 1.2)  # wood is heavily damped
+        sig += (0.72 ** i) * RNG.uniform(0.6, 1.0) * np.exp(-t / d) * np.sin(2 * np.pi * base * r * t + RNG.uniform(0, 6.28))
+    contact = band(RNG.standard_normal(len(t)), 1200, 7000, 2) * np.exp(-t / 0.0009) * 0.45
+    body = band(RNG.standard_normal(len(t)), 300, 1600, 2) * np.exp(-t / 0.003) * 0.5
+    sig = (sig + contact + body) * raised(len(t), n_of(0.0004), n_of(0.01))
+    return pan(sig, pos) * gain
+
+
+def bead_pair(at_gain: float = 1.0, pos: float = 0.0) -> np.ndarray:
+    """Two beads meet: the main knock, then the softer second contact a few ms later."""
+    out = np.zeros((n_of(0.12), 2))
+    place(out, wood(1.0, pos=pos), 0.0)
+    place(out, wood(0.38, size=1.05, pos=pos + 0.05), RNG.uniform(0.007, 0.013))
+    return out * at_gain
+
+
+def thread_slide(sec: float, pos_from: float, pos_to: float) -> np.ndarray:
+    """The silk cord sliding through the bead: a short, soft friction."""
+    n = n_of(sec)
+    x = band(RNG.standard_normal(n), 2500, 8000, 2) * raised(n, n_of(sec * 0.4), n_of(sec * 0.5)) * 0.05
+    p = np.linspace(pos_from, pos_to, n)
+    a = (p + 1) * np.pi / 4
+    return np.stack([x * np.cos(a), x * np.sin(a)], axis=1)
+
+
+def stone(gain: float = 1.0, pos: float = 0.0, size: float = 1.0) -> np.ndarray:
+    """A smooth river stone set on a stone surface: denser, longer modes than wood."""
+    sec = 0.22
+    t = t_axis(sec)
+    base = 2600 / size * RNG.uniform(0.95, 1.05)
+    sig = np.zeros(len(t))
+    for i, r in enumerate([1.0, 1.73, 2.41, 3.37, 4.12, 5.29, 6.6]):
+        d = 0.011 / (1 + 0.6 * i)
+        sig += (0.7 ** i) * np.exp(-t / d) * np.sin(2 * np.pi * base * r * t + RNG.uniform(0, 6.28))
+    thud = band(RNG.standard_normal(len(t)), 120, 900, 2) * np.exp(-t / 0.006) * 0.8
+    contact = band(RNG.standard_normal(len(t)), 2000, 10_000, 2) * np.exp(-t / 0.0007) * 0.35
+    sig = (0.45 * sig + thud + contact) * raised(len(t), n_of(0.0004), n_of(0.03))
+    return pan(sig, pos) * gain
+
+
+def page_turn(sec: float = 0.7) -> np.ndarray:
+    """A mushaf page turned right-to-left (the Arabic direction): fibres crackle as it lifts,
+    air moves as it travels across, and it settles with a soft brush."""
+    n = n_of(sec)
+    t = np.arange(n) / SR
+    k = t / sec
+    # travel: right → left
+    p = 0.55 - 1.1 * np.clip((k - 0.1) / 0.8, 0, 1)
+    a = (p + 1) * np.pi / 4
+    # fibre crackle: sparse micro-impulses, densest while the page bends
+    crackle = np.zeros(n)
+    density = np.sin(np.pi * np.clip(k / 0.75, 0, 1)) ** 1.5
+    for i in np.nonzero(RNG.random(n) < density * 900 / SR)[0]:
+        L = min(n - i, n_of(0.003))
+        crackle[i : i + L] += RNG.uniform(-1, 1) * np.exp(-np.arange(L) / (SR * 0.0004))
+    crackle = band(crackle, 2000, 7000, 2) * 0.16
+    friction = band(RNG.standard_normal(n), 700, 3800, 2) * (np.sin(np.pi * np.clip(k / 0.85, 0, 1)) ** 2) * 0.05
+    swoosh = band(RNG.standard_normal(n), 140, 800, 2) * (np.sin(np.pi * np.clip((k - 0.2) / 0.65, 0, 1)) ** 2) * 0.3
+    settle = np.zeros(n)
+    i0 = n_of(sec * 0.84)
+    L = n - i0
+    settle[i0:] = band(RNG.standard_normal(L), 300, 3000, 2) * np.exp(-np.arange(L) / (SR * 0.025)) * 0.25
+    mono = band(crackle + friction + swoosh + settle, None, 8000, 2)
+    return np.stack([mono * np.cos(a), mono * np.sin(a)], axis=1)
+
+
+def breeze(sec: float, lo: float, hi: float, gust_rate: float = 0.4, leaves: float = 0.0) -> np.ndarray:
+    """Night air: band-limited wind with slow, irregular gusts; optional palm-frond rustle."""
+    n = n_of(sec)
+    mod = band(RNG.standard_normal(n), None, gust_rate * 3, 1)
+    mod = 0.55 + 0.45 * (mod / (np.max(np.abs(mod)) + 1e-9))
+    wind = band(RNG.standard_normal((n, 2)), lo, hi, 2) * mod[:, None]
+    if leaves:
+        rustle = np.zeros((n, 2))
+        for i in np.nonzero(RNG.random(n) < (mod ** 3) * 2500 / SR)[0]:
+            L = min(n - i, n_of(0.004))
+            ch = RNG.integers(0, 2)
+            rustle[i : i + L, ch] += RNG.uniform(-1, 1) * np.exp(-np.arange(L) / (SR * 0.0006))
+        wind += band(rustle, 2000, 9000, 2) * leaves
+    return wind * raised(n, n_of(sec * 0.35), n_of(sec * 0.4))[:, None]
+
+
+def amber_pour(sec: float, count: int, spread: float) -> np.ndarray:
+    """Amber beads poured onto a wooden tray: a bright cascade that thins out."""
+    out = np.zeros((n_of(sec), 2))
+    for i in range(count):
+        at = spread * (RNG.random() ** 1.8)
+        size = RNG.uniform(0.55, 0.85)
+        place(out, wood(RNG.uniform(0.25, 0.8) * (1 - 0.6 * at / spread), size=size, pos=RNG.uniform(-0.7, 0.7)), at)
+    return out
 
 
 # ----------------------------------------------------------------------------- the family
-#   Notes are named by pitch only to keep tones consonant and calm (D major colour: D, A, F#).
-
-D3, A3, D4, Fs4, A4, D5 = 146.83, 220.0, 293.66, 369.99, 440.0, 587.33
 
 
 def yq_prayer() -> np.ndarray:
-    """Prayer time (alert = «تنبيه», not adhan). «الفجر يتنفس»: air rising into a wide, still glow."""
-    dur = 3.0
-    air = band(noise(dur), 300, 2200, 6) * swell(int(dur * SR), 1.1, 1.5) * 0.16
-    body = glow([D3, A3, D4, A4], dur, 0.9, 1.6, [0.55, 0.75, 0.6, 0.3])
-    halo = glow([D5 * 2, A4 * 3], dur, 1.4, 1.2, [0.05, 0.035])
-    x = air + body + halo
-    place(x, sparkle(5, 0.5, D4, 1.2) * 0.25, 1.0)
-    return finish(room(x, 1.8, 0.35), -17, 3.0)
+    """Prayer time (alert «تنبيه»). «ماء الوضوء»: water running into a stone basin in a mosque
+    courtyard — it starts, flows, and eases off."""
+    sec = 3.0
+    shape = raised(n_of(sec), n_of(0.25), n_of(1.2))
+    x = stream(sec, 34, 1.2, 4.5, flow=0.05, pan_from=0.2, pan_to=-0.1, shape=shape)
+    place(x, drop_into(2.2, 0.15), 2.15, 0.45)
+    return master(hall(x, 1.8, 0.28), -17.0, 3.0)
 
 
 def yq_prayer_soon() -> np.ndarray:
-    """Before the prayer. A shorter breath of the same dawn — a gentle «استعد»."""
-    dur = 2.0
-    air = band(noise(dur), 400, 2400, 6) * swell(int(dur * SR), 0.6, 1.0) * 0.13
-    body = glow([A3, D4, Fs4], dur, 0.5, 1.2, [0.7, 0.6, 0.25])
-    return finish(room(air + body, 1.4, 0.3), -18, 2.2)
+    """Before the prayer. «قطرات»: the first drops of wudu falling into the basin."""
+    x = stereo_silence(2.0)
+    for at, r, p, g in [(0.0, 2.4, 0.25, 0.9), (0.27, 1.9, -0.2, 0.75), (0.47, 2.8, 0.05, 0.85)]:
+        place(x, drop_into(r, p), at, g)
+    return master(hall(x, 1.3, 0.26), -18.5, 2.0)
 
 
 def yq_azkar() -> np.ndarray:
-    """Morning / evening azkar and dhikr. «السبحة»: three beads slide together, then the hand rests."""
-    x = silence(1.6)
-    for at, f, g in [(0.02, 1820, 0.9), (0.2, 1760, 0.8), (0.33, 1690, 1.0)]:
-        place(x, bead(f), at, g)
-    place(x, glow([D4, A4], 1.2, 0.25, 0.8, [0.5, 0.25]), 0.36, 0.22)
-    return finish(room(x, 0.9, 0.25, 8000), -18, 1.6)
+    """Azkar & dhikr. «السبحة»: three beads drawn along the cord, right to left, then the hand
+    rests."""
+    x = stereo_silence(1.6)
+    for at, p, g in [(0.0, 0.35, 0.8), (0.19, 0.05, 0.72), (0.36, -0.25, 1.0)]:
+        place(x, thread_slide(0.12, p + 0.25, p), max(0.0, at - 0.08))
+        place(x, bead_pair(1.0, p), at, g)
+    return master(hall(x, 1.4, 0.24), -19.0, 1.6)
 
 
 def yq_quran() -> np.ndarray:
-    """Wird, khatma, Surat al-Kahf on Friday. «الصفحة»: a page turns and the room settles warm."""
-    x = silence(2.4)
-    place(x, page_turn(0.45), 0.0, 1.0)
-    place(x, glow([D3, A3, D4], 1.9, 0.45, 1.1, [0.5, 0.7, 0.35]), 0.38, 0.55)
-    return finish(room(x, 1.2, 0.25), -18, 2.4)
+    """Wird, khatma, al-Kahf on Friday. «الصفحة»: a mushaf page turned right to left."""
+    x = stereo_silence(1.6)
+    place(x, page_turn(0.75), 0.02)
+    return master(hall(x, 1.3, 0.22), -19.0, 1.6)
 
 
 def yq_hifz() -> np.ndarray:
-    """Hifz review due. «قطرتان»: two drops on still water — memory returning, then ripples."""
-    x = silence(1.8)
-    place(x, drop(720, 1700), 0.02, 1.0)
-    place(x, drop(820, 1950, 0.08), 0.31, 0.75)
-    place(x, glow([Fs4, A4 * 2], 1.2, 0.3, 0.8, [0.12, 0.05]), 0.35, 1.0)
-    return finish(room(x, 1.6, 0.45, 7000), -19, 1.8)
+    """Hifz review due. «قطرتان»: two drops in a stone well — what was kept, returning."""
+    x = stereo_silence(2.2)
+    place(x, drop_into(2.0, -0.2), 0.0, 1.0)
+    place(x, drop_into(1.7, 0.25), 0.31, 0.8)
+    return master(hall(x, 1.6, 0.3), -19.0, 2.2)
 
 
 def yq_suhoor() -> np.ndarray:
-    """Suhoor. «سَحَر»: deep night air, a low glow, a few faint stars."""
-    dur = 3.0
-    wind = band(noise(dur), 120, 900) * swell(int(dur * SR), 1.0, 1.4)
-    wind *= 0.6 + 0.4 * np.sin(2 * np.pi * 0.45 * t_axis(dur) + 1.0)
-    x = wind * 0.25 + glow([D3, A3], dur, 1.0, 1.5, [0.7, 0.45])
-    for at in (0.9, 1.35, 1.9):
-        place(x, sparkle(1, 0.0, D4, 1.0), at, 0.12)
-    return finish(room(x, 2.0, 0.35, 5000), -19, 3.0)
+    """Suhoor. «سَحَر»: pre-dawn air through palm fronds, and one drop in the dark."""
+    x = breeze(2.8, 160, 1400, 0.5, leaves=0.25)
+    place(x, drop_into(2.6, 0.3), 1.35, 0.45)
+    return master(hall(x, 2.4, 0.32), -20.0, 2.8)
 
 
 def yq_iftar() -> np.ndarray:
-    """Iftar. «ماءٌ وتمرة»: water poured into a cup, then a warm, open glow."""
-    x = silence(2.6)
-    for i in range(7):
-        at = 0.03 + i * 0.055 + RNG.uniform(0, 0.02)
-        place(x, drop(500 + 70 * i, 1100 + 120 * i, 0.07), at, 0.55 - 0.04 * i)
-    pour = band(noise(0.5), 600, 3500) * swell(int(0.5 * SR), 0.05, 0.3) * 0.12
-    place(x, pour, 0.02)
-    place(x, glow([D4, Fs4, A4], 1.9, 0.35, 1.2, [0.55, 0.35, 0.3]), 0.45, 0.6)
-    return finish(room(x, 1.3, 0.3), -18, 2.6)
+    """Iftar. «ماءٌ وتمرة»: water poured into a clay cup — you hear it fill — then the last drop."""
+    sec = 2.4
+    shape = raised(n_of(sec), n_of(0.08), n_of(0.5))
+    shape[n_of(1.7):] *= np.linspace(1, 0, n_of(sec) - n_of(1.7)) ** 2
+    x = stream(sec, 120, 1.8, 5.5, rise=0.08, fill=0.6, flow=0.07, shape=shape)
+    place(x, drop_into(1.5, -0.15), 2.0, 0.55)
+    return master(hall(x, 1.3, 0.22), -18.5, 2.4)
 
 
 def yq_challenge() -> np.ndarray:
-    """365 challenge, streaks, a reward is ready. «لمعة الماسة»: the gold diamond catches the light."""
-    x = silence(1.8)
-    place(x, sparkle(9, 0.32, D4, 1.3), 0.0, 0.8)
-    place(x, glow([D4, A4, D5], 1.5, 0.08, 1.0, [0.45, 0.3, 0.12]), 0.05, 0.6)
-    return finish(room(x, 1.4, 0.35, 9000), -18, 1.8)
+    """Challenge, streaks, a reward is ready. «حبات الكهرمان»: a handful of amber beads poured
+    onto a wooden tray — something gathered, counted, kept."""
+    x = amber_pour(1.4, 38, 0.65)
+    return master(hall(x, 1.6, 0.26), -18.5, 1.4)
 
 
 def yq_offers() -> np.ndarray:
-    """Store offers (consented). «حصاة»: one smooth pebble set down — the quietest sound in the set."""
-    x = silence(0.9)
-    place(x, bead(980, 0.5), 0.01, 1.0)
-    place(x, glow([A4], 0.6, 0.02, 0.5, [0.2]), 0.01, 0.6)
-    return finish(room(x, 0.7, 0.2), -21, 0.9)
+    """Store offers (consented). «حصاة»: one smooth stone set down — the quietest sound in the set."""
+    x = stereo_silence(0.9)
+    place(x, stone(1.0, 0.0), 0.0)
+    place(x, stone(0.18, 0.1, size=1.1), 0.075)
+    return master(hall(x, 0.8, 0.16), -22.0, 0.9)
 
 
-# In-app UI sounds (played by the app, not by notifications)
+# In-app UI sounds
 
 
 def ui_bead() -> np.ndarray:
-    """One azkar count (setting «صوت نقرة خفيف») — must be crisp and short at 10 taps/s."""
-    x = silence(0.12)
-    place(x, bead(1780), 0.0)
-    return finish(x, -24, 0.12)
+    """One azkar count («صوت نقرة خفيف»): one bead, crisp enough for 10 taps a second."""
+    x = stereo_silence(0.12)
+    place(x, bead_pair(1.0, 0.0), 0.0)
+    return master(x, -24.0, 0.12)
 
 
 def ui_bead_round() -> np.ndarray:
-    """A completed round / zikr («تقبّل الله»)."""
-    x = silence(0.9)
-    place(x, bead(1820), 0.0, 0.8)
-    place(x, bead(1700), 0.09, 1.0)
-    place(x, glow([D4, A4], 0.7, 0.08, 0.5, [0.4, 0.2]), 0.1, 0.35)
-    return finish(room(x, 0.7, 0.2), -22, 0.9)
+    """A completed round («تقبّل الله»): the beads gathered together in the palm."""
+    x = amber_pour(0.8, 12, 0.18)
+    return master(hall(x, 1.0, 0.2), -22.0, 0.8)
 
 
 def ui_complete() -> np.ndarray:
-    """A challenge task ticked / Qibla aligned: a small glint."""
-    x = silence(0.8)
-    place(x, sparkle(4, 0.12, D4, 0.6), 0.0, 0.7)
-    place(x, glow([A4], 0.6, 0.02, 0.45, [0.25]), 0.0)
-    return finish(room(x, 0.8, 0.25, 9000), -23, 0.8)
+    """A challenge task ticked / Qibla aligned: one clear drop."""
+    x = stereo_silence(0.9)
+    place(x, drop_into(1.6, 0.0), 0.0)
+    return master(hall(x, 1.0, 0.22), -23.0, 0.9)
 
 
 NOTIFICATION_SOUNDS = {
@@ -303,33 +458,34 @@ UI_SOUNDS = {"ui_bead": ui_bead, "ui_bead_round": ui_bead_round, "ui_complete": 
 
 def ffmpeg(*args: str) -> None:
     # bitexact: no random Ogg serials or encoder tags, so re-running gives identical files
-    subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", *args[:-1], "-fflags", "+bitexact", "-flags:a", "+bitexact", "-map_metadata", "-1", args[-1]], check=True)
+    subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", *args[:-1],
+                    "-fflags", "+bitexact", "-flags:a", "+bitexact", "-map_metadata", "-1", args[-1]], check=True)
 
 
 def main() -> int:
     if not shutil.which("ffmpeg"):
         print("ffmpeg is required", file=sys.stderr)
         return 1
-    master = HERE / "master"
+    master_dir = HERE / "master"
     raw = ROOT / "apps/mobile/android/app/src/main/res/raw"
     ios = ROOT / "apps/mobile/ios/Runner/Sounds"
     assets = ROOT / "apps/mobile/assets/sounds"
-    for d in (master, raw, ios, assets):
+    for d in (master_dir, raw, ios, assets):
         d.mkdir(parents=True, exist_ok=True)
 
-    meter = pyln.Meter(SR, block_size=0.1)
     for name, fn in {**NOTIFICATION_SOUNDS, **UI_SOUNDS}.items():
         x = fn()
-        wav = master / f"{name}.wav"
+        wav = master_dir / f"{name}.wav"
         sf.write(wav, x, SR, subtype="PCM_24")
         if name.startswith("yq_"):
-            ffmpeg("-i", str(wav), "-ac", "1", "-c:a", "libvorbis", "-q:a", "6", str(raw / f"{name}.ogg"))
-            ffmpeg("-i", str(wav), "-ac", "1", "-ar", "44100", "-c:a", "pcm_s16le", "-f", "caf", str(ios / f"{name}.caf"))
+            ffmpeg("-i", str(wav), "-c:a", "libvorbis", "-q:a", "7", str(raw / f"{name}.ogg"))
+            ffmpeg("-i", str(wav), "-ar", "44100", "-c:a", "pcm_s16le", "-f", "caf", str(ios / f"{name}.caf"))
         else:
-            ffmpeg("-i", str(wav), "-ac", "1", "-c:a", "libvorbis", "-q:a", "6", str(assets / f"{name}.ogg"))
-        lufs = meter.integrated_loudness(x) if len(x) / SR > 0.15 else float("nan")
-        peak = 20 * np.log10(np.max(np.abs(x)))
-        print(f"{name:16s} {len(x) / SR:4.2f} s  {lufs:6.1f} LUFS  peak {peak:5.1f} dBFS")
+            ffmpeg("-i", str(wav), "-c:a", "libvorbis", "-q:a", "7", str(assets / f"{name}.ogg"))
+        dur = len(x) / SR
+        lufs = pyln.Meter(SR, block_size=min(0.4, dur * 0.9)).integrated_loudness(x)
+        tp = 20 * np.log10(np.max(np.abs(resample_poly(x, 4, 1, axis=0))))
+        print(f"{name:16s} {dur:4.2f} s  {lufs:6.1f} LUFS  true peak {tp:5.1f} dBTP")
     return 0
 
 

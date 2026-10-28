@@ -1,6 +1,6 @@
 # Yaqeen sounds — «أصوات السكينة»
 
-Synthesised notification and UI sounds. See `docs/NOTIFICATIONS.md §3` for the mapping and rules.
+Synthesised notification and UI sounds — halal by design (natural, physical sounds only: no instruments, bells, melodies or tones). See `docs/NOTIFICATIONS.md §3` for the mapping and rules.
 
 ```bash
 pip install numpy scipy soundfile pyloudnorm   # + ffmpeg with libvorbis
