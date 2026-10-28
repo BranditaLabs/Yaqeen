@@ -51,17 +51,19 @@ Synthesised in `packages/brand/sounds/generate_sounds.py` (no samples, no licenc
 - Owner's halal line: soft tones are fine; no instrument timbres, no bells, no melodies; three notes at most.
   The adhan is never synthesised (`ADHAN_SOUNDS`).
 
-| Sound | Plays for | What it is |
+Each sound acts out what it calls you to, softly:
+
+| Sound | Plays for | What it acts out |
 | --- | --- | --- |
-| `yq_prayer` | prayer time when the alert is «تنبيه» | F♯ breathes in, B joins it, both rest together |
-| `yq_prayer_soon` | N minutes before a prayer | one tone, breathing in and out |
-| `yq_azkar` | morning/evening azkar, dhikr routine | three soft overlapping breaths, like a slow count |
-| `yq_quran` | wird, wird missing, Friday al-Kahf, khatma | the signature an octave lower, slower, warmer |
-| `yq_hifz` | hifz review due | the signature reversed, B settling back to F♯ |
-| `yq_suhoor` | suhoor | both notes together, very slow and very soft |
-| `yq_iftar` | iftar | three notes arriving gently into each other |
-| `yq_challenge` | challenge + reward pushes | the signature a little higher, a little quicker |
-| `yq_offers` | store offer pushes | one faint tone (the quietest sound) |
+| `yq_prayer` | prayer time when the alert is «تنبيه» | «الاصطفاف» the row forming: F♯, B beside it, a low foundation settles, light opens above |
+| `yq_prayer_soon` | N minutes before a prayer | «تهيّؤ» getting ready: one tone breathes twice, the second fuller |
+| `yq_azkar` | morning/evening azkar, dhikr routine | «التسبيح» an even count: four breaths moving bead by bead right → left, the last one rests |
+| `yq_quran` | wird, wird missing, Friday al-Kahf, khatma | «التدبّر» settling in to read: a warm low breath, F♯ and B entering slowly above |
+| `yq_hifz` | hifz review due | «التكرار» memorising: the signature once, then repeated softer and further away |
+| `yq_suhoor` | suhoor | «السَّحَر» the last dark hour: a low hush rising, one faint star far above |
+| `yq_iftar` | iftar | «الفرحة» the fast broken: three notes opening quickly into a warm chord |
+| `yq_challenge` | challenge + reward pushes | «الخطوة» one more step: three soft steps upward, the top one resting |
+| `yq_offers` | store offer pushes | «هدية» a small gift: one soft tone with a faint glint (the quietest sound) |
 
 Wiring: `NotificationSound` (`notification_planner.dart`) maps each `ReminderKind` to a sound. Android has **one
 reminders channel per sound** (a channel's sound is fixed once created; ids = resource names; push channels keep

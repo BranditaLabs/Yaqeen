@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Yaqeen notification sounds — «أصوات يقين» (v8: «سكينة», rest and quiet).
+Yaqeen notification sounds — «أصوات يقين» (v9: «سكينة», rest and quiet — each sound acts out its activity).
 
   * No strike, no pop, no edge: every tone breathes in (60–650 ms), glows, and breathes out on a
     long cosine curve. Almost pure tones (2nd/3rd harmonics a whisper), two layers ±1.2 cents
@@ -56,7 +56,7 @@ class Engine:
         self.rng = np.random.default_rng(seed)
 
     def glow(self, f: float, sec: float, *, attack: float = 0.16, vel: float = 1.0, warm: float = 1.0,
-             pos: float = 0.0) -> np.ndarray:
+             pos: float = 0.0, drift: float | None = None) -> np.ndarray:
         """A soft, dark, held tone: almost pure (2nd/3rd harmonics a whisper), two layers ±1.2 cents
         apart so it moves very slowly, a raised-cosine breath in and a long cosine breath out."""
         t = np.arange(n_of(sec)) / SR
@@ -75,8 +75,22 @@ class Engine:
         rest = n - a
         env[a:] = (0.5 + 0.5 * np.cos(np.linspace(0, np.pi, rest))) ** 1.4  # long breath out
         sig = sosfilt(butter(2, min(4.5 * f, 6000), "lowpass", fs=SR, output="sos"), sig * env) * vel
-        g = (pos + 1) * np.pi / 4
+        p = np.linspace(pos, pos if drift is None else drift, n)  # slow stereo drift
+        g = (p + 1) * np.pi / 4
         return np.stack([sig * np.cos(g), sig * np.sin(g)], axis=1)
+
+    def halo(self, f: float, sec: float, *, vel: float = 1.0) -> np.ndarray:
+        """A faint light far above: an almost-pure tone that swells in late and fades — 'something
+        opening'. Two decorrelated sides so it sits wide, behind everything."""
+        t = np.arange(n_of(sec)) / SR
+        env = np.sin(np.pi * np.clip(t / sec, 0, 1)) ** 2.2
+        l = np.sin(2 * np.pi * f * t + self.rng.uniform(0, 6.3)) * env
+        r = np.sin(2 * np.pi * f * 1.0008 * t + self.rng.uniform(0, 6.3)) * env
+        return np.stack([l, r], axis=1) * vel
+
+    def ground(self, f: float, sec: float, *, attack: float = 0.5, vel: float = 1.0) -> np.ndarray:
+        """A low, wide foundation entering slowly underneath (kept above phone-speaker cut-off)."""
+        return self.glow(f, sec, attack=attack, warm=1.6, pos=-0.4, drift=0.4, vel=vel)
 
 
 def place(buf: np.ndarray, sig: np.ndarray, at: float, gain: float = 1.0) -> None:
@@ -105,78 +119,99 @@ def finish(x: np.ndarray, peak_db: float, total: float, room: float = 0.62, wet:
 
 
 # ----------------------------------------------------------------------------- the family
-#   Signature: F♯ → B, the second note arriving while the first still glows.
+#   Signature: F♯ → B. Each sound acts out what it calls you to — softly.
+
+D5_, Cs6, E6 = 587.33, 1108.73, 1318.51
 
 
 def yq_prayer(e: Engine) -> np.ndarray:
-    """Prayer time (alert «تنبيه»): F♯ breathes in, B joins it, both rest together."""
-    x = canvas(2.4)
-    place(x, e.glow(Fs5, 2.2, attack=0.14, pos=-0.18), 0.0, 0.85)
-    place(x, e.glow(B5, 2.0, attack=0.18, pos=0.18), 0.32, 0.8)
-    return finish(x, -3.0, 2.4)
+    """Prayer time — «الاصطفاف»: the row forming. F♯ comes in, B stands beside it, then a low
+    foundation settles underneath and a faint light opens above: a space filling, calm and sure."""
+    x = canvas(2.8)
+    place(x, e.glow(Fs5, 2.5, attack=0.16, pos=-0.3, drift=-0.15), 0.0, 0.8)
+    place(x, e.glow(B5, 2.3, attack=0.2, pos=0.3, drift=0.15), 0.3, 0.76)
+    place(x, e.ground(B4, 2.2, attack=0.55), 0.55, 0.42)
+    place(x, e.halo(Fs6 * 2, 1.9), 0.75, 0.035)
+    return finish(x, -3.0, 2.8, room=0.7, wet=0.27)
 
 
 def yq_prayer_soon(e: Engine) -> np.ndarray:
-    """Before the prayer: one tone, breathing in and out."""
-    x = canvas(1.7)
-    place(x, e.glow(Fs5, 1.6, attack=0.2), 0.0)
-    return finish(x, -6.0, 1.7)
+    """Before the prayer — «تهيّؤ»: getting ready. One tone breathes twice, the second breath
+    fuller, like a gentle «it's almost time»."""
+    x = canvas(2.0)
+    place(x, e.glow(Fs5, 0.9, attack=0.18, pos=-0.1), 0.0, 0.6)
+    place(x, e.glow(Fs5, 1.5, attack=0.22, pos=0.1), 0.5, 0.85)
+    return finish(x, -6.0, 2.0)
 
 
 def yq_azkar(e: Engine) -> np.ndarray:
-    """Azkar & dhikr: three soft breaths on B, each overlapping the last, like a slow count."""
-    x = canvas(2.0)
-    for at, v, p in [(0.0, 0.7, -0.2), (0.3, 0.7, 0.2), (0.6, 0.85, 0.0)]:
-        place(x, e.glow(B5, 1.3 if at < 0.6 else 1.4, attack=0.06, pos=p), at, v)
-    return finish(x, -5.0, 2.0)
+    """Azkar & dhikr — «التسبيح»: a slow, even count. Four soft breaths on B, moving bead by bead
+    from right to left, the last one left to rest — the hand pausing on the misbaha."""
+    x = canvas(2.3)
+    for i, (at, p) in enumerate([(0.0, 0.45), (0.28, 0.15), (0.56, -0.15), (0.84, -0.45)]):
+        last = i == 3
+        place(x, e.glow(B5, 1.4 if last else 0.75, attack=0.05, warm=0.8, pos=p), at, 0.85 if last else 0.62)
+    return finish(x, -5.5, 2.3)
 
 
 def yq_quran(e: Engine) -> np.ndarray:
-    """Wird, khatma, al-Kahf: the signature an octave lower, slower to bloom, warmer."""
-    x = canvas(2.6)
-    place(x, e.glow(Fs4, 2.4, attack=0.3, warm=1.4, pos=-0.18), 0.0, 0.85)
-    place(x, e.glow(B4, 2.2, attack=0.34, warm=1.4, pos=0.18), 0.4, 0.8)
-    return finish(x, -4.0, 2.6, room=0.7, wet=0.26)
+    """Wird, khatma, al-Kahf — «التدبّر»: settling in to read. A warm low tone holds like a breath
+    before recitation; F♯ and B enter slowly above it and stay — unhurried, contemplative."""
+    x = canvas(3.0)
+    place(x, e.ground(B4, 2.9, attack=0.45), 0.0, 0.55)
+    place(x, e.glow(Fs5, 2.4, attack=0.35, warm=1.2, pos=-0.2, drift=-0.05), 0.35, 0.62)
+    place(x, e.glow(B5, 2.1, attack=0.4, warm=1.2, pos=0.2, drift=0.05), 0.8, 0.55)
+    return finish(x, -4.5, 3.0, room=0.72, wet=0.27)
 
 
 def yq_hifz(e: Engine) -> np.ndarray:
-    """Hifz review: the signature turned around, B settling back to F♯."""
-    x = canvas(2.2)
-    place(x, e.glow(B5, 2.0, attack=0.14, pos=0.18), 0.0, 0.8)
-    place(x, e.glow(Fs5, 1.9, attack=0.18, pos=-0.18), 0.32, 0.85)
-    return finish(x, -5.0, 2.2)
+    """Hifz review — «التكرار»: how memorising sounds. The signature once, then again softer,
+    a little further away — said, then repeated to hold it."""
+    x = canvas(2.6)
+    place(x, e.glow(Fs5, 1.1, attack=0.1, pos=-0.15), 0.0, 0.8)
+    place(x, e.glow(B5, 1.2, attack=0.12, pos=0.15), 0.2, 0.75)
+    place(x, e.glow(Fs5, 1.1, attack=0.1, pos=-0.35), 0.85, 0.45)
+    place(x, e.glow(B5, 1.5, attack=0.12, pos=0.35), 1.05, 0.42)
+    return finish(x, -5.0, 2.6)
 
 
 def yq_suhoor(e: Engine) -> np.ndarray:
-    """Suhoor: both notes together, very slow and very soft — for the stillest hour."""
-    x = canvas(2.8)
-    place(x, e.glow(Fs4, 2.7, attack=0.6, warm=1.2, pos=-0.25), 0.0, 0.85)
-    place(x, e.glow(B4, 2.7, attack=0.65, warm=1.2, pos=0.25), 0.05, 0.75)
-    return finish(x, -9.0, 2.8, room=0.75, wet=0.28)
+    """Suhoor — «السَّحَر»: the last dark hour. A low, wide hush rises very slowly; far above, one
+    faint point of light appears and fades, like the last star before Fajr."""
+    x = canvas(3.0)
+    place(x, e.ground(Fs4, 2.9, attack=0.8), 0.0, 0.7)
+    place(x, e.glow(B4, 2.6, attack=0.75, warm=1.3, pos=0.3, drift=-0.1), 0.15, 0.5)
+    place(x, e.halo(B6, 1.3), 1.1, 0.045)
+    return finish(x, -9.0, 3.0, room=0.78, wet=0.3)
 
 
 def yq_iftar(e: Engine) -> np.ndarray:
-    """Iftar: F♯, then B, then F♯ above, each arriving gently into the last."""
-    x = canvas(2.5)
-    place(x, e.glow(Fs5, 2.3, attack=0.12, pos=-0.25), 0.0, 0.75)
-    place(x, e.glow(B5, 2.0, attack=0.14, pos=0.0), 0.28, 0.72)
-    place(x, e.glow(Fs6, 1.7, attack=0.16, warm=0.6, pos=0.25), 0.56, 0.55)
-    return finish(x, -4.0, 2.5)
+    """Iftar — «الفرحة»: the fast is broken. Three notes open quickly into a warm, bright chord and
+    linger — relief and gratitude, still gentle."""
+    x = canvas(2.6)
+    place(x, e.glow(Fs5, 2.3, attack=0.08, pos=-0.3), 0.0, 0.66)
+    place(x, e.glow(B5, 2.15, attack=0.09, pos=0.0), 0.13, 0.66)
+    place(x, e.glow(Fs6, 2.0, attack=0.1, warm=0.6, pos=0.3), 0.26, 0.5)
+    place(x, e.halo(B6, 1.6), 0.4, 0.03)
+    return finish(x, -5.0, 2.6)
 
 
 def yq_challenge(e: Engine) -> np.ndarray:
-    """Challenge, streaks, a reward is ready: the signature a little higher, a little quicker."""
-    x = canvas(1.9)
-    place(x, e.glow(B5, 1.7, attack=0.08, pos=-0.18), 0.0, 0.8)
-    place(x, e.glow(Fs6, 1.6, attack=0.1, warm=0.7, pos=0.18), 0.2, 0.8)
-    return finish(x, -5.0, 1.9)
+    """Challenge, streaks, a reward — «الخطوة»: one more step on the journey. Three soft steps
+    upward (F♯, B, F♯ above), each landing gently, the top one resting."""
+    x = canvas(2.2)
+    place(x, e.glow(Fs5, 0.8, attack=0.05, pos=-0.3), 0.0, 0.6)
+    place(x, e.glow(B5, 0.9, attack=0.05, pos=0.0), 0.2, 0.66)
+    place(x, e.glow(Fs6, 1.7, attack=0.06, warm=0.6, pos=0.3), 0.4, 0.72)
+    return finish(x, -5.0, 2.2)
 
 
 def yq_offers(e: Engine) -> np.ndarray:
-    """Store offers (consented): one faint tone — the quietest sound in the set."""
-    x = canvas(1.3)
-    place(x, e.glow(B5, 1.2, attack=0.12, warm=0.6), 0.0)
-    return finish(x, -12.0, 1.3, room=0.5, wet=0.2)
+    """Store offers — «هدية»: a small gift. One soft tone with a faint glint of light on top."""
+    x = canvas(1.5)
+    place(x, e.glow(B5, 1.3, attack=0.1, warm=0.6), 0.0)
+    place(x, e.halo(B6 * 1.5, 0.9), 0.12, 0.05)
+    return finish(x, -12.0, 1.5, room=0.5, wet=0.2)
 
 
 def ui_bead(e: Engine) -> np.ndarray:
@@ -187,18 +222,19 @@ def ui_bead(e: Engine) -> np.ndarray:
 
 
 def ui_bead_round(e: Engine) -> np.ndarray:
-    """A completed round («تقبّل الله»): the signature, small and soft."""
-    x = canvas(1.2)
-    place(x, e.glow(Fs6, 1.0, attack=0.05, warm=0.6, pos=-0.15), 0.0, 0.8)
-    place(x, e.glow(B6, 0.9, attack=0.06, warm=0.5, pos=0.15), 0.15, 0.7)
-    return finish(x, -12.0, 1.2, room=0.5, wet=0.2)
+    """A completed round («تقبّل الله»): the count resolving — B, then F♯ above, resting."""
+    x = canvas(1.3)
+    place(x, e.glow(B5, 1.0, attack=0.04, warm=0.6, pos=-0.15), 0.0, 0.75)
+    place(x, e.glow(Fs6, 1.1, attack=0.06, warm=0.5, pos=0.15), 0.16, 0.7)
+    return finish(x, -12.0, 1.3, room=0.5, wet=0.2)
 
 
 def ui_complete(e: Engine) -> np.ndarray:
-    """A task ticked / Qibla aligned: one soft glow."""
-    x = canvas(0.9)
-    place(x, e.glow(B6, 0.8, attack=0.04, warm=0.5), 0.0)
-    return finish(x, -13.0, 0.9, room=0.45, wet=0.18)
+    """A task ticked / Qibla aligned: one soft glow with light above it."""
+    x = canvas(1.0)
+    place(x, e.glow(B6, 0.85, attack=0.04, warm=0.5), 0.0)
+    place(x, e.halo(B6 * 2, 0.6), 0.08, 0.03)
+    return finish(x, -13.0, 1.0, room=0.45, wet=0.18)
 
 
 NOTIFICATION_SOUNDS = {
