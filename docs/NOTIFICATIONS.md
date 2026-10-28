@@ -40,28 +40,29 @@ Channels: Android `yaqeen_updates` (campaigns, normal priority) must be separate
 
 ## 3. Sounds — «أصوات يقين»
 
-Synthesised in `packages/brand/sounds/generate_sounds.py` (no samples, no licences) to the rules premium system
-sounds follow: **short (0.5–1.7 s), clean, at most two elements**, pitched where phone speakers are clear, a pure
-decay, a small polished space, levelled by true peak (−1 dBTP prayer … −8 dBTP offers).
+Synthesised in `packages/brand/sounds/generate_sounds.py` (no samples, no licences). Every note is one material,
+**«بلّور في الهواء» crystal in air**, made of three layers that move together:
 
-- **The voice**: a soft FM tone whose brightness blooms at the touch and melts away in ~80 ms (harmonic 1:1 ratio,
-  so never a bell, and not an imitation of any instrument).
-- **The signature is the name**: يَ‑قين is two syllables, short then long — a short tone rising a fifth (A → E)
-  into a long one. Every sound is the signature, part of it, or turned around.
-- Owner's halal line: soft tones are fine; no instrument timbres, no bells, no melodies; three tones at most.
-  The adhan is never synthesised; it stays a licensed recording (`ADHAN_SOUNDS`).
+1. **Strike**: a soft mallet on cut crystal (near-harmonic modes, so never a bell's ring).
+2. **Bloom**: a cloud of tiny grains on the note's own partials, drifting in stereo under the strike.
+3. **Air**: tuned breath beneath, so the tone breathes instead of having a bare oscillator edge.
+
+**Signature**: a rising perfect fourth, F♯ → B (a calling interval), short then long like «يَ‑قين». Every sound is
+the signature, part of it, or reversed. Short (0.9–2.2 s), band-limited for phone speakers, small plate, levelled
+by true peak (−1 dBTP prayer … −8 dBTP offers). Owner's halal line: soft tones are fine; no instrument timbres, no
+bells, no melodies; three notes at most. The adhan is never synthesised (`ADHAN_SOUNDS`).
 
 | Sound | Plays for | What it is |
 | --- | --- | --- |
-| `yq_prayer` | prayer time when the alert is «تنبيه» | the full signature «يَ‑قين», short → long |
-| `yq_prayer_soon` | N minutes before a prayer | the first syllable alone, held |
-| `yq_azkar` | morning/evening azkar, dhikr routine | three light counts on the second note |
-| `yq_quran` | wird, wird missing, Friday al-Kahf, khatma | the signature an octave lower, softer, unhurried |
-| `yq_hifz` | hifz review due | the signature turned around: coming home |
-| `yq_suhoor` | suhoor | both notes at once, softly bloomed, quiet for the night |
-| `yq_iftar` | iftar | the signature, then its octave: opening up |
-| `yq_challenge` | challenge + reward pushes | the signature an octave up, quick and bright |
-| `yq_offers` | store offer pushes | one soft tone (the quietest sound) |
+| `yq_prayer` | prayer time when the alert is «تنبيه» | the full signature F♯ → B |
+| `yq_prayer_soon` | N minutes before a prayer | the first note alone, held, waiting for its answer |
+| `yq_azkar` | morning/evening azkar, dhikr routine | three light counts on B, the last one rings |
+| `yq_quran` | wird, wird missing, Friday al-Kahf, khatma | the signature an octave lower, softer mallet, more air |
+| `yq_hifz` | hifz review due | the signature reversed (B → F♯): returning |
+| `yq_suhoor` | suhoor | both notes together, low and slow to bloom |
+| `yq_iftar` | iftar | the signature, then its octave |
+| `yq_challenge` | challenge + reward pushes | the signature an octave up, crisp |
+| `yq_offers` | store offer pushes | one soft B, mostly air (the quietest sound) |
 
 Wiring: `NotificationSound` (`notification_planner.dart`) maps each `ReminderKind` to a sound. Android has **one
 reminders channel per sound** (a channel's sound is fixed once created; ids = resource names; push channels keep

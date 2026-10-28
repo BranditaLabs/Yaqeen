@@ -19,8 +19,8 @@ enum PrayerAlert { adhan, notify, silent }
 /// Android notification channels (spec §6.5) — users can silence each one in the OS.
 enum NotificationChannel { adhan, reminders, challenge, offers }
 
-/// Yaqeen's own notification sounds («أصوات يقين», packages/brand/sounds) — short, clean tones whose
-/// signature is the name «يَ‑قين» (short → long, rising a fifth); no instrument timbres, bells or melodies. Files: `android/app/src/main/res/raw/<resource>.ogg`, `ios/Runner/Sounds/<resource>.caf`.
+/// Yaqeen's own notification sounds («أصوات يقين», packages/brand/sounds) — «crystal in air», signature
+/// F♯ → B (short → long like «يَ‑قين»); no instrument timbres, bells or melodies. Files: `android/app/src/main/res/raw/<resource>.ogg`, `ios/Runner/Sounds/<resource>.caf`.
 /// The adhan itself is never one of these: it stays a licensed recording on the adhan channel.
 enum NotificationSound {
   prayer('yq_prayer'),
