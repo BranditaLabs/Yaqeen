@@ -1,6 +1,6 @@
 # Yaqeen sounds — «أصوات يقين»
 
-Synthesised notification and UI sounds: «crystal in air» (strike + bloom + air per note), signature F♯ → B; no instrument timbres, bells or melodies.
+Synthesised notification and UI sounds: short tactile «pops» in the character of iPhone / Apple Pay / Headspace / Tarteel sounds, signature F♯ → B; no instrument timbres, bells or melodies.
 
 ```bash
 pip install numpy scipy soundfile pyloudnorm pedalboard   # + ffmpeg with libvorbis
