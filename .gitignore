@@ -25,3 +25,6 @@ apps/mobile/android/app/google-services.json
 # Next.js / TS
 next-env.d.ts
 *.tsbuildinfo
+
+# graphify knowledge graph (regenerate: graphify extract . --code-only && graphify cluster-only .)
+graphify-out/
