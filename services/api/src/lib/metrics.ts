@@ -41,6 +41,13 @@ export const productEventsIngested = new Counter({
   registers: [registry],
 });
 
+export const conversionSendsTotal = new Counter({
+  name: 'yaqeen_conversions_total',
+  help: 'Server-side purchase conversions by ad platform and outcome (sent, failed, duplicate)',
+  labelNames: ['platform', 'outcome'] as const,
+  registers: [registry],
+});
+
 export function startDefaultMetrics() {
   if (defaults) return;
   defaults = true;

@@ -19,6 +19,7 @@ const FEATURE_LABEL: Record<string, string> = {
   tafsirFull: 'التفسير الكامل',
   publicCards: 'البطاقات العامة (بطاقة يقين)',
   medalActivation: 'تفعيل الميداليات من التطبيق',
+  serverConversions: 'إرسال المشتريات للمنصات الإعلانية (بالموافقة فقط)',
 };
 const ROLLOUT_FLAGS = ['recite'];
 

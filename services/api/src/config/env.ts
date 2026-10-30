@@ -53,6 +53,28 @@ const EnvSchema = z.object({
   /** PostHog project key (EU cloud) — consented product events are forwarded server-side when set. */
   POSTHOG_KEY: z.string().default(''),
   POSTHOG_HOST: z.string().url().default('https://eu.i.posthog.com'),
+
+  /*
+   * Server-side `purchase` conversions (orders/paid with a Yaqeen code, `ads_measurement` consent,
+   * flag `serverConversions`). Each platform is on only when its credentials are set; nothing is
+   * sent without CONVERSIONS_ID_SALT. See docs/ANALYTICS_EVENTS.md › Server-side purchase.
+   */
+  /** Secret salt for the pseudonymous external id (openssl rand -base64 32). Never rotate casually: ids change. */
+  CONVERSIONS_ID_SALT: z.string().default(''),
+  META_PIXEL_ID: z.string().default(''),
+  /** Conversions API access token (Events Manager → the pixel → Settings → Generate access token). */
+  META_CAPI_TOKEN: z.string().default(''),
+  /** Optional: route events to Events Manager → Test events while verifying the setup. */
+  META_TEST_EVENT_CODE: z.string().default(''),
+  GA4_MEASUREMENT_ID: z.string().default(''),
+  /** Measurement Protocol API secret (GA4 → Admin → Data streams → the stream → Measurement Protocol API secrets). */
+  GA4_API_SECRET: z.string().default(''),
+  TIKTOK_PIXEL_ID: z.string().default(''),
+  /** Events API access token (TikTok Events Manager → the pixel → Settings → Generate access token). */
+  TIKTOK_ACCESS_TOKEN: z.string().default(''),
+  /** Optional: TikTok Events Manager → Test events code while verifying the setup. */
+  TIKTOK_TEST_EVENT_CODE: z.string().default(''),
+
   // Capacity / resilience (tune per environment; see docs/OPERATIONS.md)
   PG_POOL_MAX: z.coerce.number().int().min(1).max(200).default(20),
   PG_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(1000).default(10_000),

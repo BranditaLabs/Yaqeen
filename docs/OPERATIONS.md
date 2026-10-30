@@ -81,11 +81,12 @@ guest-link 10/min/IP, redeem 5/min, admin login 5 per 5 min.
 | --- | --- | --- |
 | Logs | stdout (pino JSON) | every response carries `x-request-id` (honoured from the load balancer); tokens, ID tokens, passwords and TOTP codes redacted |
 | Errors | **Sentry** — projects `yaqeen-api`, `yaqeen-admin`, `yaqeen-app` | API 5xx + unhandled rejections (route template + request id), cron jobs as **cron monitors** (missed/failed runs alert), admin server + browser errors, app crashes (Dart + native). Release = commit SHA (API/admin) or `yaqeen@version+build` (app); deploys are marked by the pipeline. Set `SENTRY_DSN` (API secret), `ADMIN_SENTRY_DSN` / `APP_SENTRY_DSN` (CI variables). Scrubbing: docs/SECURITY_PRIVACY.md. |
-| Metrics | **Prometheus** scrape of `:9100/metrics` (`METRICS_PORT`, never through the ingress) | `yaqeen_http_request_duration_seconds{method,route,status}`, `yaqeen_cache_lookups_total{namespace,result}`, `yaqeen_pg_pool_{total,idle,waiting}`, `yaqeen_external_calls_total{service,outcome}`, `yaqeen_product_events_total{event}`, Node defaults (`yaqeen_*`) |
+| Metrics | **Prometheus** scrape of `:9100/metrics` (`METRICS_PORT`, never through the ingress) | `yaqeen_http_request_duration_seconds{method,route,status}`, `yaqeen_cache_lookups_total{namespace,result}`, `yaqeen_pg_pool_{total,idle,waiting}`, `yaqeen_external_calls_total{service,outcome}`, `yaqeen_product_events_total{event}`, `yaqeen_conversions_total{platform,outcome}` (sent · failed · duplicate), Node defaults (`yaqeen_*`) |
 | Dashboards | **Grafana** — `deploy/k8s/monitoring/dashboards/yaqeen-api.json` (sidecar-loaded ConfigMap) | rate, errors, latency, slowest routes, cache, pool, event loop, memory, probes |
 | Alerts | `deploy/k8s/monitoring/alerts.yaml` (PrometheusRule) | **page**: 5xx > 1 % 5 min · p99 > 1 s 10 min · Postgres pool waiting · HPA at max 15 min · probe down 3 min. **ticket**: load shedding · cache miss storm · Shopify failing · pod restarts · job failed · TLS < 14 days |
 | Uptime | blackbox `Probe` (in cluster, every minute) + `.github/workflows/synthetics.yml` (outside, every 10 min) | `/health`, `/ready`, `/v1/config`, Hijri, card 404 page, `/get-app`, admin login. External failures open one `outage` issue per environment and close it on recovery; run the same checks by hand: `API_URL=… ADMIN_URL=… bash tools/synthetics/check.sh` |
 | Product | admin «التحليلات» (aggregates, counts < 20 withheld) + PostHog EU (`POSTHOG_KEY`) | consented `PRODUCT_EVENTS` only — docs/ANALYTICS_EVENTS.md |
+| Ad conversions | admin «النقاط والمكافآت» strip «قياس المشتريات للإعلانات» (flag, salt, platforms configured, last send) + `yaqeen_conversions_total` | server-side `purchase` to Meta / GA4 / TikTok — docs/ANALYTICS_EVENTS.md › Server-side purchase; failures go to Sentry as `conversions: <platform> <status>` |
 
 - **SLOs**: availability 99.9 % monthly; p99 < 300 ms for cached reads and < 800 ms for personal reads;
   redeem success (excluding user errors) ≥ 99 %.
@@ -126,6 +127,10 @@ Each environment rollout (`tools/deploy/deploy.sh <env> <tag>`, also runnable fr
 | Cluster secret `yaqeen-api-secrets` | `SENTRY_DSN`, `POSTHOG_KEY` | API project DSN; PostHog EU project key (optional) |
 | | `ADMIN_SECRETS_KEY` | **required in production** — `openssl rand -base64 32`; seals admin 2FA secrets. Back it up: losing it means every admin re-enrols 2FA |
 | | `SHOPIFY_WEBHOOK_SECRET` | signing secret of the shop's `orders/paid` webhook → `<api>/webhooks/shopify/orders-paid` (marks reward codes used) |
+| | `CONVERSIONS_ID_SALT` | server-side purchase conversions (optional): `openssl rand -base64 32`. Keep it stable — rotating it gives every buyer a new pseudonymous id. Without it nothing is sent |
+| | `META_PIXEL_ID`, `META_CAPI_TOKEN` | Meta Events Manager › the store's pixel (dataset) › Settings: the dataset id, and **Conversions API › Generate access token**. Optional `META_TEST_EVENT_CODE` from the Test events tab while verifying, then remove it |
+| | `GA4_MEASUREMENT_ID`, `GA4_API_SECRET` | GA4 › Admin › Data streams › the store's web stream: the `G-…` id, and **Measurement Protocol API secrets › Create** |
+| | `TIKTOK_PIXEL_ID`, `TIKTOK_ACCESS_TOKEN` | TikTok Ads Manager › Tools › Events › the web pixel: the pixel id, and **Settings › Generate access token** (Events API). Optional `TIKTOK_TEST_EVENT_CODE` from Test events |
 | ConfigMap / env | `SUPPORT_EMAIL` | shown on the website's help, privacy and deletion pages |
 | Packages | GHCR | the cluster pulls `ghcr.io/branditalabs/*`: make the packages public or add an image pull secret |
 
@@ -144,6 +149,7 @@ Namespaces: `yaqeen-staging` (1 replica, HPA 1–4, campaigns suspended, 20 % tr
 | Bad deploy | Actions › Deploy › Run workflow › `rollback` (or `tools/deploy/deploy.sh production --rollback`); migrations are backwards compatible. |
 | Error spike after a deploy | Sentry › Releases › compare the new release with the previous one; roll back first, investigate after. |
 | `outage` issue opened | Synthetics failed from outside: check the probe dashboard (in-cluster view) to tell a cluster outage from an ingress/DNS/TLS one. |
+| Conversions failing (`yaqeen_conversions_total{outcome="failed"}`) | Sentry shows `conversions: <platform> HTTP 4xx` (token revoked / wrong pixel: regenerate and update the secret) or `timeout`/`HTTP 5xx` (platform side). A failed order is retried only if Shopify replays its webhook (max 3 attempts); purchases are never queued. To stop all sends: turn `serverConversions` off in الإعدادات. |
 | Need to pause a feature | Dashboard → الإعدادات → turn the flag off (apps pick it up within the config cache window), or maintenance mode for a full stop — Quran, prayer and azkar keep working offline. |
 
 ## Release checklist (ops)

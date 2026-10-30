@@ -236,6 +236,27 @@ export const productEvents = pgTable(
   (t) => [index('product_events_time_idx').on(t.occurredAt), index('product_events_name_time_idx').on(t.name, t.occurredAt)],
 );
 
+/**
+ * Server-side `purchase` conversions already sent, one row per Shopify order and ad platform, so a
+ * replayed orders/paid webhook never sends twice. No user id, no amount — only what dedupe needs.
+ * `failed` rows may be retried by a later replay (`attempts` caps it).
+ */
+export const conversionSends = pgTable(
+  'conversion_sends',
+  {
+    orderId: text('order_id').notNull(),
+    /** meta · ga4 · tiktok */
+    platform: text('platform').notNull(),
+    /** pending · sent · failed */
+    status: text('status').notNull(),
+    attempts: smallint('attempts').notNull().default(1),
+    sentAt: ts('sent_at'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [primaryKey({ columns: [t.orderId, t.platform] }), index('conversion_sends_sent_idx').on(t.sentAt)],
+);
+
 /** A production run of tags: what the factory was asked for and where it stands. */
 export const tagBatches = pgTable('tag_batches', {
   batch: text('batch').primaryKey(),

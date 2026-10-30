@@ -522,6 +522,17 @@ export const ShopifyStatus = z.object({
   lastErrorAt: z.string().nullable(),
   /** orders/paid webhook: whether its secret is set and when a code was last marked used. */
   webhook: z.object({ configured: z.boolean(), lastUsedAt: z.string().nullable() }),
+  /**
+   * Server-side `purchase` conversions (consented, docs/ANALYTICS_EVENTS.md): the `serverConversions`
+   * flag, whether the id salt is set, which platforms have credentials, and the last sent one.
+   * Booleans only — never a credential.
+   */
+  conversions: z.object({
+    enabled: z.boolean(),
+    salted: z.boolean(),
+    platforms: z.object({ meta: z.boolean(), ga4: z.boolean(), tiktok: z.boolean() }),
+    lastSentAt: z.string().nullable(),
+  }),
 });
 export type ShopifyStatus = z.infer<typeof ShopifyStatus>;
 
