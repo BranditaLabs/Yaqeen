@@ -150,6 +150,8 @@ export default async function RewardsPage({ searchParams }: { searchParams: Prom
         />
       </div>
 
+      <ConversionsStrip c={shopify.conversions} />
+
       <nav className="mb-4 flex gap-2 overflow-x-auto pb-1">
         {TABS.map((t) => (
           <Link
@@ -298,6 +300,36 @@ async function Log() {
         ))}
       </Table>
       {rows.length === 0 && <p className="py-6 text-center text-sm text-muted">لا توجد استبدالات</p>}
+    </Card>
+  );
+}
+
+const CONVERSION_PLATFORMS = [
+  ['meta', 'Meta'],
+  ['ga4', 'Google Analytics 4'],
+  ['tiktok', 'TikTok'],
+] as const;
+
+/** Server-side purchase conversions: flag, salt and which platforms have credentials (never the credentials). */
+function ConversionsStrip({ c }: { c: ShopifyStatus['conversions'] }) {
+  const any = CONVERSION_PLATFORMS.some(([k]) => c.platforms[k]);
+  const live = c.enabled && c.salted && any;
+  return (
+    <Card className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
+      <span className="text-sm font-medium text-ink">قياس المشتريات للإعلانات</span>
+      <Badge tone={live ? 'green' : 'gray'}>{live ? 'يعمل' : c.enabled ? 'مفعّل · ينقصه إعداد' : 'متوقف'}</Badge>
+      <span className="flex flex-wrap items-center gap-1.5">
+        {CONVERSION_PLATFORMS.map(([k, label]) => (
+          <Badge key={k} tone={c.platforms[k] ? 'blue' : 'gray'}>
+            <span dir="ltr">{label}</span>
+            {c.platforms[k] ? '' : ' · غير مُعد'}
+          </Badge>
+        ))}
+        {!c.salted && <Badge tone="gold">CONVERSIONS_ID_SALT غير مُعد</Badge>}
+      </span>
+      <span className="text-xs text-muted">
+        {c.lastSentAt ? `آخر إرسال ${dateTime(c.lastSentAt)}` : 'لم يُرسل شيء بعد'} · بموافقة «قياس الإعلانات» فقط، دون أي بيانات عبادة أو تواصل
+      </span>
     </Card>
   );
 }

@@ -20,7 +20,7 @@ import { CARDS_CONFIG_KEY, readCardsSettings } from '../../services/cards-settin
 const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 export const DEFAULT_CONFIG: RemoteConfig = {
-  features: { challenge: true, rewards: true, hifz: true, listen: true, bonuses: false, recite: false, ramadan: false, tafsirFull: false, publicCards: true, medalActivation: true },
+  features: { challenge: true, rewards: true, hifz: true, listen: true, bonuses: false, recite: false, ramadan: false, tafsirFull: false, publicCards: true, medalActivation: true, serverConversions: false },
   featureRollout: {},
   // 0.0.0 = no forced update; only an admin-set minimum may block clients.
   minVersion: { ios: '0.0.0', android: '0.0.0' },

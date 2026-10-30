@@ -53,7 +53,7 @@ Base URL: `API_URL` (local `http://localhost:4000`). JSON only. Schemas: `packag
 
 | Method | Path | Auth | Notes |
 | --- | --- | --- | --- |
-| POST | `/webhooks/shopify/orders-paid` | `X-Shopify-Hmac-Sha256` over the raw body with `SHOPIFY_WEBHOOK_SECRET` (401 `unauthorized` otherwise) | Our `YQ-XXXX-XXXX` codes on the paid order become `used` (`usedAt`, `shopifyOrderId`). Idempotent — Shopify retries are no-ops. Nothing about the customer is stored. → `{ ok, used }` |
+| POST | `/webhooks/shopify/orders-paid` | `X-Shopify-Hmac-Sha256` over the raw body with `SHOPIFY_WEBHOOK_SECRET` (401 `unauthorized` otherwise) | Our `YQ-XXXX-XXXX` codes on the paid order become `used` (`usedAt`, `shopifyOrderId`). Idempotent — Shopify retries are no-ops. Nothing about the customer is stored. In the background, with flag `serverConversions`, credentials and the buyer's current `ads_measurement` consent, a `purchase` goes to the configured ad platforms once per order (`conversion_sends`; docs/ANALYTICS_EVENTS.md). → `{ ok, used }` |
 
 ## Admin
 
@@ -90,7 +90,7 @@ Roles: `super_admin` (always allowed), `content_editor`, `religious_reviewer`, `
 | POST | `/admin/rewards/grants/preview` · `/admin/rewards/grants` | super_admin — gift points to a segment; one ledger row per user, idempotent |
 | GET · POST · PUT | `/admin/rewards` · `/admin/rewards/:id` | read: marketing, support · write: marketing — cost, value, validity, monthly cap, per-user monthly limit, collections |
 | GET | `/admin/rewards/redemptions` | marketing, support |
-| GET | `/admin/rewards/shopify/status` | marketing, support — `{configured, connected, shopName, domain, scopes, lastError, webhook: {configured, lastUsedAt}}` |
+| GET | `/admin/rewards/shopify/status` | marketing, support — `{configured, connected, shopName, domain, scopes, lastError, webhook: {configured, lastUsedAt}, conversions: {enabled, salted, platforms: {meta, ga4, tiktok}, lastSentAt}}` (booleans only, never credentials) |
 | GET | `/admin/rewards/shopify/collections?search` | marketing |
 | GET | `/admin/settings/config` | any |
 | PATCH | `/admin/settings/config` | super_admin — not `hijri`, `points` or `splashVerse` (own endpoints) |
