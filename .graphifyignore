@@ -10,3 +10,5 @@ apps/mobile/assets/
 packages/brand/
 **/*.g.dart
 **/*.freezed.dart
+.claude/
+.impeccable/

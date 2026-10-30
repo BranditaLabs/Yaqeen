@@ -28,3 +28,5 @@ next-env.d.ts
 
 # graphify knowledge graph (regenerate: graphify extract . --code-only && graphify cluster-only .)
 graphify-out/
+# Playwright CLI output (may contain credentials)
+.playwright-cli/

@@ -62,6 +62,12 @@ touching user privacy.
   - Loading states are shaped like the content: `YqSkeletonOrbs`, `YqSkeletonRows`, `YqSkeletonText`, `YqSkeletonBox.circle`.
 - **Public card (بطاقة يقين):** opt-in; shows only switched-on fields and never worship detail (CLAUDE.md rules 1–2). Server page in `services/api/src/web/profile-page.ts` (escape every user string; https links only); app in `features/card` (journey: `journey_widgets.dart`, Profile tab `JourneySection`); physical medals/cards: `services/tags.service.ts`, `routes/admin/tags.routes.ts`, `/t/:code` in `profile.routes.ts`, app «ميدالياتي» sheet in `card_screen.dart` (the app does not write NFC); admin programme in `routes/admin/cards.routes.ts` + `services/{cards-settings,card-stats}.service.ts`, pages `apps/admin/src/app/(dash)/{cards,tags}`.
   - Tests pin the sky with the harness `skyClock:` so goldens are deterministic.
+- **Agent tooling** (Claude Code project skills in `.claude/skills`, vendored as published; MIT/Apache licences inside):
+  - `DESIGN.md` (repo root, Stitch / awesome-design-md format) is the design brief for agents. Its front matter is generated from `packages/design-tokens/tokens.json` (`pnpm --filter @yaqeen/design-tokens build`; `--check` fails on drift); edit the prose by hand.
+  - Design: `impeccable` (critique/audit/polish; telemetry and its hook are off in `.impeccable/config.json`, and its engine is a checksum-verified download on first use), `taste-skill` (web pages only — run it with `--keep palette,type` so it keeps Yaqeen's tokens), `img2threejs` (image → Three.js model; don't run its installer or `img2` harness, which edit user settings).
+  - `playwright-cli` drives a real browser for the admin and the API-rendered pages. In a cloud container point it at the bundled Chromium: `--config` with `{"browser":{"browserName":"chromium","launchOptions":{"executablePath":"/opt/pw-browsers/chromium-*/chrome-linux/chrome"}}}`.
+  - Code graph: `pip install graphifyy` → `graphify extract . --code-only && graphify cluster-only . --no-label` (ignores in `.graphifyignore`, output `graphify-out/` is git-ignored); then `graphify query "…"`, `graphify explain X`, `graphify affected X` before cross-cutting changes.
+  - None of these skills override the non-negotiables (brand, tokens, no ornament, RTL, privacy).
 - **Routine:** `quranSlot`/`hifzSlot`/`dhikrSlot` (`RoutineSlot`) drive Home's «Your day» stops and local reminders.
   They are device-only and never go in `serverPatch()`.
 - **Performance:**

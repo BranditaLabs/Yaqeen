@@ -49,6 +49,12 @@ screen matches its design artboard (spacing, type, colour, RTL, states). Say exa
 - **API**: pure logic in `services/api/src/domain` (unit-tested), DB orchestration in `services/`, HTTP in `routes/`. Stable snake_case error codes.
 - **Schema change** → `pnpm db:generate` → commit the SQL. CI fails on drift.
 - **Design source of truth**: the canvas artboards named in each spec section (links in `docs/APP_SPEC.md §0`). When code and design disagree, the spec text wins, then the artboard.
+- **Agent tooling** (project skills in `.claude/skills`, vendored as published; MIT/Apache licences inside):
+  - `DESIGN.md` (repo root, Stitch / awesome-design-md format) is the design brief for agents. Its front matter is generated from `packages/design-tokens/tokens.json` (`pnpm --filter @yaqeen/design-tokens build`; `--check` fails on drift); edit the prose by hand.
+  - Design: `impeccable` (critique/audit/polish; telemetry and its hook are off in `.impeccable/config.json`, and its engine is a checksum-verified download on first use), `taste-skill` (web pages only — run it with `--keep palette,type` so it keeps Yaqeen's tokens), `img2threejs` (image → Three.js model; don't run its installer or `img2` harness, which edit user settings).
+  - `playwright-cli` drives a real browser for the admin and the API-rendered pages. In a cloud container point it at the bundled Chromium: `--config` with `{"browser":{"browserName":"chromium","launchOptions":{"executablePath":"/opt/pw-browsers/chromium-*/chrome-linux/chrome"}}}`.
+  - Code graph: `pip install graphifyy` → `graphify extract . --code-only && graphify cluster-only . --no-label` (ignores in `.graphifyignore`, output `graphify-out/` is git-ignored); then `graphify query "…"`, `graphify explain X`, `graphify affected X` before cross-cutting changes.
+  - None of these skills override the non-negotiables above (brand, tokens, no ornament, RTL, privacy).
 - Ask before: adding a paid service, a new ad/analytics event, changing points economics, or anything touching user privacy.
 
 ## Current state (keep updated)
