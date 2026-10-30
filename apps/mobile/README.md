@@ -62,4 +62,4 @@ Each sits behind an interface in `core/` with a no-op default, so the app runs w
 | --- | --- | --- |
 | `PushService` | firebase_core, firebase_messaging | Register token via `POST /v1/me/devices`; Android 13+ needs POST_NOTIFICATIONS |
 | `RecitationEngine` | on-device ASR (whisper.cpp / ONNX) | `recite` flag stays off until ≥ 90 % word accuracy (spec §6.8) |
-| `AdSink` | Firebase Analytics (Google Ads), facebook_app_events, TikTok Business SDK, app_tracking_transparency | Only after consent; ATT prompt on iOS only after in-app opt-in |
+| `AdSink` | **Wired** (`core/analytics/sinks`): firebase_analytics (Google Ads), facebook_app_events (Meta); TikTok server-side only | Registered only with their build values (`FIREBASE_ANALYTICS`, `FACEBOOK_APP_ID` + `FACEBOOK_CLIENT_TOKEN`); off until `ads_measurement`; ATT prompt on iOS only after in-app opt-in — docs/RELEASE_MOBILE.md |

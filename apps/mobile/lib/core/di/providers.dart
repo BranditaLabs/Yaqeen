@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/card/data/card_repository.dart';
@@ -120,13 +121,16 @@ final initialSessionProvider = Provider<Session>((_) => Session.none);
 
 /* -------------------------------------------------------------- analytics */
 
-/// Ad SDK sinks (Firebase/Google Ads, Meta, TikTok) are appended here once added.
-final adSinksProvider = Provider<List<AdSink>>((_) => [DebugAdSink()]);
+/// Ad SDK sinks. Default: none (the in-memory debug sink in debug builds). main() overrides it with
+/// the SDKs whose build values exist (core/analytics/sinks/ad_sinks.dart).
+final adSinksProvider = Provider<List<AdSink>>((_) => [if (kDebugMode) DebugAdSink()]);
 final analyticsProvider = Provider((ref) {
   final consents = ref.watch(consentRepositoryProvider);
   return Analytics(
     sinks: ref.watch(adSinksProvider),
     adsConsent: () => consents.granted(ConsentKind.adsMeasurement),
+    consentDecided: () => consents.decided,
+    attAuthorized: ref.watch(deviceServicesProvider).trackingAuthorized,
     store: ref.watch(kvStoreProvider),
   );
 });

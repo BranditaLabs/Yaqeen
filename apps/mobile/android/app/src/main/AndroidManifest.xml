@@ -17,6 +17,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <!-- «التسميع» (flag recite): audio stays on the device (spec §6.8). -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Advertising ID for ad measurement (Firebase Analytics / Meta also merge it in). Read only after
+         the user grants `ads_measurement`; declare it in Play's Data safety form. -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
 
     <application
         android:label="@string/app_name"
@@ -106,6 +109,25 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- Ad measurement SDKs: everything off until `ads_measurement` is granted in the app
+             (lib/core/analytics/sinks). Firebase Analytics (Google Ads): no collection, no automatic
+             screen views, consent mode denied, no ad personalisation, no Android ID. -->
+        <meta-data android:name="firebase_analytics_collection_enabled" android:value="false" />
+        <meta-data android:name="google_analytics_automatic_screen_reporting_enabled" android:value="false" />
+        <meta-data android:name="google_analytics_default_allow_analytics_storage" android:value="false" />
+        <meta-data android:name="google_analytics_default_allow_ad_storage" android:value="false" />
+        <meta-data android:name="google_analytics_default_allow_ad_user_data" android:value="false" />
+        <meta-data android:name="google_analytics_default_allow_ad_personalization_signals" android:value="false" />
+        <meta-data android:name="google_analytics_ssaid_collection_enabled" android:value="false" />
+        <!-- Meta App Events: no automatic start (no contact with Meta before consent), no automatic
+             events, no advertising id. Ids come from the dart-defines FACEBOOK_APP_ID / FACEBOOK_CLIENT_TOKEN
+             (app/build.gradle.kts); empty = Meta stays off. -->
+        <meta-data android:name="com.facebook.sdk.ApplicationId" android:value="${facebookAppId}" />
+        <meta-data android:name="com.facebook.sdk.ClientToken" android:value="${facebookClientToken}" />
+        <meta-data android:name="com.facebook.sdk.AutoInitEnabled" android:value="false" />
+        <meta-data android:name="com.facebook.sdk.AutoLogAppEventsEnabled" android:value="false" />
+        <meta-data android:name="com.facebook.sdk.AdvertiserIDCollectionEnabled" android:value="false" />
     </application>
     <queries>
         <intent>

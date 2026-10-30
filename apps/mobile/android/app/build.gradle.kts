@@ -16,6 +16,22 @@ if (hasReleaseKey) {
     FileInputStream(keystorePropertiesFile).use { keystoreProperties.load(it) }
 }
 
+// Meta App Events ids from the same --dart-define values the Dart side reads (lib/core/config/env.dart),
+// so the native SDK is configured exactly when its sink is registered. Flutter passes the defines as
+// base64 in the `dart-defines` project property. Unset = empty = Meta stays off.
+val dartDefines: Map<String, String> =
+    (project.findProperty("dart-defines") as String?)
+        ?.split(",")
+        ?.mapNotNull { encoded ->
+            runCatching { String(java.util.Base64.getDecoder().decode(encoded), Charsets.UTF_8) }.getOrNull()
+        }
+        ?.mapNotNull { pair -> pair.split("=", limit = 2).takeIf { it.size == 2 }?.let { it[0] to it[1] } }
+        ?.toMap()
+        ?: emptyMap()
+// "fb" prefix: a numeric manifest value would be read as a number, which the Meta SDK rejects.
+val facebookAppId = dartDefines["FACEBOOK_APP_ID"]?.trim().orEmpty().let { if (it.isEmpty()) "" else "fb$it" }
+val facebookClientToken = dartDefines["FACEBOOK_CLIENT_TOKEN"]?.trim().orEmpty()
+
 android {
     namespace = "com.yaqinbrand.yaqeen"
     compileSdk = flutter.compileSdkVersion
@@ -39,6 +55,8 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["facebookAppId"] = facebookAppId
+        manifestPlaceholders["facebookClientToken"] = facebookClientToken
     }
 
     signingConfigs {
