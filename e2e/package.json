@@ -1,0 +1,19 @@
+{
+  "name": "@yaqeen/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Browser end-to-end tests: admin dashboard, public site and card pages, against a real API + Postgres.",
+  "scripts": {
+    "prepare-db": "node scripts/prepare.mjs",
+    "e2e": "node scripts/prepare.mjs && playwright test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.11.0",
+    "@playwright/test": "1.56.1",
+    "@types/node": "^22.18.0",
+    "pg": "^8.16.0",
+    "typescript": "5.9.3"
+  }
+}

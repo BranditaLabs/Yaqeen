@@ -30,3 +30,6 @@ next-env.d.ts
 graphify-out/
 # Playwright CLI output (may contain credentials)
 .playwright-cli/
+
+# agent worktrees
+.claude/worktrees/
