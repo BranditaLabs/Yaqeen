@@ -316,6 +316,8 @@ describe.skipIf(!url)('spec v1 endpoints (Postgres)', () => {
   it('erasure: sessions end now, the account is anonymised after 30 days, the ledger stays', async () => {
     const u = await makeUser('Leaving');
     await db.insert(s.pointsLedger).values({ userId: u.id, delta: 40, reason: 'task', refKey: 'seed:leaving' });
+    await db.insert(s.publicProfiles).values({ userId: u.id, handle: 'leaving', published: true, displayName: 'Leaving', bio: 'bio', show: { level: true, streak: false, challengeDay: false, badges: false, memberSince: false } });
+    await db.insert(s.profileTags).values({ code: 'LEAVE001', batch: 'erasure-test', userId: u.id, linkedAt: NOW });
     const session = (await app.inject({ method: 'POST', url: '/v1/auth/sign-in', payload: { provider: 'google', idToken: 'sub-Leaving' } })).json();
     const del = await app.inject({ method: 'DELETE', url: '/v1/me', headers: auth(u.token) });
     expect(del.json()).toEqual({ status: 'deletion_requested', graceDays: 30 });
@@ -326,6 +328,11 @@ describe.skipIf(!url)('spec v1 endpoints (Postgres)', () => {
     const [after] = await db.select().from(s.users).where(eq(s.users.id, u.id));
     expect(after).toMatchObject({ status: 'deleted', displayName: null, email: null });
     expect(await db.select().from(s.authIdentities).where(eq(s.authIdentities.userId, u.id))).toHaveLength(0);
+    // The public card (handle, name, bio, links) is erased and the handle freed; the medal is unlinked and stays off.
+    expect(await db.select().from(s.publicProfiles).where(eq(s.publicProfiles.userId, u.id))).toHaveLength(0);
+    const [medal] = await db.select().from(s.profileTags).where(eq(s.profileTags.code, 'LEAVE001'));
+    expect(medal).toMatchObject({ userId: null, linkedAt: null });
+    expect(medal!.disabledAt).not.toBeNull();
     expect(await db.select().from(s.pointsLedger).where(eq(s.pointsLedger.userId, u.id))).toHaveLength(1);
     const signIn = await app.inject({ method: 'POST', url: '/v1/auth/sign-in', payload: { provider: 'google', idToken: 'sub-Leaving' } });
     expect(signIn.json().user.id).not.toBe(u.id); // a fresh account; the old one is gone

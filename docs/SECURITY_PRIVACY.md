@@ -10,7 +10,7 @@ Enforcement is expected from about **1 November 2026** — confirm the current s
 | --- | --- | --- |
 | Explicit, specific, revocable consent, in Arabic | 4 separate buckets; every change stored in `consent_events` with source + policy version | Final Arabic consent copy reviewed by counsel |
 | Right of access | `GET /v1/me/export` | Human-readable export format (optional) |
-| Right of erasure | `DELETE /v1/me` → `deletion_requested` | Job that hard-deletes after 14 days (ROADMAP) |
+| Right of erasure | `DELETE /v1/me` → `deletion_requested` (sessions end, card unpublished, tags off) | `job:purge` anonymises after 30 days: identities, sessions, devices, consents, worship records, activity and the public card (handle freed) are deleted, tags unlinked and kept off; the ledger stays on an anonymous tombstone |
 | Data minimisation | Prayer times and location computed on-device; Hifz progress on-device only | — |
 | Licence / registration with the Personal Data Protection Centre | — | Apply for the controller/processor licence |
 | Cross-border transfer | — | Choose hosting region; get transfer authorisation if data leaves Egypt (Firebase, Shopify and ad SDKs are all transfers) |
