@@ -122,6 +122,7 @@ The app asks for ATT only after the in-app consent (already built), declares `NS
 | Location | **No** | — | — | — |
 | Device or other IDs → advertising ID | **Yes** in a build with ad SDK values (Google/Meta), else No | **Yes** (Google, Meta) | Yes (`ads_measurement`, off by default) | Advertising or marketing, Analytics |
 | App activity → Other actions (the closed ad-event list; app launches) | Yes in a build with ad SDK values | **Yes** (Google, Meta) | Yes (`ads_measurement`) | Advertising or marketing, Analytics |
+| Financial info → Purchase history (store order total + currency, with a salted pseudonymous id) | Yes, once the `serverConversions` flag is on | **Yes** (Meta, Google, TikTok — sent from our server) | Yes (`ads_measurement`) | Advertising or marketing, Analytics |
 
 The manifest declares `com.google.android.gms.permission.AD_ID` (Firebase and Meta merge it in anyway): in Play Console › App content › **Advertising ID**, answer *Yes*, purposes *Advertising or marketing* and *Analytics*. If a release ships without ad SDK values, the permission is still declared but never used.
 
@@ -130,6 +131,6 @@ Service providers that process data on our behalf (Shopify, Sentry, PostHog EU, 
 ## Before each submission
 
 - [ ] `SUPPORT_EMAIL` set; privacy/terms brackets filled and reviewed by counsel; `LEGAL_VERSION` in `services/api/src/web/site-pages.ts` bumped when they change.
-- [ ] The answers above still match the build (ad SDK values set? Firebase Analytics on? new consent?).
+- [ ] The answers above still match the build and the server (ad SDK values set? Firebase Analytics on? `serverConversions` on? new consent?).
 - [ ] Screenshots in both languages; the widget screenshot taken on a real home screen.
 - [ ] App Group `group.com.yaqinbrand.yaqeen` enabled for both bundle ids and the widget's App Store profile name in `IOS_WIDGET_PROFILE_NAME` (see RELEASE_MOBILE.md).
