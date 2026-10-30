@@ -118,7 +118,7 @@ class LiquidGlass extends StatelessWidget {
       borderRadius: shape,
       shadows: [
         BoxShadow(
-          color: tone == GlassTone.gold ? const Color(0x337C6127) : const Color(0x260F1A36),
+          color: tone == GlassTone.gold ? const Color(0x337C6127) : const Color(0x260A1530),
           blurRadius: 30,
           spreadRadius: -14,
           offset: const Offset(0, 14),
@@ -182,12 +182,22 @@ class _GlassTapState extends State<GlassTap> {
 
 /// Round 44pt glass icon button (back, settings, search…).
 class GlassIconButton extends StatelessWidget {
-  const GlassIconButton({super.key, required this.icon, required this.onPressed, required this.tooltip, this.size = YqSpace.touch});
+  const GlassIconButton({
+    super.key,
+    required this.icon,
+    required this.onPressed,
+    required this.tooltip,
+    this.size = YqSpace.touch,
+    this.opacity = 0.58,
+  });
 
   final Widget icon;
   final VoidCallback? onPressed;
   final String tooltip;
   final double size;
+
+  /// Glass fill opacity: higher over dark surfaces so the icon keeps its contrast.
+  final double opacity;
 
   @override
   Widget build(BuildContext context) {
@@ -196,13 +206,20 @@ class GlassIconButton extends StatelessWidget {
       child: GlassTap(
         onTap: onPressed,
         semanticLabel: tooltip,
+        // A smaller disc still gets a 44-pt hit area.
         child: SizedBox.square(
-          dimension: size,
-          child: LiquidGlass(
-            radius: YqRadii.pill,
-            padding: EdgeInsets.zero,
-            highlight: false,
-            child: Center(child: icon),
+          dimension: size < YqSpace.touch ? YqSpace.touch : size,
+          child: Center(
+            child: SizedBox.square(
+              dimension: size,
+              child: LiquidGlass(
+                radius: YqRadii.pill,
+                padding: EdgeInsets.zero,
+                highlight: false,
+                opacity: opacity,
+                child: Center(child: icon),
+              ),
+            ),
           ),
         ),
       ),

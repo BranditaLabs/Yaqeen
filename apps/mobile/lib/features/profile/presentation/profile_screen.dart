@@ -93,7 +93,11 @@ class ProfileScreen extends ConsumerWidget {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [YqColors.lapis500, YqColors.lapis]),
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [YqColors.lapis500, YqColors.lapis],
+                ),
                 border: Border.all(color: const Color(0xF2FFFFFF), width: 3),
                 boxShadow: const [BoxShadow(color: Color(0x401F3F94), blurRadius: 24, spreadRadius: -10, offset: Offset(0, 10))],
               ),
@@ -114,7 +118,8 @@ class ProfileScreen extends ConsumerWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.s),
                   decoration: BoxDecoration(color: YqColors.navy, borderRadius: BorderRadius.circular(YqRadii.pill)),
-                  child: Text(t.profileGuestCta, style: const TextStyle(color: YqColors.goldLight, fontWeight: FontWeight.w700, fontSize: 13)),
+                  child:
+                      Text(t.profileGuestCta, style: const TextStyle(color: YqColors.goldLight, fontWeight: FontWeight.w700, fontSize: 13)),
                 ),
               ),
             ],
@@ -194,11 +199,17 @@ class ProfileScreen extends ConsumerWidget {
           children: [
             row(
               t.profileLanguage,
-              subtitle: '${s.locale == 'ar' ? t.langArabic : t.langEnglish} · ${s.script == QuranScript.uthmani ? t.scriptUthmani : t.scriptIndopak}',
+              subtitle:
+                  '${s.locale == 'ar' ? t.langArabic : t.langEnglish} · ${s.script == QuranScript.uthmani ? t.scriptUthmani : t.scriptIndopak}',
               icon: YqIcons.quran,
               onTap: () => _languageSheet(context),
             ),
-            row(t.profilePrayer, subtitle: methodLabel(t, s.method), icon: YqIcons.adhan, onTap: () => context.push('/prayer/notifications')),
+            row(
+              t.profilePrayer,
+              subtitle: methodLabel(t, s.method),
+              icon: YqIcons.adhan,
+              onTap: () => context.push('/prayer/notifications'),
+            ),
             row(t.profilePrivacy, icon: YqIcons.settings, onTap: () => context.push('/profile/privacy')),
             row(t.profileDownloads, subtitle: mb, icon: YqIcons.download, onTap: () => context.push('/profile/downloads')),
           ],
@@ -607,10 +618,13 @@ class _CardTeaser extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(t.cardTitle, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: YqColors.goldLight, letterSpacing: 0.4)),
+                  Text(
+                    t.cardTitle,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: YqColors.goldLight, letterSpacing: 0.4),
+                  ),
                   const SizedBox(height: 2),
                   Text(t.cardTeaserTitle, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: YqColors.white)),
-                  Text(t.cardTeaserBody, style: const TextStyle(fontSize: 12, height: 1.5, color: Color(0xFFC3C8D3))),
+                  Text(t.cardTeaserBody, style: const TextStyle(fontSize: 12, height: 1.5, color: YqColors.navy200)),
                 ],
               ),
             ),

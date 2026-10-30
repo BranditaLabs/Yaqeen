@@ -99,7 +99,8 @@ class _RecitersScreenState extends ConsumerState<RecitersScreen> {
     final all = reciters.valueOrNull;
     final selected = all?.where((r) => r.id == listen.reciter?.id).firstOrNull;
     final text = Theme.of(context).textTheme;
-    final border = OutlineInputBorder(borderRadius: BorderRadius.circular(YqRadii.pill), borderSide: const BorderSide(color: Color(0xF2FFFFFF)));
+    final border =
+        OutlineInputBorder(borderRadius: BorderRadius.circular(YqRadii.pill), borderSide: const BorderSide(color: Color(0xF2FFFFFF)));
 
     return Scaffold(
       backgroundColor: YqColors.porcelain,
@@ -126,7 +127,8 @@ class _RecitersScreenState extends ConsumerState<RecitersScreen> {
                         backgroundColor: YqColors.lapis,
                         child: Text(
                           selected.initial(locale),
-                          style: const TextStyle(fontFamily: YqFonts.naskh, fontSize: 24, fontWeight: FontWeight.w700, color: YqColors.white),
+                          style:
+                              const TextStyle(fontFamily: YqFonts.naskh, fontSize: 24, fontWeight: FontWeight.w700, color: YqColors.white),
                         ),
                       ),
                     ),
@@ -165,15 +167,25 @@ class _RecitersScreenState extends ConsumerState<RecitersScreen> {
             final shown = _filter(all, dl);
             final selectedId = listen.reciter?.id;
             return [
-              Wrap(
-                spacing: YqSpace.s,
-                runSpacing: YqSpace.s,
-                children: [
-                  YqChip(label: t.recitersAll, selected: !_downloadedOnly, onTap: () => setState(() => _downloadedOnly = false)),
-                  YqChip(label: t.recitersDownloaded, selected: _downloadedOnly, onTap: () => setState(() => _downloadedOnly = true)),
-                  for (final s in RecitationStyle.values)
-                    YqChip(label: styleLabel(t, s), selected: _style == s, onTap: () => setState(() => _style = _style == s ? null : s)),
-                ],
+              // One scrolling row: long English labels never orphan a chip on a second line.
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                clipBehavior: Clip.none,
+                child: Row(
+                  children: [
+                    for (final chip in [
+                      YqChip(label: t.recitersAll, selected: !_downloadedOnly, onTap: () => setState(() => _downloadedOnly = false)),
+                      YqChip(label: t.recitersDownloaded, selected: _downloadedOnly, onTap: () => setState(() => _downloadedOnly = true)),
+                      for (final s in RecitationStyle.values)
+                        YqChip(
+                          label: styleLabel(t, s),
+                          selected: _style == s,
+                          onTap: () => setState(() => _style = _style == s ? null : s),
+                        ),
+                    ])
+                      Padding(padding: const EdgeInsetsDirectional.only(end: YqSpace.s), child: chip),
+                  ],
+                ),
               ),
               const SizedBox(height: YqSpace.l),
               if (all.isEmpty)

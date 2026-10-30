@@ -406,6 +406,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 if (!_locked) ...[
                   _TopChrome(
                     visible: _chrome,
+                    night: night,
                     marked: _pageMarked,
                     onExit: () => context.canPop() ? context.pop() : context.go('/quran'),
                     onSettings: () => showReaderSettings(context),
@@ -420,6 +421,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   ),
                   _BottomChrome(
                     visible: _chrome,
+                    night: night,
                     page: _page,
                     quran: q,
                     memorise: _memorise != MemoriseMode.off,
@@ -611,9 +613,13 @@ class _PageFrameState extends State<_PageFrame> {
   }
 }
 
+/// Chrome glass fill over the night page: lapis and muted labels keep AA contrast on it.
+const _nightGlass = 0.86;
+
 class _TopChrome extends StatelessWidget {
   const _TopChrome({
     required this.visible,
+    required this.night,
     required this.marked,
     required this.onExit,
     required this.onSettings,
@@ -625,6 +631,9 @@ class _TopChrome extends StatelessWidget {
   });
 
   final bool visible;
+
+  /// Night page: the glass is filled more so the labels stay readable over the dark page.
+  final bool night;
   final bool marked;
   final VoidCallback onExit;
   final VoidCallback onSettings;
@@ -653,6 +662,7 @@ class _TopChrome extends StatelessWidget {
               child: Row(
                 children: [
                   GlassIconButton(
+                    opacity: night ? _nightGlass : 0.58,
                     tooltip: t.readerExit,
                     onPressed: onExit,
                     icon: const Icon(Icons.chevron_left_rounded, color: YqColors.ink),
@@ -666,6 +676,7 @@ class _TopChrome extends StatelessWidget {
                       child: LiquidGlass(
                         radius: YqRadii.pill,
                         highlight: false,
+                        opacity: night ? _nightGlass : 0.58,
                         padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: 6),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -691,18 +702,21 @@ class _TopChrome extends StatelessWidget {
                   ),
                   const SizedBox(width: YqSpace.s),
                   GlassIconButton(
+                    opacity: night ? _nightGlass : 0.58,
                     tooltip: marked ? t.readerUnmarkPage : t.readerMarkPage,
                     onPressed: onMark,
                     icon: YqIcon(YqIcons.bookmark, size: 20, tone: marked ? YqIconTone.gold : YqIconTone.idle),
                   ),
                   const SizedBox(width: YqSpace.s),
                   GlassIconButton(
+                    opacity: night ? _nightGlass : 0.58,
                     tooltip: t.readerLock,
                     onPressed: onLock,
                     icon: const Icon(Icons.lock_outline_rounded, size: 20, color: YqColors.muted),
                   ),
                   const SizedBox(width: YqSpace.s),
                   GlassIconButton(
+                    opacity: night ? _nightGlass : 0.58,
                     tooltip: t.readerSettings,
                     onPressed: onSettings,
                     icon: const YqIcon(YqIcons.settings, size: 20, tone: YqIconTone.idle),
@@ -720,6 +734,7 @@ class _TopChrome extends StatelessWidget {
 class _BottomChrome extends ConsumerWidget {
   const _BottomChrome({
     required this.visible,
+    required this.night,
     required this.page,
     required this.quran,
     required this.memorise,
@@ -727,6 +742,7 @@ class _BottomChrome extends ConsumerWidget {
     required this.onMemorise,
   });
   final bool visible;
+  final bool night;
   final int page;
   final QuranData quran;
   final bool memorise;
@@ -759,6 +775,7 @@ class _BottomChrome extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(YqSpace.l, 0, YqSpace.l, YqSpace.s),
               child: LiquidGlass(
                 radius: YqRadii.card,
+                opacity: night ? _nightGlass : 0.58,
                 padding: const EdgeInsets.fromLTRB(YqSpace.l, YqSpace.m, YqSpace.l, YqSpace.s),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,

@@ -717,8 +717,7 @@ class _ConsentStepState extends ConsumerState<ConsentStep> {
                   children: [
                     Text(t.consentPrivacyNote, style: text.bodySmall?.copyWith(color: YqColors.success)),
                     GestureDetector(
-                      onTap: () =>
-                          ref.read(deviceServicesProvider).openUrl(Env.site('privacy', ref.read(settingsProvider).locale)),
+                      onTap: () => ref.read(deviceServicesProvider).openUrl(Env.site('privacy', ref.read(settingsProvider).locale)),
                       child: Text(
                         t.privacyPolicy,
                         style: text.bodySmall?.copyWith(color: YqColors.success, decoration: TextDecoration.underline),
@@ -975,7 +974,7 @@ class DownloadStep extends ConsumerWidget {
                   child: failed
                       ? const Icon(Icons.error_outline_rounded, color: YqColors.slate400, size: 36)
                       : Text(
-                          quran == null ? '…' : '100 %',
+                          quran == null ? '…' : '100%',
                           textDirection: TextDirection.ltr,
                           style: YqText.numeral.copyWith(fontSize: 26, color: YqColors.ink),
                         ),

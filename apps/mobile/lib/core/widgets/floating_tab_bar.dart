@@ -195,7 +195,7 @@ class _ThreadPainter extends CustomPainter {
     final line = Paint()
       ..strokeWidth = 1.6
       ..strokeCap = StrokeCap.round;
-    canvas.drawLine(Offset(0, y), Offset(size.width, y), line..color = const Color(0x40B8C6E0));
+    canvas.drawLine(Offset(0, y), Offset(size.width, y), line..color = const Color(0x40C8D5EC));
     canvas.drawLine(Offset(rtl ? size.width : 0, y), Offset(x, y), line..color = night ? const Color(0x991F3F94) : const Color(0xCCC6A867));
     final glint = Offset(x, y);
     canvas.drawCircle(glint, 5, Paint()..color = night ? const Color(0x331F3F94) : const Color(0x55E9D49E));
@@ -302,7 +302,7 @@ class _Avatar extends StatelessWidget {
                 gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFFF1E2B6), YqColors.gold],
+                  colors: [YqColors.goldLight, YqColors.gold],
                 ),
                 // Outer ring first, white gap painted over it.
                 boxShadow: [
@@ -310,7 +310,7 @@ class _Avatar extends StatelessWidget {
                   const BoxShadow(color: YqColors.white, spreadRadius: 2),
                 ],
               ),
-              child: Text(initial, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF3A2E10))),
+              child: Text(initial, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: YqColors.goldDeep)),
             ),
           ),
         ),

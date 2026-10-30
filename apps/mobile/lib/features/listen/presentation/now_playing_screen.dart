@@ -176,7 +176,10 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
                     : t.listenDownloadSurah,
             onPressed: _downloaded == true ? null : () => _download(r, st.surah),
             icon: _progress != null
-                ? SizedBox.square(dimension: 20, child: CircularProgressIndicator(value: _progress, strokeWidth: 2.4, color: YqColors.lapis))
+                ? SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(value: _progress, strokeWidth: 2.4, color: YqColors.lapis),
+                  )
                 : _downloaded == true
                     ? const Icon(Icons.download_done_rounded, color: YqColors.success, size: 22)
                     : const YqIcon(YqIcons.download, size: 20),
@@ -215,7 +218,18 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
 
     final List<Widget> children;
     if (!ready) {
-      children = const [Center(child: Padding(padding: EdgeInsets.all(YqSpace.xxl), child: CircularProgressIndicator(color: YqColors.lapis)))];
+      // Shaped like what arrives: the ayah card, then the orbit around the play pill.
+      children = const [
+        YqSkeleton(
+          child: Column(
+            children: [
+              YqSkeletonText(lines: 3, lineHeight: 22),
+              SizedBox(height: YqSpace.xxl),
+              YqSkeletonBox.circle(240),
+            ],
+          ),
+        ),
+      ];
     } else if (st.status == ListenStatus.noReciter) {
       children = [YqEmptyState(icon: YqIcons.listen, title: t.listenNoReciter)];
     } else if (st.status == ListenStatus.unavailable) {
@@ -297,7 +311,11 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
         const SizedBox(height: YqSpace.s),
         Directionality(
           textDirection: TextDirection.ltr,
-          child: Text('${mmss(pos)}  ·  ${mmss(total)}', textAlign: TextAlign.center, style: YqText.numberSmall.copyWith(color: YqColors.muted)),
+          child: Text(
+            '${mmss(pos)}  ·  ${mmss(total)}',
+            textAlign: TextAlign.center,
+            style: YqText.numberSmall.copyWith(color: YqColors.muted),
+          ),
         ),
         const SizedBox(height: YqSpace.l),
         Semantics(
@@ -414,17 +432,21 @@ class _OrbitScrubber extends StatelessWidget {
                 onPanUpdate: (d) => seek(d.localPosition),
                 child: OuterShadow(
                   circle: true,
-                  shadows: const [BoxShadow(color: Color(0x260F1A36), blurRadius: 34, spreadRadius: -8, offset: Offset(0, 14))],
+                  shadows: const [BoxShadow(color: Color(0x260A1530), blurRadius: 34, spreadRadius: -8, offset: Offset(0, 14))],
                   child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xE6FFFFFF), Color(0x99FFFFFF)]),
-                    border: Border.all(color: const Color(0xF2FFFFFF), width: 1.4),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: YqRing(value: value, size: size - 28, stroke: 6),
-                  ),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color(0xE6FFFFFF), Color(0x99FFFFFF)],
+                      ),
+                      border: Border.all(color: const Color(0xF2FFFFFF), width: 1.4),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: YqRing(value: value, size: size - 28, stroke: 6),
+                    ),
                   ),
                 ),
               ),

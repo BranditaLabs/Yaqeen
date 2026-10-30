@@ -20,11 +20,11 @@ class MushafColors {
 
   static MushafColors of(MushafTheme t) => switch (t) {
         MushafTheme.paper =>
-          const MushafColors(YqColors.paperPage, YqColors.paperInk, Color(0xFF7A6E58), Color(0x4DE9D49E), Color(0x33C6A867)),
+          const MushafColors(YqColors.paperPage, YqColors.paperInk, Color(0x991A1712), Color(0x4DE9D49E), Color(0x33C6A867)),
         MushafTheme.white => const MushafColors(YqColors.white, YqColors.ink, YqColors.muted, Color(0x338FB0E0), YqColors.line),
         // Night: #E9E2D0 on #15161A ≈ 13:1 contrast (AA, spec §5.11).
         MushafTheme.night =>
-          const MushafColors(YqColors.nightPage, YqColors.nightInk, Color(0xFF9C9584), Color(0x407C6127), Color(0x33E9E2D0)),
+          const MushafColors(YqColors.nightPage, YqColors.nightInk, Color(0x99E9E2D0), Color(0x407C6127), Color(0x33E9E2D0)),
       };
 
   /// A saved highlight's tint, readable on every page colour (token hues at low alpha).

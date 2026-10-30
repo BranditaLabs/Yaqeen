@@ -58,8 +58,8 @@ class KhatmaScreen extends ConsumerWidget {
             LiquidGlass(
               child: YqEmptyState(
                 icon: YqIcons.quran,
+                // The stage caption already carries the hint (or the finished line); don't say it twice.
                 title: k?.finished == true ? t.khatmaDoneTitle : t.khatmaEmptyTitle,
-                hint: k?.finished == true ? t.khatmaDoneBody : t.khatmaEmptyHint,
                 actionLabel: t.khatmaStart,
                 onAction: () => showKhatmaSetup(context, ref),
               ),

@@ -210,12 +210,13 @@ class _QiblaScreenState extends ConsumerState<QiblaScreen> {
             ),
           ),
           const SizedBox(height: YqSpace.xl),
-          Row(
-            children: [
-              Expanded(child: YqButton.secondary(label: t.qiblaCalibrate, onPressed: _calibrate)),
-              const SizedBox(width: YqSpace.m),
-              Expanded(child: YqButton.secondary(label: '${t.qiblaCamera} · ${t.soon}', onPressed: null)),
-            ],
+          YqButton.secondary(label: t.qiblaCalibrate, onPressed: _calibrate),
+          // Not built yet: a quiet note rather than a disabled pill that truncates its own label.
+          const SizedBox(height: YqSpace.m),
+          Text(
+            '${t.qiblaCamera} · ${t.soon}',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
       ),
@@ -250,8 +251,9 @@ class _OrbitPainter extends CustomPainter {
       c,
       r + 18,
       Paint()
-        ..shader = const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xE6FFFFFF), Color(0x99FFFFFF)])
-            .createShader(Rect.fromCircle(center: c, radius: r + 18)),
+        ..shader =
+            const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xE6FFFFFF), Color(0x99FFFFFF)])
+                .createShader(Rect.fromCircle(center: c, radius: r + 18)),
     );
     canvas.drawCircle(
       c,
@@ -265,7 +267,9 @@ class _OrbitPainter extends CustomPainter {
       canvas.drawCircle(
         c,
         r + 18,
-        Paint()..shader = const RadialGradient(colors: [Color(0x00E9D49E), Color(0x66E9D49E)]).createShader(Rect.fromCircle(center: c, radius: r + 18)),
+        Paint()
+          ..shader =
+              const RadialGradient(colors: [Color(0x00E9D49E), Color(0x66E9D49E)]).createShader(Rect.fromCircle(center: c, radius: r + 18)),
       );
     }
     // Ring and degree ticks (riding with north).

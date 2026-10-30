@@ -42,7 +42,7 @@ class YqStage extends StatelessWidget {
                     colors: [sky.palette.top, sky.palette.bottom],
                   ),
                   boxShadow: const [
-                    BoxShadow(color: Color(0x240F1A36), blurRadius: 30, spreadRadius: -12, offset: Offset(0, 12)),
+                    BoxShadow(color: Color(0x240A1530), blurRadius: 30, spreadRadius: -12, offset: Offset(0, 12)),
                   ],
                 ),
                 foregroundDecoration: BoxDecoration(
@@ -62,7 +62,8 @@ class YqStage extends StatelessWidget {
         ),
         Padding(
           padding: EdgeInsets.fromLTRB(YqSpace.gutter, top + YqSpace.m, YqSpace.gutter, compact ? YqSpace.l : YqSpace.xl),
-          child: child,
+          // Full width, so a centred moment is centred on the stage (not on its widest line at the start edge).
+          child: SizedBox(width: double.infinity, child: child),
         ),
       ],
     );
@@ -150,8 +151,7 @@ class YqMoment extends StatelessWidget {
           Text(
             eyebrow!,
             textAlign: center ? TextAlign.center : TextAlign.start,
-            style: text.labelSmall
-                ?.copyWith(color: YqColors.goldText, fontWeight: FontWeight.w700, fontSize: 12, letterSpacing: 0.6),
+            style: text.labelSmall?.copyWith(color: YqColors.goldText, fontWeight: FontWeight.w700, fontSize: 12, letterSpacing: 0.6),
           ),
         const SizedBox(height: 2),
         DefaultTextStyle.merge(textAlign: center ? TextAlign.center : TextAlign.start, child: value),
@@ -219,7 +219,11 @@ class YqCanvas extends StatelessWidget {
     final body = onRefresh == null
         ? scroll
         : RefreshIndicator(
-            color: YqColors.lapis, edgeOffset: MediaQuery.paddingOf(context).top, onRefresh: onRefresh!, child: scroll,);
+            color: YqColors.lapis,
+            edgeOffset: MediaQuery.paddingOf(context).top,
+            onRefresh: onRefresh!,
+            child: scroll,
+          );
     return AmbientBackground(
       lights: lights,
       child: footer == null
@@ -230,7 +234,9 @@ class YqCanvas extends StatelessWidget {
                 SafeArea(
                   top: false,
                   child: Padding(
-                      padding: const EdgeInsets.fromLTRB(YqSpace.gutter, YqSpace.s, YqSpace.gutter, YqSpace.m), child: footer,),
+                    padding: const EdgeInsets.fromLTRB(YqSpace.gutter, YqSpace.s, YqSpace.gutter, YqSpace.m),
+                    child: footer,
+                  ),
                 ),
               ],
             ),

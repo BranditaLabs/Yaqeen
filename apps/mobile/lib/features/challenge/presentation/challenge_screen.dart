@@ -63,7 +63,7 @@ class ChallengeScreen extends ConsumerWidget {
       loading: () => const _Skeleton(),
       error: (_, __) => YqCanvas(
         lights: AmbientBackground.goldLights,
-        stage: YqStage(gold: true, child: YqStageBar(title: t.challengeTitle)),
+        stage: YqStage(gold: true, child: YqStageBar(title: t.challengeTitle, large: true)),
         children: [YqErrorState(message: t.errorGeneric, onRetry: () => ref.invalidate(challengeControllerProvider))],
       ),
       data: (s) => s.enrolled
@@ -186,6 +186,7 @@ class _Enrolled extends ConsumerWidget {
           children: [
             YqStageBar(
               title: t.challengeTitle,
+              large: true,
               actions: [
                 GlassIconButton(
                   tooltip: t.challengeCalendar,
@@ -198,7 +199,8 @@ class _Enrolled extends ConsumerWidget {
             Semantics(
               container: true,
               excludeSemantics: true,
-              label: '${t.dayOfTotal(summary.dayNumber, summary.challengeLengthDays)}، ${t.challengePointsLabel(YqFormat.number(summary.balance))}',
+              label:
+                  '${t.dayOfTotal(summary.dayNumber, summary.challengeLengthDays)}، ${t.challengePointsLabel(YqFormat.number(summary.balance))}',
               child: Column(
                 children: [
                   YqRing(
@@ -365,9 +367,11 @@ class _JoinView extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            YqStageBar(title: t.challengeTitle),
+            YqStageBar(title: t.challengeTitle, large: true),
             const SizedBox(height: YqSpace.xxl),
-            const Center(child: YqRing(value: 0, gold: true, size: 150, stroke: 9, child: YqIcon(YqIcons.challenge, size: 44, tone: YqIconTone.gold))),
+            const Center(
+              child: YqRing(value: 0, gold: true, size: 150, stroke: 9, child: YqIcon(YqIcons.challenge, size: 44, tone: YqIconTone.gold)),
+            ),
             const SizedBox(height: YqSpace.xl),
             Text(
               guest ? t.challengeSignIn : t.joinChallengeHint,
@@ -392,7 +396,10 @@ class _Skeleton extends StatelessWidget {
           child: YqSkeleton(
             child: Column(
               children: [
-                SizedBox(height: 44, child: Align(alignment: AlignmentDirectional.centerStart, child: YqSkeletonBox(width: 180, height: 24))),
+                SizedBox(
+                  height: 44,
+                  child: Align(alignment: AlignmentDirectional.centerStart, child: YqSkeletonBox(width: 180, height: 24)),
+                ),
                 SizedBox(height: YqSpace.xl),
                 YqSkeletonBox.circle(176),
                 SizedBox(height: YqSpace.m),

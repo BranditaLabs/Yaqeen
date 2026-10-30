@@ -1468,7 +1468,7 @@
     }
   },
   "slotAt": "وقت محدد",
-  "slotOff": "لا",
+  "slotOff": "إيقاف",
   "slotOffPreview": "غير مفعّل",
   "slotPreview": "{when} · {time}",
   "@slotPreview": {
