@@ -136,7 +136,15 @@ class YqTimeline extends StatelessWidget {
               width: timeWidth,
               child: Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Text(now ? (nowTime ?? '') : (stop?.time ?? ''), textAlign: TextAlign.end, style: timeStyle),
+                // One line at any text size: «5:33 AM» shrinks a little rather than breaking in two.
+                child: Align(
+                  alignment: AlignmentDirectional.topEnd,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: AlignmentDirectional.topEnd,
+                    child: Text(now ? (nowTime ?? '') : (stop?.time ?? ''), maxLines: 1, textAlign: TextAlign.end, style: timeStyle),
+                  ),
+                ),
               ),
             ),
           SizedBox(
@@ -368,6 +376,5 @@ class _RailPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_RailPainter old) =>
-      old.past != past || old.now != now || old.first != first || old.last != last || old.dot != dot;
+  bool shouldRepaint(_RailPainter old) => old.past != past || old.now != now || old.first != first || old.last != last || old.dot != dot;
 }

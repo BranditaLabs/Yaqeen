@@ -42,7 +42,7 @@ class YqSwitch extends StatelessWidget {
               decoration: const BoxDecoration(
                 color: YqColors.white,
                 shape: BoxShape.circle,
-                boxShadow: [BoxShadow(color: Color(0x330F1A36), blurRadius: 6, offset: Offset(0, 2))],
+                boxShadow: [BoxShadow(color: Color(0x330A1530), blurRadius: 6, offset: Offset(0, 2))],
               ),
             ),
           ),
@@ -69,44 +69,55 @@ class YqSegmented<T> extends StatelessWidget {
         borderRadius: BorderRadius.circular(YqRadii.pill),
         border: Border.all(color: const Color(0xD9FFFFFF)),
       ),
-      child: Row(
-        children: [
-          for (final (value, label) in segments)
-            Expanded(
-              child: Semantics(
-                button: true,
-                selected: value == selected,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    if (value == selected) return;
-                    HapticFeedback.selectionClick();
-                    onChanged(value);
-                  },
-                  child: AnimatedContainer(
-                    duration: YqMotion.fast,
-                    curve: YqMotion.ease,
-                    height: 38,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: value == selected ? YqColors.white : const Color(0x00FFFFFF),
-                      borderRadius: BorderRadius.circular(YqRadii.pill),
-                      boxShadow:
-                          value == selected ? const [BoxShadow(color: Color(0x140F1A36), blurRadius: 8, offset: Offset(0, 2))] : null,
-                    ),
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: value == selected ? FontWeight.w700 : FontWeight.w400,
-                        color: value == selected ? YqColors.lapis : YqColors.muted,
+      // Equal-height segments, even when one label takes two lines.
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final (value, label) in segments)
+              Expanded(
+                child: Semantics(
+                  button: true,
+                  selected: value == selected,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      if (value == selected) return;
+                      HapticFeedback.selectionClick();
+                      onChanged(value);
+                    },
+                    child: AnimatedContainer(
+                      duration: YqMotion.fast,
+                      curve: YqMotion.ease,
+                      constraints: const BoxConstraints(minHeight: 38),
+                      padding: const EdgeInsets.symmetric(horizontal: YqSpace.s, vertical: YqSpace.xs),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: value == selected ? YqColors.white : const Color(0x00FFFFFF),
+                        borderRadius: BorderRadius.circular(YqRadii.pill),
+                        boxShadow:
+                            value == selected ? const [BoxShadow(color: Color(0x140A1530), blurRadius: 8, offset: Offset(0, 2))] : null,
+                      ),
+                      // Long labels (English, large text) take a second line inside a taller pill
+                      // instead of being clipped by a fixed height.
+                      child: Text(
+                        label,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.2,
+                          fontWeight: value == selected ? FontWeight.w700 : FontWeight.w400,
+                          color: value == selected ? YqColors.lapis : YqColors.muted,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

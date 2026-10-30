@@ -82,7 +82,7 @@ class _HifzScreenState extends ConsumerState<HifzScreen> {
                       size: 112,
                       complete: finish == null,
                       child: Text(
-                        '${YqFormat.number((p.progress(q) * 100).floor())} %',
+                        '${YqFormat.number((p.progress(q) * 100).floor())}%',
                         textDirection: TextDirection.ltr,
                         style: YqMoment.numeral(size: 24).copyWith(fontWeight: FontWeight.w500),
                       ),

@@ -427,8 +427,11 @@ class _CardScreenState extends ConsumerState<CardScreen> {
     if (link != null) _edit((x) => x.copyWith(links: [...x.links, link]));
   }
 
-  Future<void> _medalsSheet(BuildContext context, {String? initialCode}) =>
-      showYqSheet<void>(context, scrollable: true, builder: (_) => _MedalsSheet(initialCode: initialCode, published: _saved?.published ?? false));
+  Future<void> _medalsSheet(BuildContext context, {String? initialCode}) => showYqSheet<void>(
+        context,
+        scrollable: true,
+        builder: (_) => _MedalsSheet(initialCode: initialCode, published: _saved?.published ?? false),
+      );
 
   Future<void> _qrSheet(BuildContext context, PublicCard saved) => showYqSheet<void>(context, builder: (_) => _QrSheet(card: saved));
 }
@@ -438,7 +441,8 @@ String _publicHost(String url) => Uri.tryParse(url)?.host ?? '';
 /* ------------------------------------------------------------- preview */
 
 /// The public view (level, streak…) as the server computes it, for the preview.
-final cardViewProvider = FutureProvider.autoDispose.family<CardView?, String>((ref, handle) => ref.watch(cardRepositoryProvider).publicView(handle));
+final cardViewProvider =
+    FutureProvider.autoDispose.family<CardView?, String>((ref, handle) => ref.watch(cardRepositoryProvider).publicView(handle));
 
 /// The card as visitors will see it, in its chosen look — updates live while editing.
 class _CardPreview extends ConsumerWidget {
@@ -459,7 +463,7 @@ class _CardPreview extends ConsumerWidget {
     final events = card.show.timeline ? (journey?.events ?? const <JourneyEvent>[]).take(3).toList() : const <JourneyEvent>[];
     final night = card.theme == CardLook.night;
     final ink = night ? YqColors.white : YqColors.ink;
-    final muted = night ? const Color(0xFFC3C8D3) : YqColors.muted;
+    final muted = night ? YqColors.navy200 : YqColors.muted;
     final initial = card.displayName.trim().isEmpty ? '·' : String.fromCharCode(card.displayName.trim().runes.first);
 
     final chips = <Widget>[
@@ -500,11 +504,16 @@ class _CardPreview extends ConsumerWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: card.theme == CardLook.gold ? const [YqColors.gold300, YqColors.goldText] : const [YqColors.lapis500, YqColors.lapis],
+                    colors: card.theme == CardLook.gold
+                        ? const [YqColors.gold300, YqColors.goldText]
+                        : const [YqColors.lapis500, YqColors.lapis],
                   ),
                   border: Border.all(color: const Color(0xF2FFFFFF), width: 3),
                 ),
-                child: Text(initial, style: const TextStyle(fontFamily: YqFonts.naskh, fontSize: 38, fontWeight: FontWeight.w700, color: YqColors.white)),
+                child: Text(
+                  initial,
+                  style: const TextStyle(fontFamily: YqFonts.naskh, fontSize: 38, fontWeight: FontWeight.w700, color: YqColors.white),
+                ),
               ),
             ],
           ),
@@ -532,9 +541,18 @@ class _CardPreview extends ConsumerWidget {
           ],
           if (card.bio.trim().isNotEmpty) ...[
             const SizedBox(height: YqSpace.s),
-            Text(card.bio.trim(), textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, height: 1.6, color: muted)),
+            Text(
+              card.bio.trim(),
+              textAlign: TextAlign.center,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 13, height: 1.6, color: muted),
+            ),
           ],
-          if (chips.isNotEmpty) ...[const SizedBox(height: YqSpace.m), Row(children: [for (final c in chips) Expanded(child: c)])],
+          if (chips.isNotEmpty) ...[
+            const SizedBox(height: YqSpace.m),
+            Row(children: [for (final c in chips) Expanded(child: c)]),
+          ],
           AnimatedSize(
             duration: YqMotion.slow,
             curve: YqMotion.ease,
@@ -548,7 +566,12 @@ class _CardPreview extends ConsumerWidget {
           ),
           if (card.links.isNotEmpty) ...[
             const SizedBox(height: YqSpace.m),
-            Wrap(spacing: 6, runSpacing: 6, alignment: WrapAlignment.center, children: [for (final l in card.links) _Mono(kind: l.kind, size: 30)]),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              alignment: WrapAlignment.center,
+              children: [for (final l in card.links) _Mono(kind: l.kind, size: 30)],
+            ),
           ],
           const SizedBox(height: YqSpace.m),
           _StatusPill(live: saved.published, night: night),
@@ -568,7 +591,12 @@ class _Stat extends StatelessWidget {
   Widget build(BuildContext context) => Column(
         children: [
           CountUp(value: value, style: YqMoment.numeral(size: 26, color: night ? YqColors.white : YqColors.ink)),
-          Text(label, textAlign: TextAlign.center, maxLines: 2, style: TextStyle(fontSize: 10.5, color: night ? const Color(0xFFC3C8D3) : YqColors.muted)),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            style: TextStyle(fontSize: 10.5, color: night ? YqColors.navy200 : YqColors.muted),
+          ),
         ],
       );
 }
@@ -590,7 +618,10 @@ class _StatusPill extends StatelessWidget {
           decoration: BoxDecoration(shape: BoxShape.circle, color: live ? YqColors.success : YqColors.slate400),
         ),
         const SizedBox(width: 6),
-        Text(live ? t.cardLive : t.cardHidden, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: night ? const Color(0xFFC3C8D3) : YqColors.muted)),
+        Text(
+          live ? t.cardLive : t.cardHidden,
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: night ? YqColors.navy200 : YqColors.muted),
+        ),
       ],
     );
   }
@@ -612,7 +643,7 @@ class _Mono extends StatelessWidget {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: switch (kind) {
-              SocialKind.whatsapp => const [Color(0xFF4FA27B), YqColors.success],
+              SocialKind.whatsapp => const [Color(0xCC2E7A55), YqColors.success],
               SocialKind.website => const [YqColors.gold300, YqColors.goldText],
               _ => const [YqColors.lapis500, YqColors.navy],
             },
@@ -670,10 +701,12 @@ class _ThemeSwatch extends StatelessWidget {
               Expanded(
                 child: Text(
                   label,
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: theme == CardLook.night ? YqColors.white : YqColors.ink),
+                  style:
+                      TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: theme == CardLook.night ? YqColors.white : YqColors.ink),
                 ),
               ),
-              if (selected) Icon(Icons.check_circle_rounded, size: 18, color: theme == CardLook.night ? YqColors.goldLight : YqColors.lapis),
+              if (selected)
+                Icon(Icons.check_circle_rounded, size: 18, color: theme == CardLook.night ? YqColors.goldLight : YqColors.lapis),
             ],
           ),
         ),
@@ -711,7 +744,8 @@ class _Field extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final border = OutlineInputBorder(borderRadius: BorderRadius.circular(YqRadii.chip), borderSide: const BorderSide(color: YqColors.line));
+    final border =
+        OutlineInputBorder(borderRadius: BorderRadius.circular(YqRadii.chip), borderSide: const BorderSide(color: YqColors.line));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -865,7 +899,9 @@ class _MedalsSheetState extends ConsumerState<_MedalsSheet> {
     });
     try {
       await ref.read(cardRepositoryProvider).claimTag(_code.text);
-      unawaited(ref.read(productAnalyticsProvider).track(ProductEvent.medalActivated, {'via': widget.initialCode == null ? 'code' : 'link'}));
+      unawaited(
+        ref.read(productAnalyticsProvider).track(ProductEvent.medalActivated, {'via': widget.initialCode == null ? 'code' : 'link'}),
+      );
       if (!mounted) return;
       HapticFeedback.mediumImpact();
       ref.invalidate(myTagsProvider);
@@ -970,7 +1006,8 @@ class _MedalsSheetState extends ConsumerState<_MedalsSheet> {
                     alignment: Alignment.center,
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [YqColors.cream, YqColors.sand]),
+                      gradient:
+                          LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [YqColors.cream, YqColors.sand]),
                     ),
                     child: const _NfcGlyph(size: 24, color: YqColors.goldDeep),
                   ),
@@ -991,7 +1028,8 @@ class _MedalsSheetState extends ConsumerState<_MedalsSheet> {
           onPressed: () {
             unawaited(ref.read(productAnalyticsProvider).track(ProductEvent.storeClick, {'from': 'medal'}));
             ref.read(deviceServicesProvider).openUrl(
-                Uri.parse(_medalUrl(ref)).replace(queryParameters: {'utm_source': 'yaqeen_app', 'utm_medium': 'card', 'utm_campaign': 'medal'}),
+                  Uri.parse(_medalUrl(ref))
+                      .replace(queryParameters: {'utm_source': 'yaqeen_app', 'utm_medium': 'card', 'utm_campaign': 'medal'}),
                 );
           },
         ),

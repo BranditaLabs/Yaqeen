@@ -337,36 +337,43 @@ class _Cell extends StatelessWidget {
                           ? const [BoxShadow(color: Color(0x59C6A867), blurRadius: 12, spreadRadius: -4, offset: Offset(0, 4))]
                           : null,
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      YqFormat.number(cell.hijriDay),
-                      style: YqText.numberSmall.copyWith(fontSize: 15, height: 1.1, color: ink, fontWeight: today ? FontWeight.w700 : FontWeight.w600),
-                    ),
-                    Text(
-                      YqFormat.number(greg),
-                      style: YqText.numberSmall.copyWith(fontSize: 9, height: 1.1, color: fill == YqColors.lapis ? YqColors.sky200 : YqColors.muted),
-                    ),
-                    SizedBox(
-                      height: 5,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          for (final d in cell.special.take(3))
-                            Container(
-                              width: 3.5,
-                              height: 3.5,
-                              margin: const EdgeInsets.symmetric(horizontal: 1),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: d == SpecialDay.whiteDay ? YqColors.sky400 : YqColors.gold,
-                              ),
-                            ),
-                        ],
+                // The disc is a fixed seventh of the width: at large text sizes its numbers scale
+                // down inside it instead of spilling out (the cell's label still reads in full).
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        YqFormat.number(cell.hijriDay),
+                        style: YqText.numberSmall
+                            .copyWith(fontSize: 15, height: 1.1, color: ink, fontWeight: today ? FontWeight.w700 : FontWeight.w600),
                       ),
-                    ),
-                  ],
+                      Text(
+                        YqFormat.number(greg),
+                        style: YqText.numberSmall
+                            .copyWith(fontSize: 9, height: 1.1, color: fill == YqColors.lapis ? YqColors.sky200 : YqColors.muted),
+                      ),
+                      SizedBox(
+                        height: 5,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            for (final d in cell.special.take(3))
+                              Container(
+                                width: 3.5,
+                                height: 3.5,
+                                margin: const EdgeInsets.symmetric(horizontal: 1),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: d == SpecialDay.whiteDay ? YqColors.sky400 : YqColors.gold,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

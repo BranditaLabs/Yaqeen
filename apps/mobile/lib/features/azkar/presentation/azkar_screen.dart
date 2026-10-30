@@ -224,38 +224,39 @@ class _AzkarScreenState extends ConsumerState<AzkarScreen> {
                   circle: true,
                   shadows: [
                     BoxShadow(
-                      color: done ? const Color(0x59C6A867) : const Color(0x260F1A36),
+                      color: done ? const Color(0x59C6A867) : const Color(0x260A1530),
                       blurRadius: 34,
                       spreadRadius: -8,
                       offset: const Offset(0, 14),
                     ),
                   ],
                   child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: done ? const [YqColors.cream, YqColors.sand] : const [Color(0xE6FFFFFF), Color(0x99FFFFFF)],
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: done ? const [YqColors.cream, YqColors.sand] : const [Color(0xE6FFFFFF), Color(0x99FFFFFF)],
+                      ),
+                      border: Border.all(color: const Color(0xF2FFFFFF), width: 1.4),
                     ),
-                    border: Border.all(color: const Color(0xF2FFFFFF), width: 1.4),
-                  ),
-                  child: RepaintBoundary(
-                    child: Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: KeyedSubtree(
-                        key: ValueKey(current.id),
-                        child: TweenAnimationBuilder<double>(
-                          tween: Tween(end: inLoop.toDouble()),
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOut,
-                          builder: (context, v, child) => CustomPaint(painter: MisbahaPainter(counted: v, beads: beads), child: child),
-                          child: Center(
-                            child: Directionality(
-                              textDirection: TextDirection.ltr,
-                              child: Text(
-                                t.azkarCount(count, current.repeatCount),
-                                style: YqMoment.numeral(size: 34, color: done ? YqColors.goldDeep : YqColors.ink),
+                    child: RepaintBoundary(
+                      child: Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: KeyedSubtree(
+                          key: ValueKey(current.id),
+                          child: TweenAnimationBuilder<double>(
+                            tween: Tween(end: inLoop.toDouble()),
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOut,
+                            builder: (context, v, child) => CustomPaint(painter: MisbahaPainter(counted: v, beads: beads), child: child),
+                            child: Center(
+                              child: Directionality(
+                                textDirection: TextDirection.ltr,
+                                child: Text(
+                                  t.azkarCount(count, current.repeatCount),
+                                  style: YqMoment.numeral(size: 34, color: done ? YqColors.goldDeep : YqColors.ink),
+                                ),
                               ),
                             ),
                           ),
@@ -265,14 +266,14 @@ class _AzkarScreenState extends ConsumerState<AzkarScreen> {
                   ),
                 ),
               ),
-                ),
               const SizedBox(height: YqSpace.m),
               AnimatedSwitcher(
                 duration: YqMotion.fast,
                 child: Text(
                   setDone ? t.azkarSetDone : (done ? t.azkarNext : t.azkarTapHint),
                   key: ValueKey('$setDone$done'),
-                  style: text.bodySmall?.copyWith(color: done ? YqColors.goldText : YqColors.muted, fontWeight: done ? FontWeight.w700 : null),
+                  style:
+                      text.bodySmall?.copyWith(color: done ? YqColors.goldText : YqColors.muted, fontWeight: done ? FontWeight.w700 : null),
                 ),
               ),
             ],

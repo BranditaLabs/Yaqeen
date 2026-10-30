@@ -56,12 +56,12 @@ class _OrbPainter extends CustomPainter {
         ..lineTo(size.width, size.height)
         ..lineTo(0, size.height)
         ..close();
-      final colors = complete ? const [Color(0xFF8FD3B0), YqColors.success] : const [YqColors.sky400, YqColors.lapis500];
+      final colors = complete ? const [Color(0x8C2E7A55), YqColors.success] : const [YqColors.sky400, YqColors.lapis500];
       canvas.drawPath(
         wave,
         Paint()
-          ..shader = LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: colors)
-              .createShader(Offset.zero & size),
+          ..shader =
+              LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: colors).createShader(Offset.zero & size),
       );
       canvas.restore();
     }

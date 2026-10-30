@@ -50,26 +50,26 @@ class YqOrb extends StatelessWidget {
           circle: true,
           shadows: [
             BoxShadow(
-              color: glow ? const Color(0x59C6A867) : const Color(0x260F1A36),
+              color: glow ? const Color(0x59C6A867) : const Color(0x260A1530),
               blurRadius: glow ? 28 : 22,
               spreadRadius: glow ? -4 : -10,
               offset: const Offset(0, 10),
             ),
           ],
           child: AnimatedContainer(
-          duration: YqMotion.base,
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: glow ? const [YqColors.cream, YqColors.sand] : const [Color(0xE6FFFFFF), Color(0xA6FFFFFF)],
+            duration: YqMotion.base,
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: glow ? const [YqColors.cream, YqColors.sand] : const [Color(0xE6FFFFFF), Color(0xA6FFFFFF)],
+              ),
+              border: Border.all(color: const Color(0xF2FFFFFF), width: 1.2),
             ),
-            border: Border.all(color: const Color(0xF2FFFFFF), width: 1.2),
-          ),
-          child: RepaintBoundary(child: Padding(padding: const EdgeInsets.all(6), child: disc)),
+            child: RepaintBoundary(child: Padding(padding: const EdgeInsets.all(6), child: disc)),
           ),
         ),
         const SizedBox(height: 8),

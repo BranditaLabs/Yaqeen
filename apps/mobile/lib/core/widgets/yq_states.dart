@@ -183,7 +183,7 @@ class YqSkeletonBox extends StatelessWidget {
   final double radius;
   final bool circle;
 
-  static const fill = Color(0xB3E1E8F3);
+  static const fill = Color(0xB3DCE4F2);
 
   @override
   Widget build(BuildContext context) => Container(
