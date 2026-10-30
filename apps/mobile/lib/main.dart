@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -12,6 +13,9 @@ import 'app/app_gate.dart';
 import 'app/bootstrap.dart';
 import 'app/router.dart';
 import 'core/analytics/product_analytics.dart';
+import 'core/analytics/sinks/ad_sinks.dart';
+import 'core/analytics/sinks/firebase_measurement.dart';
+import 'core/analytics/sinks/meta_app_events_plugin.dart';
 import 'core/di/providers.dart';
 import 'core/notifications/firebase_push_service.dart';
 import 'core/notifications/local_notifier.dart';
@@ -111,7 +115,15 @@ Future<void> _start() async {
       homeWidgetPublisherProvider.overrideWithValue(PluginHomeWidgetPublisher()),
       filesDirProvider.overrideWithValue(getApplicationSupportDirectory),
       pushServiceProvider.overrideWithValue(push),
-      // Phase 2: adSinksProvider (ad SDKs) — see README.
+      // Ad SDKs whose build values exist; each stays off until `ads_measurement` is granted.
+      adSinksProvider.overrideWithValue(
+        buildAdSinks(
+          AdSinkConfig.fromEnvironment(),
+          debug: kDebugMode,
+          google: FirebaseGoogleMeasurement.new,
+          meta: PluginMetaAppEvents.new,
+        ),
+      ),
     ],
   );
   await Boot.step('consents', container.read(consentRepositoryProvider).load, null);
@@ -132,6 +144,8 @@ Future<void> _start() async {
       product.start();
       await product.track(ProductEvent.appOpen);
     },
+    // Ad SDKs follow the stored consent; nothing starts before the consent screen was answered.
+    'ads': container.read(analyticsProvider).start,
   });
   runApp(UncontrolledProviderScope(container: container, child: YaqeenApp(router: router)));
 }

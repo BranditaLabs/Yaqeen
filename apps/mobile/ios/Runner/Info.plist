@@ -40,6 +40,38 @@
 			</array>
 		</dict>
 	</array>
+	<!-- Ad measurement SDKs: everything off until `ads_measurement` is granted in the app
+	     (lib/core/analytics/sinks). Firebase Analytics (Google Ads): no collection, no automatic
+	     screen views, consent mode denied, no ad personalisation, no IDFV. -->
+	<key>FIREBASE_ANALYTICS_COLLECTION_ENABLED</key>
+	<false/>
+	<key>FirebaseAutomaticScreenReportingEnabled</key>
+	<false/>
+	<key>GOOGLE_ANALYTICS_DEFAULT_ALLOW_ANALYTICS_STORAGE</key>
+	<false/>
+	<key>GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_STORAGE</key>
+	<false/>
+	<key>GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_USER_DATA</key>
+	<false/>
+	<key>GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_PERSONALIZATION_SIGNALS</key>
+	<false/>
+	<key>GOOGLE_ANALYTICS_IDFV_COLLECTION_ENABLED</key>
+	<false/>
+	<!-- Meta App Events: no automatic start (no contact with Meta before consent), no automatic
+	     events, no IDFA. Ids from Flutter/Secrets.xcconfig (FACEBOOK_APP_ID, FACEBOOK_CLIENT_TOKEN);
+	     empty = Meta stays off. -->
+	<key>FacebookAppID</key>
+	<string>$(FACEBOOK_APP_ID)</string>
+	<key>FacebookClientToken</key>
+	<string>$(FACEBOOK_CLIENT_TOKEN)</string>
+	<key>FacebookDisplayName</key>
+	<string>Yaqeen</string>
+	<key>FacebookAutoInitEnabled</key>
+	<false/>
+	<key>FacebookAutoLogAppEventsEnabled</key>
+	<false/>
+	<key>FacebookAdvertiserIDCollectionEnabled</key>
+	<false/>
 	<key>FlutterDeepLinkingEnabled</key>
 	<true/>
 	<key>GIDClientID</key>

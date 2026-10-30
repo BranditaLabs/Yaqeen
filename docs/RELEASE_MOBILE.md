@@ -73,6 +73,7 @@ first review. Then set it to `completed`.
 | `IOS_PROFILE_NAME` | the App Store profile's name |
 | `ASC_API_KEY_ID` / `ASC_ISSUER_ID` / `ASC_API_PRIVATE_KEY` | App Store Connect API key |
 | `GOOGLE_IOS_CLIENT_ID` / `GOOGLE_REVERSED_CLIENT_ID` | Google Sign-In iOS client |
+| `FACEBOOK_APP_ID` / `FACEBOOK_CLIENT_TOKEN` | optional — Meta App Events (see *Ad measurement SDKs*) |
 
 TestFlight builds appear after Apple's processing (about 10–30 min). Internal testers (up to 100
 people on your team) can install them at once. External testers need a one-time beta review.
@@ -108,6 +109,56 @@ config under `sentry:` in `pubspec.yaml`) for release `yaqeen@<version>+<build n
 same release the app reports — so crashes show readable stack traces. Reports carry no user,
 URLs, navigation or screenshots (docs/SECURITY_PRIVACY.md).
 
+
+## Ad measurement SDKs (Google Ads, Meta)
+
+Optional; the workflow builds without them and the app then ships no active ad SDK. With them, each
+SDK still stays off until the user grants `ads_measurement` (docs/SECURITY_PRIVACY.md › Ads & tracking).
+
+| Where | Name | Value |
+| --- | --- | --- |
+| Variable | `FIREBASE_ANALYTICS` | `true` to register the Google Ads sink (Firebase Analytics) |
+| Secret | `FACEBOOK_APP_ID` | Meta app id (digits only, no `fb` prefix) |
+| Secret | `FACEBOOK_CLIENT_TOKEN` | Meta client token (App settings › Advanced › Security) |
+
+Meta needs **both** values or neither — the workflow fails otherwise. They are compiled in twice from
+the same secrets, and the two must match:
+- as `--dart-define`s, which decide whether the Dart sink is registered (both platforms) and, on
+  Android, fill the manifest through `android/app/build.gradle.kts`;
+- on iOS also in `ios/Flutter/Secrets.xcconfig` → `Info.plist` (`FacebookAppID`, `FacebookClientToken`).
+
+Building by hand: pass the same `--dart-define`s, and on iOS put the same values in
+`ios/Flutter/Secrets.xcconfig` (see `Secrets.example.xcconfig`). Never pass the Meta defines to an
+iOS build whose `Secrets.xcconfig` lacks them: the SDK would start without an app id.
+
+### One-time setup — Google Ads (Firebase)
+1. Firebase console › project `yaqeen-eg` › Project settings › Integrations › **Google Analytics**:
+   enable it (pick or create a GA4 property; data region and sharing settings: turn off sharing
+   with Google for benchmarking/support unless counsel agrees).
+2. GA4 › Admin › Product links › **Google Ads**: link the Ads account. Mark `sign_up` and
+   `purchase` as key events (conversions) and import them into Google Ads.
+3. Set the variable `FIREBASE_ANALYTICS=true` and release.
+4. Check with **DebugView** (`adb shell setprop debug.firebase.analytics.app com.yaqinbrand.yaqeen`,
+   or `-FIRDebugEnabled` on iOS) on a device that granted `ads_measurement`. If Android logs
+   "Missing google_app_id", ask Claude to add the Firebase Android config resource.
+
+### One-time setup — Meta
+1. developers.facebook.com › Create app (type *Business*), add the **App Events** product, and add
+   both platforms: Android package `com.yaqinbrand.yaqeen` (+ key hashes from Play App Signing),
+   iOS bundle id `com.yaqinbrand.yaqeen`.
+2. Copy the App ID and the Client Token into the secrets above.
+3. Events Manager: connect the app to the ad account. Check events with **Test Events**.
+
+### TikTok
+No SDK in the app: conversions go server-side through the TikTok Events API (see
+docs/ANALYTICS_EVENTS.md). Nothing to set here.
+
+### Store forms and SKAdNetwork
+- Update the App Store privacy label and Play Data safety before the first build with these
+  values (docs/STORE_LISTING.md). Play: the app declares `com.google.android.gms.permission.AD_ID`
+  (the SDKs merge it in too), so answer *Yes* to "uses advertising ID".
+- `SKAdNetworkItems` is **not** needed: that list is for apps that *show* ads from those networks.
+  Yaqeen only advertises; the SDKs handle SKAdNetwork conversion values themselves.
 
 ## Home-screen widget (iOS extension)
 

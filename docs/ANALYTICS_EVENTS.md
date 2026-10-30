@@ -20,16 +20,23 @@ Sent to Google Ads (via Firebase), Meta and TikTok **only** with `ads_measuremen
 
 ## Mapping per platform
 
-| Ours | Firebase / Google Ads | Meta | TikTok |
-| --- | --- | --- | --- |
-| `sign_up` | `sign_up` | `CompleteRegistration` | `CompleteRegistration` |
-| `onboarding_complete` | `tutorial_complete` | `CompleteTutorial` | custom |
-| `challenge_join` | custom | `SubmitApplication` or custom | custom |
-| `reward_redeem` | custom | custom | custom |
-| `purchase` | `purchase` | `Purchase` | `CompletePayment` |
+Implemented as `AdSink`s in `apps/mobile/lib/core/analytics/sinks/` (`eventName` in each sink; `test/core/ad_sinks_test.dart` checks that sinks only ever forward these names and allowlisted params).
 
-Implement each as an `AdSink` and register it in `adSinksProvider` (app events). `purchase` is
-sent by the API, not the app.
+| Ours | Firebase / Google Ads (`GoogleAdSink`) | Meta (`MetaAdSink`) | TikTok |
+| --- | --- | --- | --- |
+| `first_open` | not sent — reserved; Firebase logs its own `first_open` | not sent — installs come from `activateApp` (one per session, consented) | server-side |
+| `sign_up` | `sign_up` | `fb_mobile_complete_registration` | server-side |
+| `onboarding_complete` | `tutorial_complete` | `fb_mobile_tutorial_completion` | server-side |
+| `challenge_join`, `streak_7`, `streak_30`, `reward_redeem`, `store_click` | same name (custom) | same name (custom) | server-side |
+| `purchase` | `purchase` with `value` + `currency` | `fb_mobile_purchase` (`logPurchase`) with value + currency | server-side (Events API) |
+
+Params: only `value`, `currency`, `reward_id`, `day`; `purchase` carries only `value` (number) and `currency`, and neither if one is missing. The gate's `att` flag is never forwarded.
+
+Registration: Google only with `--dart-define=FIREBASE_ANALYTICS=true`; Meta only with both `FACEBOOK_APP_ID` and `FACEBOOK_CLIENT_TOKEN` (docs/RELEASE_MOBILE.md). Debug builds add the in-memory `DebugAdSink`.
+
+**TikTok:** no SDK in the app. TikTok has no official Flutter plugin, and the community wrapper (`tiktok_events_sdk`) needs JitPack in the Android build and turns on its own ATT prompt and automatic install/launch/retention tracking by default. TikTok attribution uses the server-side Events API (purchase conversions from the Shopify `orders/paid` webhook). `TikTokAdSink` (Registration · CompleteTutorial · Purchase · custom) is ready for an official plugin but not registered.
+
+**Purchase in the app:** nothing in the app logs `purchase` today (orders complete on Shopify); conversions come from the server. The sinks map it for when a store flow lands in the app.
 
 ## Server-side purchase
 

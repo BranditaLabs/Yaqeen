@@ -1,15 +1,15 @@
 import 'dart:async';
 
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
-import '../../firebase_options.dart';
+import '../platform/firebase_app.dart';
 import 'push_service.dart';
 
 /// FCM adapter for [PushService]. Firebase starts lazily on first use (after the first frame), so
 /// it never sits on the start-up path; a failure is retried on the next call.
 ///
-/// Only messaging is used (no Firebase Analytics). The server decides who receives what: consents,
+/// Only messaging is used here. (Firebase Analytics is a separate ad sink, off by default and on only
+/// with `ads_measurement` — core/analytics/sinks.) The server decides who receives what: consents,
 /// quiet hours, prayer windows.
 ///
 /// Tokens: `getToken`/`onTokenRefresh` are deprecated in favour of `register()`/`onRegistered`, which
@@ -26,7 +26,7 @@ class FirebasePushService implements PushService {
       });
 
   Future<FirebaseMessaging> _setUp() async {
-    if (Firebase.apps.isEmpty) await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    await FirebaseAppStarter.ensure();
     final m = FirebaseMessaging.instance;
     // iOS: show campaign pushes that arrive while the app is open, like the OS does in the background.
     await m.setForegroundNotificationPresentationOptions(alert: true, sound: true);

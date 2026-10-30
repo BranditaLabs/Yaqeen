@@ -23,5 +23,18 @@ abstract final class Env {
   /// Sentry DSN for crash/error reports; empty = reporting off (dev, tests).
   static const sentryDsn = String.fromEnvironment('SENTRY_DSN');
 
+  /// Ad measurement SDKs (lib/core/analytics/sinks). Each one is registered only when its build-time
+  /// values are present, and even then stays off until the user grants `ads_measurement`.
+  ///
+  /// Google Ads through Firebase Analytics (project `yaqeen-eg`): `true` once Google Analytics is
+  /// enabled on the Firebase project and linked to Google Ads.
+  static const firebaseAnalytics = bool.fromEnvironment('FIREBASE_ANALYTICS');
+
+  /// Meta App Events. The same values must reach the native config: Android reads these dart-defines
+  /// in `android/app/build.gradle.kts`; iOS reads `FACEBOOK_APP_ID` / `FACEBOOK_CLIENT_TOKEN` from
+  /// `ios/Flutter/Secrets.xcconfig` (docs/RELEASE_MOBILE.md).
+  static const facebookAppId = String.fromEnvironment('FACEBOOK_APP_ID');
+  static const facebookClientToken = String.fromEnvironment('FACEBOOK_CLIENT_TOKEN');
+
   static bool get isProd => flavor == 'prod';
 }

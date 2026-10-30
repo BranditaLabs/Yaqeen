@@ -36,18 +36,33 @@ Task completions reveal religious practice. Rules:
 | --- | --- | --- | --- |
 | Sentry | Errors and crashes | stack traces, device/OS, app version — scrubbed as above | choose the EU (Frankfurt) data region |
 | PostHog | Product analytics (consented) | closed-list events keyed by a random install id | EU cloud (`eu.i.posthog.com`) |
-| Meta (Conversions API) | Ad measurement — store purchases with a Yaqeen code (`ads_measurement` consent) | event, time, order id, total + currency, salted hashed id | US / global (cross-border transfer) |
-| Google (GA4 Measurement Protocol) | same | same; `ad_personalization` denied | US / global (cross-border transfer) |
-| TikTok (Events API) | same | same | Singapore / US / global (cross-border transfer) |
+| Google (Firebase Analytics → Google Ads), in the app | Ad measurement (`ads_measurement`) | the ad events above, advertising id, device/app metadata | Google (US); cross-border transfer |
+| Meta App Events, in the app | Ad measurement (`ads_measurement`) | the ad events above, app launches, advertising id | Meta (US/IE); cross-border transfer |
+| Meta (Conversions API), from our server | Ad measurement — store purchases with a Yaqeen code (`ads_measurement` consent) | event, time, order id, total + currency, salted hashed id | US / global (cross-border transfer) |
+| Google (GA4 Measurement Protocol), from our server | same | same; `ad_personalization` denied | US / global (cross-border transfer) |
+| TikTok (Events API), from our server only — no TikTok SDK in the app | same | same | Singapore / US / global (cross-border transfer) |
 
-All are listed in the privacy policy and can be switched off by removing their DSN / key (no app release needed for PostHog or the conversions: the app talks only to our API; the conversions also stop at once with the `serverConversions` flag).
+All are listed in the privacy policy. Sentry and PostHog can be switched off by removing their DSN / key and the server-side conversions with the `serverConversions` flag (no app release needed: the app talks only to our API for those); an ad SDK is removed from a build by leaving out its build values.
 
 ## Ads & tracking
 
-- iOS: show the ATT prompt only after the user turned on `ads_measurement` in our own consent screen. Without ATT, SDKs run in limited mode.
-- Google Ads via Firebase Analytics, Meta App Events, TikTok Business SDK: initialise with tracking **off**, enable in `Analytics.onConsentChanged(true)`.
-- Event params are allowlisted (`value`, `currency`, `reward_id`, `day`).
-- The only server-to-ad-platform flow is the consented `purchase` conversion above; it has no API a client can call and sends only `AD_EVENTS.purchase`.
+Code: `apps/mobile/lib/core/analytics/analytics.dart` (the gate) and `lib/core/analytics/sinks/` (one sink per SDK, each behind a tiny interface so tests never touch the SDK).
+
+- **Server side.** The only server-to-ad-platform flow is the consented `purchase` conversion above (`services/api/src/services/conversions.service.ts`); no API lets a client send events to an ad platform.
+- **The gate.** Sinks receive only `AdEvent` values (the closed list) with allowlisted params (`value`, `currency`, `reward_id`, `day`) plus an `att` control flag that is never forwarded. Nothing reaches a sink without `ads_measurement`. Every SDK call is time-boxed and its errors swallowed, so an SDK can't block or break a screen.
+- **Registered only with build values.** An SDK whose ids aren't compiled in (`FIREBASE_ANALYTICS`, `FACEBOOK_APP_ID` + `FACEBOOK_CLIENT_TOKEN`) is not registered: its plugin is never called and the SDK never starts. Release builds without them ship no active ad SDK.
+- **Off by default, natively.** Collection, automatic events and advertising ids are switched off in `AndroidManifest.xml` and `Info.plist`, so nothing is collected before the app decides.
+- **Start-up.** Nothing ad-related runs before the first frame. After it, `Analytics.start()` aligns the SDKs with the stored consent — and does nothing at all until the consent screen has been answered.
+- **iOS ATT.** The prompt appears only after the user turned on `ads_measurement` in our own consent screen (onboarding or Privacy). Without "Allow", no IDFA: Meta's advertiser-id collection stays off and Firebase reads no IDFA.
+- **Withdrawal** (Privacy screen) turns every SDK off at once: Firebase collection off, consent mode denied, local analytics data and app-instance id reset; Meta advertiser id off and user data cleared; queued install events deleted.
+
+| SDK | Package | Before consent | With `ads_measurement` it receives | Never |
+| --- | --- | --- | --- | --- |
+| Google Ads via Firebase Analytics (project `yaqeen-eg`) | `firebase_analytics` 12.6.1 (Firebase iOS SDK 12.19.3) | `firebase_analytics_collection_enabled=false` / `FIREBASE_ANALYTICS_COLLECTION_ENABLED=NO`; consent mode (analytics storage, ad storage, ad user data, ad personalisation) denied; automatic screen reporting off; Android ID (SSAID) and IDFV collection off | Ad events (`sign_up`, `tutorial_complete`, `purchase` with value + currency, and our custom names); consent mode granted for analytics storage, ad storage and ad user data; Firebase's own automatic events (`first_open`, `session_start`, `user_engagement`, `app_update`, `os_update`) and device/app metadata; the advertising id (AAID; IDFA only with ATT) | User id, user properties, screen views, ad personalisation, worship data |
+| Meta App Events | `facebook_app_events` 0.31.0 (Facebook SDK 18.x) | `AutoInitEnabled=false` (iOS: SDK not configured at all; Android: the SDK's init provider still reads its config and creates a local anonymous id at process start, but the SDK refuses Graph API requests until it is initialised — and with no app id compiled in it doesn't start at all), `AutoLogAppEventsEnabled=false`, `AdvertiserIDCollectionEnabled=false` | App launch (`activateApp`, which Meta uses for install attribution) once per session, ad events (`fb_mobile_complete_registration`, `fb_mobile_tutorial_completion`, `fb_mobile_purchase` with value + currency, custom names); limited event and data usage on; advertiser id only with consent (and ATT on iOS) | User id, user data (email, phone…), automatic events, worship data |
+| TikTok | — (no SDK in the app) | — | Nothing from the app. Purchase conversions go server-side through the TikTok Events API | — |
+
+The `TikTokAdSink` class exists for a future official plugin but is not registered. The only community Flutter wrapper (`tiktok_events_sdk`) pulls its Android SDK from JitPack, ships two diverging iOS source trees, and by default shows its own ATT prompt and auto-tracks installs, launches and retention.
 
 ## Application security
 

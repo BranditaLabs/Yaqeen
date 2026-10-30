@@ -331,8 +331,9 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
   Future<void> _set(ConsentKind k, bool v) async {
     await ref.read(consentRepositoryProvider).set(k, v, ConsentSource.settings);
     if (k == ConsentKind.adsMeasurement) {
-      await ref.read(analyticsProvider).onConsentChanged(v);
+      // ATT first (iOS), so the SDKs start with its answer.
       if (v) await ref.read(deviceServicesProvider).requestTracking();
+      await ref.read(analyticsProvider).onConsentChanged(v);
     }
     if (k == ConsentKind.productAnalytics) await ref.read(productAnalyticsProvider).onConsentChanged(v);
     if (mounted) setState(() {});

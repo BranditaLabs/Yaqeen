@@ -80,7 +80,7 @@ Golden screenshots in `apps/mobile/test/goldens/` are the reference framing.
 
 ## App Store — App Privacy ("nutrition label")
 
-Answer for the build being submitted. **Today's build ships no ad SDKs** (`adSinksProvider` is the debug sink). Firebase is used **only for push** (Cloud Messaging, project `yaqeen-eg`; no Firebase Analytics), so:
+Answer for the build being submitted. The ad SDKs (Firebase Analytics for Google Ads, Meta App Events) are in the code but **active only in a build made with their values** (`FIREBASE_ANALYTICS`, `FACEBOOK_APP_ID` + `FACEBOOK_CLIENT_TOKEN` — docs/RELEASE_MOBILE.md). Without them Firebase is used **only for push** (Cloud Messaging, project `yaqeen-eg`) and this table is complete:
 
 | Data type | Collected? | Linked to the user | Tracking | Purposes |
 | --- | --- | --- | --- | --- |
@@ -94,7 +94,15 @@ Answer for the build being submitted. **Today's build ships no ad SDKs** (`adSin
 | Location | **No** (computed on device; the city name picked is a setting) | — | — | — |
 | User content | Yes, only if the user publishes a card (name, avatar, chosen fields) | Yes | No | App functionality |
 
-**When ad SDKs ship** (Google/Meta/TikTok with `ads_measurement`): add *Identifiers → Device ID* and *Usage data → Advertising data* as **Used to track you**, purpose *Third-party advertising*, and keep the ATT prompt behind the in-app consent (already built).
+**Build with ad SDK values** (Google and/or Meta, only with `ads_measurement`) — add:
+
+| Data type | Collected? | Linked to the user | Tracking | Purposes |
+| --- | --- | --- | --- | --- |
+| Identifiers → Device ID (IDFA, only after ATT "Allow") | Yes | No | **Yes** | Third-party advertising |
+| Usage data → Advertising data (ad events: sign-up, onboarding done, challenge join, streak 7/30, reward redeemed, store opened; app launches) | Yes | No | **Yes** | Third-party advertising, Analytics |
+| Purchases → Purchase history (purchase value + currency) | Yes (server-side conversions) | No | **Yes** | Third-party advertising |
+
+The app asks for ATT only after the in-app consent (already built), declares `NSUserTrackingUsageDescription`, and never sends a user id, contact info or worship data to an ad SDK. Both SDKs ship their own privacy manifests (tracking domains included).
 
 ## Google Play — Data safety
 
@@ -112,13 +120,16 @@ Answer for the build being submitted. **Today's build ships no ad SDKs** (`adSin
 | App info & performance → Crash logs, Diagnostics | Yes | No | No | App functionality, Analytics |
 | Device or other IDs → push token (Firebase Cloud Messaging) | Yes | No | No | App functionality |
 | Location | **No** | — | — | — |
-| Device or other IDs → advertising ID | **No** today; **Yes** once ad SDKs ship (shared with ad networks only with `ads_measurement`) | | | |
+| Device or other IDs → advertising ID | **Yes** in a build with ad SDK values (Google/Meta), else No | **Yes** (Google, Meta) | Yes (`ads_measurement`, off by default) | Advertising or marketing, Analytics |
+| App activity → Other actions (the closed ad-event list; app launches) | Yes in a build with ad SDK values | **Yes** (Google, Meta) | Yes (`ads_measurement`) | Advertising or marketing, Analytics |
+
+The manifest declares `com.google.android.gms.permission.AD_ID` (Firebase and Meta merge it in anyway): in Play Console › App content › **Advertising ID**, answer *Yes*, purposes *Advertising or marketing* and *Analytics*. If a release ships without ad SDK values, the permission is still declared but never used.
 
 Service providers that process data on our behalf (Shopify, Sentry, PostHog EU, hosting) are not "sharing" under Play's definition.
 
 ## Before each submission
 
 - [ ] `SUPPORT_EMAIL` set; privacy/terms brackets filled and reviewed by counsel; `LEGAL_VERSION` in `services/api/src/web/site-pages.ts` bumped when they change.
-- [ ] The answers above still match the build (ad SDKs? Firebase? new consent?).
+- [ ] The answers above still match the build (ad SDK values set? Firebase Analytics on? new consent?).
 - [ ] Screenshots in both languages; the widget screenshot taken on a real home screen.
 - [ ] App Group `group.com.yaqinbrand.yaqeen` enabled for both bundle ids and the widget's App Store profile name in `IOS_WIDGET_PROFILE_NAME` (see RELEASE_MOBILE.md).
