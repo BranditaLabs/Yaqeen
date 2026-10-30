@@ -48,7 +48,7 @@ jobs:
     environment: production-mobile
     defaults: { run: { working-directory: apps/mobile } }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check secrets
         env:
           KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -63,7 +63,7 @@ jobs:
           if [ "${FACEBOOK_APP_ID:+1}" != "${FACEBOOK_CLIENT_TOKEN:+1}" ]; then
             echo "::error::Set both FACEBOOK_APP_ID and FACEBOOK_CLIENT_TOKEN, or neither — see docs/RELEASE_MOBILE.md"; exit 1
           fi
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with: { distribution: temurin, java-version: '17' }
       - uses: subosito/flutter-action@v2
         with: { channel: stable, cache: true }
@@ -103,7 +103,7 @@ jobs:
         run: |
           [ -n "$SENTRY_AUTH_TOKEN" ] && [ -n "$SENTRY_ORG" ] || { echo "Sentry not configured — skipping symbols"; exit 0; }
           dart run sentry_dart_plugin --sentry-define=release="yaqeen@$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1)+$BUILD_NUMBER"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: android-release-${{ github.run_number }}
           path: |
@@ -129,7 +129,7 @@ jobs:
     environment: production-mobile
     defaults: { run: { working-directory: apps/mobile } }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check secrets
         env:
           P12: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
@@ -231,7 +231,7 @@ jobs:
         run: |
           [ -n "$SENTRY_AUTH_TOKEN" ] && [ -n "$SENTRY_ORG" ] || { echo "Sentry not configured — skipping symbols"; exit 0; }
           dart run sentry_dart_plugin --sentry-define=release="yaqeen@$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1)+$BUILD_NUMBER"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ios-release-${{ github.run_number }}
           path: |
