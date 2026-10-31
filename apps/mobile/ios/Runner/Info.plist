@@ -32,7 +32,7 @@
 				<string>yaqeen</string>
 			</array>
 		</dict>
-		<!-- Google Sign-In callback: set GOOGLE_REVERSED_CLIENT_ID in Flutter/Release.xcconfig. -->
+		<!-- Google Sign-In callback: GOOGLE_REVERSED_CLIENT_ID from Flutter/{Debug,Release}.xcconfig. -->
 		<dict>
 			<key>CFBundleURLSchemes</key>
 			<array>

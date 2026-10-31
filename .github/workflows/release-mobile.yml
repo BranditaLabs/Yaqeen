@@ -34,9 +34,9 @@ env:
   SENTRY_DSN: ${{ vars.APP_SENTRY_DSN }}
   SENTRY_ORG: ${{ vars.SENTRY_ORG }}
   # Sign-in: the Google "Web application" OAuth client id of the API (the ID token's audience on
-  # both platforms; also listed in the API's GOOGLE_CLIENT_IDS). Required — without it Google
-  # sign-in returns no ID token on Android. Apple's Services ID / callback have working defaults.
-  GOOGLE_SERVER_CLIENT_ID: ${{ vars.GOOGLE_SERVER_CLIENT_ID }}
+  # both platforms; also listed in the API's GOOGLE_CLIENT_IDS). Defaults to the yaqeen-eg Web client;
+  # without one Google sign-in returns no ID token on Android. Apple's Services ID / callback default too.
+  GOOGLE_SERVER_CLIENT_ID: ${{ vars.GOOGLE_SERVER_CLIENT_ID || '215304787392-2papc2vde7pj9j6uh7u6pgdsokff8gen.apps.googleusercontent.com' }}
   APPLE_SERVICE_ID: ${{ vars.APPLE_SERVICE_ID }}
   APPLE_REDIRECT_URI: ${{ vars.APPLE_REDIRECT_URI }}
   # Ad measurement SDKs (optional; each stays off in the app until `ads_measurement` is granted).
@@ -145,7 +145,6 @@ jobs:
           P12: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
           ASC_KEY: ${{ secrets.ASC_API_PRIVATE_KEY }}
           TEAM: ${{ secrets.APPLE_TEAM_ID }}
-          GID: ${{ secrets.GOOGLE_IOS_CLIENT_ID }}
           WPROFILE: ${{ secrets.IOS_WIDGET_PROFILE_NAME }}
           API: ${{ vars.API_BASE_URL }}
         run: |
@@ -153,7 +152,6 @@ jobs:
           [ -n "$P12" ] || missing="$missing IOS_DIST_CERT_P12_BASE64"
           [ -n "$ASC_KEY" ] || missing="$missing ASC_API_PRIVATE_KEY"
           [ -n "$TEAM" ] || missing="$missing APPLE_TEAM_ID"
-          [ -n "$GID" ] || missing="$missing GOOGLE_IOS_CLIENT_ID"
           [ -n "$GOOGLE_SERVER_CLIENT_ID" ] || missing="$missing vars.GOOGLE_SERVER_CLIENT_ID"
           [ -n "$WPROFILE" ] || missing="$missing IOS_WIDGET_PROFILE_NAME"
           [ -n "$API" ] || missing="$missing vars.API_BASE_URL"
@@ -194,8 +192,8 @@ jobs:
         run: |
           # Included by Release.xcconfig; the Runner target sets no signing of its own, so these apply.
           cat > ios/Flutter/Secrets.xcconfig <<EOF
-          GOOGLE_IOS_CLIENT_ID = $GID
-          GOOGLE_REVERSED_CLIENT_ID = $GREV
+          ${GID:+GOOGLE_IOS_CLIENT_ID = $GID}
+          ${GREV:+GOOGLE_REVERSED_CLIENT_ID = $GREV}
           DEVELOPMENT_TEAM = $TEAM
           CODE_SIGN_STYLE = Manual
           CODE_SIGN_IDENTITY = Apple Distribution

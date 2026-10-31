@@ -1,14 +1,17 @@
 import { z } from 'zod';
 
-const csv = z
-  .string()
-  .default('')
-  .transform((s) =>
-    s
-      .split(',')
-      .map((x) => x.trim())
-      .filter(Boolean),
-  );
+/** Comma-separated list, with an optional default (zod 4 skips transforms on `.default`, so it goes before). */
+const csvOf = (fallback = '') =>
+  z
+    .string()
+    .default(fallback)
+    .transform((s) =>
+      s
+        .split(',')
+        .map((x) => x.trim())
+        .filter(Boolean),
+    );
+const csv = csvOf();
 
 const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -23,9 +26,16 @@ const EnvSchema = z.object({
   /** 32 random bytes, base64 — seals the users' opt-in cloud backups at rest (AES-256-GCM). A separate key from ADMIN_SECRETS_KEY. */
   BACKUP_SECRETS_KEY: z.string().default(''),
   CORS_ORIGINS: csv,
-  GOOGLE_CLIENT_IDS: csv,
+  /**
+   * Google audiences: the Web client (the app's server client id — Android tokens) and the iOS client
+   * of Firebase project `yaqeen-eg`. Client ids are public (they ship in every app build), not secrets.
+   */
+  GOOGLE_CLIENT_IDS: csvOf(
+    '215304787392-2papc2vde7pj9j6uh7u6pgdsokff8gen.apps.googleusercontent.com,' +
+      '215304787392-25qvm0s481ebaeoa7213qkk9b1l2bqm5.apps.googleusercontent.com',
+  ),
   /** Apple audiences: the iOS bundle id and the Services ID used by the Android web flow. */
-  APPLE_CLIENT_IDS: csv,
+  APPLE_CLIENT_IDS: csvOf('com.yaqinbrand.yaqeen,com.yaqinbrand.yaqeen.signin'),
   /** Android package that Sign in with Apple's web callback returns to. */
   ANDROID_APP_ID: z.string().regex(/^[a-zA-Z][\w.]+$/).default('com.yaqinbrand.yaqeen'),
   SHOPIFY_SHOP_DOMAIN: z.string().default(''),

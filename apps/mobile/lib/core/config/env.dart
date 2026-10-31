@@ -12,8 +12,12 @@ abstract final class Env {
   /// A website page in the user's language, e.g. `site('privacy', 'ar')`.
   static Uri site(String page, String locale) => Uri.parse('$siteUrl/$page?lang=$locale');
 
-  /// OAuth client id of the API (Google "server client id"); the ID token's audience.
-  static const googleServerClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
+  /// OAuth client id of the API (Google "server client id"); the ID token's audience. Default: the
+  /// Web client of Firebase project `yaqeen-eg` (public, ships in every build).
+  static const googleServerClientId = String.fromEnvironment(
+    'GOOGLE_SERVER_CLIENT_ID',
+    defaultValue: '215304787392-2papc2vde7pj9j6uh7u6pgdsokff8gen.apps.googleusercontent.com',
+  );
 
   /// Sign in with Apple on Android uses the web flow: Services ID + the API's redirect endpoint.
   static const appleServiceId = String.fromEnvironment('APPLE_SERVICE_ID', defaultValue: 'com.yaqinbrand.yaqeen.signin');

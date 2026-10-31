@@ -81,13 +81,19 @@ first review. Then set it to `completed`.
 
 ### Sign in with Google and Apple (one-time)
 
-Google (Google Cloud console of the Yaqeen project › APIs & Services › Credentials, OAuth consent screen published):
-1. **Web application** client → its id is the *server client id*. Repo **variable** `GOOGLE_SERVER_CLIENT_ID`
-   (both release jobs fail without it: Android returns no ID token).
-2. **Android** client for package `com.yaqinbrand.yaqeen` with the SHA-1 of the upload key **and** of the
-   Play app-signing key (Play Console › App integrity). No secret; it only has to exist.
-3. **iOS** client for bundle `com.yaqinbrand.yaqeen` → `GOOGLE_IOS_CLIENT_ID` / `GOOGLE_REVERSED_CLIENT_ID` secrets.
-4. API: `GOOGLE_CLIENT_IDS` = the web client id (add the iOS client id too).
+Google — the clients live in Firebase project `yaqeen-eg` (= its Google Cloud project). Their ids are public
+and are the defaults everywhere, so nothing has to be set unless you move projects:
+1. **Web** client `215304787392-2papc2vde7pj9j6uh7u6pgdsokff8gen` = the *server client id* (`Env.googleServerClientId`;
+   override with repo variable `GOOGLE_SERVER_CLIENT_ID`).
+2. **iOS** client `215304787392-25qvm0s481ebaeoa7213qkk9b1l2bqm5` (`ios/Flutter/{Debug,Release}.xcconfig`; override with
+   the `GOOGLE_IOS_CLIENT_ID` / `GOOGLE_REVERSED_CLIENT_ID` secrets).
+3. **Android**: Google only issues a token to an app whose signing-key SHA is registered. Add every key's SHA-1
+   and SHA-256 to the Firebase Android app (this also creates the Android OAuth client):
+   `firebase apps:android:sha:create 1:215304787392:android:6f92341e76e275ef0aa425 <SHA> --project yaqeen-eg` —
+   each developer's debug key (`keytool -list -v -keystore ~/.android/debug.keystore -storepass android`), the
+   upload key, and the Play app-signing key (Play Console › App integrity).
+4. OAuth consent screen (Google Cloud › Google Auth Platform): published, or your test accounts listed.
+5. API: `GOOGLE_CLIENT_IDS` defaults to the Web + iOS ids above.
 
 Apple (developer.apple.com › Certificates, Identifiers & Profiles):
 1. App ID `com.yaqinbrand.yaqeen` with **Sign in with Apple** (iOS uses it natively).
