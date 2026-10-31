@@ -45,4 +45,7 @@
 - [x] Load test (`pnpm --filter @yaqeen/api load`); Sentry + Prometheus
 - [x] App Store privacy labels & Play data-safety answers (docs/STORE_LISTING.md)
 - [x] Browser E2E (admin, website, cards; axe a11y) in CI — `pnpm --filter @yaqeen/e2e e2e`
+- [x] Sign in with Apple on Android (web callback) and Google server client id in release builds
+- [x] Opt-in encrypted cloud backup of personal progress (`cloud_backup`)
+- [x] NFC: scan a medal in the app; staff encode medal batches from an admin session
 - [x] Design polish pass over every screen (AR/EN, 1.3× text, 44-pt targets, tokens only)
