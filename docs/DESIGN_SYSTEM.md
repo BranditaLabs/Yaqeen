@@ -81,6 +81,16 @@ Every screen is a `YqCanvas` (`core/widgets/yq_stage.dart`):
    lazy slivers (`slivers:`) for long lists.
 4. A **`footer:`** pins the primary action above the system inset (onboarding, success, recite).
 
+Under the content `YqCanvas` leaves `YqInsets.bottom(context)`: the bottom safe area plus 28. Inside a tab
+the shell adds the floating dock to that safe area, so a pushed screen (Azkar, Calendar, Privacy…) clears
+the dock exactly like a tab root, with no per-screen numbers. Content rises in only while a page opens
+(`YqRiseScope`); lazy items scrolled into view later are simply there.
+
+**Symmetry rules.** Insets are directional (`EdgeInsetsDirectional`, `YqInsets.page`). Orbs sit in equal
+columns and their titles stay on one line (shrinking to fit), so status lines share a baseline. Segmented
+controls keep every label on one line. A bar with a centred element (the onboarding stepper) gives both
+sides the same width.
+
 Content rises in once (`YqRise`, staggered 70 ms). Screen readers get it at once.
 
 | Screen | Stage moment | Complications | Journey / body |
@@ -118,7 +128,8 @@ Content rises in once (`YqRise`, staggered 70 ms). Screen readers get it at once
 | `YqGroup` | core/widgets/yq_layout.dart | A glass group of rows with hairlines. |
 | `DayArc` / `dayArcAt` | core/design/living_sky.dart | The day's arc with the sun at its real position. |
 | `LiquidGlass` / `GlassTap` | core/widgets | The content surface; live blur only on fixed chrome. |
-| `FloatingTabBar` | core/widgets | The **living dock**: porcelain glass, an ink lens lit by the current sky under the active tab (gold label), a hairline day thread with the sun's position, the profile initial. |
+| `FloatingTabBar` / `YqTab` | core/widgets/floating_tab_bar.dart | The **dock**: a floating porcelain-glass capsule (64 pt, max 520 wide, centred) with five equal slots — Home, Quran, Prayer, Challenge, and Profile with the person's initial on a gold disc as its icon (`YqTab.avatar`). Each slot is a 24-pt icon over an 11-pt label, always shown (lapis + bold when active, muted otherwise). A soft lapis glass pill sits under the active slot and glides on a spring (jumps with reduce-motion). Press scales to 0.92 with a light haptic; tapping the open tab returns it to its first screen. It steps aside while the keyboard is up. |
+| `YqInsets` | core/widgets/yq_layout.dart | Shared geometry: `page` (the directional gutter) and `bottom(context)` — the one bottom inset for scrolling screens. Inside a tab the shell counts the dock as bottom safe area (`FloatingTabBar.clearanceFor`), so content always clears it. |
 | `HabitSlotCard` | features/routine/presentation | Picks a habit's time. |
 
 ## 5. Motion

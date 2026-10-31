@@ -69,41 +69,43 @@ class YqSegmented<T> extends StatelessWidget {
         borderRadius: BorderRadius.circular(YqRadii.pill),
         border: Border.all(color: const Color(0xD9FFFFFF)),
       ),
-      // Equal-height segments, even when one label takes two lines.
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final (value, label) in segments)
-              Expanded(
-                child: Semantics(
-                  button: true,
-                  selected: value == selected,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      if (value == selected) return;
-                      HapticFeedback.selectionClick();
-                      onChanged(value);
-                    },
-                    child: AnimatedContainer(
-                      duration: YqMotion.fast,
-                      curve: YqMotion.ease,
-                      constraints: const BoxConstraints(minHeight: 38),
-                      padding: const EdgeInsets.symmetric(horizontal: YqSpace.s, vertical: YqSpace.xs),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: value == selected ? YqColors.white : const Color(0x00FFFFFF),
-                        borderRadius: BorderRadius.circular(YqRadii.pill),
-                        boxShadow:
-                            value == selected ? const [BoxShadow(color: Color(0x140A1530), blurRadius: 8, offset: Offset(0, 2))] : null,
-                      ),
-                      // Long labels (English, large text) take a second line inside a taller pill
-                      // instead of being clipped by a fixed height.
+      child: Row(
+        children: [
+          for (final (value, label) in segments)
+            // Width follows the label (within limits), so «Morning azkar» gets the room it needs
+            // next to «Sleep» and every label stays at — or very near — its real size.
+            Expanded(
+              flex: label.characters.length.clamp(6, 20),
+              child: Semantics(
+                button: true,
+                selected: value == selected,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    if (value == selected) return;
+                    HapticFeedback.selectionClick();
+                    onChanged(value);
+                  },
+                  child: AnimatedContainer(
+                    duration: YqMotion.fast,
+                    curve: YqMotion.ease,
+                    constraints: const BoxConstraints(minHeight: 38),
+                    padding: const EdgeInsets.symmetric(horizontal: YqSpace.s, vertical: YqSpace.xs),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: value == selected ? YqColors.white : const Color(0x00FFFFFF),
+                      borderRadius: BorderRadius.circular(YqRadii.pill),
+                      boxShadow:
+                          value == selected ? const [BoxShadow(color: Color(0x140A1530), blurRadius: 8, offset: Offset(0, 2))] : null,
+                    ),
+                    // One line in every segment, so the pills stay equal and round: a long label
+                    // (bold when selected, English, large text) shrinks to fit instead of wrapping.
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
                       child: Text(
                         label,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        softWrap: false,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 13,
@@ -116,8 +118,8 @@ class YqSegmented<T> extends StatelessWidget {
                   ),
                 ),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }

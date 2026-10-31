@@ -114,7 +114,6 @@ class _QiblaScreenState extends ConsumerState<QiblaScreen> {
     return Scaffold(
       body: YqCanvas(
         lights: aligned ? AmbientBackground.goldLights : null,
-        bottom: YqSpace.xxl,
         stage: YqStage(
           compact: true,
           gold: aligned,

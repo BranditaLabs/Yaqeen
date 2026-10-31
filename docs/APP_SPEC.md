@@ -118,7 +118,7 @@ Scale (pt): display 30/1.4 · title-L 19 · title-M 15 · body-L 16/1.75 · body
 | `GlassIconButton` | ✅ | 44×44 circle glass, tooltip = a11y label |
 | `YqIcon` | ✅ | 20 icons × 4 tones (`active, idle, gold, light`) on a 24 grid, 1.5 stroke, one gold accent |
 | `YqLogo` | ✅ | `mark | stacked | horizontal | arabic` × `onLight | onDark`; min widths 24 / 96 |
-| `FloatingTabBar` | ✅ | 350×66 floating glass pill, 5 tabs: الرئيسية · القرآن · الصلاة · التحدي · حسابي (avatar) |
+| `FloatingTabBar` | ✅ | Floating glass capsule (64 pt, gutter to gutter, max 520), 5 equal tabs: الرئيسية · القرآن · الصلاة · التحدي · حسابي (avatar); icon + label, lapis pill under the active tab |
 | `YqSwitch`, `YqSegmented`, `YqProgressLine` | ✅ | Lapis on, porcelain track |
 | `AmbientBackground` | ✅ | Porcelain lit by the **living sky** (tint + glow under the sun, follows the time of day; DESIGN_SYSTEM §2); `lights:` adds accents (`goldLights`) |
 | `YqCanvas` / `YqStage` / `YqOrb` / `YqRing` / `YqTimeline` / `YqGroup` | ✅ | The living-canvas screen kit — every screen is stage → complications → journey (DESIGN_SYSTEM §3–4) |
@@ -420,7 +420,7 @@ Footer verse «وَرَتِّلِ ٱلْقُرْءَانَ تَرْتِيلًا�
 
 **Purpose** Today at a glance as a living scene; one tap to the most likely next action.
 
-**Layout** (scroll; the sky stage runs edge to edge under the status bar; content gutter 20; bottom 140 for the tab bar)
+**Layout** (scroll; the sky stage runs edge to edge under the status bar; content gutter 20; bottom: `YqInsets.bottom` clears the tab bar)
 1. **Sky stage** — sky gradient that follows the time of day (living sky). Greeting by time («صباح الخير» before
    Dhuhr / «مساء الخير» after) · name · Hijri date + city (Gregorian until the Hijri cache has today) · search and
    bell (unread dot). Then «الصلاة القادمة» · prayer name large · «3:53 م · الأذان بعد» · live countdown · the

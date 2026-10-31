@@ -256,10 +256,9 @@ class _Step extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  YqBackButton(label: t.back),
-                  const Spacer(),
-                  YqStepper(step: step, semanticLabel: t.stepOf(step)),
-                  const Spacer(),
+                  // Equal sides, so the stepper sits on the stage's centre line.
+                  SizedBox(width: 64, child: Align(alignment: AlignmentDirectional.centerStart, child: YqBackButton(label: t.back))),
+                  Expanded(child: Center(child: YqStepper(step: step, semanticLabel: t.stepOf(step)))),
                   SizedBox(width: 64, child: onSkip == null ? null : TextButton(onPressed: onSkip, child: Text(t.skip))),
                 ],
               ),

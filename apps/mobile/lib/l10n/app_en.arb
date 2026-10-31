@@ -1,7 +1,6 @@
 {
   "@@locale": "en",
   "appName": "Yaqeen",
-  "tagline": "Where serenity begins",
   "tabHome": "Home",
   "tabQuran": "Quran",
   "tabPrayer": "Prayer",
@@ -20,7 +19,6 @@
   "servicesDuas": "Duas",
   "servicesQibla": "Qibla",
   "servicesCalendar": "Calendar",
-  "comingSoon": "In progress",
   "todayTasks": "Today's tasks",
   "balance": "Balance",
   "streak": "Streak",
@@ -48,22 +46,6 @@
   "accountRequired": "Sign in to keep your points",
   "redeemTitle": "Redeem your points",
   "redeemCta": "Redeem",
-  "redeemCodeReady": "Your code is ready — valid until {date}",
-  "@redeemCodeReady": {
-    "placeholders": {
-      "date": {
-        "type": "String"
-      }
-    }
-  },
-  "notEnoughPoints": "You need {points} points",
-  "@notEnoughPoints": {
-    "placeholders": {
-      "points": {
-        "type": "String"
-      }
-    }
-  },
   "savedOffline": "Saved — will sync when online",
   "retry": "Retry",
   "errorGeneric": "Couldn't load. Check your connection.",
@@ -96,8 +78,6 @@
   "copied": "Copied",
   "copy": "Copy",
   "share": "Share",
-  "settingsTitle": "Settings",
-  "notificationsTitle": "Notifications",
   "searchHint": "Search",
   "clearSearch": "Clear search",
   "soon": "Soon",
@@ -120,7 +100,6 @@
     }
   },
   "openSettings": "Open settings",
-  "errorSignIn": "Couldn't sign in, please try again",
   "prayerFajr": "Fajr",
   "prayerSunrise": "Sunrise",
   "prayerDhuhr": "Dhuhr",
@@ -189,14 +168,6 @@
   "@prayerIn": {
     "placeholders": {
       "time": {
-        "type": "String"
-      }
-    }
-  },
-  "prayerNow": "It's time for {prayer}",
-  "@prayerNow": {
-    "placeholders": {
-      "prayer": {
         "type": "String"
       }
     }
@@ -274,15 +245,6 @@
       }
     }
   },
-  "qiblaCardFrom": "From north towards the {direction}",
-  "@qiblaCardFrom": {
-    "placeholders": {
-      "direction": {
-        "type": "String"
-      }
-    }
-  },
-  "qiblaOpen": "Open the Qibla compass",
   "dirN": "north",
   "dirNE": "north-east",
   "dirE": "east",
@@ -320,7 +282,6 @@
   "qiblaCalibrate": "Calibrate compass",
   "qiblaCalibrateHint": "Move your phone in a figure 8 a few times, away from metal and magnets.",
   "qiblaNeedsCalibration": "The compass needs calibrating",
-  "qiblaCalibrated": "Compass calibrated",
   "qiblaCamera": "Camera view",
   "qiblaNoCompass": "This device has no compass. The Qibla is {qibla}° from north.",
   "@qiblaNoCompass": {
@@ -340,8 +301,6 @@
   },
   "locationTitle": "Location",
   "locationChange": "Change",
-  "locationAuto": "Detected automatically",
-  "locationManual": "Chosen from the list",
   "locationUseMine": "Use my current location",
   "locationSearch": "Search for a city",
   "locationDenied": "We couldn't get your location. Pick your city from the list.",
@@ -392,7 +351,6 @@
   },
   "notifPermissionTitle": "Notifications are off",
   "notifPermissionBody": "Turn on notifications to receive the adhan and reminders.",
-  "notifExactAlarms": "Alerts may arrive a few minutes late: allow exact alarms in your phone settings.",
   "inboxTitle": "Notifications",
   "inboxReadAll": "Mark all read",
   "inboxAll": "All",
@@ -404,14 +362,6 @@
   "inboxEarlier": "Earlier",
   "inboxEmpty": "No notifications here",
   "inboxEmptyHint": "Your reminders and store offers will show up here",
-  "homeBellA11y": "Notifications, {count} unread",
-  "@homeBellA11y": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "quranTitle": "The Holy Quran",
   "quranListen": "Listen",
   "quranHifzPlan": "Hifz plan",
@@ -854,7 +804,6 @@
       }
     }
   },
-  "azkarReset": "Reset count",
   "azkarEmpty": "Azkar appear here once reviewed and published",
   "contentOfflineHint": "Connect once to download the reviewed content",
   "azkarHaptics": "Vibrate on each count",
@@ -946,7 +895,6 @@
   },
   "homeStartReading": "Start reading",
   "homeKahfSuggestion": "Friday: Surat al-Kahf",
-  "homeStreakHint": "Finish today's wird to keep it",
   "homeJoin": "Start the 365-day journey",
   "homeJoinHint": "Simple daily tasks and points for the Yaqeen store",
   "servicesTitle": "Services",
@@ -980,7 +928,6 @@
   },
   "taskPrivate": "Private to you",
   "taskAuto": "Counts automatically",
-  "taskOpen": "Open",
   "tickDayClosed": "That day has closed; the task wasn't counted",
   "tickQadaPassed": "The make-up window for that day has passed",
   "tickFailed": "Couldn't count it now — we'll retry",
@@ -1221,7 +1168,6 @@
   "goalTwoPages": "2 pages",
   "goalFourPages": "4 pages",
   "goalJuz": "1 juz",
-  "goalReminder": "Reminder time",
   "goalChallengeEyebrow": "Yearly challenge",
   "goalJoin": "Join the challenge",
   "goalChallengeBody": "Complete your wird, azkar and prayers every day and collect points for exclusive Yaqeen store discounts.",
@@ -1262,7 +1208,6 @@
   "downloadPending": "Available once the licensed source is approved",
   "downloadStart": "Start now",
   "downloadBackground": "Downloads continue in the background",
-  "profileTitle": "My account",
   "profileLinked": "Linked to {provider} · sync on",
   "@profileLinked": {
     "placeholders": {
@@ -1352,11 +1297,9 @@
   "packChecksumFailed": "The file couldn't be verified and wasn't installed. Please try again.",
   "packsTitle": "Books and tafsir",
   "tafsirAttribution": "Al-Tafsir al-Muyassar · King Fahd Complex · source: QuranEnc.com",
-  "homeToolsTitle": "Today's tools",
   "homeQiblaLive": "Live compass",
   "homeQiblaStatic": "From north",
   "tasbeehTitle": "Tasbeeh",
-  "tasbeehHint": "Tap to count · hold to reset",
   "tasbeehRound": "Round {round}",
   "@tasbeehRound": {
     "placeholders": {
@@ -1375,55 +1318,12 @@
   },
   "tasbeehResetDone": "Counter reset",
   "homeAzkarHint": "Start now · your progress is saved",
-  "homeDayProgress": "{percent}% of the time to adhan has passed",
-  "@homeDayProgress": {
-    "placeholders": {
-      "percent": {
-        "type": "String"
-      }
-    }
-  },
-  "homeWirdLeft": "{count} left",
-  "@homeWirdLeft": {
-    "placeholders": {
-      "count": {
-        "type": "String"
-      }
-    }
-  },
   "homeWirdDone": "Wird complete",
   "dirShortN": "N",
-  "dirShortE": "E",
-  "dirShortS": "S",
-  "dirShortW": "W",
-  "homeQiblaKaaba": "Kaaba",
-  "homeContinueTitle": "Pick up where you left off",
-  "homeRailPage": "Card {index} of {count}",
-  "@homeRailPage": {
-    "placeholders": {
-      "index": {
-        "type": "String"
-      },
-      "count": {
-        "type": "String"
-      }
-    }
-  },
   "homeDayTitle": "Your day",
   "homeNow": "Now",
   "homeAzkarOpen": "Open now",
   "homeNextTag": "Next",
-  "homeDayA11y": "{name}, {time}",
-  "@homeDayA11y": {
-    "placeholders": {
-      "name": {
-        "type": "String"
-      },
-      "time": {
-        "type": "String"
-      }
-    }
-  },
   "notifDhikrTitle": "Time for your dhikr",
   "notifDhikrBody": "A few minutes with your tasbeeh",
   "routineTitle": "When suits you?",

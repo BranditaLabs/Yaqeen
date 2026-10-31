@@ -108,7 +108,6 @@ void main() {
     expect(find.text('الدورة 4'), findsOneWidget);
   });
 
-
   group('living sky palette', () {
     final d = DateTime.utc(2026, 10, 20);
     DateTime h(double hours) => d.add(Duration(minutes: (hours * 60).round()));
@@ -175,20 +174,17 @@ void main() {
                 Positioned(
                   left: 20,
                   right: 20,
-                  bottom: 26,
-                  child: Builder(
-                    builder: (context) => FloatingTabBar(
-                      currentIndex: 0,
-                      onSelect: (_) {},
-                      avatarInitial: 'أ',
-                      profileLabel: locale == 'ar' ? 'حسابي' : 'Profile',
-                      tabs: [
-                        YqTab(icon: YqIcons.home, label: locale == 'ar' ? 'الرئيسية' : 'Home'),
-                        const YqTab(icon: YqIcons.quran, label: 'quran'),
-                        const YqTab(icon: YqIcons.prayer, label: 'prayer'),
-                        const YqTab(icon: YqIcons.challenge, label: 'challenge'),
-                      ],
-                    ),
+                  bottom: 16,
+                  child: FloatingTabBar(
+                    currentIndex: 0,
+                    onSelect: (_) {},
+                    tabs: [
+                      YqTab(icon: YqIcons.home, label: locale == 'ar' ? 'الرئيسية' : 'Home'),
+                      YqTab(icon: YqIcons.quran, label: locale == 'ar' ? 'القرآن' : 'Quran'),
+                      YqTab(icon: YqIcons.prayer, label: locale == 'ar' ? 'الصلاة' : 'Prayer'),
+                      YqTab(icon: YqIcons.challenge, label: locale == 'ar' ? 'التحدي' : 'Challenge'),
+                      YqTab.avatar(initial: 'أ', label: locale == 'ar' ? 'حسابي' : 'Profile'),
+                    ],
                   ),
                 ),
               ],

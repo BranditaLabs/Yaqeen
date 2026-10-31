@@ -15,7 +15,6 @@ import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
-import '../../../core/widgets/ambient_background.dart';
 import '../../../core/widgets/yq_orb.dart';
 import '../../../core/widgets/yq_ring.dart';
 import '../../../core/widgets/yq_stage.dart';
@@ -366,45 +365,41 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
     ];
     return Scaffold(
       backgroundColor: YqColors.porcelain,
-      body: AmbientBackground(
-        child: SafeArea(
-          child: YqPage(
-            header: YqTopBar(title: t.profilePrivacy),
-            children: [
-              LiquidGlass(
-                padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.s),
-                child: Column(
-                  children: [
-                    for (final (i, (k, title, detail)) in rows.indexed) ...[
-                      if (i > 0) const YqDivider(),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: YqSpace.m),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                                  Text(detail, style: text.bodySmall),
-                                ],
-                              ),
-                            ),
-                            YqSwitch(label: title, value: consents.granted(k), onChanged: (v) => _set(k, v)),
-                          ],
+      body: YqCanvas(
+        stage: YqStage(compact: true, child: YqStageBar(back: true, title: t.profilePrivacy)),
+        children: [
+          LiquidGlass(
+            padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.s),
+            child: Column(
+              children: [
+                for (final (i, (k, title, detail)) in rows.indexed) ...[
+                  if (i > 0) const YqDivider(),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: YqSpace.m),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                              Text(detail, style: text.bodySmall),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(height: YqSpace.m),
-              Text(t.consentPrivacyNote, style: text.bodySmall?.copyWith(color: YqColors.success)),
-              const SizedBox(height: YqSpace.l),
-              const BackupSection(),
-            ],
+                        YqSwitch(label: title, value: consents.granted(k), onChanged: (v) => _set(k, v)),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
-        ),
+          const SizedBox(height: YqSpace.m),
+          Text(t.consentPrivacyNote, style: text.bodySmall?.copyWith(color: YqColors.success)),
+          const SizedBox(height: YqSpace.l),
+          const BackupSection(),
+        ],
       ),
     );
   }
@@ -431,39 +426,35 @@ class LedgerScreen extends ConsumerWidget {
         };
     return Scaffold(
       backgroundColor: YqColors.porcelain,
-      body: AmbientBackground(
-        child: SafeArea(
-          child: YqPage(
-            header: YqTopBar(title: t.profileLedger),
-            children: ledger.when(
-              loading: () => [const YqSkeleton(child: YqSkeletonRows(rows: 4, leading: 0, trailing: true))],
-              error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(ledgerProvider))],
-              data: (list) => list.isEmpty
-                  ? [LiquidGlass(child: YqEmptyState(icon: YqIcons.challenge, title: t.ledgerEmpty))]
-                  : [
-                      LiquidGlass(
-                        padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
-                        child: Column(
-                          children: [
-                            for (final e in list)
-                              YqListRow(
-                                dense: true,
-                                title: reason(e.reason),
-                                subtitle: YqFormat.fullDate(e.createdAt.toLocal(), locale),
-                                trailing: Directionality(
-                                  textDirection: TextDirection.ltr,
-                                  child: Text(
-                                    '${e.delta > 0 ? '+' : '−'}${YqFormat.number(e.delta.abs())}',
-                                    style: YqText.numberSmall.copyWith(color: e.delta > 0 ? YqColors.success : YqColors.goldText),
-                                  ),
-                                ),
+      body: YqCanvas(
+        stage: YqStage(compact: true, child: YqStageBar(back: true, title: t.profileLedger)),
+        children: ledger.when(
+          loading: () => [const YqSkeleton(child: YqSkeletonRows(rows: 4, leading: 0, trailing: true))],
+          error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(ledgerProvider))],
+          data: (list) => list.isEmpty
+              ? [LiquidGlass(child: YqEmptyState(icon: YqIcons.challenge, title: t.ledgerEmpty))]
+              : [
+                  LiquidGlass(
+                    padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
+                    child: Column(
+                      children: [
+                        for (final e in list)
+                          YqListRow(
+                            dense: true,
+                            title: reason(e.reason),
+                            subtitle: YqFormat.fullDate(e.createdAt.toLocal(), locale),
+                            trailing: Directionality(
+                              textDirection: TextDirection.ltr,
+                              child: Text(
+                                '${e.delta > 0 ? '+' : '−'}${YqFormat.number(e.delta.abs())}',
+                                style: YqText.numberSmall.copyWith(color: e.delta > 0 ? YqColors.success : YqColors.goldText),
                               ),
-                          ],
-                        ),
-                      ),
-                    ],
-            ),
-          ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
         ),
       ),
     );
@@ -512,71 +503,70 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
     final total = _sizes?.values.fold<int>(0, (a, b) => a + b) ?? 0;
     return Scaffold(
       backgroundColor: YqColors.porcelain,
-      body: AmbientBackground(
-        child: SafeArea(
-          child: YqPage(
-            header: YqTopBar(title: t.profileDownloads, subtitle: t.downloadsUsed(megabytes(t, total + _packBytes))),
-            children: [
-              ...switch (ref.watch(packsCatalogueProvider).valueOrNull) {
-                final packs? when packs.isNotEmpty => [
-                    Text(t.packsTitle, style: Theme.of(context).textTheme.titleSmall),
-                    const SizedBox(height: YqSpace.s),
-                    LiquidGlass(
-                      padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
-                      child: Column(
-                        children: [
-                          for (final p in packs)
-                            PackRow(
-                              pack: p,
-                              onRemove: () async {
-                                await ref.read(packRepositoryProvider).remove(p.id);
-                                ref.invalidate(installedPacksProvider);
-                                ref.invalidate(tafsirRepositoryProvider);
-                                ref.invalidate(downloadsBytesProvider);
-                                await _load();
-                              },
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: YqSpace.l),
-                    Text(t.downloadsAudio, style: Theme.of(context).textTheme.titleSmall),
-                    const SizedBox(height: YqSpace.s),
-                  ],
-                _ => const <Widget>[],
-              },
-              if (_sizes == null)
-                const YqSkeleton(child: YqSkeletonRows(rows: 2, leading: 40))
-              else if (_sizes!.isEmpty)
-                LiquidGlass(child: YqEmptyState(icon: YqIcons.download, title: t.downloadsNone))
-              else
-                FutureBuilder(
-                  future: ref.read(reciterRepositoryProvider).cached(),
-                  builder: (context, snap) => LiquidGlass(
-                    padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
-                    child: Column(
-                      children: [
-                        for (final r in snap.data ?? const [])
-                          if (_sizes!.containsKey(r.id))
-                            YqListRow(
-                              title: r.name(locale),
-                              subtitle: megabytes(t, _sizes![r.id]!),
-                              trailing: TextButton(
-                                onPressed: () async {
-                                  await ref.read(audioDownloadsProvider).delete(r.id);
-                                  ref.invalidate(downloadsBytesProvider);
-                                  await _load();
-                                },
-                                child: Text(t.delete),
-                              ),
-                            ),
-                      ],
-                    ),
+      body: YqCanvas(
+        stage: YqStage(
+          compact: true,
+          child: YqStageBar(back: true, title: t.profileDownloads, subtitle: t.downloadsUsed(megabytes(t, total + _packBytes))),
+        ),
+        children: [
+          ...switch (ref.watch(packsCatalogueProvider).valueOrNull) {
+            final packs? when packs.isNotEmpty => [
+                Text(t.packsTitle, style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: YqSpace.s),
+                LiquidGlass(
+                  padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
+                  child: Column(
+                    children: [
+                      for (final p in packs)
+                        PackRow(
+                          pack: p,
+                          onRemove: () async {
+                            await ref.read(packRepositoryProvider).remove(p.id);
+                            ref.invalidate(installedPacksProvider);
+                            ref.invalidate(tafsirRepositoryProvider);
+                            ref.invalidate(downloadsBytesProvider);
+                            await _load();
+                          },
+                        ),
+                    ],
                   ),
                 ),
-            ],
-          ),
-        ),
+                const SizedBox(height: YqSpace.l),
+                Text(t.downloadsAudio, style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: YqSpace.s),
+              ],
+            _ => const <Widget>[],
+          },
+          if (_sizes == null)
+            const YqSkeleton(child: YqSkeletonRows(rows: 2, leading: 40))
+          else if (_sizes!.isEmpty)
+            LiquidGlass(child: YqEmptyState(icon: YqIcons.download, title: t.downloadsNone))
+          else
+            FutureBuilder(
+              future: ref.read(reciterRepositoryProvider).cached(),
+              builder: (context, snap) => LiquidGlass(
+                padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
+                child: Column(
+                  children: [
+                    for (final r in snap.data ?? const [])
+                      if (_sizes!.containsKey(r.id))
+                        YqListRow(
+                          title: r.name(locale),
+                          subtitle: megabytes(t, _sizes![r.id]!),
+                          trailing: TextButton(
+                            onPressed: () async {
+                              await ref.read(audioDownloadsProvider).delete(r.id);
+                              ref.invalidate(downloadsBytesProvider);
+                              await _load();
+                            },
+                            child: Text(t.delete),
+                          ),
+                        ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

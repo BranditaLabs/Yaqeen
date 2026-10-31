@@ -92,7 +92,6 @@ class _AzkarScreenState extends ConsumerState<AzkarScreen> {
     return Scaffold(
       backgroundColor: YqColors.porcelain,
       body: YqCanvas(
-        bottom: YqSpace.xxl,
         stage: YqStage(
           compact: true,
           child: Column(

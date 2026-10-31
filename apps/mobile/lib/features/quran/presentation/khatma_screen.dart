@@ -269,7 +269,7 @@ class _WeekCard extends ConsumerWidget {
                   for (final (i, v) in bars.indexed)
                     Expanded(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: YqSpace.xs),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
@@ -283,9 +283,15 @@ class _WeekCard extends ConsumerWidget {
                               ),
                             ),
                             const SizedBox(height: 4),
-                            Text(
-                              _shortDay(YqFormat.weekday(Zoned.addDays(today, -(6 - i)), s.locale), s.locale),
-                              style: const TextStyle(fontSize: 10, color: YqColors.muted),
+                            // One line under every bar (shrinks at large text instead of wrapping).
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                _shortDay(YqFormat.weekday(Zoned.addDays(today, -(6 - i)), s.locale), s.locale),
+                                maxLines: 1,
+                                softWrap: false,
+                                style: const TextStyle(fontSize: 10, color: YqColors.muted),
+                              ),
                             ),
                           ],
                         ),

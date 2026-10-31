@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/gen/app_localizations.dart';
 import '../theme/tokens.dart';
+import 'floating_tab_bar.dart';
 import 'yq_button.dart';
 import 'yq_icon.dart';
 
@@ -322,7 +323,8 @@ abstract final class YqToast {
       builder: (context) => Positioned(
         left: YqSpace.gutter,
         right: YqSpace.gutter,
-        bottom: MediaQuery.paddingOf(context).bottom + 104,
+        // Above the dock, wherever it is shown.
+        bottom: FloatingTabBar.clearanceFor(Theme.of(context).platform, MediaQuery.paddingOf(context).bottom),
         child: IgnorePointer(
           child: Semantics(
             liveRegion: true,

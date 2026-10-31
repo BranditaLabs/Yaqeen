@@ -120,224 +120,223 @@ class _NotificationSettingsScreenState extends ConsumerState<NotificationSetting
 
     return Scaffold(
       body: YqCanvas(
-            bottom: YqSpace.xxl,
-            stage: YqStage(compact: true, child: YqStageBar(back: true, title: t.notifSettingsTitle)),
-            children: [
-              // Today as the reminders will play out — it rearranges as anything below changes.
-              YqHeading(t.notifTodayTitle),
-              const _TodayReminders(),
-              const SizedBox(height: YqSpace.xl),
-              // The routine first: when each habit happens drives the Home timeline and these reminders.
-              Padding(
-                padding: const EdgeInsetsDirectional.only(start: 4, bottom: YqSpace.s),
-                child: Text(t.routineSettingsTitle, style: Theme.of(context).textTheme.titleMedium),
+        stage: YqStage(compact: true, child: YqStageBar(back: true, title: t.notifSettingsTitle)),
+        children: [
+          // Today as the reminders will play out — it rearranges as anything below changes.
+          YqHeading(t.notifTodayTitle),
+          const _TodayReminders(),
+          const SizedBox(height: YqSpace.xl),
+          // The routine first: when each habit happens drives the Home timeline and these reminders.
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: 4, bottom: YqSpace.s),
+            child: Text(t.routineSettingsTitle, style: Theme.of(context).textTheme.titleMedium),
+          ),
+          HabitSlotCard(
+            habit: Habit.quran,
+            slot: s.quranSlot,
+            allowOff: false,
+            onChanged: (v) => _update((x) => x.copyWith(quranSlot: v)),
+          ),
+          if (ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.hifz)))) ...[
+            const SizedBox(height: YqSpace.m),
+            HabitSlotCard(habit: Habit.hifz, slot: s.hifzSlot, onChanged: (v) => _update((x) => x.copyWith(hifzSlot: v))),
+          ],
+          const SizedBox(height: YqSpace.m),
+          HabitSlotCard(habit: Habit.dhikr, slot: s.dhikrSlot, onChanged: (v) => _update((x) => x.copyWith(dhikrSlot: v))),
+          const SizedBox(height: YqSpace.xl),
+          YqSection(
+            title: t.notifEachPrayer,
+            child: Column(
+              children: [
+                for (final p in displayOrder) ...[
+                  if (p != displayOrder.first) const YqDivider(),
+                  YqListRow(
+                    dense: true,
+                    title: prayerLabel(t, p),
+                    trailing: _ModeChip(
+                      mode: s.alertModes[p]!,
+                      semanticLabel: t.alertModeA11y(prayerLabel(t, p), alertLabel(t, s.alertModes[p]!)),
+                      onTap: () => _cycle(p, s.alertModes[p]!),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: YqSpace.l),
+          YqSection(
+            title: t.notifVoice,
+            child: RadioGroup<AdhanVoice>(
+              groupValue: s.adhanVoice,
+              onChanged: (v) => _update((x) => x.copyWith(adhanVoice: v)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final (voice, title, detail) in [
+                    (AdhanVoice.makkah, t.voiceMakkah, t.voiceMakkahDetail),
+                    (AdhanVoice.madinah, t.voiceMadinah, null),
+                    (AdhanVoice.calm, t.voiceCalm, null),
+                    (AdhanVoice.takbir, t.voiceTakbir, t.voiceTakbirDetail),
+                  ])
+                    YqListRow(
+                      dense: true,
+                      title: title,
+                      subtitle: detail,
+                      trailing: Radio<AdhanVoice>(value: voice),
+                      onTap: () => _update((x) => x.copyWith(adhanVoice: voice)),
+                    ),
+                  if (!PluginLocalNotifier.bundledAdhan) ...[
+                    const SizedBox(height: YqSpace.s),
+                    Text(t.voicePending, style: text.bodySmall),
+                  ],
+                ],
               ),
-              HabitSlotCard(
-                habit: Habit.quran,
-                slot: s.quranSlot,
-                allowOff: false,
-                onChanged: (v) => _update((x) => x.copyWith(quranSlot: v)),
+            ),
+          ),
+          const SizedBox(height: YqSpace.l),
+          YqSection(
+            title: t.notifBefore,
+            child: Wrap(
+              spacing: YqSpace.s,
+              runSpacing: YqSpace.s,
+              children: [
+                for (final m in const [0, 5, 10, 15, 20])
+                  YqChip(
+                    label: m == 0 ? t.notifBeforeNone : t.minutesShort(m),
+                    selected: s.preReminderMinutes == m,
+                    onTap: () => _update((x) => x.copyWith(preReminderMinutes: m)),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: YqSpace.l),
+          YqSection(
+            title: t.notifOther,
+            child: Column(
+              children: [
+                toggle(t.notifMorning, t.notifMorningDetail, s.morningAzkar, (v) => _update((x) => x.copyWith(morningAzkar: v))),
+                const YqDivider(),
+                toggle(t.notifEvening, t.notifEveningDetail, s.eveningAzkar, (v) => _update((x) => x.copyWith(eveningAzkar: v))),
+                const YqDivider(),
+                toggle(t.notifKahf, t.notifKahfDetail, s.kahfFriday, (v) => _update((x) => x.copyWith(kahfFriday: v))),
+                const YqDivider(),
+                toggle(t.notifWird, t.notifWirdDetail, s.wirdMissing, (v) => _update((x) => x.copyWith(wirdMissing: v))),
+                const YqDivider(),
+                toggle(t.notifHifz, t.notifHifzDetail, s.hifzDue, (v) => _update((x) => x.copyWith(hifzDue: v))),
+              ],
+            ),
+          ),
+          // Ramadan reminders are configurable whenever the season is switched on (also in Sha'ban);
+          // they fire only on Ramadan days.
+          if (ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.ramadan)))) ...[
+            const SizedBox(height: YqSpace.l),
+            YqSection(
+              title: t.notifSectionRamadan,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  toggle(
+                    t.notifSuhoorRow,
+                    t.notifSuhoorSub(YqFormat.number(s.suhoorMinutes)),
+                    s.suhoorReminder,
+                    (v) => _update((x) => x.copyWith(suhoorReminder: v)),
+                  ),
+                  if (s.suhoorReminder)
+                    _minuteChips(
+                      const [15, 30, 45, 60],
+                      s.suhoorMinutes,
+                      (m) => _update((x) => x.copyWith(suhoorMinutes: m)),
+                      t,
+                    ),
+                  const YqDivider(),
+                  toggle(
+                    t.notifIftarRow,
+                    t.notifIftarSub(YqFormat.number(s.iftarMinutes)),
+                    s.iftarReminder,
+                    (v) => _update((x) => x.copyWith(iftarReminder: v)),
+                  ),
+                  if (s.iftarReminder)
+                    _minuteChips(
+                      const [5, 10, 15, 30],
+                      s.iftarMinutes,
+                      (m) => _update((x) => x.copyWith(iftarMinutes: m)),
+                      t,
+                    ),
+                ],
               ),
-              if (ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.hifz)))) ...[
+            ),
+          ],
+          const SizedBox(height: YqSpace.l),
+          YqSection(
+            title: t.notifChallengeSection,
+            child: Column(
+              children: [
+                // Both rows mirror the `challenge_rewards` consent bucket; offers → `store_offers`.
+                toggle(
+                  t.notifChallenge,
+                  t.notifChallengeDetail,
+                  _consents[ConsentKind.challengeRewards] ?? false,
+                  (v) => _setConsent(ConsentKind.challengeRewards, v),
+                ),
+                const YqDivider(),
+                toggle(
+                  t.notifRewards,
+                  t.notifRewardsDetail,
+                  _consents[ConsentKind.challengeRewards] ?? false,
+                  (v) => _setConsent(ConsentKind.challengeRewards, v),
+                ),
+                const YqDivider(),
+                toggle(
+                  t.notifOffers,
+                  t.notifOffersDetail,
+                  _consents[ConsentKind.storeOffers] ?? false,
+                  (v) => _setConsent(ConsentKind.storeOffers, v),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: YqSpace.l),
+          YqSection(
+            title: t.notifQuiet,
+            action: YqSwitch(value: s.quietHours, onChanged: (v) => _update((x) => x.copyWith(quietHours: v)), label: t.notifQuiet),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(t.notifQuietDetail, style: text.bodySmall),
                 const SizedBox(height: YqSpace.m),
-                HabitSlotCard(habit: Habit.hifz, slot: s.hifzSlot, onChanged: (v) => _update((x) => x.copyWith(hifzSlot: v))),
-              ],
-              const SizedBox(height: YqSpace.m),
-              HabitSlotCard(habit: Habit.dhikr, slot: s.dhikrSlot, onChanged: (v) => _update((x) => x.copyWith(dhikrSlot: v))),
-              const SizedBox(height: YqSpace.xl),
-              YqSection(
-                title: t.notifEachPrayer,
-                child: Column(
+                Row(
                   children: [
-                    for (final p in displayOrder) ...[
-                      if (p != displayOrder.first) const YqDivider(),
-                      YqListRow(
-                        dense: true,
-                        title: prayerLabel(t, p),
-                        trailing: _ModeChip(
-                          mode: s.alertModes[p]!,
-                          semanticLabel: t.alertModeA11y(prayerLabel(t, p), alertLabel(t, s.alertModes[p]!)),
-                          onTap: () => _cycle(p, s.alertModes[p]!),
-                        ),
+                    Expanded(
+                      child: YqButton.secondary(
+                        label: '${t.notifQuietFrom} ${YqFormat.minutesOfDay(s.quietStartMinutes, s.locale)}',
+                        onPressed: s.quietHours ? () => _pickQuiet(start: true) : null,
                       ),
-                    ],
+                    ),
+                    const SizedBox(width: YqSpace.m),
+                    Expanded(
+                      child: YqButton.secondary(
+                        label: '${t.notifQuietTo} ${YqFormat.minutesOfDay(s.quietEndMinutes, s.locale)}',
+                        onPressed: s.quietHours ? () => _pickQuiet(start: false) : null,
+                      ),
+                    ),
                   ],
-                ),
-              ),
-              const SizedBox(height: YqSpace.l),
-              YqSection(
-                title: t.notifVoice,
-                child: RadioGroup<AdhanVoice>(
-                  groupValue: s.adhanVoice,
-                  onChanged: (v) => _update((x) => x.copyWith(adhanVoice: v)),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (final (voice, title, detail) in [
-                        (AdhanVoice.makkah, t.voiceMakkah, t.voiceMakkahDetail),
-                        (AdhanVoice.madinah, t.voiceMadinah, null),
-                        (AdhanVoice.calm, t.voiceCalm, null),
-                        (AdhanVoice.takbir, t.voiceTakbir, t.voiceTakbirDetail),
-                      ])
-                        YqListRow(
-                          dense: true,
-                          title: title,
-                          subtitle: detail,
-                          trailing: Radio<AdhanVoice>(value: voice),
-                          onTap: () => _update((x) => x.copyWith(adhanVoice: voice)),
-                        ),
-                      if (!PluginLocalNotifier.bundledAdhan) ...[
-                        const SizedBox(height: YqSpace.s),
-                        Text(t.voicePending, style: text.bodySmall),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: YqSpace.l),
-              YqSection(
-                title: t.notifBefore,
-                child: Wrap(
-                  spacing: YqSpace.s,
-                  runSpacing: YqSpace.s,
-                  children: [
-                    for (final m in const [0, 5, 10, 15, 20])
-                      YqChip(
-                        label: m == 0 ? t.notifBeforeNone : t.minutesShort(m),
-                        selected: s.preReminderMinutes == m,
-                        onTap: () => _update((x) => x.copyWith(preReminderMinutes: m)),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: YqSpace.l),
-              YqSection(
-                title: t.notifOther,
-                child: Column(
-                  children: [
-                    toggle(t.notifMorning, t.notifMorningDetail, s.morningAzkar, (v) => _update((x) => x.copyWith(morningAzkar: v))),
-                    const YqDivider(),
-                    toggle(t.notifEvening, t.notifEveningDetail, s.eveningAzkar, (v) => _update((x) => x.copyWith(eveningAzkar: v))),
-                    const YqDivider(),
-                    toggle(t.notifKahf, t.notifKahfDetail, s.kahfFriday, (v) => _update((x) => x.copyWith(kahfFriday: v))),
-                    const YqDivider(),
-                    toggle(t.notifWird, t.notifWirdDetail, s.wirdMissing, (v) => _update((x) => x.copyWith(wirdMissing: v))),
-                    const YqDivider(),
-                    toggle(t.notifHifz, t.notifHifzDetail, s.hifzDue, (v) => _update((x) => x.copyWith(hifzDue: v))),
-                  ],
-                ),
-              ),
-              // Ramadan reminders are configurable whenever the season is switched on (also in Sha'ban);
-              // they fire only on Ramadan days.
-              if (ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.ramadan)))) ...[
-                const SizedBox(height: YqSpace.l),
-                YqSection(
-                  title: t.notifSectionRamadan,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      toggle(
-                        t.notifSuhoorRow,
-                        t.notifSuhoorSub(YqFormat.number(s.suhoorMinutes)),
-                        s.suhoorReminder,
-                        (v) => _update((x) => x.copyWith(suhoorReminder: v)),
-                      ),
-                      if (s.suhoorReminder)
-                        _minuteChips(
-                          const [15, 30, 45, 60],
-                          s.suhoorMinutes,
-                          (m) => _update((x) => x.copyWith(suhoorMinutes: m)),
-                          t,
-                        ),
-                      const YqDivider(),
-                      toggle(
-                        t.notifIftarRow,
-                        t.notifIftarSub(YqFormat.number(s.iftarMinutes)),
-                        s.iftarReminder,
-                        (v) => _update((x) => x.copyWith(iftarReminder: v)),
-                      ),
-                      if (s.iftarReminder)
-                        _minuteChips(
-                          const [5, 10, 15, 30],
-                          s.iftarMinutes,
-                          (m) => _update((x) => x.copyWith(iftarMinutes: m)),
-                          t,
-                        ),
-                    ],
-                  ),
                 ),
               ],
-              const SizedBox(height: YqSpace.l),
-              YqSection(
-                title: t.notifChallengeSection,
-                child: Column(
-                  children: [
-                    // Both rows mirror the `challenge_rewards` consent bucket; offers → `store_offers`.
-                    toggle(
-                      t.notifChallenge,
-                      t.notifChallengeDetail,
-                      _consents[ConsentKind.challengeRewards] ?? false,
-                      (v) => _setConsent(ConsentKind.challengeRewards, v),
-                    ),
-                    const YqDivider(),
-                    toggle(
-                      t.notifRewards,
-                      t.notifRewardsDetail,
-                      _consents[ConsentKind.challengeRewards] ?? false,
-                      (v) => _setConsent(ConsentKind.challengeRewards, v),
-                    ),
-                    const YqDivider(),
-                    toggle(
-                      t.notifOffers,
-                      t.notifOffersDetail,
-                      _consents[ConsentKind.storeOffers] ?? false,
-                      (v) => _setConsent(ConsentKind.storeOffers, v),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: YqSpace.l),
-              YqSection(
-                title: t.notifQuiet,
-                action: YqSwitch(value: s.quietHours, onChanged: (v) => _update((x) => x.copyWith(quietHours: v)), label: t.notifQuiet),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(t.notifQuietDetail, style: text.bodySmall),
-                    const SizedBox(height: YqSpace.m),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: YqButton.secondary(
-                            label: '${t.notifQuietFrom} ${YqFormat.minutesOfDay(s.quietStartMinutes, s.locale)}',
-                            onPressed: s.quietHours ? () => _pickQuiet(start: true) : null,
-                          ),
-                        ),
-                        const SizedBox(width: YqSpace.m),
-                        Expanded(
-                          child: YqButton.secondary(
-                            label: '${t.notifQuietTo} ${YqFormat.minutesOfDay(s.quietEndMinutes, s.locale)}',
-                            onPressed: s.quietHours ? () => _pickQuiet(start: false) : null,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: YqSpace.l),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: YqSpace.s),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const YqIcon(YqIcons.adhan, size: 16, tone: YqIconTone.idle),
-                    const SizedBox(width: YqSpace.s),
-                    Expanded(child: Text(t.notifFooter(methodLabel(t, s.method)), style: text.bodySmall)),
-                  ],
-                ),
-              ),
-            ],
+            ),
+          ),
+          const SizedBox(height: YqSpace.l),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: YqSpace.s),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const YqIcon(YqIcons.adhan, size: 16, tone: YqIconTone.idle),
+                const SizedBox(width: YqSpace.s),
+                Expanded(child: Text(t.notifFooter(methodLabel(t, s.method)), style: text.bodySmall)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

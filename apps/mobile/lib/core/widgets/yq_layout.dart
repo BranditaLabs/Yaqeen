@@ -7,6 +7,17 @@ import '../theme/typography.dart';
 import 'liquid_glass.dart';
 import 'yq_icon.dart';
 
+/// Shared screen geometry, so every screen lines up the same way.
+abstract final class YqInsets {
+  /// The page gutter on both sides (directional, so RTL and LTR match).
+  static const page = EdgeInsetsDirectional.symmetric(horizontal: YqSpace.gutter);
+
+  /// Bottom space a scrolling screen leaves under its last item: the bottom safe area plus
+  /// [extra]. Inside a tab the shell counts the floating dock as safe area (lib/app/shell.dart),
+  /// so this one value clears the dock on tab screens and the home indicator everywhere else.
+  static double bottom(BuildContext context, [double extra = YqSpace.xxl]) => MediaQuery.paddingOf(context).bottom + extra;
+}
+
 /// Back chevron that points the way back in the current text direction (right in RTL).
 class YqBackButton extends StatelessWidget {
   const YqBackButton({super.key, this.label, this.onPressed});
@@ -321,7 +332,7 @@ class YqPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       controller: controller,
-      padding: EdgeInsets.fromLTRB(YqSpace.gutter, YqSpace.s, YqSpace.gutter, bottomPadding + MediaQuery.paddingOf(context).bottom),
+      padding: YqInsets.page.add(EdgeInsetsDirectional.only(top: YqSpace.s, bottom: YqInsets.bottom(context, bottomPadding))),
       children: [if (header != null) header!, ...children],
     );
   }

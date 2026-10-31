@@ -60,7 +60,6 @@ class _HifzScreenState extends ConsumerState<HifzScreen> {
     return Scaffold(
       backgroundColor: YqColors.porcelain,
       body: YqCanvas(
-        bottom: YqSpace.xxl,
         stage: YqStage(
           compact: true,
           child: Column(

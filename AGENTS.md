@@ -58,7 +58,7 @@ touching user privacy.
   - Every screen sits on `AmbientBackground`, which follows the living sky (`core/design/living_sky.dart`). Pass
     `lights:` only for accents (`goldLights` on reward, challenge and calendar screens).
   - Every screen is a `YqCanvas`: a `YqStage` (living sky; `compact` on pushed screens, `gold` on reward screens) with a `YqStageBar` and one `YqMoment`, then up to three `YqOrb`s, then a `YqTimeline` / `YqGroup`s / lazy `slivers`. The reader and splash are the only exceptions (DESIGN_SYSTEM §3).
-  - Tab bar = the living dock (`FloatingTabBar`).
+  - Tab bar = the dock (`FloatingTabBar`: five equal slots, profile avatar as the fifth, a lapis pill that glides under the active tab). Scrolling screens clear it with `YqInsets.bottom(context)` (the shell adds the dock to the bottom safe area inside tabs) — never a hard-coded bottom padding.
   - Shadows under translucent glass go through `OuterShadow` (never a plain `BoxShadow` under a see-through fill).
   - Loading states are shaped like the content: `YqSkeletonOrbs`, `YqSkeletonRows`, `YqSkeletonText`, `YqSkeletonBox.circle`.
 - **Public card (بطاقة يقين):** opt-in; shows only switched-on fields and never worship detail (CLAUDE.md rules 1–2). Server page in `services/api/src/web/profile-page.ts` (escape every user string; https links only); app in `features/card` (journey: `journey_widgets.dart`, Profile tab `JourneySection`); physical medals/cards: `services/tags.service.ts`, `routes/admin/tags.routes.ts`, `/t/:code` in `profile.routes.ts`, app «ميدالياتي» sheet in `card_screen.dart` (the app does not write NFC); admin programme in `routes/admin/cards.routes.ts` + `services/{cards-settings,card-stats}.service.ts`, pages `apps/admin/src/app/(dash)/{cards,tags}`.

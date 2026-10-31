@@ -56,7 +56,6 @@ class RedeemScreen extends ConsumerWidget {
       backgroundColor: YqColors.porcelain,
       body: YqCanvas(
         lights: AmbientBackground.goldLights,
-        bottom: YqSpace.xxl,
         stage: YqStage(
           compact: true,
           gold: true,
@@ -346,7 +345,6 @@ class CodesScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: YqColors.porcelain,
       body: YqCanvas(
-            bottom: YqSpace.xxl,
             stage: YqStage(compact: true, child: YqStageBar(back: true, title: t.myCodes)),
             children: codes.when(
               loading: () => [const YqSkeleton(child: YqSkeletonRows(rows: 3, leading: 0))],

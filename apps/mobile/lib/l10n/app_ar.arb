@@ -1,7 +1,6 @@
 {
   "@@locale": "ar",
   "appName": "يقين",
-  "tagline": "حيث تبدأ السكينة",
   "tabHome": "الرئيسية",
   "tabQuran": "القرآن",
   "tabPrayer": "الصلاة",
@@ -47,7 +46,6 @@
   "servicesDuas": "الأدعية",
   "servicesQibla": "القبلة",
   "servicesCalendar": "التقويم",
-  "comingSoon": "قيد البناء",
   "todayTasks": "مهام اليوم",
   "balance": "الرصيد",
   "streak": "المواظبة",
@@ -75,22 +73,6 @@
   "accountRequired": "سجّل الدخول لتحفظ نقاطك",
   "redeemTitle": "استبدل نقاطك",
   "redeemCta": "استبدال",
-  "redeemCodeReady": "كودك جاهز — صالح حتى {date}",
-  "@redeemCodeReady": {
-    "placeholders": {
-      "date": {
-        "type": "String"
-      }
-    }
-  },
-  "notEnoughPoints": "يلزمك {points} نقطة",
-  "@notEnoughPoints": {
-    "placeholders": {
-      "points": {
-        "type": "String"
-      }
-    }
-  },
   "savedOffline": "حُفظ وسيُزامَن عند الاتصال",
   "retry": "إعادة المحاولة",
   "errorGeneric": "تعذّر التحميل. تحقق من الاتصال.",
@@ -123,8 +105,6 @@
   "copied": "تم النسخ",
   "copy": "نسخ",
   "share": "مشاركة",
-  "settingsTitle": "الإعدادات",
-  "notificationsTitle": "الإشعارات",
   "searchHint": "بحث",
   "clearSearch": "مسح البحث",
   "soon": "قريباً",
@@ -147,7 +127,6 @@
     }
   },
   "openSettings": "افتح الإعدادات",
-  "errorSignIn": "تعذّر تسجيل الدخول، حاول مرة أخرى",
   "prayerFajr": "الفجر",
   "prayerSunrise": "الشروق",
   "prayerDhuhr": "الظهر",
@@ -216,14 +195,6 @@
   "@prayerIn": {
     "placeholders": {
       "time": {
-        "type": "String"
-      }
-    }
-  },
-  "prayerNow": "حان وقت صلاة {prayer}",
-  "@prayerNow": {
-    "placeholders": {
-      "prayer": {
         "type": "String"
       }
     }
@@ -301,15 +272,6 @@
       }
     }
   },
-  "qiblaCardFrom": "من الشمال باتجاه {direction}",
-  "@qiblaCardFrom": {
-    "placeholders": {
-      "direction": {
-        "type": "String"
-      }
-    }
-  },
-  "qiblaOpen": "افتح بوصلة القبلة",
   "dirN": "الشمال",
   "dirNE": "الشمال الشرقي",
   "dirE": "الشرق",
@@ -347,7 +309,6 @@
   "qiblaCalibrate": "معايرة البوصلة",
   "qiblaCalibrateHint": "حرّك هاتفك على شكل الرقم 8 عدة مرات بعيداً عن المعادن والمغناطيس.",
   "qiblaNeedsCalibration": "البوصلة تحتاج معايرة",
-  "qiblaCalibrated": "البوصلة معايرة",
   "qiblaCamera": "عرض بالكاميرا",
   "qiblaNoCompass": "لا تتوفر بوصلة في هذا الجهاز. اتجاه القبلة {qibla}° من الشمال.",
   "@qiblaNoCompass": {
@@ -367,8 +328,6 @@
   },
   "locationTitle": "الموقع",
   "locationChange": "تغيير",
-  "locationAuto": "تم تحديد موقعك تلقائياً",
-  "locationManual": "اخترتها من القائمة",
   "locationUseMine": "استخدم موقعي الحالي",
   "locationSearch": "ابحث عن مدينة",
   "locationDenied": "لم نتمكن من تحديد موقعك. اختر مدينتك من القائمة.",
@@ -419,7 +378,6 @@
   },
   "notifPermissionTitle": "الإشعارات متوقفة",
   "notifPermissionBody": "فعّل الإشعارات ليصلك الأذان والتذكيرات.",
-  "notifExactAlarms": "قد تتأخر التنبيهات بضع دقائق: اسمح بالتنبيهات الدقيقة من إعدادات الهاتف.",
   "inboxTitle": "الإشعارات",
   "inboxReadAll": "قراءة الكل",
   "inboxAll": "الكل",
@@ -431,14 +389,6 @@
   "inboxEarlier": "سابقاً",
   "inboxEmpty": "لا إشعارات هنا",
   "inboxEmptyHint": "ستظهر هنا تذكيراتك وعروض المتجر",
-  "homeBellA11y": "الإشعارات، {count} غير مقروءة",
-  "@homeBellA11y": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "quranTitle": "القرآن الكريم",
   "quranListen": "الاستماع",
   "quranHifzPlan": "خطة الحفظ",
@@ -881,7 +831,6 @@
       }
     }
   },
-  "azkarReset": "إعادة العدّ",
   "azkarEmpty": "ستظهر الأذكار هنا بعد مراجعتها ونشرها",
   "contentOfflineHint": "اتصل بالإنترنت مرة واحدة لتنزيل المحتوى المراجَع",
   "azkarHaptics": "الاهتزاز مع كل عدّة",
@@ -973,7 +922,6 @@
   },
   "homeStartReading": "ابدأ القراءة",
   "homeKahfSuggestion": "الجمعة: سورة الكهف",
-  "homeStreakHint": "أكمل ورد اليوم للحفاظ عليها",
   "homeJoin": "ابدأ رحلة 365 يوماً",
   "homeJoinHint": "مهام يومية بسيطة ونقاط تُستبدل في متجر يقين",
   "servicesTitle": "الخدمات",
@@ -1007,7 +955,6 @@
   },
   "taskPrivate": "خاص بك",
   "taskAuto": "يُحتسب تلقائياً",
-  "taskOpen": "افتح",
   "tickDayClosed": "انتهى هذا اليوم، ولم تُحتسب المهمة",
   "tickQadaPassed": "انتهت مهلة القضاء لهذا اليوم",
   "tickFailed": "تعذّر احتساب المهمة الآن، سنحاول لاحقاً",
@@ -1248,7 +1195,6 @@
   "goalTwoPages": "صفحتان",
   "goalFourPages": "4 صفحات",
   "goalJuz": "جزء",
-  "goalReminder": "وقت التذكير",
   "goalChallengeEyebrow": "تحدٍّ سنوي",
   "goalJoin": "الانضمام إلى التحدي",
   "goalChallengeBody": "أكمل وردك وأذكارك وصلواتك كل يوم، واجمع النقاط لتستبدلها بخصومات حصرية في متجر يقين.",
@@ -1289,7 +1235,6 @@
   "downloadPending": "متاح بعد اعتماد المصدر المرخّص",
   "downloadStart": "ابدأ الآن",
   "downloadBackground": "يستمر التحميل في الخلفية",
-  "profileTitle": "حسابي",
   "profileLinked": "مرتبط بحساب {provider} · مزامنة مفعّلة",
   "@profileLinked": {
     "placeholders": {
@@ -1379,11 +1324,9 @@
   "packChecksumFailed": "تعذّر التحقق من الملف، لم يُثبَّت. حاول مرة أخرى.",
   "packsTitle": "الكتب والتفاسير",
   "tafsirAttribution": "التفسير الميسر · مجمع الملك فهد لطباعة المصحف الشريف · المصدر: QuranEnc.com",
-  "homeToolsTitle": "أدوات اليوم",
   "homeQiblaLive": "بوصلة مباشرة",
   "homeQiblaStatic": "من الشمال",
   "tasbeehTitle": "المسبحة",
-  "tasbeehHint": "انقر للعدّ · اضغط مطوّلاً للتصفير",
   "tasbeehRound": "الدورة {round}",
   "@tasbeehRound": {
     "placeholders": {
@@ -1402,55 +1345,12 @@
   },
   "tasbeehResetDone": "صُفّرت المسبحة",
   "homeAzkarHint": "ابدأ الآن · يُحفظ تقدّمك",
-  "homeDayProgress": "مضى {percent}٪ من الوقت حتى الأذان",
-  "@homeDayProgress": {
-    "placeholders": {
-      "percent": {
-        "type": "String"
-      }
-    }
-  },
-  "homeWirdLeft": "{count} متبقية",
-  "@homeWirdLeft": {
-    "placeholders": {
-      "count": {
-        "type": "String"
-      }
-    }
-  },
   "homeWirdDone": "اكتمل وردك",
   "dirShortN": "ش",
-  "dirShortE": "ق",
-  "dirShortS": "ج",
-  "dirShortW": "غ",
-  "homeQiblaKaaba": "الكعبة",
-  "homeContinueTitle": "تابع من حيث توقفت",
-  "homeRailPage": "البطاقة {index} من {count}",
-  "@homeRailPage": {
-    "placeholders": {
-      "index": {
-        "type": "String"
-      },
-      "count": {
-        "type": "String"
-      }
-    }
-  },
   "homeDayTitle": "يومك",
   "homeNow": "الآن",
   "homeAzkarOpen": "متاحة الآن",
   "homeNextTag": "التالية",
-  "homeDayA11y": "{name}، {time}",
-  "@homeDayA11y": {
-    "placeholders": {
-      "name": {
-        "type": "String"
-      },
-      "time": {
-        "type": "String"
-      }
-    }
-  },
   "notifDhikrTitle": "وقت ذكرك",
   "notifDhikrBody": "دقائق مع المسبحة",
   "routineTitle": "متى يناسبك؟",

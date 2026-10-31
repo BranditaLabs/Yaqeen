@@ -89,7 +89,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       backgroundColor: YqColors.porcelain,
       body: YqCanvas(
         lights: AmbientBackground.goldLights,
-        bottom: YqSpace.xxl,
         stage: YqStage(
           compact: true,
           gold: true,

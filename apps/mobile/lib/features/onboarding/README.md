@@ -2,9 +2,7 @@
 
 **Screens (design canvas):** Splash → Welcome → Language → Location → Consent → Goal → Download (canvas row "First run").
 
-**Built:** data/auth_repository.dart, data/consent_repository.dart ✅
-
-**To build:** presentation/: splash_screen, welcome_screen, language_screen, location_screen, consent_screen, goal_screen, download_screen
+**Built:** `data/` auth and consent repositories · `presentation/` splash (+ gate), welcome, language, prayer (location + method), consent, goal, routine and download steps, the sign-in sheet and the session controller.
 
 **Rule:** Consent screen writes the 4 buckets with source=onboarding. ads_measurement defaults OFF; on iOS request ATT only after the user opts in.
 

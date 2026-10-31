@@ -8,7 +8,12 @@ import '../core/widgets/yq_icon.dart';
 import '../features/onboarding/presentation/session_controller.dart';
 import '../l10n/gen/app_localizations.dart';
 
-/// Hosts the five tab branches and floats the liquid tab bar above them.
+/// Hosts the five tab branches and floats the dock ([FloatingTabBar]) above them.
+///
+/// The branches see the dock as part of the bottom safe area: `MediaQuery.padding.bottom` under
+/// the shell is the dock's clearance, so every scrolling screen inside a tab clears it through
+/// [YqInsets.bottom] (or a `SafeArea`) with no per-screen numbers. Full-screen routes on the root
+/// navigator (reader, player, recitation, Qibla, sheets) keep the plain system inset.
 class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.navigationShell});
 
@@ -19,47 +24,69 @@ class AppShell extends ConsumerWidget {
     final t = AppLocalizations.of(context);
     final session = ref.watch(sessionProvider);
     final name = session.canEarnPoints && (session.displayName?.trim().isNotEmpty ?? false) ? session.displayName!.trim() : t.guestName;
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final media = MediaQuery.of(context);
+    final platform = Theme.of(context).platform;
+    // The dock steps aside while the keyboard is up (search, notes), like the system tab bars.
+    final keyboard = media.viewInsets.bottom > 0;
+    final clearance = keyboard ? media.padding.bottom : FloatingTabBar.clearanceFor(platform, media.padding.bottom);
+    final reduceMotion = media.disableAnimations;
 
     return Scaffold(
       extendBody: true,
       body: Stack(
         children: [
-          Positioned.fill(child: navigationShell),
-          // Soft fade so content dissolves under the floating bar.
+          Positioned.fill(
+            child: MediaQuery(
+              data: media.copyWith(padding: media.padding.copyWith(bottom: clearance)),
+              child: navigationShell,
+            ),
+          ),
+          // Content dissolves softly under the floating dock.
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            height: 130 + bottomInset,
+            height: clearance + YqSpace.xl,
             child: const IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Color(0x00F3F6FB), Color(0xEBF3F6FB)],
-                    stops: [0, 0.7],
+                    colors: [Color(0x00F3F6FB), Color(0xD9F3F6FB)],
+                    stops: [0, 0.75],
                   ),
                 ),
               ),
             ),
           ),
-          Positioned(
-            left: YqSpace.gutter,
-            right: YqSpace.gutter,
-            bottom: bottomInset > 0 ? bottomInset : 26,
-            child: FloatingTabBar(
-              currentIndex: navigationShell.currentIndex,
-              onSelect: (i) => navigationShell.goBranch(i, initialLocation: i == navigationShell.currentIndex),
-              avatarInitial: String.fromCharCode(name.runes.first),
-              profileLabel: t.tabProfile,
-              tabs: [
-                YqTab(icon: YqIcons.home, label: t.tabHome),
-                YqTab(icon: YqIcons.quran, label: t.tabQuran),
-                YqTab(icon: YqIcons.prayer, label: t.tabPrayer),
-                YqTab(icon: YqIcons.challenge, label: t.tabChallenge),
-              ],
+          PositionedDirectional(
+            start: YqSpace.gutter,
+            end: YqSpace.gutter,
+            bottom: FloatingTabBar.gapFor(platform, media.padding.bottom),
+            child: IgnorePointer(
+              ignoring: keyboard,
+              child: AnimatedSlide(
+                offset: keyboard ? const Offset(0, 1.6) : Offset.zero,
+                duration: reduceMotion ? Duration.zero : YqMotion.base,
+                curve: YqMotion.ease,
+                child: AnimatedOpacity(
+                  opacity: keyboard ? 0 : 1,
+                  duration: reduceMotion ? Duration.zero : YqMotion.fast,
+                  child: FloatingTabBar(
+                    currentIndex: navigationShell.currentIndex,
+                    // Tapping the open tab again returns it to its first screen.
+                    onSelect: (i) => navigationShell.goBranch(i, initialLocation: i == navigationShell.currentIndex),
+                    tabs: [
+                      YqTab(icon: YqIcons.home, label: t.tabHome),
+                      YqTab(icon: YqIcons.quran, label: t.tabQuran),
+                      YqTab(icon: YqIcons.prayer, label: t.tabPrayer),
+                      YqTab(icon: YqIcons.challenge, label: t.tabChallenge),
+                      YqTab.avatar(initial: String.fromCharCode(name.runes.first), label: t.tabProfile),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         ],

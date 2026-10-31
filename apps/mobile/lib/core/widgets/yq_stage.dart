@@ -61,7 +61,7 @@ class YqStage extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: EdgeInsets.fromLTRB(YqSpace.gutter, top + YqSpace.m, YqSpace.gutter, compact ? YqSpace.l : YqSpace.xl),
+          padding: EdgeInsetsDirectional.fromSTEB(YqSpace.gutter, top + YqSpace.m, YqSpace.gutter, compact ? YqSpace.l : YqSpace.xl),
           // Full width, so a centred moment is centred on the stage (not on its widest line at the start edge).
           child: SizedBox(width: double.infinity, child: child),
         ),
@@ -178,7 +178,7 @@ class YqCanvas extends StatelessWidget {
     this.slivers = const [],
     this.lights,
     this.onRefresh,
-    this.bottom = 140,
+    this.bottom = YqSpace.xxl,
     this.controller,
     this.footer,
   });
@@ -191,7 +191,8 @@ class YqCanvas extends StatelessWidget {
   final List<AmbientLight>? lights;
   final Future<void> Function()? onRefresh;
 
-  /// Space under the content (the floating tab bar on tab roots; less on pushed screens).
+  /// Breathing room under the last item, on top of the bottom safe area (which already includes
+  /// the floating dock inside a tab — see [YqInsets.bottom]).
   final double bottom;
   final ScrollController? controller;
 
@@ -200,20 +201,20 @@ class YqCanvas extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const gutter = EdgeInsets.symmetric(horizontal: YqSpace.gutter);
     final scroll = CustomScrollView(
       controller: controller,
       slivers: [
         SliverToBoxAdapter(child: YqRise(order: 0, child: stage)),
         if (children.isNotEmpty)
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(YqSpace.gutter, YqSpace.xl, YqSpace.gutter, 0),
+            padding: YqInsets.page.add(const EdgeInsetsDirectional.only(top: YqSpace.xl)),
             sliver: SliverList.list(
               children: [for (var i = 0; i < children.length; i++) YqRise(order: i + 1, child: children[i])],
             ),
           ),
-        for (final s in slivers) SliverPadding(padding: gutter, sliver: s),
-        SliverToBoxAdapter(child: SizedBox(height: bottom + (footer == null ? MediaQuery.paddingOf(context).bottom : 0))),
+        for (final s in slivers) SliverPadding(padding: YqInsets.page, sliver: s),
+        // With a footer the footer's SafeArea takes the inset instead.
+        SliverToBoxAdapter(child: SizedBox(height: footer == null ? YqInsets.bottom(context, bottom) : bottom)),
       ],
     );
     final body = onRefresh == null
@@ -226,20 +227,22 @@ class YqCanvas extends StatelessWidget {
           );
     return AmbientBackground(
       lights: lights,
-      child: footer == null
-          ? body
-          : Column(
-              children: [
-                Expanded(child: body),
-                SafeArea(
-                  top: false,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(YqSpace.gutter, YqSpace.s, YqSpace.gutter, YqSpace.m),
-                    child: footer,
+      child: YqRiseScope(
+        child: footer == null
+            ? body
+            : Column(
+                children: [
+                  Expanded(child: body),
+                  SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.fromSTEB(YqSpace.gutter, YqSpace.s, YqSpace.gutter, YqSpace.m),
+                      child: footer,
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+      ),
     );
   }
 }

@@ -73,18 +73,31 @@ class YqOrb extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: YqColors.ink),
-        ),
-        Text(
-          status,
-          maxLines: 2,
-          textAlign: TextAlign.center,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: 11, height: 1.3, color: statusColor ?? YqColors.muted),
+        // The labels keep a small gutter from the neighbouring orb's, and the title stays on one
+        // line on one baseline across the row: a long title shrinks to fit instead of being cut
+        // off or pushing its status line down.
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: YqSpace.xs),
+          child: Column(
+            children: [
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: YqColors.ink),
+                ),
+              ),
+              Text(
+                status,
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 11, height: 1.3, color: statusColor ?? YqColors.muted),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -93,7 +106,7 @@ class YqOrb extends StatelessWidget {
   }
 }
 
-/// Up to three orbs, evenly spaced.
+/// Up to three orbs in equal columns (centred on 1/6, 3/6 and 5/6 of the row for three).
 class YqOrbRow extends StatelessWidget {
   const YqOrbRow({super.key, required this.orbs});
   final List<Widget> orbs;

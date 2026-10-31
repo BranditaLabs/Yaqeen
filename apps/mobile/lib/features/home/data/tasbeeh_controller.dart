@@ -14,9 +14,16 @@ class TasbeehController extends Notifier<int> {
 
   @override
   int build() {
-    ref.onDispose(() => _save?.cancel());
+    var disposed = false;
+    ref.onDispose(() {
+      disposed = true;
+      _save?.cancel();
+    });
+    final kv = ref.read(kvStoreProvider);
     Future(() async {
-      final raw = await ref.read(kvStoreProvider).read(key);
+      final raw = await kv.read(key);
+      // The provider may be gone by the time storage answers (screen closed, app torn down).
+      if (disposed) return;
       final saved = int.tryParse(raw ?? '') ?? 0;
       // A tap that landed before the load finished counts on top of what was saved.
       state = state + saved;

@@ -182,7 +182,7 @@ rather than many cards.
 ## Elevation & Depth
 
 - **Liquid glass**: fill opacity 0.58, blur 24, saturate 1.8, a white rim. Live blur only on fixed
-  chrome (the tab bar); content glass is pre-composited.
+  chrome (the dock); content glass is pre-composited.
 - Shadows paint **outside** shapes only, soft and low; no inner shadows, no stacked drop shadows.
 - Depth comes from light (the sky glow under the sun's arc position), not from heavy elevation.
 
@@ -205,8 +205,11 @@ silhouettes as decoration. Shape comes from glass, light and type.
   with the reading direction.
 - **Timeline** (`YqTimeline`): a rail of stops (done = gold check, a highlighted stop, a «now» marker).
 - **Group** (`YqGroup`): glass rows separated by hairlines.
-- **Living dock** (`FloatingTabBar`): porcelain glass, an ink lens lit by the current sky under the
-  active tab with a gold label, a hairline day thread showing the sun's position.
+- **Dock** (`FloatingTabBar`): a floating porcelain-glass capsule with five equal slots (Home, Quran,
+  Prayer, Challenge, Profile — the person's initial on a gold disc is the Profile icon). A 24-pt icon over
+  an always-visible 11-pt label; the active slot is lapis and bold over a soft lapis glass pill that glides
+  on a spring (it jumps with reduce-motion). No ornament, no indicator lines. Scrolling content clears it
+  through the bottom safe area (`YqInsets.bottom`).
 - **Skeletons**: shaped like the content they replace, one RTL-aware shimmer.
 
 ## Do's and Don'ts

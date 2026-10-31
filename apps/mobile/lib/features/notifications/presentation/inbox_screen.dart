@@ -67,7 +67,6 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
 
     return Scaffold(
       body: YqCanvas(
-        bottom: YqSpace.xxl,
         stage: YqStage(
           compact: true,
           child: Column(

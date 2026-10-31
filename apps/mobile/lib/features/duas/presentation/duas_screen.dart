@@ -59,7 +59,6 @@ class DuasScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: YqColors.porcelain,
       body: YqCanvas(
-        bottom: YqSpace.xxl,
         stage: YqStage(
           compact: true,
           child: Column(
@@ -233,7 +232,6 @@ class DuaCategoryScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: YqColors.porcelain,
       body: YqCanvas(
-        bottom: YqSpace.xxl,
         stage: YqStage(compact: true, child: YqStageBar(back: true, title: title, subtitle: t.duaCount(items.length))),
         children: [
           if (items.isEmpty) LiquidGlass(child: YqEmptyState(icon: YqIcons.dua, title: t.duaFavCount(0))),

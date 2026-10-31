@@ -14,6 +14,7 @@ import '../../core/widgets/controls.dart';
 import '../../core/widgets/liquid_glass.dart';
 import '../../core/widgets/yq_countdown.dart';
 import '../../core/widgets/yq_icon.dart';
+import '../../core/widgets/yq_layout.dart';
 import '../../core/widgets/yq_states.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../calendar/data/hijri_today.dart';
@@ -65,27 +66,29 @@ class HomeScreen extends ConsumerWidget {
           ref.invalidate(challengeControllerProvider);
           ref.invalidate(hijriTodayProvider);
         },
-        child: CustomScrollView(
-          slivers: [
-            const SliverToBoxAdapter(child: YqRise(order: 0, child: _Sky())),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(YqSpace.gutter, YqSpace.xl, YqSpace.gutter, 140),
-              sliver: SliverList.list(
-                children: [
-                  const YqRise(order: 1, child: _Complications()),
-                  const _RamadanBand(),
-                  const SizedBox(height: YqSpace.xxl),
-                  YqRise(order: 2, child: _SectionTitle(t.homeDayTitle)),
-                  const SizedBox(height: YqSpace.m),
-                  const YqRise(order: 3, child: _Journey()),
-                  const SizedBox(height: YqSpace.l),
-                  YqRise(order: 4, child: _SectionTitle(t.servicesTitle)),
-                  const SizedBox(height: YqSpace.m),
-                  const YqRise(order: 5, child: _Services()),
-                ],
+        child: YqRiseScope(
+          child: CustomScrollView(
+            slivers: [
+              const SliverToBoxAdapter(child: YqRise(order: 0, child: _Sky())),
+              SliverPadding(
+                padding: YqInsets.page.add(EdgeInsetsDirectional.only(top: YqSpace.xl, bottom: YqInsets.bottom(context))),
+                sliver: SliverList.list(
+                  children: [
+                    const YqRise(order: 1, child: _Complications()),
+                    const _RamadanBand(),
+                    const SizedBox(height: YqSpace.xxl),
+                    YqRise(order: 2, child: _SectionTitle(t.homeDayTitle)),
+                    const SizedBox(height: YqSpace.m),
+                    const YqRise(order: 3, child: _Journey()),
+                    const SizedBox(height: YqSpace.l),
+                    YqRise(order: 4, child: _SectionTitle(t.servicesTitle)),
+                    const SizedBox(height: YqSpace.m),
+                    const YqRise(order: 5, child: _Services()),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -136,8 +139,7 @@ class _Header extends ConsumerWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               switch (hijri) {
-                AsyncData(value: final h?) =>
-                  Text('${h.hijriDay} ${h.monthNameAr} ${h.hijriYear} · $place', style: text.bodySmall),
+                AsyncData(value: final h?) => Text('${h.hijriDay} ${h.monthNameAr} ${h.hijriYear} · $place', style: text.bodySmall),
                 AsyncLoading() => const YqSkeleton(child: YqSkeletonBox(width: 160, height: 12)),
                 _ => Text('${YqFormat.weekdayDayMonth(repo.local(s, now.toUtc()), s.locale)} · $place', style: text.bodySmall),
               },
@@ -241,7 +243,12 @@ class _Sky extends ConsumerWidget {
                             target: moment.at,
                             now: () => clock().toUtc(),
                             style: YqText.numeral.copyWith(
-                                fontSize: 46, fontWeight: FontWeight.w300, color: YqColors.ink, height: 1, letterSpacing: 1,),
+                              fontSize: 46,
+                              fontWeight: FontWeight.w300,
+                              color: YqColors.ink,
+                              height: 1,
+                              letterSpacing: 1,
+                            ),
                           ),
                         ),
                       ],
@@ -351,8 +358,14 @@ class _Journey extends ConsumerWidget {
         final tzName = s.placeOrDefault.timezone;
         DateTime nextPrayerAfter(DateTime t) =>
             obligatory.map(times.of).where((x) => x.isAfter(t)).firstOrNull ?? t.add(const Duration(hours: 3));
-        void habit(Habit h, RoutineSlot slot,
-            {required String title, String? subtitle, bool done = false, required VoidCallback onTap,}) {
+        void habit(
+          Habit h,
+          RoutineSlot slot, {
+          required String title,
+          String? subtitle,
+          bool done = false,
+          required VoidCallback onTap,
+        }) {
           final at = resolveSlot(slot, times, tzName);
           if (at == null) return;
           final due = !done && !instant.isBefore(at) && instant.isBefore(nextPrayerAfter(at));
@@ -429,8 +442,8 @@ class _ContinueReading extends ConsumerWidget {
     final page = kahf ? quran.surah(18).startPage : (last?.page ?? 1);
     final first = quran.firstOfPage(page);
     final surah = quran.surah(kahf ? 18 : first.surah);
-    final surahPages = (surah.number < QuranData.surahCount ? quran.surah(surah.number + 1).startPage : QuranData.pageCount + 1) -
-        surah.startPage;
+    final surahPages =
+        (surah.number < QuranData.surahCount ? quran.surah(surah.number + 1).startPage : QuranData.pageCount + 1) - surah.startPage;
     final progress = surahPages <= 0 ? 0.0 : ((page - surah.startPage + 1) / surahPages).clamp(0.0, 1.0);
     final surahName = surah.name(s.locale);
 
@@ -465,8 +478,10 @@ class _ContinueReading extends ConsumerWidget {
                       height: 1.3,
                     ),
                   ),
-                  Text(t.homeReadingMeta(surahName, page, quran.juzOf(first)),
-                      style: text.bodySmall?.copyWith(color: YqColors.gold200),),
+                  Text(
+                    t.homeReadingMeta(surahName, page, quran.juzOf(first)),
+                    style: text.bodySmall?.copyWith(color: YqColors.gold200),
+                  ),
                   const SizedBox(height: 8),
                   YqProgressLine(value: progress, color: YqColors.gold, track: const Color(0x33E9D49E)),
                 ],
