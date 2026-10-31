@@ -43,7 +43,8 @@ class LastRead {
   final DateTime at;
 }
 
-/// Bookmarks, last read page and today's wird — on the device only, never synced (spec §6.13).
+/// Bookmarks, last read page, today's wird, notes, stats and khatma — device first; optional
+/// encrypted cloud backup (consent `cloud_backup`, spec §6.13; see features/backup).
 class ReadingRepository {
   ReadingRepository(this.store);
   final LocalStore store;
@@ -58,6 +59,19 @@ class ReadingRepository {
     _tail = next.then((_) {}, onError: (Object _) {});
     return next;
   }
+
+  /// Cloud backup: copies of whole fields of the reading document, taken in the write queue.
+  Future<Map<String, dynamic>> backupFields(List<String> keys) => _serial(() async {
+        final d = await _doc();
+        return {for (final k in keys) k: d[k]};
+      });
+
+  /// Cloud backup: replaces whole fields (already merged with this device's copy), in the write queue.
+  Future<void> restoreFields(Map<String, dynamic> fields) => _serial(() async {
+        final d = await _doc();
+        d.addAll(fields);
+        await store.write('reading', d);
+      });
 
   Future<void> _put(String key, Object? value) async {
     final d = await _doc();

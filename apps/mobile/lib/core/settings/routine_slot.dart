@@ -3,7 +3,8 @@ import '../../features/prayer/domain/prayer_calculator.dart';
 enum SlotKind { afterPrayer, at, off }
 
 /// When a daily habit happens (spec §5.2 routine step): a few minutes after a prayer, at a set
-/// time, or not at all. Kept on the device only — never synced (worship timing is private).
+/// time, or not at all. Device first; optional encrypted cloud
+/// backup (consent `cloud_backup`) — never in analytics or admin views (worship timing is private).
 class RoutineSlot {
   const RoutineSlot._(this.kind, this.prayer, this.minutes);
 

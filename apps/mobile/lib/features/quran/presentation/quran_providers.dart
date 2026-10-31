@@ -5,7 +5,8 @@ import '../domain/annotations.dart';
 import '../domain/khatma.dart';
 import '../domain/reading_stats.dart';
 
-/// Highlights and notes the reader paints (device only).
+/// Highlights and notes the reader paints — device first; optional encrypted cloud backup (consent
+/// `cloud_backup`).
 final annotationsProvider = FutureProvider.autoDispose<Annotations>((ref) => ref.watch(readingRepositoryProvider).annotations());
 
 /// The active khatma plan, if any.

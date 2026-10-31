@@ -5,7 +5,8 @@ import '../../notifications/presentation/reminders_controller.dart';
 import '../domain/hifz_plan.dart';
 import '../domain/review_scheduler.dart';
 
-/// Device-only hifz state (spec §5.25). Every change re-plans the «مراجعة مستحقة» local reminders.
+/// Hifz state, device first; optional encrypted cloud backup (consent `cloud_backup`, spec §5.25).
+/// Every change re-plans the «مراجعة مستحقة» local reminders.
 class HifzController extends AsyncNotifier<HifzPlan?> {
   @override
   Future<HifzPlan?> build() => ref.read(hifzRepositoryProvider).load();

@@ -1,7 +1,8 @@
 import 'quran_data.dart';
 
 /// A khatma plan (spec §5.30): read the whole mushaf by a date, or at a steady pace. Pages count
-/// when the reader has shown them for the wird threshold (20 s), in any order. Device only.
+/// when the reader has shown them for the wird threshold (20 s), in any order. Device first;
+/// optional encrypted cloud backup (consent `cloud_backup`).
 class Khatma {
   const Khatma({
     required this.startedOn,

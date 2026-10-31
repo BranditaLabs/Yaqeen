@@ -55,6 +55,12 @@ import '../platform/nfc_service.dart';
 
 final kvStoreProvider = Provider<KvStore>((_) => throw UnimplementedError('Override kvStoreProvider in main()'));
 final secureStoreProvider = Provider<KvStore>((_) => SecureKvStore());
+
+/// Keys written to [kvStoreProvider] — empty unless main() wraps it in an [ObservableKvStore].
+final kvChangesProvider = Provider<Stream<String>>((ref) {
+  final kv = ref.watch(kvStoreProvider);
+  return kv is ObservableKvStore ? kv.changes : const Stream.empty();
+});
 final localStoreProvider = Provider((ref) => LocalStore(ref.watch(kvStoreProvider)));
 
 /// Injectable clock (tests pin "now").

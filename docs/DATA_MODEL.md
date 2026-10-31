@@ -14,6 +14,7 @@ erDiagram
   users ||--o{ points_ledger : earns-spends
   users ||--o{ redemptions : redeems
   users ||--o| public_profiles : "public card"
+  users ||--o{ user_backups : "opt-in cloud backup"
   rewards ||--o{ redemptions : "issued as"
   campaigns ||--o{ campaign_deliveries : "sent to"
   users ||--o{ campaign_deliveries : receives
@@ -35,6 +36,7 @@ erDiagram
 | `task_completions` | Unique `(user, date, task)` and `(user, client_event_id)`. `is_qada` for make-ups. |
 | `points_ledger` | **Append-only.** Unique `(user, ref_key)` makes awards idempotent. `ref_key` patterns: `YYYY-MM-DD:task:<task>`, `YYYY-MM-DD:bonus:<kind>`, `milestone:<days>`, `grant:<grantId>`, `redemption:<id>`, `reversal:redemption:<id>`, `admin:<adminId>:<uuid>`. |
 | `public_profiles` | Opt-in «بطاقة يقين» (NFC/QR). Unique lower-case `handle`; `published` false by default and set false on an erasure request or by support; the row is deleted by the erasure purge (handle freed); `links`/`show` JSON; `views` = human page opens (a counter, no visitor data); `moderated_at`/`moderation_reason` = hidden by support until restored. The page computes level (lifetime points), streak and badges (`milestone:*` ledger rows) at read time; the journey timeline is derived the same way (no new table). |
+| `user_backups` | Opt-in cloud backup (consent `cloud_backup`, migration 0013 adds the enum value, 0014 the table). PK `(user_id, kind)`, `kind` from the closed list `BACKUP_KINDS`; `blob` = the JSON document sealed with AES-256-GCM under `BACKUP_SECRETS_KEY` (`enc:v1:<iv>.<tag>.<ct>`, plaintext only in dev/test without a key), ≤ 256 KB per kind; `version` (1 on the first write, +1 per accepted PUT — optimistic concurrency); `device_id` (random per install, which phone wrote last); `updated_at`. FK to `users` on delete cascade; deleted explicitly when the consent is withdrawn and by the erasure purge (users are tombstoned, not deleted). Read only by `/v1/me/backup*` and the user's own export — never by admin routes, aggregates or analytics. |
 | `product_events` | Consented product analytics: `anon_id` (random per install — **no user id column**), `name` (closed list), `props` (closed values), `platform`, `app_version`, `locale`, `occurred_at`. Purged after 180 days by the purge job. Migration 0009 also adds `product_analytics` to `consent_kind`. |
 | `tag_batches` | A production run: `batch` PK, `kind`, `status` ordered·received·on_sale·void, `note`, `created_by`. Migration 0008 back-fills earlier batches as `on_sale`. |
 | `card_daily_stats` | `(date, metric)` → `value`: Cairo-day counters of the card programme (page_open, tag_scan, activation_open, get_app, store_click, card_published, tag_activated). Numbers only. |

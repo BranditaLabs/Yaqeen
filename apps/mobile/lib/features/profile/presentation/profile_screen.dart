@@ -26,6 +26,7 @@ import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_layout.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
+import '../../backup/presentation/backup_widgets.dart';
 import '../../card/presentation/journey_widgets.dart';
 import '../../challenge/presentation/challenge_controller.dart';
 import '../../content/presentation/pack_row.dart';
@@ -330,7 +331,8 @@ class ProfileScreen extends ConsumerWidget {
       false;
 }
 
-/// «الخصوصية والموافقات» — the same five switches as onboarding, recorded with source `settings`.
+/// «الخصوصية والموافقات» — the same five switches as onboarding, recorded with source `settings`, then
+/// the opt-in cloud backup (signed-in accounts only).
 class PrivacyScreen extends ConsumerStatefulWidget {
   const PrivacyScreen({super.key});
 
@@ -398,6 +400,8 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
               ),
               const SizedBox(height: YqSpace.m),
               Text(t.consentPrivacyNote, style: text.bodySmall?.copyWith(color: YqColors.success)),
+              const SizedBox(height: YqSpace.l),
+              const BackupSection(),
             ],
           ),
         ),

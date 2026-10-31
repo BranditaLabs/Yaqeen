@@ -158,7 +158,8 @@ class AppSettings {
   final int wirdGoalPages;
 
   /// The daily routine (routine step, spec §5.2): when the user reads Quran, reviews hifz and
-  /// does a dhikr session. Drives the Home timeline and the local reminders. Device-only.
+  /// does a dhikr session. Drives the Home timeline and the local reminders. Device first; optional
+  /// encrypted cloud backup (consent `cloud_backup`).
   final RoutineSlot quranSlot;
   final RoutineSlot hifzSlot;
   final RoutineSlot dhikrSlot;

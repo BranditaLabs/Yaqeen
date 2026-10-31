@@ -23,11 +23,14 @@ Base URL: `API_URL` (local `http://localhost:4000`). JSON only. Schemas: `packag
 | GET | `/v1/daily-task?date` | — | مهمة اليوم |
 | GET | `/v1/me` | user | Profile + settings |
 | PATCH | `/v1/me/settings` | user | Partial `UserSettings` |
-| GET · PUT | `/v1/me/consents` | user | 4 buckets; PUT records an immutable consent event |
+| GET · PUT | `/v1/me/consents` | user | Buckets `worship_reminders`, `challenge_rewards`, `store_offers`, `ads_measurement`, `product_analytics`, `cloud_backup`; PUT records an immutable consent event. Granting `cloud_backup` needs a full account (`account_required` for guests); withdrawing it deletes the user's backups in the same transaction |
 | POST | `/v1/me/devices` | user | Register/refresh FCM token |
 | GET | `/v1/me/ledger` · `/v1/me/redemptions` | user | Points history · issued codes |
 | POST | `/v1/me/campaigns/:id/opened` | user | Push opened; idempotent (`{counted}`), feeds open rate |
-| GET | `/v1/me/export` | user | PDPL data access — everything held about the user |
+| GET | `/v1/me/export` | user | PDPL data access — everything held about the user, including `backups[]` (the cloud backup, opened). The admin export never includes backups |
+| GET | `/v1/me/backup` | user (not guest, `cloud_backup` granted) | Cloud backup manifest `{kinds: [{kind, version, updatedAt}]}` — never the content. See › Cloud backup |
+| GET | `/v1/me/backup/:kind` | same | `{kind, version, updatedAt, data}`; 404 when that kind was never written |
+| PUT | `/v1/me/backup/:kind` | same (60/min) | `{baseVersion, data, deviceId?}` → `{version, updatedAt}`. Optimistic concurrency: `baseVersion` must equal the current version (0 = none yet), else 409 `backup_conflict` with the current document in `details`; the app merges and retries |
 | GET · PUT | `/v1/me/public-profile` | user (PUT: not guest) | «بطاقة يقين» settings: handle, name, bio, ≤ 8 links, visibility switches, theme; GET returns a suggested draft before the first save, plus `url` and `views`. Errors `handle_taken` (409), `handle_reserved`, `account_required` |
 | GET | `/v1/me/public-profile/available?handle=` | user | `{available}` |
 | GET | `/go/store?src=card·medal·missing&ref=` | — | The card page's shop button: counts the click, 302 to the store (admin link or `STORE_URL`) with UTM |
@@ -119,6 +122,15 @@ Roles: `super_admin` (always allowed), `content_editor`, `religious_reviewer`, `
 | DELETE | `/admin/tags/batches/:batch/encode-sessions/:id` | marketing | Revoke at once (204), audited `tags.encode_session.revoke` |
 | POST | `/admin/users/:id/public-profile/unpublish` | support | Hide a user's public card (`{reason}`), audited. The user detail includes `publicProfile {handle, published, views, url}` |
 
+## Cloud backup
+
+Opt-in (consent `cloud_backup`, off by default, signed-in accounts only) copy of the user's device-first progress — spec §6.13, docs/SECURITY_PRIVACY.md rule 8.
+
+- **Kinds** (closed list, contracts `BACKUP_KINDS`): `quran_reading` (last page, bookmarks, today's wird, reading stats), `quran_notes` (highlights, notes), `khatma` (plan + history), `hifz`, `azkar` (today's counts, favourite duas), `listen` (reciter, position, today's listening time), `routine` (three routine slots), `ramadan` (log per Hijri year), `tasbeeh`. Anything else is 400 `validation_failed`.
+- `data` is a JSON object of at most 256 KB (UTF-8, `BACKUP_MAX_BYTES`), else 413 `backup_too_large`. It is opaque to the server and sealed with AES-256-GCM (`BACKUP_SECRETS_KEY`) before storage.
+- Errors: 403 `backup_off` (consent not granted), 403 `account_required` (guest), 409 `backup_conflict` (`details` = `{kind, version, updatedAt, data}` or null), 413 `backup_too_large`.
+- Withdrawing the consent (`PUT /v1/me/consents {kind: cloud_backup, granted: false}`) and the erasure purge delete every row. No admin route reads backups.
+
 ## Common error codes
 
-`validation_failed` · `unauthorized` · `invalid_token` · `role_not_allowed` · `account_required` · `account_suspended` · `not_enrolled` · `future_date` · `before_enrollment` · `outside_qada_window` · `already_completed` · `task_inactive` · `insufficient_points` · `reward_out_of_stock` · `shopify_unavailable` · `not_a_guest` · `no_test_devices` · `push_not_configured` · `use_splash_verse_endpoint` · `user_reward_limit_reached` · `bonus_not_eligible` · `bonus_already_claimed` · `cannot_review_own_edit` · `not_pending_review` · `invalid_total` · `duplicate_task` · `use_program_endpoint` · `hijri_invalid_sequence` · `copy_issues`
+`validation_failed` · `unauthorized` · `invalid_token` · `role_not_allowed` · `account_required` · `account_suspended` · `not_enrolled` · `future_date` · `before_enrollment` · `outside_qada_window` · `already_completed` · `task_inactive` · `insufficient_points` · `reward_out_of_stock` · `shopify_unavailable` · `not_a_guest` · `no_test_devices` · `push_not_configured` · `use_splash_verse_endpoint` · `user_reward_limit_reached` · `bonus_not_eligible` · `bonus_already_claimed` · `cannot_review_own_edit` · `not_pending_review` · `invalid_total` · `duplicate_task` · `use_program_endpoint` · `hijri_invalid_sequence` · `copy_issues` · `backup_off` · `backup_conflict` · `backup_too_large`

@@ -69,7 +69,8 @@ class HifzPortion {
       );
 }
 
-/// Whole hifz state — device only (spec §5.25 rule; no sync, no analytics).
+/// Whole hifz state — device first; optional encrypted cloud backup (consent `cloud_backup`). Spec
+/// §5.25: no analytics.
 class HifzPlan {
   const HifzPlan({required this.goal, required this.perDay, this.portions = const [], this.activeDays = const {}});
 

@@ -29,7 +29,8 @@ final ramadanDaysProvider = FutureProvider.autoDispose<List<RamadanDay>>((ref) a
   return ref.read(ramadanRepositoryProvider).month(status.ramadanYear, today, personalOffset: s.hijriOffsetDays, regionalOffset: regional);
 });
 
-/// The month's tracker (fasts, taraweeh, khatma) — device only. Ticking today's fast or taraweeh,
+/// The month's tracker (fasts, taraweeh, khatma) — device first; optional encrypted cloud backup
+/// (consent `cloud_backup`). Ticking today's fast or taraweeh,
 /// or a juz, also claims the matching bonus when the admin has enabled it; un-ticking never takes
 /// points back (the ledger is append-only).
 class RamadanLogController extends AutoDisposeAsyncNotifier<RamadanLog> {

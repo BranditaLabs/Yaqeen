@@ -3,7 +3,8 @@ import 'quran_data.dart';
 /// Colours for bookmarks and highlights — brand tokens only (gold, lapis, sky, success).
 enum MarkColor { gold, lapis, sky, green }
 
-/// A private note on an ayah (device only, never synced — spec §6.13).
+/// A private note on an ayah — device first; optional encrypted cloud backup (consent `cloud_backup`,
+/// spec §6.13).
 class AyahNote {
   const AyahNote({required this.ref, required this.text, required this.at});
   final AyahRef ref;

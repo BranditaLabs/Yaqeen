@@ -2,6 +2,8 @@ import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { FastifyPluginAsync } from 'fastify';
 import {
+  BackupKind,
+  BackupPutRequest,
   type ConsentKind,
   ConsentKind as ConsentKindSchema,
   ClaimTagRequest,
@@ -28,11 +30,12 @@ import {
   users,
 } from '../../db/schema.js';
 import type { Db } from '../../db/client.js';
-import { notFound } from '../../lib/errors.js';
+import { forbidden, notFound } from '../../lib/errors.js';
 import { userId } from '../../plugins/auth.js';
 import * as profile from '../../services/profile.service.js';
 import * as tags from '../../services/tags.service.js';
 import * as analytics from '../../services/product-analytics.service.js';
+import * as backup from '../../services/backup.service.js';
 
 /** Bump when the privacy policy text changes; stored with every consent event. */
 export const POLICY_VERSION = '2026-10-01';
@@ -108,10 +111,17 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
     return out;
   });
 
-  /** Each change is stored as current state + an immutable event (PDPL evidence). */
+  /**
+   * Each change is stored as current state + an immutable event (PDPL evidence). Withdrawing
+   * `cloud_backup` deletes the server copy in the same transaction; a guest can't grant it.
+   */
   app.put('/consents', async (req) => {
     const body = ConsentUpdate.parse(req.body);
     const uid = userId(req);
+    if (body.kind === 'cloud_backup' && body.granted) {
+      const [u] = await db.select({ isGuest: users.isGuest }).from(users).where(eq(users.id, uid));
+      if (!u || u.isGuest) throw forbidden('account_required', 'Sign in with Google or Apple to use cloud backup');
+    }
     await db.transaction(async (tx) => {
       await tx
         .insert(consents)
@@ -127,8 +137,24 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
         source: body.source,
         policyVersion: POLICY_VERSION,
       });
+      if (body.kind === 'cloud_backup' && !body.granted) await backup.wipe(tx, [uid]);
     });
     return { ok: true };
+  });
+
+  /* -------------------------------------------- opt-in cloud backup (consent cloud_backup) */
+
+  /** Which kinds the server holds, with their versions — never the content. */
+  app.get('/backup', async (req) => backup.manifest(app.ctx, userId(req)));
+
+  app.get('/backup/:kind', async (req) => {
+    const { kind } = z.object({ kind: BackupKind }).parse(req.params);
+    return backup.get(app.ctx, userId(req), kind);
+  });
+
+  app.put('/backup/:kind', { bodyLimit: 512 * 1024, config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (req) => {
+    const { kind } = z.object({ kind: BackupKind }).parse(req.params);
+    return backup.put(app.ctx, userId(req), kind, BackupPutRequest.parse(req.body));
   });
 
   app.post('/devices', async (req) => {
@@ -212,7 +238,13 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
 
   /** PDPL right of access: everything we hold about the user, as JSON. */
   app.get('/export', async (req) => {
-    return { exportedAt: app.ctx.now().toISOString(), ...(await exportUser(db, userId(req), { includeWorship: true })) };
+    const uid = userId(req);
+    return {
+      exportedAt: app.ctx.now().toISOString(),
+      ...(await exportUser(db, uid, { includeWorship: true })),
+      // The opt-in cloud backup, opened — only here, never in the admin export.
+      backups: await backup.exportFor(app.ctx, uid),
+    };
   });
 
   /**

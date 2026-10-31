@@ -2195,5 +2195,28 @@
   "encodeErrNetwork": "The chip was written but couldn't be saved. Check the connection and try again.",
   "encodeRetrySave": "Save again",
   "nfcFailed": "That didn't work, try again",
-  "nfcSuccess": "Done"
+  "nfcSuccess": "Done",
+  "backupTitle": "Cloud backup",
+  "backupDetail": "An encrypted copy of your personal progress that comes back on a new phone: reading, bookmarks, notes, khatma, hifz, azkar, routine, Ramadan and tasbeeh. Only you can see it; it's never used for analytics or ads, and it's deleted from our servers when you turn this off. Downloads aren't included.",
+  "backupGuest": "Sign in with Google or Apple to turn this on",
+  "backupLast": "Last backed up {when}",
+  "@backupLast": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "backupNever": "Not backed up yet",
+  "backupSyncing": "Backing up…",
+  "backupOffline": "Offline — backs up when you're connected",
+  "backupNow": "Back up now",
+  "backupOffTitle": "Turn off cloud backup?",
+  "backupOffBody": "This deletes the copy on our servers. Everything on this phone stays as it is.",
+  "backupOffCta": "Turn off and delete",
+  "backupRestoreTitle": "You have a backup",
+  "backupRestoreBody": "We found a copy of your progress on your account. Restore it on this phone? It's merged with what's here — nothing is deleted.",
+  "backupRestoreCta": "Restore",
+  "backupNotNow": "Not now",
+  "backupRestored": "Restored"
 }

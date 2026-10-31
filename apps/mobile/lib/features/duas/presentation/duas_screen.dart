@@ -27,7 +27,7 @@ String duaCategoryLabel(AppLocalizations t, DuaCategory c) => switch (c) {
       DuaCategory.general => t.duaCatGeneral,
     };
 
-/// Favourite duas — on the device only.
+/// Favourite duas — device first; optional encrypted cloud backup (consent `cloud_backup`).
 class FavouritesController extends AsyncNotifier<Set<String>> {
   @override
   Future<Set<String>> build() => ref.read(azkarStoreProvider).favourites();

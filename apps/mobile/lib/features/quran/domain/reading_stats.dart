@@ -1,7 +1,7 @@
 import 'package:yaqeen/core/time/zoned.dart';
 
-/// Reading time and pages per day (spec §5.11 «إحصاءات القراءة») — device only. A page view counts
-/// at most [maxSecondsPerView] so a phone left open on a page doesn't inflate the time.
+/// Reading time and pages per day (spec §5.11 «إحصاءات القراءة») — device first; optional encrypted
+/// cloud backup (consent `cloud_backup`). A page view counts at most [maxSecondsPerView] so a phone left open on a page doesn't inflate the time.
 class ReadingStats {
   const ReadingStats(this.days);
 

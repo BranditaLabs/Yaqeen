@@ -64,7 +64,10 @@ Future<void> _start() async {
 
   // Everything the first frame needs is read from the device — no network, no plugin set-up on the
   // critical path, and every step time-boxed with a safe fallback (lib/app/bootstrap.dart).
-  final KvStore kv = await Boot.step<KvStore>('prefs', () async => PrefsKvStore(await SharedPreferences.getInstance()), MemoryKvStore());
+  // Observable so the opt-in cloud backup (features/backup) hears which collection changed.
+  final KvStore kv = ObservableKvStore(
+    await Boot.step<KvStore>('prefs', () async => PrefsKvStore(await SharedPreferences.getInstance()), MemoryKvStore()),
+  );
   final secure = SecureKvStore();
   final tokens = TokenStore(secure);
   final api = ApiClient(baseUrl: Env.apiBaseUrl, tokens: tokens);
