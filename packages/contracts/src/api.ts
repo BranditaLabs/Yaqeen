@@ -3,6 +3,7 @@ import {
   AdminRole,
   AsrSchool,
   AuthProvider,
+  BackupKind,
   BonusKind,
   CampaignKind,
   CampaignSchedule,
@@ -585,3 +586,35 @@ export const ProductAnalyticsReport = z.object({
   versions: z.array(z.object({ version: z.string(), installs: z.number().int().nullable() })),
 });
 export type ProductAnalyticsReport = z.infer<typeof ProductAnalyticsReport>;
+
+/* ------------------------------------------------------------ cloud backup */
+
+/** Largest document per kind, as UTF-8 JSON bytes (the API answers 413 `backup_too_large`). */
+export const BACKUP_MAX_BYTES = 256 * 1024;
+
+/** GET /v1/me/backup — what the server holds; never the content. */
+export const BackupManifest = z.object({
+  kinds: z.array(z.object({ kind: BackupKind, version: z.number().int().min(1), updatedAt: z.string() })),
+});
+export type BackupManifest = z.infer<typeof BackupManifest>;
+
+/** GET /v1/me/backup/:kind, and the `details` of a 409 `backup_conflict`. */
+export const BackupDocument = z.object({
+  kind: BackupKind,
+  version: z.number().int().min(1),
+  updatedAt: z.string(),
+  data: z.record(z.string(), z.unknown()),
+});
+export type BackupDocument = z.infer<typeof BackupDocument>;
+
+/**
+ * PUT /v1/me/backup/:kind — optimistic concurrency: `baseVersion` is the version the client merged
+ * from (0 = none yet). A stale one answers 409 `backup_conflict` with the current document.
+ */
+export const BackupPutRequest = z.object({
+  baseVersion: z.number().int().min(0),
+  data: z.record(z.string(), z.unknown()),
+  /** Random per-install id, only to tell the user which phone wrote last. */
+  deviceId: z.string().max(64).optional(),
+});
+export type BackupPutRequest = z.infer<typeof BackupPutRequest>;

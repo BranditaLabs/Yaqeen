@@ -119,7 +119,8 @@ class FastMoment {
   }
 }
 
-/// The month's personal tracker — on this device only (worship data never leaves it, spec §6.13).
+/// The month's personal tracker — device first, with an optional encrypted cloud backup (consent
+/// `cloud_backup`); never in analytics or admin views (spec §6.13).
 class RamadanLog {
   const RamadanLog({this.fasted = const {}, this.taraweeh = const {}, this.juz = const {}});
 

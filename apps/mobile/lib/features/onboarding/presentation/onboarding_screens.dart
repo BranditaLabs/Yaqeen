@@ -620,7 +620,7 @@ class ConsentStep extends ConsumerStatefulWidget {
 
 class _ConsentStepState extends ConsumerState<ConsentStep> {
   late final Map<ConsentKind, bool> _values = {
-    for (final k in ConsentKind.values)
+    for (final k in onboardingConsents)
       k: ref.read(consentRepositoryProvider).decided ? ref.read(consentRepositoryProvider).granted(k) : consentDefaults[k]!,
   };
   bool _busy = false;

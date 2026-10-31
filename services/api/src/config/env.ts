@@ -20,6 +20,8 @@ const EnvSchema = z.object({
   ADMIN_JWT_SECRET: z.string().min(32).default('dev-only-admin-secret-change-me-dev-only'),
   /** 32 random bytes, base64 — seals admin TOTP secrets at rest (AES-256-GCM). Keep it in the secret manager. */
   ADMIN_SECRETS_KEY: z.string().default(''),
+  /** 32 random bytes, base64 — seals the users' opt-in cloud backups at rest (AES-256-GCM). A separate key from ADMIN_SECRETS_KEY. */
+  BACKUP_SECRETS_KEY: z.string().default(''),
   CORS_ORIGINS: csv,
   GOOGLE_CLIENT_IDS: csv,
   APPLE_CLIENT_IDS: csv,
@@ -99,6 +101,9 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   }
   if (env.NODE_ENV === 'production' && !env.ADMIN_SECRETS_KEY) {
     throw new Error('ADMIN_SECRETS_KEY must be set in production (openssl rand -base64 32)');
+  }
+  if (env.NODE_ENV === 'production' && !env.BACKUP_SECRETS_KEY) {
+    throw new Error('BACKUP_SECRETS_KEY must be set in production (openssl rand -base64 32)');
   }
   return env;
 }

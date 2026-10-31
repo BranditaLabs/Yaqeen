@@ -3,13 +3,16 @@ import 'dart:convert';
 import '../../../core/network/api_client.dart';
 import '../../../core/storage/kv_store.dart';
 
-/// The five consent buckets (Egypt PDPL 151/2020: explicit, specific, revocable).
+/// The consent buckets (Egypt PDPL 151/2020: explicit, specific, revocable). `cloudBackup` is the
+/// opt-in encrypted copy of personal progress — signed-in accounts only, set from Privacy (never in
+/// onboarding), and withdrawing it deletes the server copy.
 enum ConsentKind {
   worshipReminders('worship_reminders'),
   challengeRewards('challenge_rewards'),
   storeOffers('store_offers'),
   adsMeasurement('ads_measurement'),
-  productAnalytics('product_analytics');
+  productAnalytics('product_analytics'),
+  cloudBackup('cloud_backup');
 
   const ConsentKind(this.wire);
   final String wire;
@@ -24,7 +27,17 @@ const consentDefaults = {
   ConsentKind.storeOffers: false,
   ConsentKind.adsMeasurement: false,
   ConsentKind.productAnalytics: false,
+  ConsentKind.cloudBackup: false,
 };
+
+/// The kinds the onboarding consent step asks about (cloud backup needs an account, so it lives in Privacy).
+const onboardingConsents = [
+  ConsentKind.worshipReminders,
+  ConsentKind.challengeRewards,
+  ConsentKind.storeOffers,
+  ConsentKind.adsMeasurement,
+  ConsentKind.productAnalytics,
+];
 
 /// Consents are stored locally first (they gate analytics immediately, even offline) and synced
 /// to the server, which keeps the legal record. Every change is an event; events that could not
@@ -78,6 +91,22 @@ class ConsentRepository {
       ]),
     );
     await syncAll();
+  }
+
+  /// Takes the server's answer without recording a new event — the decision was already recorded
+  /// (on another phone, or the server refused it). Used by the cloud backup only.
+  Future<void> adopt(ConsentKind kind, bool value) async {
+    _cache = {..._cache, kind: value};
+    await store.write(_key, jsonEncode({for (final e in _cache.entries) e.key.wire: e.value}));
+  }
+
+  /// A change of [kind] is still waiting to reach the server (offline).
+  Future<bool> pending(ConsentKind kind) async => (await _pending()).any((e) => e['kind'] == kind.wire);
+
+  /// The server's current answers (`GET /v1/me/consents`); throws when offline.
+  Future<Map<ConsentKind, bool>> fetchServer() async {
+    final m = ((await api.get('/v1/me/consents')) as Map).cast<String, dynamic>();
+    return {for (final k in ConsentKind.values) k: m[k.wire] == true};
   }
 
   Future<void> markDecided() async {

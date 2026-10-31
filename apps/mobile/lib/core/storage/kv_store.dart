@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -43,4 +45,29 @@ class MemoryKvStore implements KvStore {
   Future<void> write(String key, String value) async => data[key] = value;
   @override
   Future<void> delete(String key) async => data.remove(key);
+}
+
+/// Wraps a store and announces every key written or deleted — the opt-in cloud backup watches it
+/// to know which device-first collection changed, without touching the stores themselves.
+/// Events are delivered synchronously, during the write.
+class ObservableKvStore implements KvStore {
+  ObservableKvStore(this._inner);
+  final KvStore _inner;
+  final _changes = StreamController<String>.broadcast(sync: true);
+
+  Stream<String> get changes => _changes.stream;
+
+  @override
+  Future<String?> read(String key) => _inner.read(key);
+  @override
+  Future<void> write(String key, String value) async {
+    await _inner.write(key, value);
+    _changes.add(key);
+  }
+
+  @override
+  Future<void> delete(String key) async {
+    await _inner.delete(key);
+    _changes.add(key);
+  }
 }

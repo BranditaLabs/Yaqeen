@@ -37,6 +37,7 @@ export const consentKind = pgEnum('consent_kind', [
   'store_offers',
   'ads_measurement',
   'product_analytics',
+  'cloud_backup',
 ]);
 export const taskKey = pgEnum('task_key', [
   'wird',
@@ -313,6 +314,29 @@ export const consentEvents = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index('consent_events_user_idx').on(t.userId, t.createdAt)],
+);
+
+/**
+ * Opt-in cloud backup of the user's personal progress (consent `cloud_backup`, signed-in accounts
+ * only): one document per kind (contracts `BACKUP_KINDS`), sealed with AES-256-GCM under
+ * BACKUP_SECRETS_KEY. Only the user reads it (GET /v1/me/backup, /v1/me/export); no admin route,
+ * aggregate, analytics or ad sink touches it. Withdrawing the consent or erasure deletes the rows.
+ */
+export const userBackups = pgTable(
+  'user_backups',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    /** "enc:v1:<iv>.<tag>.<ciphertext>" — the JSON document, never stored in the clear in production. */
+    blob: text('blob').notNull(),
+    /** Optimistic-concurrency counter: 1 on the first write, +1 on each accepted PUT. */
+    version: integer('version').notNull().default(1),
+    deviceId: text('device_id'),
+    updatedAt: updatedAt(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.kind] })],
 );
 
 /* -------------------------------------------------------------- challenge */

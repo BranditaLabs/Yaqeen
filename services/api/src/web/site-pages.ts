@@ -25,7 +25,7 @@ export interface SiteLinks {
 }
 
 /** Bumped whenever the privacy policy or terms change (shown on the pages). */
-export const LEGAL_VERSION = '2026-10-27';
+export const LEGAL_VERSION = '2026-10-31';
 
 const NAV: Record<PageLang, Record<SitePage, string>> = {
   ar: { home: 'الرئيسية', privacy: 'الخصوصية', terms: 'الشروط', support: 'المساعدة', 'delete-account': 'حذف الحساب' },
@@ -110,7 +110,7 @@ const HOME = {
     cardTitle: 'بطاقة يقين وميداليات يقين',
     cardBody: 'بطاقتك العامة تُظهر رحلتك (المستوى والمواظبة والأوسمة) دون أي تفاصيل عبادة. ميداليات وبطاقات يقين من المتجر تفتحها بلمسة أو مسح رمز.',
     privacyTitle: 'عبادتك بينك وبين ربك',
-    privacyBody: 'مواقيتك وموقعك وقراءتك وحفظك تبقى على جهازك. لا نرسل أي نشاط عبادة إلى منصّات الإعلان أبداً، ولا يرى فريقنا إلا أرقاماً مجمّعة. كل موافقة منفصلة ويمكنك إلغاؤها في أي وقت.',
+    privacyBody: 'مواقيتك وموقعك وقراءتك وحفظك تبقى على جهازك، إلا ما تختار نسخه احتياطياً بتشفير. لا نرسل أي نشاط عبادة إلى منصّات الإعلان أبداً، ولا يرى فريقنا إلا أرقاماً مجمّعة. كل موافقة منفصلة ويمكنك إلغاؤها في أي وقت.',
     readPolicy: 'اقرأ سياسة الخصوصية',
   },
   en: {
@@ -132,7 +132,7 @@ const HOME = {
     cardTitle: 'Yaqeen cards & medals',
     cardBody: 'Your public card shows your journey (level, streak, badges) and never any worship detail. Yaqeen medals and cards from the store open it with a tap or a scan.',
     privacyTitle: 'Your worship stays yours',
-    privacyBody: 'Your times, location, reading and memorisation stay on your phone. We never send worship activity to ad platforms, and our team only ever sees totals. Every consent is separate and can be withdrawn at any time.',
+    privacyBody: 'Your times, location, reading and memorisation stay on your phone, unless you choose an encrypted backup. We never send worship activity to ad platforms, and our team only ever sees totals. Every consent is separate and can be withdrawn at any time.',
     readPolicy: 'Read the privacy policy',
   },
 } as const;
@@ -181,7 +181,7 @@ export function renderPrivacy(lang: PageLang, links: SiteLinks): string {
   if (lang === 'ar') {
     return doc(lang, 'privacy', links, 'سياسة الخصوصية', 'تشرح هذه السياسة ما يجمعه تطبيق يقين وموقعه، ولماذا، وما يبقى على جهازك وحده، وحقوقك وفق قانون حماية البيانات الشخصية المصري رقم 151 لسنة 2020.', [
       ['من نحن', [`يقين يقدّمه [الاسم القانوني للشركة]، [العنوان]، مصر ("نحن"). للتواصل بشأن الخصوصية: ${mail}. مسؤول حماية البيانات: [اسم مسؤول حماية البيانات وبريده].`]],
-      ['ما يبقى على جهازك وحده', ['موقعك وإحداثياتك (تُحسب مواقيت الصلاة والقبلة على الهاتف)، وسجل القراءة والعلامات، وخطة الحفظ ومراجعاتها، وعدّاد الأذكار، وسجل رمضان (الصيام والتراويح والختمة)، وبيانات ودجت الشاشة الرئيسية. لا تصل إلينا هذه البيانات.']],
+      ['ما يبقى على جهازك', ['موقعك وإحداثياتك (تُحسب مواقيت الصلاة والقبلة على الهاتف) وبيانات ودجت الشاشة الرئيسية لا تصل إلينا أبداً. وسجل القراءة والعلامات والملاحظات والختمة، وخطة الحفظ ومراجعاتها، وعدّاد الأذكار والمسبحة، وروتينك اليومي، وسجل رمضان (الصيام والتراويح والختمة) تبقى على جهازك ولا تصل إلينا — إلا إذا فعّلت «النسخ الاحتياطي السحابي» بنفسك (انظر أدناه).']],
       ['ما نحتفظ به عندنا', [
         'الحساب: عند الدخول بـ Google أو Apple نحفظ الاسم والبريد اللذين يرسلهما المزوّد ومعرّف الحساب لديه. يمكنك استخدام التطبيق ضيفاً دون حساب.',
         'إعداداتك التي تُزامَن: اللغة، واسم المدينة التي اخترتها، والمنطقة الزمنية، وطريقة الحساب، وتعديل التاريخ الهجري.',
@@ -189,8 +189,9 @@ export function renderPrivacy(lang: PageLang, links: SiteLinks): string {
         'بطاقة يقين العامة (اختيارية): الاسم والصورة الرمزية والحقول التي تختار إظهارها، وعدّاد الزيارات فقط. الميداليات والبطاقات المادية تحمل رمزاً عشوائياً لا هويتك.',
         'الجهاز: رمز الإشعارات (FCM) ونظام التشغيل وإصدار التطبيق، لإرسال الإشعارات التي وافقت عليها.',
         'سجل الموافقات: كل تغيير في موافقاتك مع وقته ومصدره، كدليل قانوني على ما وافقت عليه.',
+        'النسخ الاحتياطي السحابي (اختياري، للحسابات المسجّلة بـ Google أو Apple فقط، مغلق حتى تفتحه في «حسابي ← الخصوصية»): نسخة من تقدّمك المحفوظ على الجهاز — القراءة والعلامات والملاحظات والختمة والحفظ وعدّاد الأذكار والأدعية المفضّلة والقارئ المختار وروتينك وسجل رمضان والمسبحة — لتعود معك على هاتف جديد. لا تشمل موقعك ولا التحميلات. تُشفَّر قبل حفظها على خوادمنا، ولا يراها غيرك ولا فريقنا، ولا تُستخدم في التحليلات أو الإعلانات، وتُضمَّن في تصدير بياناتك، وتُحذف من خوادمنا فور إيقافها أو حذف حسابك.',
       ]],
-      ['الموافقات المنفصلة', ['خمس موافقات مستقلة يمكنك تغييرها في «حسابي ← الخصوصية» في أي وقت: تذكيرات العبادة (إشعارات محلية على جهازك)، رسائل التحدي والمكافآت، عروض المتجر، قياس الإعلانات، وتحسين التطبيق. كلها مغلقة حتى تفتحها، عدا ما تختاره أثناء الإعداد.']],
+      ['الموافقات المنفصلة', ['ست موافقات مستقلة يمكنك تغييرها في «حسابي ← الخصوصية» في أي وقت: تذكيرات العبادة (إشعارات محلية على جهازك)، رسائل التحدي والمكافآت، عروض المتجر، قياس الإعلانات، وتحسين التطبيق، والنسخ الاحتياطي السحابي (للحسابات المسجّلة). كلها مغلقة حتى تفتحها، عدا ما تختاره أثناء الإعداد.']],
       ['الإعلانات', ['مع موافقة «قياس الإعلانات» فقط، نرسل إلى Google وMeta وTikTok أحداثاً تسويقية محدّدة مسبقاً (مثل فتح التطبيق لأول مرة أو الانضمام إلى التحدي أو الشراء من المتجر) — ولا نرسل أبداً أي نشاط عبادة. على iOS لا يظهر طلب التتبع إلا بعد موافقتك داخل التطبيق.']],
       ['تحسين التطبيق', ['مع موافقة «تحسين التطبيق» فقط، نسجّل كيف تتنقّل بين أقسام غير تعبّدية (خطوات الإعداد، البطاقة، المتجر، الإعدادات) بمعرّف عشوائي للجهاز غير مرتبط بحسابك، ونحذفها بعد 180 يوماً. قد نرسلها إلى PostHog (الاتحاد الأوروبي) دون عنوان IP. لا نتتبع أقسام العبادة.']],
       ['تقارير الأعطال', ['نستخدم Sentry لتقارير الأعطال: نوع الخطأ والجهاز وإصدار التطبيق، بعد حذف أي بيانات شخصية أو تعبّدية، ودون لقطات شاشة.']],
@@ -198,7 +199,7 @@ export function renderPrivacy(lang: PageLang, links: SiteLinks): string {
         'الاستضافة: [مزوّد الاستضافة ومنطقتها]. الإشعارات: Google Firebase Cloud Messaging. تسجيل الدخول: Google وApple. أكواد المكافآت والمتجر: Shopify. الأعطال: Sentry (الاتحاد الأوروبي). تحسين التطبيق: PostHog (الاتحاد الأوروبي، بموافقتك). الإعلانات: Google وMeta وTikTok (بموافقتك فقط).',
         'بعض هؤلاء خارج مصر؛ ننقل إليهم أقل قدر لازم وفق ضمانات القانون [وتصريح النقل عند الحاجة].',
       ]],
-      ['مدة الاحتفاظ', ['نحتفظ ببيانات حسابك ما دام قائماً. عند طلب الحذف تُخفى بطاقتك وتُعطّل ميدالياتك فوراً، وبعد 30 يوماً تُحذف هويتك وجلساتك وأجهزتك وموافقاتك الحالية وسجل المهام، ويبقى سجل النقاط والاستبدالات مجهول الهوية لأغراض محاسبية، ويبقى سجل الموافقات كدليل قانوني. أحداث «تحسين التطبيق» تُحذف بعد 180 يوماً.']],
+      ['مدة الاحتفاظ', ['نحتفظ ببيانات حسابك ما دام قائماً. عند طلب الحذف تُخفى بطاقتك وتُعطّل ميدالياتك فوراً، وبعد 30 يوماً تُحذف هويتك وجلساتك وأجهزتك وموافقاتك الحالية وسجل المهام والنسخة الاحتياطية السحابية، ويبقى سجل النقاط والاستبدالات مجهول الهوية لأغراض محاسبية، ويبقى سجل الموافقات كدليل قانوني. أحداث «تحسين التطبيق» تُحذف بعد 180 يوماً. والنسخة الاحتياطية السحابية تُحذف فور إيقافها.']],
       ['حقوقك', [`لك أن تطّلع على بياناتك وتصدّرها («حسابي ← تصدير بياناتي»)، وأن تصحّحها، وأن تحذف حسابك (<a href="/delete-account?lang=ar">كيف أحذف حسابي</a>)، وأن تسحب أي موافقة. للاستفسار أو الاعتراض: ${mail}. ويحق لك تقديم شكوى إلى مركز حماية البيانات الشخصية.`]],
       ['الأطفال', ['يقين موجّه لمن هم في سن [السن الأدنى] فأكثر. [يُراجَع مع المستشار القانوني.]']],
       ['التغييرات', ['إن غيّرنا هذه السياسة تغييراً جوهرياً سنُعلمك في التطبيق قبل سريانه، ونحدّث تاريخها أعلاه.']],
@@ -206,7 +207,7 @@ export function renderPrivacy(lang: PageLang, links: SiteLinks): string {
   }
   return doc(lang, 'privacy', links, 'Privacy policy', 'This policy explains what the Yaqeen app and website collect, why, what stays on your phone alone, and your rights under Egypt’s Personal Data Protection Law No. 151 of 2020.', [
     ['Who we are', [`Yaqeen is provided by [legal entity name], [address], Egypt (“we”). Privacy questions: ${mail}. Data protection officer: [DPO name and email].`]],
-    ['What stays on your phone only', ['Your location and coordinates (prayer times and Qibla are computed on the phone), reading history and bookmarks, your memorisation plan and reviews, dhikr counts, your Ramadan log (fasts, taraweeh, khatma) and the home-screen widget’s data. None of it reaches us.']],
+    ['What stays on your phone', ['Your location and coordinates (prayer times and Qibla are computed on the phone) and the home-screen widget’s data never reach us. Your reading history, bookmarks, notes and khatma, memorisation plan and reviews, dhikr and tasbeeh counts, daily routine and Ramadan log (fasts, taraweeh, khatma) stay on your phone and don’t reach us — unless you turn on “cloud backup” yourself (below).']],
     ['What we keep', [
       'Account: when you sign in with Google or Apple we keep the name and email they send and their account id. You can use the app as a guest without an account.',
       'Synced settings: language, the city name you picked, time zone, calculation method and Hijri adjustment.',
@@ -214,8 +215,9 @@ export function renderPrivacy(lang: PageLang, links: SiteLinks): string {
       'Your public Yaqeen card (optional): the name, avatar and the fields you choose to show, plus a visit counter only. Physical medals and cards carry a random code, not your identity.',
       'Device: push token (FCM), operating system and app version, to deliver the notifications you agreed to.',
       'Consent record: every change to your consents with its time and source, as legal evidence of what you agreed to.',
+      'Cloud backup (optional, only for accounts signed in with Google or Apple, off until you turn it on in Profile → Privacy): a copy of the progress kept on your phone — reading, bookmarks, notes, khatma, memorisation, dhikr counts, favourite duas, chosen reciter, your routine, Ramadan log and tasbeeh — so it comes back on a new phone. Never your location or downloads. It is encrypted before it is stored on our servers, seen by no one but you (not our team), never used for analytics or advertising, included in your data export, and deleted from our servers as soon as you turn it off or delete your account.',
     ]],
-    ['Separate consents', ['Five independent consents you can change at any time in Profile → Privacy: worship reminders (local notifications on your phone), challenge & rewards messages, store offers, ads measurement, and app improvement. Each is off until you turn it on, apart from what you choose during setup.']],
+    ['Separate consents', ['Six independent consents you can change at any time in Profile → Privacy: worship reminders (local notifications on your phone), challenge & rewards messages, store offers, ads measurement, app improvement, and cloud backup (signed-in accounts). Each is off until you turn it on, apart from what you choose during setup.']],
     ['Advertising', ['Only with “ads measurement”, we send Google, Meta and TikTok a fixed list of marketing events (such as first open, joining the challenge, or a store purchase) — never any worship activity. On iOS the tracking prompt only appears after you agreed inside the app.']],
     ['App improvement', ['Only with “app improvement”, we record how you move through non-worship areas (setup steps, the card, the store, settings) under a random install id that is not linked to your account, and delete it after 180 days. It may be forwarded to PostHog (EU) without IP addresses. Worship areas are never tracked.']],
     ['Crash reports', ['We use Sentry for crash reports: the error, device and app version, with personal and worship data removed and no screenshots.']],
@@ -223,7 +225,7 @@ export function renderPrivacy(lang: PageLang, links: SiteLinks): string {
       'Hosting: [hosting provider and region]. Notifications: Google Firebase Cloud Messaging. Sign-in: Google and Apple. Reward codes and the store: Shopify. Crashes: Sentry (EU). App improvement: PostHog (EU, with your consent). Advertising: Google, Meta and TikTok (with your consent only).',
       'Some are outside Egypt; we send them the minimum needed under the law’s safeguards [and a transfer authorisation where required].',
     ]],
-    ['How long we keep it', ['We keep your account data while it exists. When you ask to delete it, your card is hidden and your medals switched off at once; after 30 days your identity, sessions, devices, current consents and task history are deleted, while the points ledger and redemptions stay anonymised for accounting and the consent record stays as legal evidence. App-improvement events are deleted after 180 days.']],
+    ['How long we keep it', ['We keep your account data while it exists. When you ask to delete it, your card is hidden and your medals switched off at once; after 30 days your identity, sessions, devices, current consents, task history and cloud backup are deleted, while the points ledger and redemptions stay anonymised for accounting and the consent record stays as legal evidence. App-improvement events are deleted after 180 days. The cloud backup is deleted as soon as you turn it off.']],
     ['Your rights', [`You can see and export your data (Profile → Export my data), correct it, delete your account (<a href="/delete-account?lang=en">how to delete your account</a>) and withdraw any consent. Questions or objections: ${mail}. You may also complain to the Personal Data Protection Centre.`]],
     ['Children', ['Yaqeen is meant for people aged [minimum age] and over. [To be confirmed with counsel.]']],
     ['Changes', ['If we change this policy materially we will tell you in the app before it applies, and update the date above.']],

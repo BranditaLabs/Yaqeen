@@ -477,7 +477,7 @@ Footer verse «وَرَتِّلِ ٱلْقُرْءَانَ تَرْتِيلًا�
 
 **Saved tab** Filters الكل · العلامات · الملاحظات · التظليل; bookmarks carry their colour; every row opens the ayah lit.
 
-**Data** Local SQLite `quran.db` (surahs, juz, hizb, page → ayah ranges); bookmarks in local DB (synced only if the user enables backup — §6.13).
+**Data** Local SQLite `quran.db` (surahs, juz, hizb, page → ayah ranges); bookmarks in local DB (copied to the server only with the opt-in cloud backup — §6.13).
 
 **Acceptance** [ ] Search < 50 ms on a mid device · [ ] Tap surah → `/quran/read/<startPage>` · [ ] Works offline from first launch.
 
@@ -857,10 +857,11 @@ Each function: **what · where in code · rules · tests**. Pure logic goes in `
 - Limits: stock, `perUserMonthlyLimit`. Codes list `GET /v1/me/redemptions`. Store link `STORE_URL/discount/<code>?redirect=/collections/all` + UTM `utm_source=yaqeen_app`; event `store_click`.
 - Phase 2: Shopify order webhook → mark redemption `used`, ad event `purchase` (server-side CAPI only with consent).
 
-### 6.13 Profile, sync & backup ✅ (encrypted backup = phase 2)
+### 6.13 Profile, sync & backup ✅
 
 - Synced to server: account, settings (non-location), consents, challenge, ledger, redemptions.
-- **Never synced**: location, reading history, bookmarks, hifz, azkar counts. Optional encrypted backup (phase 2) using a key derived on device and stored in iCloud Keychain / Google Block Store — server sees ciphertext only.
+- **Device first**: reading history, bookmarks, notes/highlights, khatma, hifz, azkar counts, dua favourites, listen state, routine, Ramadan log, Home tasbeeh. **Never synced**: location/coordinates, downloads, caches.
+- **Opt-in cloud backup «نسخ احتياطي سحابي»** (owner decision, 2026-10): Profile › Privacy switch, **off by default**, signed-in (non-guest) accounts only; a consent of its own (`cloud_backup`, history-tracked). When on, each device-first kind above is kept as one document per kind (`BACKUP_KINDS`) in `user_backups`, sealed with AES-256-GCM under `BACKUP_SECRETS_KEY` (server-held key — not end-to-end), so it comes back on a new phone or a reinstall. The app pulls and merges after the first frame and after sign-in (time-boxed), uploads ~5 s after a change (playback position 2 min), merges and retries once on 409, and keeps changes on the phone while offline — no screen ever waits on it. Merge per kind: union by id with three-way deletes for bookmarks, notes, highlights, favourites, khatma history and Ramadan days; max per day for counters (reading stats, today's azkar counts, listening time, wird pages); last-writer-wins for scalar state (last page by its own time, khatma plan, hifz plan, routine slots, reciter/position, tasbeeh). Shows "last backed up …" and «انسخ الآن»; guests see it disabled ("sign in to enable"); turning it off asks first and deletes the server copy (the phone keeps everything). First sign-in on a new phone with an existing backup offers «استعادة / ليس الآن» once per account. Never visible to admins, never in analytics or ads, included in the user's export, deleted on erasure. API: `docs/API.md` › Cloud backup.
 
 ### 6.14 Hifz ✅
 

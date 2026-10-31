@@ -6,14 +6,15 @@ import '../../calendar/domain/hijri_day.dart';
 import '../domain/ramadan.dart';
 
 /// The imsakiyya's days (from the cached Hijri calendar, so it works offline once seen) and the
-/// month's tracker, kept on this device only.
+/// month's tracker, device first (optional encrypted cloud backup, consent `cloud_backup`).
 class RamadanRepository {
   RamadanRepository({required this.calendar, required this.store});
 
   final CalendarRepository calendar;
   final KvStore store;
 
-  static String _key(int hijriYear) => 'ramadan.log.$hijriYear.v1';
+  static String _key(int hijriYear) => logKey(hijriYear);
+  static String logKey(int hijriYear) => 'ramadan.log.$hijriYear.v1';
 
   /// Ramadan of [hijriYear], read from the Gregorian months around [today] (Ramadan spans at most
   /// two of them; the previous one covers its first days when today is late in the month).

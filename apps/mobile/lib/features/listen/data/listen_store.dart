@@ -1,7 +1,8 @@
 import '../../../core/storage/local_store.dart';
 import '../domain/audio_models.dart';
 
-/// Player state, chosen reciter and today's listening time — device only.
+/// Player state, chosen reciter and today's listening time — device first, with an optional encrypted
+/// cloud backup (consent `cloud_backup`); downloads and the metered switch stay on this phone.
 class ListenStore {
   ListenStore(this.store);
   final LocalStore store;
@@ -11,6 +12,21 @@ class ListenStore {
   Future<void> _put(String k, Object? v) async {
     final d = await _read();
     d[k] = v;
+    await store.write(_doc, d);
+  }
+
+  /// Cloud backup: the fields that follow the user to a new phone (not downloads, not the metered switch).
+  static const backupKeys = ['reciter', 'snapshot', 'day'];
+  Future<Map<String, dynamic>> backupFields() async {
+    final d = await _read();
+    return {for (final k in backupKeys) k: d[k]};
+  }
+
+  Future<void> restoreFields(Map<String, dynamic> fields) async {
+    final d = await _read();
+    for (final k in backupKeys) {
+      if (fields.containsKey(k)) d[k] = fields[k];
+    }
     await store.write(_doc, d);
   }
 

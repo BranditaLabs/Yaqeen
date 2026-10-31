@@ -96,11 +96,11 @@ export function verifyTotp(secretB32: string, code: string, nowMs = Date.now()):
 
 const SEAL_PREFIX = 'enc:v1:';
 
-/** The 32-byte key from ADMIN_SECRETS_KEY (base64), or null when unset (dev/test only). */
-export function secretsKey(b64: string): Buffer | null {
+/** The 32-byte key from ADMIN_SECRETS_KEY / BACKUP_SECRETS_KEY (base64), or null when unset (dev/test only). */
+export function secretsKey(b64: string, name = 'ADMIN_SECRETS_KEY'): Buffer | null {
   if (!b64) return null;
   const key = Buffer.from(b64, 'base64');
-  if (key.length !== 32) throw new Error('ADMIN_SECRETS_KEY must be 32 bytes, base64-encoded');
+  if (key.length !== 32) throw new Error(`${name} must be 32 bytes, base64-encoded`);
   return key;
 }
 
@@ -116,9 +116,9 @@ export function sealSecret(plain: string, key: Buffer | null): string {
 export const isSealed = (stored: string) => stored.startsWith(SEAL_PREFIX);
 
 /** Opens a sealed value; a legacy plain value (written before the key existed) is returned as is. */
-export function openSecret(stored: string, key: Buffer | null): string {
+export function openSecret(stored: string, key: Buffer | null, name = 'ADMIN_SECRETS_KEY'): string {
   if (!isSealed(stored)) return stored;
-  if (!key) throw new Error('ADMIN_SECRETS_KEY is required to read sealed secrets');
+  if (!key) throw new Error(`${name} is required to read sealed secrets`);
   const [iv, tag, ct] = stored.slice(SEAL_PREFIX.length).split('.');
   const d = createDecipheriv('aes-256-gcm', key, Buffer.from(iv ?? '', 'base64url'));
   d.setAuthTag(Buffer.from(tag ?? '', 'base64url'));

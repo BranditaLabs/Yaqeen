@@ -76,7 +76,7 @@ Golden screenshots in `apps/mobile/test/goldens/` are the reference framing.
 - Guest mode works without signing in (tap «المتابعة كضيف»). Sign in with Apple is offered next to Google.
 - Points have no cash value and are never sold; rewards are single-use discount codes for our own Shopify store.
 - Features behind admin switches (recitation check, Ramadan, bonuses) may be off during review.
-- Worship data stays on the device or, for the challenge, on our server only to award points; it is never sent to ad platforms.
+- Worship data stays on the device or, for the challenge, on our server only to award points; it is never sent to ad platforms. Signed-in users may turn on «نسخ احتياطي سحابي» (Profile → Privacy, off by default): an encrypted copy of their reading, notes, hifz, azkar counts, routine and Ramadan log, visible only to them and deleted when they turn it off.
 
 ## App Store — App Privacy ("nutrition label")
 
@@ -93,6 +93,8 @@ Answer for the build being submitted. The ad SDKs (Firebase Analytics for Google
 | Diagnostics → Crash data, Performance data | Yes (Sentry, scrubbed) | No | No | App functionality |
 | Location | **No** (computed on device; the city name picked is a setting) | — | — | — |
 | User content | Yes, only if the user publishes a card (name, avatar, chosen fields) | Yes | No | App functionality |
+| User content → Other user content (Quran notes, highlights, bookmarks — opt-in cloud backup) | Yes, only with «نسخ احتياطي سحابي» (signed-in, off by default) | Yes | No | App functionality |
+| Sensitive info (religious practice: reading progress, hifz, azkar counts, Ramadan log, routine — opt-in cloud backup) | Yes, only with «نسخ احتياطي سحابي» | Yes | No | App functionality |
 
 **Build with ad SDK values** (Google and/or Meta, only with `ads_measurement`) — add:
 
@@ -108,7 +110,7 @@ The app asks for ATT only after the in-app consent (already built), declares `NS
 
 - Data encrypted in transit: **Yes** (HTTPS only).
 - Users can request deletion: **Yes** — in the app (Profile → Delete account) and at `<site>/delete-account`.
-- Optional collection: product interaction (consent), the public card (the user publishes it), the challenge (opt-in). Crash logs are required.
+- Optional collection: product interaction (consent), the public card (the user publishes it), the challenge (opt-in), the cloud backup (opt-in, signed-in accounts). Crash logs are required.
 
 | Category → type | Collected | Shared | Optional | Purpose |
 | --- | --- | --- | --- | --- |
@@ -116,6 +118,9 @@ The app asks for ATT only after the in-app consent (already built), declares `NS
 | Personal info → User IDs | Yes | No | Yes (guest mode) | Account management |
 | Personal info → Religious or political beliefs (challenge task completions) | Yes | No | Yes (challenge is opt-in) | App functionality |
 | Financial info → Purchase history (redemptions) | Yes | No | Yes | App functionality |
+| Messages / User-generated content → Other in-app content (Quran notes, highlights, bookmarks — cloud backup) | Yes, only with «نسخ احتياطي سحابي» | No | Yes (off by default; signed-in only) | App functionality (backup and restore) |
+| App activity → Other user-generated content / Other actions (reading progress, khatma, hifz, azkar counts, routine, Ramadan log, tasbeeh — cloud backup) | Yes, only with «نسخ احتياطي سحابي» | No | Yes (off by default; signed-in only) | App functionality (backup and restore) |
+| Personal info → Religious or political beliefs (the same backup reveals religious practice) | Yes, only with «نسخ احتياطي سحابي» | No | Yes | App functionality |
 | App activity → App interactions | Yes | No | Yes (consent) | Analytics |
 | App info & performance → Crash logs, Diagnostics | Yes | No | No | App functionality, Analytics |
 | Device or other IDs → push token (Firebase Cloud Messaging) | Yes | No | No | App functionality |
@@ -126,7 +131,7 @@ The app asks for ATT only after the in-app consent (already built), declares `NS
 
 The manifest declares `com.google.android.gms.permission.AD_ID` (Firebase and Meta merge it in anyway): in Play Console › App content › **Advertising ID**, answer *Yes*, purposes *Advertising or marketing* and *Analytics*. If a release ships without ad SDK values, the permission is still declared but never used.
 
-Service providers that process data on our behalf (Shopify, Sentry, PostHog EU, hosting) are not "sharing" under Play's definition.
+Service providers that process data on our behalf (Shopify, Sentry, PostHog EU, hosting) are not "sharing" under Play's definition. The cloud backup is linked to the account, encrypted at rest, never shared, never used for analytics or ads, and deleted when the user turns it off or deletes the account.
 
 ## Before each submission
 

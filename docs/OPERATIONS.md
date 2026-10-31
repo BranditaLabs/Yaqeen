@@ -126,6 +126,7 @@ Each environment rollout (`tools/deploy/deploy.sh <env> <tag>`, also runnable fr
 | Repository secret | `SENTRY_AUTH_TOKEN` | Sentry internal integration token (releases, source maps, app symbols) |
 | Cluster secret `yaqeen-api-secrets` | `SENTRY_DSN`, `POSTHOG_KEY` | API project DSN; PostHog EU project key (optional) |
 | | `ADMIN_SECRETS_KEY` | **required in production** — `openssl rand -base64 32`; seals admin 2FA secrets. Back it up: losing it means every admin re-enrols 2FA |
+| | `BACKUP_SECRETS_KEY` | **required in production** — `openssl rand -base64 32`, a different value from `ADMIN_SECRETS_KEY`; seals users' opt-in cloud backups (`user_backups`, AES-256-GCM). Back it up with the other secrets and never rotate it casually: without it every stored backup is unreadable (phones keep their own data; users would re-upload by switching backup off and on) |
 | | `SHOPIFY_WEBHOOK_SECRET` | signing secret of the shop's `orders/paid` webhook → `<api>/webhooks/shopify/orders-paid` (marks reward codes used) |
 | | `CONVERSIONS_ID_SALT` | server-side purchase conversions (optional): `openssl rand -base64 32`. Keep it stable — rotating it gives every buyer a new pseudonymous id. Without it nothing is sent |
 | | `META_PIXEL_ID`, `META_CAPI_TOKEN` | Meta Events Manager › the store's pixel (dataset) › Settings: the dataset id, and **Conversions API › Generate access token**. Optional `META_TEST_EVENT_CODE` from the Test events tab while verifying, then remove it |
