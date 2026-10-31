@@ -82,8 +82,12 @@ class AyahHit extends QuranHit {
 
 /// The bundled Madani mushaf (assets/quran/quran.json, built by tools/quran/build_quran.py).
 /// Read-only, fully offline from first launch. Text is never altered.
+///
+/// [pageStarts] replaces the bundled (Tanzil) page boundaries with those of the printed page layout
+/// (`MushafLayout.starts`, KFGQPC 1421 print) so the drawn pages, page numbers, bookmarks and khatma
+/// all agree. 25 pages start one or two ayat apart between the two editions.
 class QuranData {
-  QuranData.fromJson(Map<String, dynamic> j)
+  QuranData.fromJson(Map<String, dynamic> j, {List<AyahRef>? pageStarts})
       : surahs = [
           for (final (i, r) in (j['surahs'] as List).cast<List<dynamic>>().indexed)
             Surah(
@@ -95,7 +99,7 @@ class QuranData {
               startPage: r[4] as int,
             ),
         ],
-        _pageStarts = _refs(j['pages']),
+        _pageStarts = pageStarts != null && pageStarts.length == pageCount ? pageStarts : _refs(j['pages']),
         _juzStarts = _refs(j['juz']),
         _quarterStarts = _refs(j['quarters']),
         sajdas = _refs(j['sajdas']).toSet(),

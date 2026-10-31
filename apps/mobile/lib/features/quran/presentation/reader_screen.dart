@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -13,6 +13,7 @@ import '../../../core/format.dart';
 import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/theme/typography.dart';
 import '../../../core/time/zoned.dart';
 import '../../../core/widgets/controls.dart';
 import '../../../core/widgets/liquid_glass.dart';
@@ -28,13 +29,16 @@ import '../../notifications/presentation/reminders_controller.dart';
 import '../../onboarding/presentation/session_controller.dart';
 import '../data/reading_repository.dart';
 import '../domain/annotations.dart';
+import '../domain/mushaf_layout.dart';
 import '../domain/quran_data.dart';
 import '../domain/reading_stats.dart';
 import '../domain/wird.dart';
 import 'ayah_sheet.dart';
 import 'jump_sheet.dart';
+import 'madani_page.dart';
 import 'mushaf_page.dart';
 import 'note_sheet.dart';
+import 'page_curl.dart';
 import 'quran_index_screen.dart';
 import 'quran_providers.dart';
 
@@ -56,8 +60,8 @@ class ReaderScreen extends ConsumerStatefulWidget {
 }
 
 class _ReaderScreenState extends ConsumerState<ReaderScreen> {
-  PageController? _pages;
-  bool? _spread;
+  final _pager = MushafPagerController();
+  bool _spread = false;
   late int _page = widget.initialPage.clamp(1, QuranData.pageCount);
   bool _chrome = true;
   bool _locked = false;
@@ -92,7 +96,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     _hideTimer?.cancel();
     _wirdTimer?.cancel();
     _focusTimer?.cancel();
-    _pages?.dispose();
+    _pager.dispose();
     _c.read(deviceServicesProvider).keepAwake(false);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
@@ -100,21 +104,56 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   /// Pages on screen for [page] (both of a spread).
   List<int> _visible(int page) {
-    if (_spread != true) return [page];
+    if (!_spread) return [page];
     final first = page.isOdd ? page : page - 1;
     return [first, if (first < QuranData.pageCount) first + 1];
   }
 
   int _indexOf(int page, bool spread) => spread ? (page - 1) ~/ 2 : page - 1;
 
-  /// One controller per layout; switching layout (rotation) keeps the current page.
-  PageController _controllerFor(bool spread) {
-    if (_spread != spread || _pages == null) {
-      _pages?.dispose();
-      _pages = PageController(initialPage: _indexOf(_page, spread));
-      _spread = spread;
+  /// Pages at a pager index: one, or the spread's two (odd on the right).
+  List<int> _pagesAt(int index) => _spread ? [index * 2 + 1, if (index * 2 + 2 <= QuranData.pageCount) index * 2 + 2] : [index + 1];
+
+  /// The pager moved (a turn, the slider, a jump): the old page counts, the new one starts.
+  void _showPage(int page) {
+    if (page == _page) return;
+    _leavePage();
+    setState(() {
+      _page = page;
+      _selected = null;
+      _revealed.clear();
+    });
+    _onPageShown(page);
+  }
+
+  /// Fonts for the open pages first, then ±2 neighbours once the page has settled.
+  void _warmFonts(int page) {
+    final layout = _c.read(mushafLayoutProvider).valueOrNull;
+    if (layout == null) return;
+    final fonts = _c.read(mushafFontsProvider);
+    for (final p in _visible(page)) {
+      fonts.prefetch(layout.fontsFor(p));
     }
-    return _pages!;
+    Future<void>.delayed(const Duration(milliseconds: 400), () {
+      if (!mounted || _page != page) return;
+      final near = _spread ? [page - 2, page - 1, page + 2, page + 3] : [page - 2, page - 1, page + 1, page + 2];
+      for (final p in near) {
+        if (p >= 1 && p <= QuranData.pageCount) fonts.prefetch(layout.fontsFor(p));
+      }
+    });
+  }
+
+  /// Taps on a page: the outer third turns (left → next, as in a mushaf), the middle shows the tools.
+  void _onPageTap(Offset global) {
+    if (_locked) return;
+    final w = MediaQuery.sizeOf(context).width;
+    if (global.dx < w / 3) {
+      _pager.next();
+    } else if (global.dx > w * 2 / 3) {
+      _pager.previous();
+    } else {
+      _toggleChrome();
+    }
   }
 
   void _setFocus(AyahRef? ref) {
@@ -148,6 +187,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   Future<void> _onPageShown(int page) async {
     _pageShownAt = DateTime.now();
+    _warmFonts(page);
     _wirdTimer?.cancel();
     // Counting at 20 s while still on the page — the user may keep reading the same page.
     _wirdTimer = Timer(const Duration(seconds: WirdRules.minSecondsPerPage), () {
@@ -229,10 +269,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   }
 
   void _goTo(int page, {AyahRef? focus}) {
-    final p = _pages;
-    if (p == null) return;
     setState(() => _setFocus(focus));
-    p.jumpToPage(_indexOf(page, _spread == true));
+    // In a spread the index's first page is what counts as shown (as a turn would).
+    _showPage(_pagesAt(_indexOf(page.clamp(1, QuranData.pageCount), _spread)).first);
   }
 
   Future<void> _openJump(QuranData q, String locale) async {
@@ -306,13 +345,16 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final theme = look0.autoNight ? _effectiveTheme(ref.read(settingsProvider), ref.read(clockProvider)()) : look0.theme;
     final look = (theme: theme, fontSize: look0.fontSize, comfortable: look0.comfortable, locale: look0.locale);
     final data = ref.watch(quranDataProvider);
+    final layout = ref.watch(mushafLayoutProvider).valueOrNull;
     final annotations = ref.watch(annotationsProvider).valueOrNull ?? Annotations.empty;
     final colors = MushafColors.of(look.theme);
     final night = look.theme == MushafTheme.night;
     // Highlight the ayah the player is on while recitation is playing (spec §5.13).
     final playing = ref.watch(listenControllerProvider.select((l) => l.playing && l.sampleOf == null ? l.ref : null));
-    final spread = spreadLayout(MediaQuery.sizeOf(context));
-    final controller = _controllerFor(spread);
+    // Rotation switches between one page and a spread, keeping the page.
+    _spread = spreadLayout(MediaQuery.sizeOf(context));
+    final spread = _spread;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: night ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
@@ -328,11 +370,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
             final first = q.firstOfPage(_page);
             Widget frame(int page) => _PageFrame(
                   quran: q,
+                  layout: layout,
                   page: page,
                   look: look,
+                  spread: spread,
                   selected: _selected ?? _focus,
-                  focus: _focus,
                   playing: playing,
+                  onBackgroundTap: _onPageTap,
+                  onOpenSettings: () => showReaderSettings(context),
                   annotations: annotations,
                   memorise: _memorise,
                   revealed: _revealed,
@@ -349,42 +394,29 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 );
             return Stack(
               children: [
-                // Pages: in RTL, dragging left → right turns to the next page (mushaf order) — also in English.
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _locked ? null : _toggleChrome,
-                  child: Directionality(
-                    textDirection: TextDirection.rtl,
-                    child: PageView.builder(
-                      controller: controller,
-                      physics: _locked ? const NeverScrollableScrollPhysics() : const PageScrollPhysics(),
-                      itemCount: spread ? (QuranData.pageCount / 2).ceil() : QuranData.pageCount,
-                      allowImplicitScrolling: true, // keeps neighbours built for smooth turns
-                      onPageChanged: (i) {
-                        _leavePage();
-                        setState(() {
-                          _page = spread ? i * 2 + 1 : i + 1;
-                          _selected = null;
-                          _revealed.clear();
-                        });
-                        _onPageShown(_page);
-                      },
-                      itemBuilder: (context, i) {
-                        final child = spread
-                            ? Row(
-                                textDirection: TextDirection.rtl,
-                                children: [
-                                  Expanded(child: frame(i * 2 + 1)),
-                                  Container(width: 1, color: colors.frame),
-                                  Expanded(child: i * 2 + 2 <= QuranData.pageCount ? frame(i * 2 + 2) : ColoredBox(color: colors.page)),
-                                ],
-                              )
-                            : frame(i + 1);
-                        return look0.turn == PageTurn.book
-                            ? _BookTurn(controller: controller, index: i, shade: colors.ink, child: child)
-                            : child;
-                      },
-                    ),
+                // Pages: in RTL mushaf order — dragging left → right (or tapping the left third) turns to
+                // the next page, also in English. Each page always fits the screen: nothing scrolls.
+                Semantics(
+                  customSemanticsActions: _locked
+                      ? null
+                      : {
+                          CustomSemanticsAction(label: t.readerNextPage): _pager.next,
+                          CustomSemanticsAction(label: t.readerPreviousPage): _pager.previous,
+                        },
+                  child: MushafPager(
+                    controller: _pager,
+                    count: spread ? (QuranData.pageCount / 2).ceil() : QuranData.pageCount,
+                    index: _indexOf(_page, spread),
+                    spread: spread,
+                    pagesOf: _pagesAt,
+                    pageBuilder: (context, p) => frame(p),
+                    onIndexChanged: (i) => _showPage(_pagesAt(i).first),
+                    style: turnStyleOf(look0.turn, reduceMotion: reduceMotion),
+                    enabled: !_locked,
+                    paper: colors.page,
+                    shade: night ? YqColors.nightBg : YqColors.paperInk,
+                    onTap: _onPageTap,
+                    spineBuilder: (_) => _Spine(night: night),
                   ),
                 ),
                 if (_memorise != MemoriseMode.off && !_locked && !_chrome)
@@ -442,173 +474,346 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
 typedef _Look = ({MushafTheme theme, double fontSize, bool comfortable, String locale});
 
-/// A book-like turn: the page lifts from the spine with a little perspective and a soft shade as
-/// it moves; at rest it is flat. Transform only — the text inside is not re-laid out.
-class _BookTurn extends StatelessWidget {
-  const _BookTurn({required this.controller, required this.index, required this.shade, required this.child});
-  final PageController controller;
-  final int index;
-  final Color shade;
-  final Widget child;
+/// The fold between the two pages of a spread: a soft shade, darkest at the spine.
+class _Spine extends StatelessWidget {
+  const _Spine({required this.night});
+  final bool night;
 
   @override
   Widget build(BuildContext context) {
-    final reduce = MediaQuery.disableAnimationsOf(context);
-    if (reduce) return child;
-    return AnimatedBuilder(
-      animation: controller,
-      child: RepaintBoundary(child: child),
-      builder: (context, page) {
-        final pos = controller.hasClients && controller.position.haveDimensions ? (controller.page ?? index.toDouble()) : index.toDouble();
-        final delta = (pos - index).clamp(-1.0, 1.0);
-        if (delta.abs() < 0.001) return page!;
-        // RTL page order: a positive delta means this page is turning away to the right.
-        final angle = delta * math.pi / 9;
-        return Transform(
-          alignment: delta > 0 ? Alignment.centerRight : Alignment.centerLeft,
-          transform: Matrix4.identity()
-            ..setEntry(3, 2, 0.0011)
-            ..rotateY(-angle),
-          child: Stack(
-            fit: StackFit.passthrough,
-            children: [
-              page!,
-              IgnorePointer(child: ColoredBox(color: shade.withAlpha((delta.abs() * 40).round()), child: const SizedBox.expand())),
-            ],
+    final ink = night ? YqColors.nightBg : YqColors.paperInk;
+    return Center(
+      child: SizedBox(
+        width: 56,
+        height: double.infinity,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                ink.withAlpha(0),
+                ink.withAlpha(night ? 70 : 26),
+                ink.withAlpha(night ? 120 : 52),
+                ink.withAlpha(night ? 70 : 26),
+                ink.withAlpha(0),
+              ],
+              stops: const [0, 0.4, 0.5, 0.6, 1],
+            ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
 
-class _PageFrame extends StatefulWidget {
+/// One page of the mushaf: a thin header (surah · juz / hizb), the page itself — always fitted, never
+/// scrolled — and the page number. The page's free edge shows a hint of the pages stacked under it.
+class _PageFrame extends ConsumerWidget {
   const _PageFrame({
     required this.quran,
+    required this.layout,
     required this.page,
     required this.look,
+    required this.spread,
     required this.annotations,
     required this.memorise,
     required this.revealed,
     this.selected,
-    this.focus,
     this.playing,
     this.onAyahLongPress,
     this.onAyahTap,
     this.onNoteTap,
+    this.onBackgroundTap,
+    this.onOpenSettings,
   });
   final QuranData quran;
+  final MushafLayout? layout;
   final AyahRef? playing;
   final int page;
   final _Look look;
+  final bool spread;
   final AyahRef? selected;
-  final AyahRef? focus;
   final Annotations annotations;
   final MemoriseMode memorise;
   final Set<AyahRef> revealed;
   final ValueChanged<AyahRef>? onAyahLongPress;
   final ValueChanged<AyahRef>? onAyahTap;
   final ValueChanged<AyahRef>? onNoteTap;
+  final ValueChanged<Offset>? onBackgroundTap;
+  final VoidCallback? onOpenSettings;
+
+  /// «¼ الحزب 5» when a hizb quarter starts on this page, else «الجزء N · الحزب N».
+  String _place(AppLocalizations t, AyahRef first) {
+    for (final seg in quran.page(page)) {
+      for (final a in seg.ayat) {
+        final q = quran.quarterStartingAt(a.ref);
+        if (q == null || a.ref == const AyahRef(1, 1)) continue;
+        final hizb = (q - 1) ~/ 4 + 1;
+        final part = (q - 1) % 4;
+        final mark = (q - 1) % 8 == 0
+            ? t.quranMarkJuz(YqFormat.number((q - 1) ~/ 8 + 1))
+            : part == 0
+                ? t.quranMarkHizb(YqFormat.number(hizb))
+                : t.quranMarkQuarter(const ['', '¼', '½', '¾'][part], YqFormat.number(hizb));
+        return '${t.quranJuzHizb(quran.juzOf(first), quran.hizbOf(first))} · $mark';
+      }
+    }
+    return t.quranJuzHizb(quran.juzOf(first), quran.hizbOf(first));
+  }
 
   @override
-  State<_PageFrame> createState() => _PageFrameState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(context);
+    final colors = MushafColors.of(look.theme);
+    final first = quran.firstOfPage(page);
+    final pad = MediaQuery.paddingOf(context);
+    final width = MediaQuery.sizeOf(context).width / (spread ? 2 : 1);
+    // Print-like margins: a little wider on tablets; the outer side keeps room for the page edge.
+    final side = (width * 0.045).clamp(10.0, 30.0);
+    final sajdah = quran.page(page).any((s) => s.ayat.any((a) => quran.sajdas.contains(a.ref)));
+    final label = TextStyle(fontSize: 11.5, height: 1.2, color: colors.muted, fontFamily: YqFonts.ui);
+    // Free edge: left in single-page view (where the next pages are); outer edge of each spread page.
+    final edgeLeft = !spread || page.isEven;
+    final fonts = ref.watch(mushafFontsProvider);
+    return ColoredBox(
+      color: colors.page,
+      child: CustomPaint(
+        foregroundPainter: _PaperEdge(left: edgeLeft, color: colors.frame, night: look.theme == MushafTheme.night),
+        child: MediaQuery.withNoTextScaling(
+          child: Column(
+            children: [
+              SizedBox(height: pad.top + 6),
+              // Page header (always visible, quiet): surah · juz / hizb (+ where a quarter starts).
+              SizedBox(
+                height: 18,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: side + 4),
+                  child: Row(
+                    children: [
+                      Text(quran.surah(first.surah).nameAr, style: label),
+                      const Spacer(),
+                      if (sajdah) ...[
+                        Text(t.quranMarkSajdah, style: label.copyWith(color: YqColors.goldText)),
+                        Text('  ·  ', style: label),
+                      ],
+                      Flexible(child: Text(_place(t, first), style: label, overflow: TextOverflow.ellipsis)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: side),
+                  child: _PageBody(
+                    quran: quran,
+                    layout: layout,
+                    page: page,
+                    look: look,
+                    selected: selected,
+                    playing: playing,
+                    annotations: annotations,
+                    memorise: memorise,
+                    revealed: revealed,
+                    onAyahLongPress: onAyahLongPress,
+                    onAyahTap: onAyahTap,
+                    onNoteTap: onNoteTap,
+                    onBackgroundTap: onBackgroundTap,
+                  ),
+                ),
+              ),
+              SizedBox(
+                height: 22,
+                child: ListenableBuilder(
+                  listenable: fonts,
+                  builder: (context, _) {
+                    final number = Text(
+                      t.quranPageOf(page),
+                      style: label.copyWith(fontFamily: YqFonts.numbers, fontFamilyFallback: const [YqFonts.ui], fontSize: 12.5),
+                    );
+                    if (layout == null || !fonts.hasFailed(page)) return Center(child: number);
+                    // Offline and the page font isn't here yet: the text page is shown; say how to get the print.
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        number,
+                        Text('  ·  ', style: label),
+                        GestureDetector(
+                          onTap: () {
+                            fonts.ensure(page);
+                            onOpenSettings?.call();
+                          },
+                          child: Text(t.readerFallbackHint, style: label.copyWith(color: YqColors.lapis)),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              SizedBox(height: pad.bottom + 6),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-class _PageFrameState extends State<_PageFrame> {
-  final _scroll = ScrollController();
+/// A hint of the paper stacked under the page: a few hairlines along its free edge.
+class _PaperEdge extends CustomPainter {
+  const _PaperEdge({required this.left, required this.color, required this.night});
+  final bool left;
+  final Color color;
+  final bool night;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (var i = 0; i < 3; i++) {
+      final x = left ? 1.0 + i * 2.2 : size.width - 1 - i * 2.2;
+      final paint = Paint()
+        ..color = color.withAlpha(((night ? 70 : 110) * (1 - i / 3)).round())
+        ..strokeWidth = 0.8;
+      canvas.drawLine(Offset(x, size.height * 0.03 + i * 3), Offset(x, size.height * 0.97 - i * 3), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_PaperEdge old) => old.left != left || old.color != color || old.night != night;
+}
+
+/// The page itself: the printed Madani page once its font is on the device, else (briefly while it
+/// loads, or offline) the text page auto-fitted to the same box. Swaps with a short fade.
+class _PageBody extends ConsumerStatefulWidget {
+  const _PageBody({
+    required this.quran,
+    required this.layout,
+    required this.page,
+    required this.look,
+    required this.annotations,
+    required this.memorise,
+    required this.revealed,
+    this.selected,
+    this.playing,
+    this.onAyahLongPress,
+    this.onAyahTap,
+    this.onNoteTap,
+    this.onBackgroundTap,
+  });
+  final QuranData quran;
+  final MushafLayout? layout;
+  final int page;
+  final _Look look;
+  final AyahRef? selected;
+  final AyahRef? playing;
+  final Annotations annotations;
+  final MemoriseMode memorise;
+  final Set<AyahRef> revealed;
+  final ValueChanged<AyahRef>? onAyahLongPress;
+  final ValueChanged<AyahRef>? onAyahTap;
+  final ValueChanged<AyahRef>? onNoteTap;
+  final ValueChanged<Offset>? onBackgroundTap;
+
+  @override
+  ConsumerState<_PageBody> createState() => _PageBodyState();
+}
+
+class _PageBodyState extends ConsumerState<_PageBody> {
+  /// How long a page waits for its font (disk or network) before the text page stands in.
+  static const _grace = Duration(milliseconds: 650);
+  Timer? _timer;
+  bool _waited = false;
 
   @override
   void initState() {
     super.initState();
-    _bringFocusIntoView();
+    _request();
   }
 
   @override
-  void didUpdateWidget(_PageFrame old) {
+  void didUpdateWidget(_PageBody old) {
     super.didUpdateWidget(old);
-    if (old.focus != widget.focus) _bringFocusIntoView();
+    if (old.page != widget.page || old.layout != widget.layout) {
+      _waited = false;
+      _request();
+    }
   }
 
-  /// Long pages at large sizes scroll: put the focused ayah roughly where its text sits.
-  void _bringFocusIntoView() {
-    final f = widget.focus;
-    if (f == null || widget.quran.pageOf(f) != widget.page) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scroll.hasClients) return;
-      final ayat = [for (final s in widget.quran.page(widget.page)) ...s.ayat];
-      final total = ayat.fold<int>(0, (n, a) => n + a.text.length);
-      var before = 0;
-      for (final a in ayat) {
-        if (a.ref == f) break;
-        before += a.text.length;
-      }
-      final max = _scroll.position.maxScrollExtent;
-      if (max <= 0 || total == 0) return;
-      _scroll.animateTo((before / total * max).clamp(0, max), duration: YqMotion.base, curve: YqMotion.ease);
+  void _request() {
+    final layout = widget.layout;
+    _timer?.cancel();
+    if (layout == null) return;
+    final fonts = ref.read(mushafFontsProvider);
+    final need = layout.fontsFor(widget.page);
+    if (fonts.allReady(need)) return;
+    for (final p in need) {
+      fonts.ensure(p);
+    }
+    _timer = Timer(_grace, () {
+      if (mounted) setState(() => _waited = true);
     });
   }
 
   @override
   void dispose() {
-    _scroll.dispose();
+    _timer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final t = AppLocalizations.of(context);
-    final look = widget.look;
-    final quran = widget.quran;
-    final colors = MushafColors.of(look.theme);
-    final first = quran.firstOfPage(widget.page);
-    final pad = MediaQuery.paddingOf(context);
-    return ColoredBox(
-      color: colors.page,
-      child: Column(
-        children: [
-          SizedBox(height: pad.top + 8),
-          // Page header (always visible, quiet): surah · juz/hizb.
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: YqSpace.xl),
-            child: Row(
-              children: [
-                Text(quran.surah(first.surah).nameAr, style: TextStyle(fontSize: 12, color: colors.muted)),
-                const Spacer(),
-                Text(t.quranJuzHizb(quran.juzOf(first), quran.hizbOf(first)), style: TextStyle(fontSize: 12, color: colors.muted)),
-              ],
+    final fonts = ref.watch(mushafFontsProvider);
+    return ListenableBuilder(
+      listenable: fonts,
+      builder: (context, _) {
+        final layout = widget.layout;
+        final ready = layout != null && fonts.allReady(layout.fontsFor(widget.page));
+        final failed = layout != null && layout.fontsFor(widget.page).any(fonts.hasFailed);
+        final Widget child;
+        if (ready) {
+          child = MadaniPage(
+            key: const ValueKey('madani'),
+            layout: layout,
+            quran: widget.quran,
+            page: widget.page,
+            theme: widget.look.theme,
+            selected: widget.selected,
+            playing: widget.playing,
+            annotations: widget.annotations,
+            memorise: widget.memorise,
+            revealed: widget.revealed,
+            onAyahLongPress: widget.onAyahLongPress,
+            onAyahTap: widget.onAyahTap,
+            onNoteTap: widget.onNoteTap,
+            onBackgroundTap: widget.onBackgroundTap,
+          );
+        } else if (layout == null || _waited || failed) {
+          child = FittedMushafPage(
+            key: const ValueKey('text'),
+            page: MushafPage(
+              quran: widget.quran,
+              page: widget.page,
+              theme: widget.look.theme,
+              fontSize: widget.look.fontSize,
+              comfortable: widget.look.comfortable,
+              locale: widget.look.locale,
+              selected: widget.selected,
+              playing: widget.playing,
+              annotations: widget.annotations,
+              memorise: widget.memorise,
+              revealed: widget.revealed,
+              onAyahLongPress: widget.onAyahLongPress,
+              onAyahTap: widget.onAyahTap,
+              onNoteTap: widget.onNoteTap,
             ),
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              controller: _scroll,
-              padding: const EdgeInsets.fromLTRB(YqSpace.xl, YqSpace.s, YqSpace.xl, YqSpace.l),
-              child: MushafPage(
-                quran: quran,
-                page: widget.page,
-                theme: look.theme,
-                fontSize: look.fontSize,
-                comfortable: look.comfortable,
-                locale: look.locale,
-                selected: widget.selected,
-                playing: widget.playing,
-                annotations: widget.annotations,
-                memorise: widget.memorise,
-                revealed: widget.revealed,
-                onAyahLongPress: widget.onAyahLongPress,
-                onAyahTap: widget.onAyahTap,
-                onNoteTap: widget.onNoteTap,
-              ),
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.only(bottom: pad.bottom + 10),
-            child: Text(
-              t.quranPageOf(widget.page),
-              style: TextStyle(fontSize: 12, color: colors.muted, fontFamily: 'Jost', fontFamilyFallback: const ['Tajawal']),
-            ),
-          ),
-        ],
-      ),
+          );
+        } else {
+          child = const SizedBox.expand(key: ValueKey('wait'));
+        }
+        return AnimatedSwitcher(
+          duration: YqMotion.fast,
+          layoutBuilder: (current, previous) => Stack(fit: StackFit.expand, children: [...previous, if (current != null) current]),
+          child: child,
+        );
+      },
     );
   }
 }

@@ -2218,5 +2218,29 @@
   "backupRestoreBody": "We found a copy of your progress on your account. Restore it on this phone? It's merged with what's here — nothing is deleted.",
   "backupRestoreCta": "Restore",
   "backupNotNow": "Not now",
-  "backupRestored": "Restored"
+  "backupRestored": "Restored",
+  "mushafPagesTitle": "Printed mushaf pages",
+  "mushafPagesHint": "Each page downloads when you open it and stays on your device for offline reading. The text size follows the page, as in the printed mushaf.",
+  "mushafPagesStatus": "{n} of 604 pages on this device",
+  "@mushafPagesStatus": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "mushafPagesAll": "The whole mushaf is on this device",
+  "mushafDownloadAll": "Download the whole mushaf (about {mb} MB)",
+  "@mushafDownloadAll": {
+    "placeholders": {
+      "mb": {
+        "type": "String"
+      }
+    }
+  },
+  "mushafDownloadFailed": "Some pages couldn't download — try again later",
+  "mushafCredit": "Mushaf font: King Fahd Glorious Qur'an Printing Complex (QCF V2) · page layout: Quran.com",
+  "readerFallbackHint": "Download the page to see it as printed",
+  "readerNextPage": "Next page",
+  "readerPreviousPage": "Previous page"
 }
