@@ -259,15 +259,6 @@ class ProfileScreen extends ConsumerWidget {
                     unawaited(ref.read(productAnalyticsProvider).track(ProductEvent.settingsChange, {'setting': 'language'}));
                   },
                 ),
-                const SizedBox(height: YqSpace.l),
-                Text(t.langFontSize, style: Theme.of(c).textTheme.titleSmall),
-                YqSegmented<double>(
-                  segments: [
-                    for (final (i, v) in AppSettings.fontSizes.indexed) (v, const ['S', 'M', 'L', 'XL'][i]),
-                  ],
-                  selected: AppSettings.fontSizes.reduce((a, b) => (a - s.quranFontSize).abs() <= (b - s.quranFontSize).abs() ? a : b),
-                  onChanged: (v) => ref.read(settingsProvider.notifier).update((x) => x.copyWith(quranFontSize: v), sync: false),
-                ),
               ],
             );
           },

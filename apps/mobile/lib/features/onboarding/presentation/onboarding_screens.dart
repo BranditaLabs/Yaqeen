@@ -298,7 +298,6 @@ class LanguageStep extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
-    final text = Theme.of(context).textTheme;
     final s = ref.watch(settingsProvider);
     final ctl = ref.read(settingsProvider.notifier);
     final quran = ref.watch(quranDataProvider).valueOrNull;
@@ -344,38 +343,15 @@ class LanguageStep extends ConsumerWidget {
                   quran.basmala,
                   textAlign: TextAlign.center,
                   textDirection: TextDirection.rtl,
-                  style: YqText.quran(size: s.quranFontSize, height: 2, color: YqColors.ink),
+                  style: YqText.quran(height: 2, color: YqColors.ink),
                 ),
             ],
           ),
         ),
-        const SizedBox(height: YqSpace.m),
-        YqSection(
-          title: t.langFontSize,
-          child: Column(
-            children: [
-              Slider(
-                value: AppSettings.fontSizes.indexOf(_nearest(s.quranFontSize)).toDouble(),
-                max: 3,
-                divisions: 3,
-                label: const ['S', 'M', 'L', 'XL'][AppSettings.fontSizes.indexOf(_nearest(s.quranFontSize))],
-                activeColor: YqColors.lapis,
-                onChanged: (v) => ctl.update((x) => x.copyWith(quranFontSize: AppSettings.fontSizes[v.round()]), sync: false),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  for (final l in const ['S', 'M', 'L', 'XL']) Text(l, style: text.labelSmall),
-                ],
-              ),
-            ],
-          ),
-        ),
+        // No font-size step: the reader draws the printed page, which sets its own size.
       ],
     );
   }
-
-  static double _nearest(double v) => AppSettings.fontSizes.reduce((a, b) => (a - v).abs() <= (b - v).abs() ? a : b);
 }
 
 class _RadioCard extends StatelessWidget {
