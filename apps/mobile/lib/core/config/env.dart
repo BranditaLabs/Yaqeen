@@ -20,6 +20,11 @@ abstract final class Env {
   static const appleRedirectUri =
       String.fromEnvironment('APPLE_REDIRECT_URI', defaultValue: 'https://api.yaqin-brand.com/v1/auth/apple/callback');
 
+  /// Where the per-page KFGQPC QCF V2 mushaf fonts (`p{page}.ttf`) are downloaded from. Default:
+  /// Quran.com's public CDN (spec §10); set it to our CDN once we mirror the 604 files.
+  static const mushafFontBaseUrl =
+      String.fromEnvironment('MUSHAF_FONT_BASE_URL', defaultValue: 'https://static.qurancdn.com/fonts/quran/hafs/v2/ttf/');
+
   /// Sentry DSN for crash/error reports; empty = reporting off (dev, tests).
   static const sentryDsn = String.fromEnvironment('SENTRY_DSN');
 

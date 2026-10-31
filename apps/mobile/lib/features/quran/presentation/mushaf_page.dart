@@ -41,9 +41,10 @@ enum MemoriseMode { off, ayat, words }
 
 /// One mushaf page: surah headers, Basmala, ayat with end markers ﴿N﴾, juz / hizb-quarter markers
 /// where they start and «سجدة» after a prostration ayah. Never reflows an ayah onto another page (the
-/// page's verse range comes from the Madani metadata). Until a licensed per-page glyph font (KFGQPC)
-/// is installed, verses are set in Amiri Quran. Hidden words keep their place (transparent ink over a
-/// dotted line), so revealing never moves the text.
+/// page's verse range comes from the printed layout). This is the text page set in Amiri Quran — the
+/// reader's fallback while a page's KFGQPC font is not on the device (see [FittedMushafPage] and
+/// `madani_page.dart`). Hidden words keep their place (transparent ink over a dotted line), so
+/// revealing never moves the text.
 class MushafPage extends StatefulWidget {
   const MushafPage({
     super.key,
@@ -201,7 +202,7 @@ class _MushafPageState extends State<MushafPage> {
           children: [
             for (final seg in segments) ...[
               if (seg.startsSurah) ...[
-                _SurahHeader(name: t.quranSurahName(seg.surah.nameAr), colors: c),
+                _SurahHeader(name: t.quranSurahName(seg.surah.nameAr), colors: c, fontSize: widget.fontSize),
                 if (seg.surah.number != 1 && seg.surah.number != 9)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 4),
@@ -252,27 +253,155 @@ class _MushafPageState extends State<MushafPage> {
       );
 }
 
+/// The text page fitted to its box — the offline fallback of the printed page (no font yet, no network).
+/// The font size is the largest whose measured page height fits (binary search); a final scale-down
+/// guards the last pixels, so the page never scrolls or overflows.
+class FittedMushafPage extends StatelessWidget {
+  const FittedMushafPage({super.key, required this.page, this.minSize = 10, this.maxSize = 40});
+
+  /// The page to draw; its [MushafPage.fontSize] is replaced by the fitted size.
+  final MushafPage page;
+  final double minSize;
+  final double maxSize;
+
+  static final Map<String, double> _fitted = {};
+
+  /// The page height at [fontSize] in [width] (mirrors [MushafPage]'s layout; markers as text).
+  static double measureHeight({
+    required QuranData quran,
+    required int page,
+    required double width,
+    required double fontSize,
+    required bool comfortable,
+    required AppLocalizations t,
+  }) {
+    final style = YqText.quran(size: fontSize, height: comfortable ? 2.6 : 2.15);
+    var h = 0.0;
+    double measure(InlineSpan span, TextStyle s) {
+      final tp = TextPainter(text: span, textDirection: TextDirection.rtl, textAlign: TextAlign.justify)..layout(maxWidth: width);
+      final out = tp.height;
+      tp.dispose();
+      return out;
+    }
+
+    for (final seg in quran.page(page)) {
+      if (seg.startsSurah) {
+        h += _SurahHeader.margin(fontSize) * 2 + _SurahHeader.padding(fontSize) * 2 + 2.4;
+        h += measure(TextSpan(text: t.quranSurahName(seg.surah.nameAr), style: _SurahHeader.style(fontSize)), style);
+        if (seg.surah.number != 1 && seg.surah.number != 9) {
+          h += 4 + measure(TextSpan(text: quran.basmala, style: style.copyWith(fontSize: fontSize * 0.92)), style);
+        }
+      }
+      final parts = <InlineSpan>[];
+      for (final a in seg.ayat) {
+        if (quran.quarterStartingAt(a.ref) != null) {
+          parts.add(TextSpan(text: ' ${t.quranMarkHizb('00')} ', style: TextStyle(fontSize: fontSize * 0.5)));
+        }
+        parts.add(TextSpan(text: '${a.text} '));
+        parts.add(TextSpan(text: '﴿${YqFormat.toArabicIndic(a.ref.ayah)}﴾ ', style: TextStyle(fontSize: fontSize * 0.8)));
+        if (quran.sajdas.contains(a.ref)) parts.add(TextSpan(text: ' ${t.quranMarkSajdah} ', style: TextStyle(fontSize: fontSize * 0.5)));
+      }
+      h += measure(TextSpan(children: parts, style: style), style);
+    }
+    return h;
+  }
+
+  /// The largest size in [lo, hi] whose page fits [box].
+  static double fit({
+    required QuranData quran,
+    required int page,
+    required Size box,
+    required bool comfortable,
+    required AppLocalizations t,
+    double lo = 10,
+    double hi = 40,
+  }) {
+    if (measureHeight(quran: quran, page: page, width: box.width, fontSize: lo, comfortable: comfortable, t: t) > box.height) return lo;
+    for (var i = 0; i < 9; i++) {
+      final mid = (lo + hi) / 2;
+      if (measureHeight(quran: quran, page: page, width: box.width, fontSize: mid, comfortable: comfortable, t: t) <= box.height) {
+        lo = mid;
+      } else {
+        hi = mid;
+      }
+    }
+    return lo;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    return LayoutBuilder(
+      builder: (context, box) {
+        final size = box.biggest;
+        if (!size.isFinite || size.isEmpty) return const SizedBox.shrink();
+        final p = page;
+        // A small reserve for the hairline pills drawn as widgets (measured as text). Fitting measures
+        // the page ~10 times, so results are kept per page and box.
+        final key = '${p.page}|${size.width.round()}x${size.height.round()}|${p.comfortable}|${t.localeName}';
+        final font = _fitted[key] ??= fit(
+          quran: p.quran,
+          page: p.page,
+          box: Size(size.width, size.height * 0.97),
+          comfortable: p.comfortable,
+          t: t,
+          lo: minSize,
+          hi: maxSize,
+        );
+        if (_fitted.length > 64) _fitted.remove(_fitted.keys.first);
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.center,
+          child: SizedBox(
+            width: size.width,
+            child: MushafPage(
+              key: p.key,
+              quran: p.quran,
+              page: p.page,
+              theme: p.theme,
+              fontSize: font,
+              comfortable: p.comfortable,
+              locale: p.locale,
+              selected: p.selected,
+              playing: p.playing,
+              annotations: p.annotations,
+              memorise: p.memorise,
+              revealed: p.revealed,
+              onAyahLongPress: p.onAyahLongPress,
+              onAyahTap: p.onAyahTap,
+              onNoteTap: p.onNoteTap,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 /// Hairline frame with the surah name — deliberately plain (no geometric ornament, brand rule 8).
 class _SurahHeader extends StatelessWidget {
-  const _SurahHeader({required this.name, required this.colors});
+  const _SurahHeader({required this.name, required this.colors, required this.fontSize});
   final String name;
   final MushafColors colors;
+  final double fontSize;
+
+  /// Sizes follow the page's text size, so a fitted page with three surahs still fits.
+  static double margin(double fontSize) => (fontSize * 0.42).clamp(4.0, YqSpace.m);
+  static double padding(double fontSize) => (fontSize * 0.28).clamp(3.0, YqSpace.s);
+  static TextStyle style(double fontSize) =>
+      TextStyle(fontFamily: YqFonts.naskh, fontWeight: FontWeight.w700, fontSize: (fontSize * 0.78).clamp(12.0, 20.0));
 
   @override
   Widget build(BuildContext context) => Semantics(
         header: true,
         child: Container(
-          margin: const EdgeInsets.symmetric(vertical: YqSpace.m),
-          padding: const EdgeInsets.symmetric(vertical: YqSpace.s),
+          margin: EdgeInsets.symmetric(vertical: margin(fontSize)),
+          padding: EdgeInsets.symmetric(vertical: padding(fontSize)),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(YqRadii.chip),
             border: Border.all(color: colors.frame, width: 1.2),
           ),
-          child: Text(
-            name,
-            textAlign: TextAlign.center,
-            style: TextStyle(fontFamily: YqFonts.naskh, fontWeight: FontWeight.w700, fontSize: 20, color: colors.ink),
-          ),
+          child: Text(name, textAlign: TextAlign.center, style: style(fontSize).copyWith(color: colors.ink)),
         ),
       );
 }

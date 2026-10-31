@@ -6,11 +6,9 @@ import 'package:go_router/go_router.dart';
 import '../../../core/config/config_controller.dart';
 import '../../../core/config/remote_config.dart';
 import '../../../core/di/providers.dart';
-import '../../../core/format.dart';
 import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
-import '../../../core/theme/typography.dart';
 import '../../../core/widgets/controls.dart';
 import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_layout.dart';
@@ -21,6 +19,7 @@ import '../data/reading_repository.dart';
 import '../data/tafsir_repository.dart';
 import '../domain/annotations.dart';
 import '../domain/quran_data.dart';
+import 'mushaf_download.dart';
 import 'note_sheet.dart';
 import 'quran_index_screen.dart';
 import 'quran_providers.dart';
@@ -409,26 +408,8 @@ class _ReaderSettings extends ConsumerWidget {
           selected: s.mushafTheme,
           onChanged: (v) => ctl.update((x) => x.copyWith(mushafTheme: v), sync: false),
         ),
+        // The printed page sets the text size (no font-size control: a page always fits, like print).
         const SizedBox(height: YqSpace.l),
-        Text(t.readerFontSize, style: Theme.of(context).textTheme.titleSmall),
-        const SizedBox(height: YqSpace.s),
-        YqSegmented<double>(
-          segments: [
-            for (final (i, size) in AppSettings.fontSizes.indexed) (size, const ['S', 'M', 'L', 'XL'][i]),
-          ],
-          selected: AppSettings.fontSizes.reduce((a, b) => (a - s.quranFontSize).abs() <= (b - s.quranFontSize).abs() ? a : b),
-          onChanged: (v) => ctl.update((x) => x.copyWith(quranFontSize: v), sync: false),
-        ),
-        const SizedBox(height: YqSpace.m),
-        YqListRow(
-          title: t.readerSpacing,
-          trailing: YqSwitch(
-            value: s.comfortableSpacing,
-            onChanged: (v) => ctl.update((x) => x.copyWith(comfortableSpacing: v), sync: false),
-            label: t.readerSpacing,
-          ),
-        ),
-        const SizedBox(height: YqSpace.s),
         Text(t.readerPageTurn, style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: YqSpace.s),
         YqSegmented<PageTurn>(
@@ -481,8 +462,9 @@ class _ReaderSettings extends ConsumerWidget {
               ref.read(quranDataProvider).whenData((q) => context.push('/quran/recite/${q.firstOfPage(page).surah}'));
             },
           ),
+        const YqDivider(),
         const SizedBox(height: YqSpace.s),
-        Text(YqFormat.number(s.quranFontSize.round()), textAlign: TextAlign.center, style: YqText.numberSmall),
+        const MushafDownloadSection(),
       ],
     );
   }

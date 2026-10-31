@@ -2148,5 +2148,29 @@
   "backupRestored": "تمت الاستعادة",
   "styleMuallim": "معلّم",
   "tafsirSourceQf": "المصدر: Quran.com · Quran Foundation",
-  "tafsirChoose": "اختر التفسير"
+  "tafsirChoose": "اختر التفسير",
+  "mushafPagesTitle": "صفحات المصحف كما في الطبعة",
+  "mushafPagesHint": "تُنزَّل كل صفحة عند فتحها وتبقى على جهازك للقراءة دون اتصال. حجم الخط يتبع الصفحة كما في المصحف المطبوع.",
+  "mushafPagesStatus": "{n} من 604 صفحة على الجهاز",
+  "@mushafPagesStatus": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "mushafPagesAll": "المصحف كاملاً على جهازك",
+  "mushafDownloadAll": "تنزيل المصحف كاملاً (نحو {mb} م.ب)",
+  "@mushafDownloadAll": {
+    "placeholders": {
+      "mb": {
+        "type": "String"
+      }
+    }
+  },
+  "mushafDownloadFailed": "تعذّر تنزيل بعض الصفحات، أعد المحاولة لاحقاً",
+  "mushafCredit": "خط المصحف: مجمع الملك فهد لطباعة المصحف الشريف (QCF V2) · تخطيط الصفحات: Quran.com",
+  "readerFallbackHint": "نزّل الصفحة لتظهر كما في الطبعة",
+  "readerNextPage": "الصفحة التالية",
+  "readerPreviousPage": "الصفحة السابقة"
 }
