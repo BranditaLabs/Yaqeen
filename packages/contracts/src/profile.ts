@@ -264,6 +264,9 @@ export const AdminTagRow = z.object({
   scans: z.number().int(),
   createdAt: z.string(),
   linkedAt: z.string().nullable(),
+  /** Written onto a chip with the staff encoder (null = not in-house encoded yet). */
+  encodedAt: z.string().nullable(),
+  encodedLocked: z.boolean(),
 });
 export type AdminTagRow = z.infer<typeof AdminTagRow>;
 
@@ -278,6 +281,8 @@ export const AdminTagBatch = z.object({
   total: z.number().int(),
   active: z.number().int(),
   disabled: z.number().int(),
+  /** Working (not switched-off) tags already written with the staff encoder. */
+  encoded: z.number().int(),
   createdAt: z.string(),
 });
 export type AdminTagBatch = z.infer<typeof AdminTagBatch>;
@@ -293,6 +298,73 @@ export const AdminAssignTag = z.object({
   userId: z.string().uuid(),
   reason: z.string().trim().min(3).max(500),
 });
+
+/* ------------------------------------------------------------ staff encoding (NFC) */
+
+/**
+ * In-house encoding: marketing opens a short-lived session for one batch in admin; a staff phone
+ * opens `yaqeen://encode/<token>` and writes `<baseUrl>/t/<code>` onto blank chips. The token is a
+ * capability for that batch only (no admin credentials in the app); only its SHA-256 is stored.
+ */
+export const ENCODE_SESSION_HOURS = 2;
+/** 32 random bytes, base64url without padding. */
+export const ENCODE_TOKEN = /^[A-Za-z0-9_-]{43}$/;
+
+/** GET /admin/tags/batches/:batch/encode-sessions — never carries the token. */
+export const AdminEncodeSession = z.object({
+  id: z.string(),
+  batch: z.string(),
+  createdAt: z.string(),
+  expiresAt: z.string(),
+  revokedAt: z.string().nullable(),
+  /** Not expired and not revoked. */
+  active: z.boolean(),
+});
+export type AdminEncodeSession = z.infer<typeof AdminEncodeSession>;
+
+/** POST /admin/tags/batches/:batch/encode-sessions — the token is shown once (QR + link). */
+export const AdminEncodeSessionCreated = AdminEncodeSession.extend({
+  token: z.string().regex(ENCODE_TOKEN),
+  /** `yaqeen://encode/<token>` — opens the staff encoder in the app. */
+  url: z.string(),
+});
+export type AdminEncodeSessionCreated = z.infer<typeof AdminEncodeSessionCreated>;
+
+export const EncodeCode = z.object({ code: z.string(), encodedAt: z.string().nullable() });
+export type EncodeCode = z.infer<typeof EncodeCode>;
+
+/** GET /v1/encode/:token — the batch's working codes and the URL base to write. */
+export const EncodeSessionView = z.object({
+  batch: z.string(),
+  kind: TagKind,
+  /** `PUBLIC_PROFILE_BASE_URL`; each chip gets `${baseUrl}/t/<code>`. */
+  baseUrl: z.string(),
+  expiresAt: z.string(),
+  codes: z.array(EncodeCode),
+});
+export type EncodeSessionView = z.infer<typeof EncodeSessionView>;
+
+/** POST /v1/encode/:token/written — a chip was written and read back. */
+export const EncodeWrittenRequest = z.object({
+  code: TagCode,
+  /** The chip's UID in hex, when the phone could read it. */
+  uid: z
+    .string()
+    .trim()
+    .regex(/^[0-9A-Fa-f]{2,64}$/, 'hex uid')
+    .transform((s) => s.toUpperCase())
+    .optional(),
+  locked: z.boolean(),
+});
+export type EncodeWrittenRequest = z.infer<typeof EncodeWrittenRequest>;
+
+export const EncodeWrittenResponse = z.object({
+  code: z.string(),
+  encodedAt: z.string(),
+  encoded: z.number().int(),
+  total: z.number().int(),
+});
+export type EncodeWrittenResponse = z.infer<typeof EncodeWrittenResponse>;
 
 /* ------------------------------------------------------------ admin: cards programme */
 

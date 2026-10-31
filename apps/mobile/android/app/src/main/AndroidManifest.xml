@@ -17,6 +17,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <!-- «التسميع» (flag recite): audio stays on the device (spec §6.8). -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- NFC (spec §5.26): read a Yaqeen medal's link when the user taps «hold your medal», and staff
+         encoding. Optional hardware: the app installs and works fully without NFC. -->
+    <uses-permission android:name="android.permission.NFC" />
+    <uses-feature android:name="android.hardware.nfc" android:required="false" />
     <!-- Advertising ID for ad measurement (Firebase Analytics / Meta also merge it in). Read only after
          the user grants `ads_measurement`; declare it in Play's Data safety form. -->
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" />

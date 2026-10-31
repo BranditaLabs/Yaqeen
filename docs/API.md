@@ -35,6 +35,8 @@ Base URL: `API_URL` (local `http://localhost:4000`). JSON only. Schemas: `packag
 | POST | `/v1/me/events` | user (30/min) | Consented product events `{anonId, platform, appVersion, locale, events[≤50] {name, props, at}}` → `202 {accepted}`; only `PRODUCT_EVENTS` with allowed values are kept, nothing without the `product_analytics` consent, never linked to the account |
 | GET · POST | `/v1/me/tags` | user (POST: not guest; 10 / 10 min) | Key medals / cards: list the active ones `[{code, kind, url, linkedAt, scans}]`; activate `{code}` (any case, dashes, or a pasted `/t/` link). Errors `not_found` (unknown, taken or switched off — indistinguishable), `tag_limit` (409, max 10), `account_required` |
 | DELETE | `/v1/me/tags/:code` | user | Switch a lost tag off for good (204) |
+| GET | `/v1/encode/:token` | encoding token (30/min per IP) | Staff encoder (`EncodeSessionView`): `{batch, kind, baseUrl, expiresAt, codes[] {code, encodedAt}}` — that batch's working codes only (switched-off ones left out), print order, `no-store`. Unknown, malformed, expired, revoked and voided-batch tokens all answer the same `404 not_found` |
+| POST | `/v1/encode/:token/written` | encoding token (120/min per IP) | `{code, uid?: hex, locked}` after a chip was written and read back → `{code, encodedAt, encoded, total}`. Idempotent (a repeat or a re-encode refreshes the last write). `code_not_in_batch` (409) for another batch's or a switched-off code; the session is checked before the body. The token is redacted from request logs |
 | GET | `/v1/me/journey` | user | Private journey (`MyJourney`): `lifetimePoints`, `level {…, nextAt}`, `streak`, `challengeDay`, `challengeOf`, `events[] {kind: joined·challenge_start·challenge_day·level·badge, date, value}` newest first. The public view adds `timeline` (≤ 12 events) only when `show.timeline` is on |
 | GET | `/v1/public/profiles/:handle` | public | What a scanner sees (cached 60 s): level, streak, challenge day, badges, member since — each only if switched on; never worship detail. 404 when unpublished |
 | GET | `/u/:handle` | public | The card as a script-free HTML page (Arabic/English by browser) with the get-the-app and store CTAs; counts human opens |
@@ -109,10 +111,12 @@ Roles: `super_admin` (always allowed), `content_editor`, `religious_reviewer`, `
 | PATCH | `/admin/tags/batches/:batch` | marketing | `{status: ordered·received·on_sale, note}`, audited |
 | POST | `/admin/tags/batches/:batch/void` | marketing, support | `{reason}`: batch void + every tag switched off, audited |
 | POST | `/admin/tags/:code/assign` | support | `{userId, reason}`: link a blank tag to an active signed-in account, audited |
-| GET · POST | `/admin/tags/batches` | read: support, marketing · mint: marketing | Batches with totals; mint `{batch, kind: medal·card, count ≤ 5000}` (audited, `batch_exists`) |
+| GET · POST | `/admin/tags/batches` | read: support, marketing · mint: marketing | Batches with totals (`total`, `active`, `disabled`, `encoded` = working tags written by the staff encoder); mint `{batch, kind: medal·card, count ≤ 5000}` (audited, `batch_exists`) |
 | GET | `/admin/tags/batches/:batch.csv` | support, marketing | `code,printed_code,url,kind` for the manufacturer (NFC NDEF URI + QR print) |
-| GET | `/admin/tags?batch=&status=unclaimed·active·disabled&code=` | support, marketing | Tags with the linked card's handle (never worship) |
+| GET | `/admin/tags?batch=&status=unclaimed·active·disabled&code=` | support, marketing | Tags with the linked card's handle (never worship), plus `encodedAt` / `encodedLocked` (chip state from the staff encoder) |
 | POST | `/admin/tags/:code/disable` · `/release` | support | Switch off (e.g. reported lost) / re-issue as blank; `{reason}`, audited |
+| GET · POST | `/admin/tags/batches/:batch/encode-sessions` | marketing | Staff NFC encoding sessions. GET lists them (`AdminEncodeSession`, never the token). POST opens one for 2 h → `201 {id, batch, createdAt, expiresAt, revokedAt, active, token, url: yaqeen://encode/<token>}` — the token (32 random bytes, base64url) is returned once and only its SHA-256 is stored; audited `tags.encode_session.create` (no token in the log). `batch_void` for a voided batch |
+| DELETE | `/admin/tags/batches/:batch/encode-sessions/:id` | marketing | Revoke at once (204), audited `tags.encode_session.revoke` |
 | POST | `/admin/users/:id/public-profile/unpublish` | support | Hide a user's public card (`{reason}`), audited. The user detail includes `publicProfile {handle, published, views, url}` |
 
 ## Common error codes

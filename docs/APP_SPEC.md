@@ -702,15 +702,20 @@ badges and member-since. It is also Yaqeen's front door for whoever scans it.
 - **Levels** come from lifetime points (sum of positive ledger rows) — spending never lowers a level;
   names describe the journey: بداية الطريق · على الطريق · مواظب · ثابت · راسخ · منارة
   (0 · 500 · 2,000 · 5,000 · 12,000 · 25,000). No leaderboard, no change to points economics.
-- **Physical tags — Yaqeen key medals and cards** (sold in the Yaqeen store; the app does not write
-  tags). Each piece carries a **permanent code** minted by marketing in admin batches (8 characters,
+- **Physical tags — Yaqeen key medals and cards** (sold in the Yaqeen store; only the staff encoder
+  below writes chips). Each piece carries a **permanent code** minted by marketing in admin batches (8 characters,
   no look-alikes, printed `XXXX-XXXX`): the NFC chip holds one NDEF URI record
   `<PUBLIC_PROFILE_BASE_URL>/t/<code>` and the same link is printed as a QR beside the code (the batch
   CSV gives code, printed code and URL per piece). `GET /t/<code>`: activated + card published → 302 to
   `/u/<current handle>` (handle changes never break a medal; scans counted, bots skipped); blank →
   «ميدالية يقين جديدة» page with the 3 activation steps, the code and «فعّلها في التطبيق»
   (`yaqeen://tag/<code>`) + «حمّل تطبيق يقين»; switched off / unknown / card hidden → the friendly 404.
-  The buyer activates it once in the app (orb «ميدالياتي» → code field, or the deep link pre-fills it);
+  The buyer activates it once in the app (orb «ميدالياتي» → code field, the deep link pre-fills it, or
+  **«قرّب الميدالية من الهاتف»**: the app reads the chip's NDEF URI record and accepts only our own
+  link — https (or exactly the configured site), path exactly `/t/<code>`, no query, fragment or user
+  info — then pre-fills the code; the user still taps «تفعيل». The button shows only when the phone has
+  NFC and it is on; Android with NFC off shows «فعّل NFC من إعدادات الهاتف»; a stranger's tag gets a
+  friendly «هذه ليست ميدالية يقين»);
   a code activates for one account only (≤ 10 per user, rate-limited, guests can't); a lost piece is
   switched off for good by its owner — never passed to a finder — and support can re-issue a returned
   one (audited). No `/t` universal link: scanners must always see the web card.
@@ -725,6 +730,18 @@ badges and member-since. It is also Yaqeen's front door for whoever scans it.
     the pages + publishing, or activation, at once.
   - **Batches**: status ordered → received → on sale with a note; **void** a faulty run (every tag
     switched off, linked ones too); support can **link a blank tag to a customer** who can't activate.
+  - **In-house encoding («ترميز بالهاتف»)** — so the owner can encode medals without the factory:
+    on a batch row, marketing opens a **2-hour encoding session** (audited; revocable at once). Admin
+    shows its link `yaqeen://encode/<token>` once, as a QR and as text. A staff phone opens it in the app
+    (deep link only — no menu entry) on the **Encoding** screen: stage = batch + `YqRing` of encoded /
+    working pieces + the next code; «قرّب شريحة فارغة من الهاتف» writes one NDEF URI record
+    `<PUBLIC_PROFILE_BASE_URL>/t/<code>`, reads it back to verify (a factory-blank Android chip is
+    formatted, then a second tap verifies), then reports it and moves to the next code. Optional
+    «قفل الشريحة بعد الكتابة» (default **off**, permanent, with a warning). Pick any code in the list to
+    re-encode it; «اختبار شريحة» reads a chip and says which code it carries. Errors say why: no NFC /
+    NFC off, not NDEF (wrong chip type), locked, too small, write failed, didn't read back, no chip in
+    time. When the session expires or is revoked the screen stops. The batch table shows «مُرمّزة x / y»
+    and each tag its chip state (encoded, locked). The token is never stored by the app.
   - **Numbers** (aggregates only, `card_daily_stats`): card opens, medal scans, blank-medal page
     opens, «get the app» and «shop» clicks, publishes, activations per day + per-batch activation.
     No visitor, user or handle is stored; bots and link previews don't count.
@@ -734,9 +751,11 @@ badges and member-since. It is also Yaqeen's front door for whoever scans it.
   (https only), visibility switches with the note «عباداتك لا تظهر أبداً», look. Entry: Profile.
 - **Privacy**: unpublished by default; never worship detail; guests can't publish; erasure request or
   suspension hides it at once; support can hide an abusive card (audited); only an open counter is
-  kept. Deep links `yaqeen://card` → `/profile/card`, `yaqeen://tag/<code>` → `/profile/card?tag=<code>`.
+  kept. Deep links `yaqeen://card` → `/profile/card`, `yaqeen://tag/<code>` → `/profile/card?tag=<code>`,
+  `yaqeen://encode/<token>` → `/encode/<token>` (staff encoder). NFC is read only on a tap, never at
+  start-up; only our own `/t/<code>` links are accepted.
 - **Acceptance** [x] nothing public until published · [x] only switched-on fields appear · [x] unsafe
-  links never render · [x] journey shows only when switched on, newest first · [x] a blank medal explains activation; an activated one follows the handle; a switched-off one never resolves or re-activates · [x] works in ar/en.
+  links never render · [x] journey shows only when switched on, newest first · [x] a blank medal explains activation; an activated one follows the handle; a switched-off one never resolves or re-activates · [x] holding a medal pre-fills only our own `/t/<code>` links and still asks to confirm · [x] staff encoding: session per batch, expiring + revocable + audited, token hashed at rest, writes + verifies + reports each chip, lock off by default · [x] works in ar/en.
 
 ### 5.27 `23 · Ramadan` — `/prayer/ramadan` ✅ · flag `ramadan`
 

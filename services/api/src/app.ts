@@ -23,6 +23,8 @@ import { adminAnalyticsRoutes } from './routes/admin/analytics.routes.js';
 import { adminUsersRoutes } from './routes/admin/users.routes.js';
 import { appRoutes } from './routes/public/app.routes.js';
 import { authRoutes } from './routes/public/auth.routes.js';
+import { encodeRoutes } from './routes/public/encode.routes.js';
+import { redactEncodeToken } from './services/tag-encoding.service.js';
 import { meRoutes } from './routes/public/me.routes.js';
 import { profileRoutes } from './routes/public/profile.routes.js';
 import { siteRoutes } from './routes/public/site.routes.js';
@@ -52,6 +54,15 @@ export async function buildApp(input: Omit<AppContext, 'cache'> & { cache?: Resp
             level: ctx.env.LOG_LEVEL,
             // Never log tokens or personal data.
             redact: ['req.headers.authorization', 'req.headers["x-admin-session"]', 'req.body.idToken', 'req.body.password', 'req.body.totp'],
+            // Staff encoding tokens travel in the path (`/v1/encode/<token>`): keep them out of logs.
+            serializers: {
+              req: (req: { method: string; url: string; hostname?: string; ip?: string }) => ({
+                method: req.method,
+                url: redactEncodeToken(req.url),
+                host: req.hostname,
+                remoteAddress: req.ip,
+              }),
+            },
           },
     trustProxy: true,
     bodyLimit: 256 * 1024,
@@ -118,6 +129,7 @@ export async function buildApp(input: Omit<AppContext, 'cache'> & { cache?: Resp
   // Public app API
   await app.register(authRoutes, { prefix: '/v1/auth' });
   await app.register(meRoutes, { prefix: '/v1/me' });
+  await app.register(encodeRoutes, { prefix: '/v1/encode' });
   await app.register(appRoutes, { prefix: '/v1' });
   await app.register(profileRoutes);
   await app.register(siteRoutes);

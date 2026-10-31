@@ -57,6 +57,16 @@ test.describe('admin dashboard', () => {
     await expect(row).toContainText(`@${f.handle}`);
   });
 
+  test('staff encoding: a session for the batch shows its QR and app link once', async ({ page }) => {
+    await page.goto('/tags');
+    const panel = page.getByTestId('encode-e2e');
+    await page.getByText('ترميز بالهاتف').first().click();
+    await panel.getByRole('button', { name: 'فتح جلسة ترميز جديدة' }).click();
+    await expect(panel.getByTestId('encode-link')).toHaveText(/^yaqeen:\/\/encode\/[A-Za-z0-9_-]{43}$/);
+    await expect(panel.getByRole('img', { name: 'رمز QR لجلسة الترميز' }).locator('svg')).toBeVisible();
+    await expect(panel.getByRole('button', { name: 'إيقاف' }).first()).toBeVisible();
+  });
+
   test('overview has no serious accessibility violations', async ({ page }) => {
     await page.goto('/');
     const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();

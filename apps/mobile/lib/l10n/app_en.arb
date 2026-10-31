@@ -2086,5 +2086,114 @@
   "savedNoNotes": "No notes yet",
   "savedNoNotesHint": "Long-press an ayah, then «Note» to write your reflection",
   "savedNoHighlights": "No highlights yet",
-  "savedNoHighlightsHint": "Long-press an ayah, then «Highlight»"
+  "savedNoHighlightsHint": "Long-press an ayah, then «Highlight»",
+  "medalNfcScan": "Hold your medal to the phone",
+  "medalNfcWaiting": "Hold the medal against the back of the phone…",
+  "medalNfcPrompt": "Hold your Yaqeen medal or card near the top of the phone",
+  "medalNfcFound": "Found medal {code}. Tap Activate to confirm.",
+  "@medalNfcFound": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "medalNfcNotOurs": "This isn't a Yaqeen medal, or its link isn't ours. Type the printed code instead.",
+  "medalNfcEmpty": "The chip is empty. Type the code printed on the medal.",
+  "medalNfcFailed": "We couldn't read it. Hold it still and try again.",
+  "medalNfcOff": "Turn on NFC in your phone's settings to read the medal by touch.",
+  "encodeTitle": "Encode medals",
+  "encodeBatch": "Batch {batch}",
+  "@encodeBatch": {
+    "placeholders": {
+      "batch": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeProgress": "{done} of {total} encoded",
+  "@encodeProgress": {
+    "placeholders": {
+      "done": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeNext": "Next: {code}",
+  "@encodeNext": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeSelected": "Selected: {code}",
+  "@encodeSelected": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeAllDone": "Every piece in the batch is encoded. Pick a code below to re-encode it.",
+  "encodeWrite": "Hold a blank chip to the phone",
+  "encodeWriting": "Keep the chip still… writing the link, then checking it",
+  "encodeVerifyAgain": "Written. Hold the chip again to check it.",
+  "encodeDone": "{code} written and checked",
+  "@encodeDone": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeLock": "Lock the chip after writing",
+  "encodeLockHint": "Optional. Locking is permanent: the chip can never be rewritten or fixed.",
+  "encodeLockOnWarning": "Locking is on: every chip written now is locked for good. Check the link first.",
+  "encodeTest": "Test a chip",
+  "encodeTestResult": "This chip carries {code} from this batch.",
+  "@encodeTestResult": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeTestOther": "This chip carries another link: {uri}",
+  "@encodeTestOther": {
+    "placeholders": {
+      "uri": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeCodes": "Codes in this batch",
+  "encodeCodeDone": "Encoded",
+  "encodeCodeTodo": "Not encoded yet",
+  "encodeExpires": "Session ends {time}",
+  "@encodeExpires": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeGone": "This encoding session has ended or was revoked. Open a new one from the admin dashboard.",
+  "encodeNoNfc": "This phone has no NFC. Use a phone with NFC to encode.",
+  "encodeNfcOff": "NFC is off. Turn it on in your phone's settings, then come back.",
+  "encodeErrNotNdef": "This chip type isn't supported (not NDEF). Use NTAG chips.",
+  "encodeErrReadOnly": "This chip is locked and can't be written.",
+  "encodeErrTooSmall": "The link doesn't fit on this chip. Use a larger chip.",
+  "encodeErrWrite": "Writing failed. Keep the chip still and try again.",
+  "encodeErrVerify": "It was written but didn't read back the same. Try again.",
+  "encodeErrLock": "The chip was written but couldn't be locked.",
+  "encodeErrTimeout": "No chip found. Hold it to the phone and try again.",
+  "encodeErrNotInBatch": "This code isn't in the batch.",
+  "encodeErrNetwork": "The chip was written but couldn't be saved. Check the connection and try again.",
+  "encodeRetrySave": "Save again",
+  "nfcFailed": "That didn't work, try again",
+  "nfcSuccess": "Done"
 }

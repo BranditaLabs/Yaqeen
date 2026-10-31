@@ -55,7 +55,12 @@ first review. Then set it to `completed`.
 2. **Identifier** `com.yaqinbrand.yaqeen` with these capabilities:
    - Associated Domains;
    - Sign in with Apple;
-   - Push Notifications (FCM campaigns; regenerate the App Store profile after enabling it).
+   - Push Notifications (FCM campaigns; regenerate the App Store profile after enabling it);
+   - **NFC Tag Reading** (medal scan + staff encoding, `com.apple.developer.nfc.readersession.formats`
+     NDEF + TAG in `Runner.entitlements`). Enable it on the App ID, then **regenerate the App Store
+     provisioning profile** — a profile without it fails signing. `NFCReaderUsageDescription` is in
+     `Info.plist`. iPhone 7+ reads; writing needs iOS 13+. The plugin (`nfc_manager` ≥ 4.2) ships a
+     Swift Package, so no CocoaPods is needed.
 3. **App Store Connect** → New App with the same bundle id.
 4. **Apple Distribution** certificate. Export it from Keychain as a `.p12` with a password, then
    `base64 -i dist.p12`.

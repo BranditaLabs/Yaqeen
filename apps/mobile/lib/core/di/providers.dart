@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/card/data/card_repository.dart';
+import '../../features/card/data/encode_repository.dart';
 import '../../features/calendar/data/calendar_repository.dart';
 import '../../features/challenge/data/challenge_repository.dart';
 import '../../features/azkar/data/azkar_store.dart';
@@ -47,6 +48,7 @@ import '../settings/settings_repository.dart';
 import '../storage/kv_store.dart';
 import '../storage/local_store.dart';
 import '../platform/home_widget_publisher.dart';
+import '../platform/nfc_service.dart';
 
 /// Dependency graph. Platform-backed providers are overridden in `main.dart`
 /// (real plugins) and in tests (fakes) — features only depend on these providers.
@@ -60,6 +62,12 @@ final clockProvider = Provider<DateTime Function()>((_) => DateTime.now);
 
 /// Home-screen widgets' data sink; the plugin one is set in main().
 final homeWidgetPublisherProvider = Provider<HomeWidgetPublisher>((_) => NoopHomeWidgetPublisher());
+
+/// NFC (medal scan, staff encoding); the plugin one is set in main(). Never started at boot.
+final nfcServiceProvider = Provider<NfcService>((_) => const NoopNfcService());
+
+/// Whether NFC is present and on, checked only when a screen that offers it is open.
+final nfcStateProvider = FutureProvider.autoDispose<NfcState>((ref) => ref.watch(nfcServiceProvider).availability());
 
 final tokenStoreProvider = Provider((ref) => TokenStore(ref.watch(secureStoreProvider)));
 final apiClientProvider = Provider((ref) => ApiClient(baseUrl: Env.apiBaseUrl, tokens: ref.watch(tokenStoreProvider)));
@@ -108,6 +116,7 @@ final challengeRepositoryProvider = Provider(
   ),
 );
 final cardRepositoryProvider = Provider((ref) => CardRepository(ref.watch(apiClientProvider)));
+final encodeRepositoryProvider = Provider((ref) => EncodeRepository(ref.watch(apiClientProvider)));
 final rewardsRepositoryProvider = Provider((ref) => RewardsRepository(ref.watch(apiClientProvider), cache: ref.watch(kvStoreProvider)));
 final calendarRepositoryProvider =
     Provider((ref) => CalendarRepository(api: ref.watch(apiClientProvider), cache: ref.watch(kvStoreProvider)));

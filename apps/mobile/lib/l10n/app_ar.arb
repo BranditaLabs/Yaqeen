@@ -2113,5 +2113,114 @@
   "savedNoNotes": "لا توجد ملاحظات بعد",
   "savedNoNotesHint": "اضغط مطولاً على آية ثم «ملاحظة» لتكتب تدبّرك",
   "savedNoHighlights": "لا يوجد تظليل بعد",
-  "savedNoHighlightsHint": "اضغط مطولاً على آية ثم «تظليل»"
+  "savedNoHighlightsHint": "اضغط مطولاً على آية ثم «تظليل»",
+  "medalNfcScan": "قرّب الميدالية من الهاتف",
+  "medalNfcWaiting": "قرّب الميدالية من ظهر الهاتف وأبقها ثابتة…",
+  "medalNfcPrompt": "قرّب ميدالية أو بطاقة يقين من أعلى الهاتف",
+  "medalNfcFound": "وجدنا الميدالية {code}. اضغط «تفعيل» لتأكيدها.",
+  "@medalNfcFound": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "medalNfcNotOurs": "هذه ليست ميدالية يقين، أو أن رابطها غير صحيح. أدخل الرمز المطبوع بدلاً منها.",
+  "medalNfcEmpty": "الشريحة فارغة. أدخل الرمز المطبوع على الميدالية.",
+  "medalNfcFailed": "لم نتمكن من قراءتها. أبقها ثابتة وحاول مرة أخرى.",
+  "medalNfcOff": "فعّل NFC من إعدادات الهاتف لقراءة الميدالية باللمس.",
+  "encodeTitle": "ترميز الميداليات",
+  "encodeBatch": "الدفعة {batch}",
+  "@encodeBatch": {
+    "placeholders": {
+      "batch": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeProgress": "{done} من {total} مُرمّزة",
+  "@encodeProgress": {
+    "placeholders": {
+      "done": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeNext": "التالية: {code}",
+  "@encodeNext": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeSelected": "المختارة: {code}",
+  "@encodeSelected": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeAllDone": "رُمّزت كل قطع الدفعة. اختر رمزاً من القائمة لإعادة ترميزه.",
+  "encodeWrite": "قرّب شريحة فارغة من الهاتف",
+  "encodeWriting": "أبقِ الشريحة ثابتة… نكتب الرابط ثم نتحقق منه",
+  "encodeVerifyAgain": "كُتبت. قرّب الشريحة مرة أخرى للتحقق منها.",
+  "encodeDone": "تمّت {code} وتحققنا منها",
+  "@encodeDone": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeLock": "قفل الشريحة بعد الكتابة",
+  "encodeLockHint": "اختياري. القفل نهائي: لن يمكن إعادة كتابة الشريحة أو تصحيحها أبداً.",
+  "encodeLockOnWarning": "القفل مفعّل: كل شريحة تُكتب الآن تُقفل إلى الأبد. تأكد من الرابط أولاً.",
+  "encodeTest": "اختبار شريحة",
+  "encodeTestResult": "الشريحة تحمل {code} من هذه الدفعة.",
+  "@encodeTestResult": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeTestOther": "الشريحة تحمل رابطاً آخر: {uri}",
+  "@encodeTestOther": {
+    "placeholders": {
+      "uri": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeCodes": "رموز الدفعة",
+  "encodeCodeDone": "مُرمّزة",
+  "encodeCodeTodo": "لم تُرمّز بعد",
+  "encodeExpires": "الجلسة تنتهي {time}",
+  "@encodeExpires": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeGone": "انتهت جلسة الترميز أو أُوقفت. افتح جلسة جديدة من لوحة الإدارة.",
+  "encodeNoNfc": "هذا الهاتف لا يدعم NFC. استخدم هاتفاً يدعمه للترميز.",
+  "encodeNfcOff": "NFC متوقف. فعّله من إعدادات الهاتف ثم عد إلى هنا.",
+  "encodeErrNotNdef": "نوع الشريحة غير مدعوم (ليست NDEF). استخدم شرائح NTAG.",
+  "encodeErrReadOnly": "الشريحة مقفلة ولا يمكن الكتابة عليها.",
+  "encodeErrTooSmall": "الرابط لا يتسع في هذه الشريحة. استخدم شريحة أكبر.",
+  "encodeErrWrite": "فشلت الكتابة. أبقِ الشريحة ثابتة وحاول مجدداً.",
+  "encodeErrVerify": "كُتبت لكن القراءة لم تطابق الرابط. حاول مجدداً.",
+  "encodeErrLock": "كُتبت الشريحة لكن تعذّر قفلها.",
+  "encodeErrTimeout": "لم نجد شريحة. قرّبها من الهاتف وحاول مجدداً.",
+  "encodeErrNotInBatch": "هذا الرمز ليس من الدفعة.",
+  "encodeErrNetwork": "كُتبت الشريحة لكن تعذّر الحفظ. تحقق من الاتصال وأعد المحاولة.",
+  "encodeRetrySave": "أعد الحفظ",
+  "nfcFailed": "لم ينجح ذلك، حاول مجدداً",
+  "nfcSuccess": "تم"
 }

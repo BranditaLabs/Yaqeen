@@ -12,6 +12,7 @@ import '../../../core/config/remote_config.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/format.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/platform/nfc_service.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/ambient_background.dart';
@@ -30,6 +31,7 @@ import '../../onboarding/presentation/sign_in_sheet.dart';
 import '../../profile/presentation/profile_screen.dart';
 import '../../rewards/domain/reward.dart';
 import '../data/card_repository.dart';
+import '../domain/medal_nfc.dart';
 import '../domain/public_card.dart';
 import 'journey_widgets.dart';
 
@@ -886,10 +888,60 @@ class _MedalsSheetState extends ConsumerState<_MedalsSheet> {
   bool _done = false;
   TagProblem? _problem;
 
+  /// Holding a medal to the phone (NFC): waiting, and what the read said.
+  bool _scanning = false;
+  bool _viaNfc = false;
+  String? _nfcNote;
+  bool _nfcNoteIsError = false;
+  late final NfcService _nfc = ref.read(nfcServiceProvider);
+
   @override
   void dispose() {
+    if (_scanning) _nfc.cancel().ignore();
     _code.dispose();
     super.dispose();
+  }
+
+  /// Read the chip and pre-fill its code — only our own `/t/<code>` links; the user still confirms
+  /// with «تفعيل».
+  Future<void> _scan() async {
+    final t = AppLocalizations.of(context);
+    setState(() {
+      _scanning = true;
+      _problem = null;
+      _done = false;
+      _nfcNote = null;
+    });
+    try {
+      final read = await _nfc.readUri(prompt: t.medalNfcPrompt, failure: t.nfcFailed);
+      if (!mounted) return;
+      final code = tagCodeFromChipUri(read.uri, siteUrl: Env.siteUrl);
+      setState(() {
+        if (code == null) {
+          _nfcNote = t.medalNfcNotOurs;
+          _nfcNoteIsError = true;
+        } else {
+          HapticFeedback.selectionClick();
+          _code.text = formatTagCode(code);
+          _viaNfc = true;
+          _nfcNote = t.medalNfcFound(formatTagCode(code));
+          _nfcNoteIsError = false;
+        }
+      });
+    } on NfcException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _nfcNote = switch (e.error) {
+          NfcError.cancelled => null,
+          NfcError.empty => t.medalNfcEmpty,
+          NfcError.unavailable => t.medalNfcOff,
+          _ => t.medalNfcFailed,
+        };
+        _nfcNoteIsError = true;
+      });
+    } finally {
+      if (mounted) setState(() => _scanning = false);
+    }
   }
 
   Future<void> _activate() async {
@@ -900,7 +952,10 @@ class _MedalsSheetState extends ConsumerState<_MedalsSheet> {
     try {
       await ref.read(cardRepositoryProvider).claimTag(_code.text);
       unawaited(
-        ref.read(productAnalyticsProvider).track(ProductEvent.medalActivated, {'via': widget.initialCode == null ? 'code' : 'link'}),
+        // A chip read is a link too (contracts PRODUCT_EVENTS: via code | link).
+        ref
+            .read(productAnalyticsProvider)
+            .track(ProductEvent.medalActivated, {'via': widget.initialCode == null && !_viaNfc ? 'code' : 'link'}),
       );
       if (!mounted) return;
       HapticFeedback.mediumImpact();
@@ -949,6 +1004,7 @@ class _MedalsSheetState extends ConsumerState<_MedalsSheet> {
     final text = Theme.of(context).textTheme;
     final locale = Localizations.localeOf(context).languageCode;
     final tags = ref.watch(myTagsProvider).valueOrNull ?? const <CardTag>[];
+    final nfc = ref.watch(nfcStateProvider).valueOrNull;
     final error = switch (_problem) {
       null => null,
       TagProblem.format => t.medalErrFormat,
@@ -963,17 +1019,44 @@ class _MedalsSheetState extends ConsumerState<_MedalsSheet> {
       children: [
         Text(t.medalsTitle, textAlign: TextAlign.center, style: text.titleLarge),
         const SizedBox(height: YqSpace.l),
-        Center(child: _Pulse(active: _busy, done: _done)),
+        Center(child: _Pulse(active: _busy || _scanning, done: _done)),
         const SizedBox(height: YqSpace.m),
         AnimatedSwitcher(
           duration: YqMotion.base,
           child: Text(
-            _done ? (widget.published ? t.medalActivated : t.medalActivatedHidden) : t.medalsBody,
-            key: ValueKey(_done),
+            _done
+                ? (widget.published ? t.medalActivated : t.medalActivatedHidden)
+                : _scanning
+                    ? t.medalNfcWaiting
+                    : t.medalsBody,
+            key: ValueKey((_done, _scanning)),
             textAlign: TextAlign.center,
             style: text.bodyMedium?.copyWith(color: _done ? YqColors.success : YqColors.muted, height: 1.6),
           ),
         ),
+        // NFC only where the phone has it: the button when it's on, a hint (Android) when it's off.
+        if (nfc == NfcState.enabled) ...[
+          const SizedBox(height: YqSpace.l),
+          if (_scanning)
+            YqButton.text(label: t.cancel, onPressed: () => _nfc.cancel())
+          else
+            YqButton.secondary(
+              label: t.medalNfcScan,
+              icon: const _NfcGlyph(size: 20, color: YqColors.lapis),
+              onPressed: _busy ? null : _scan,
+            ),
+        ] else if (nfc == NfcState.disabled && !ref.read(deviceServicesProvider).isIOS) ...[
+          const SizedBox(height: YqSpace.m),
+          Text(t.medalNfcOff, textAlign: TextAlign.center, style: text.bodySmall?.copyWith(color: YqColors.muted)),
+        ],
+        if (_nfcNote != null) ...[
+          const SizedBox(height: YqSpace.s),
+          Text(
+            _nfcNote!,
+            textAlign: TextAlign.center,
+            style: text.bodySmall?.copyWith(color: _nfcNoteIsError ? YqColors.error : YqColors.success, height: 1.5),
+          ),
+        ],
         const SizedBox(height: YqSpace.l),
         Text(t.medalCodeLabel, style: text.labelLarge),
         const SizedBox(height: YqSpace.xs),

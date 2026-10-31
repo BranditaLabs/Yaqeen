@@ -76,6 +76,7 @@ Golden screenshots in `apps/mobile/test/goldens/` are the reference framing.
 - Guest mode works without signing in (tap «المتابعة كضيف»). Sign in with Apple is offered next to Google.
 - Points have no cash value and are never sold; rewards are single-use discount codes for our own Shopify store.
 - Features behind admin switches (recitation check, Ramadan, bonuses) may be off during review.
+- NFC is used only to read a Yaqeen key medal/card's link when the user taps «قرّب الميدالية من الهاتف» in Profile › بطاقة يقين › ميدالياتي (the printed code works too), and by our staff to write the link onto blank chips (a staff-only screen opened from our admin dashboard). No other tags are read and nothing is read in the background.
 - Worship data stays on the device or, for the challenge, on our server only to award points; it is never sent to ad platforms.
 
 ## App Store — App Privacy ("nutrition label")
