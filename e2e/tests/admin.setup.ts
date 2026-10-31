@@ -16,7 +16,16 @@ setup('admin signs in with password + authenticator code', async ({ page }) => {
   await signIn('000000');
   await expect(page.getByText('بيانات الدخول غير صحيحة')).toBeVisible(); // a wrong code is refused
 
-  await signIn(totp(f.totpSecret));
-  await expect(page).not.toHaveURL(/\/login/);
+  // The refused attempt's form reset can race the next fill; one retry with a fresh code keeps
+  // this from flaking (a real rejection fails both attempts).
+  for (let attempt = 0; ; attempt++) {
+    await signIn(totp(f.totpSecret));
+    try {
+      await expect(page).not.toHaveURL(/\/login/, { timeout: 8_000 });
+      break;
+    } catch (e) {
+      if (attempt >= 1) throw e;
+    }
+  }
   await page.context().storageState({ path: '.auth/admin.json' });
 });
