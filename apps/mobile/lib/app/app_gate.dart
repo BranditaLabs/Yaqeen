@@ -7,8 +7,11 @@ import 'package:go_router/go_router.dart';
 
 import '../core/config/config_controller.dart';
 import '../core/notifications/push_service.dart';
+import '../features/backup/presentation/backup_sync.dart';
+import '../features/backup/presentation/backup_widgets.dart';
 import '../features/listen/presentation/downloads_controller.dart';
 import '../features/notifications/presentation/reminders_controller.dart';
+import '../features/onboarding/presentation/session_controller.dart';
 import 'router.dart';
 import '../core/di/providers.dart';
 import '../core/theme/tokens.dart';
@@ -32,6 +35,7 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
   bool _offlineBypass = false;
   String? _appVersion;
   Timer? _flushTimer;
+  StreamSubscription<PushOpened>? _pushTaps;
 
   @override
   void initState() {
@@ -45,8 +49,17 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
     );
     // Every 15 minutes while in the foreground.
     _flushTimer = Timer.periodic(const Duration(minutes: 15), (_) => ref.read(outboxSyncProvider).flush().ignore());
+    // A tapped campaign push opens its screen and counts the open.
+    _pushTaps = ref.read(pushServiceProvider).onOpened.listen((o) {
+      final nav = rootNavigatorKey.currentContext;
+      if (nav != null && nav.mounted) GoRouter.of(nav).go(routeForDeepLink(o.link));
+      ref.read(pushRegistrarProvider).opened(o).catchError((Object _) {}).ignore();
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) => _warmUp());
   }
+
+  /// Keeps this install's push token on the server for the signed-in account.
+  Future<void> _syncPush() => ref.read(pushRegistrarProvider).sync(ref.read(sessionProvider).userId);
 
   /// Start-up work after the first frame, all at once and each isolated: one slow or failing
   /// task (offline, a plugin error) never delays or cancels the others.
@@ -62,6 +75,9 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
       _updatePacks,
       // Full-reciter downloads cut short by a kill or restart pick up where they stopped.
       () => ref.read(downloadsControllerProvider.notifier).resumeInterrupted(),
+      _syncPush,
+      // Opt-in cloud backup: pull + merge + push (time-boxed), or offer a restore after sign-in.
+      () => ref.read(backupSyncProvider.notifier).start(),
     ];
     for (final task in tasks) {
       Future(task).catchError((Object _) {}).ignore();
@@ -74,6 +90,8 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
       ref.read(outboxSyncProvider).flush().ignore();
       ref.read(remoteConfigProvider.notifier).refresh().ignore();
       ref.read(remindersControllerProvider.notifier).replan().ignore();
+      _syncPush().catchError((Object _) {}).ignore();
+      ref.read(backupSyncProvider.notifier).start().catchError((Object _) {}).ignore();
     }
   }
 
@@ -95,6 +113,7 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _flushTimer?.cancel();
+    _pushTaps?.cancel();
     super.dispose();
   }
 
@@ -105,6 +124,14 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
       final link = next.valueOrNull;
       final nav = rootNavigatorKey.currentContext;
       if (link != null && nav != null) GoRouter.of(nav).go(routeForDeepLink(link));
+    });
+    ref.listen(sessionProvider.select((s) => s.userId), (prev, next) {
+      if (next != prev) _syncPush().catchError((Object _) {}).ignore();
+    });
+    // An account with a backup signed in on this phone: offer to restore it (once per account).
+    ref.listen(backupSyncProvider.select((s) => s.restoreOffer != null), (prev, next) {
+      final nav = rootNavigatorKey.currentContext;
+      if (next && prev != true && nav != null && nav.mounted) showRestoreBackupSheet(nav, ref).ignore();
     });
     ref.listen(onlineProvider, (prev, next) {
       if (next.valueOrNull == true && prev?.valueOrNull == false) ref.read(outboxSyncProvider).flush(force: true).ignore();

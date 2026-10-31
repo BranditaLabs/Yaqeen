@@ -58,6 +58,11 @@ class PluginLocalNotifier implements LocalNotificationScheduler {
         if (link != null && link.isNotEmpty) _taps.add(Uri.parse(link));
       },
     );
+    // Campaign pushes (FCM) post to the offers channel; create it now so the first one, which can
+    // arrive before any local offer is scheduled, lands there with its localized name.
+    final android = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    const offers = NotificationChannel.offers;
+    await android?.createNotificationChannel(AndroidNotificationChannel(offers.name, channelNames()[offers] ?? offers.name));
     final launch = await _plugin.getNotificationAppLaunchDetails();
     final link = launch?.notificationResponse?.payload;
     if (launch?.didNotificationLaunchApp == true && link != null) _taps.add(Uri.parse(link));

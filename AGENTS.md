@@ -21,6 +21,7 @@ Guide for any coding agent working in this repo (Codex, Cursor, Copilot, Claude,
 pnpm install && docker compose up -d && pnpm db:migrate && pnpm db:seed   # first run
 pnpm typecheck && pnpm test                                               # TEST_DATABASE_URL=… for Postgres tests
 pnpm --filter @yaqeen/admin build
+pnpm --filter @yaqeen/e2e e2e                                             # browser E2E (needs the admin build)
 cd apps/mobile && flutter pub get && flutter gen-l10n && flutter analyze --no-fatal-infos && flutter test
 ```
 
@@ -53,6 +54,23 @@ touching user privacy.
 - **Strings:** `lib/l10n/app_ar.arb` (template) + `app_en.arb`. No hard-coded user-facing text.
 - **RTL icons:** never swap `chevron_left`/`chevron_right` (or arrows) by text direction yourself. They are
   `matchTextDirection` and Flutter mirrors them. Use the LTR glyph (back = left, forward = right).
+- **Design system:** read `docs/DESIGN_SYSTEM.md` before building a screen.
+  - Every screen sits on `AmbientBackground`, which follows the living sky (`core/design/living_sky.dart`). Pass
+    `lights:` only for accents (`goldLights` on reward, challenge and calendar screens).
+  - Every screen is a `YqCanvas`: a `YqStage` (living sky; `compact` on pushed screens, `gold` on reward screens) with a `YqStageBar` and one `YqMoment`, then up to three `YqOrb`s, then a `YqTimeline` / `YqGroup`s / lazy `slivers`. The reader and splash are the only exceptions (DESIGN_SYSTEM §3).
+  - Tab bar = the dock (`FloatingTabBar`: five equal slots, profile avatar as the fifth, a lapis pill that glides under the active tab). Scrolling screens clear it with `YqInsets.bottom(context)` (the shell adds the dock to the bottom safe area inside tabs) — never a hard-coded bottom padding.
+  - Shadows under translucent glass go through `OuterShadow` (never a plain `BoxShadow` under a see-through fill).
+  - Loading states are shaped like the content: `YqSkeletonOrbs`, `YqSkeletonRows`, `YqSkeletonText`, `YqSkeletonBox.circle`.
+- **Public card (بطاقة يقين):** opt-in; shows only switched-on fields and never worship detail (CLAUDE.md rules 1–2). Server page in `services/api/src/web/profile-page.ts` (escape every user string; https links only); app in `features/card` (journey: `journey_widgets.dart`, Profile tab `JourneySection`); physical medals/cards: `services/tags.service.ts`, `routes/admin/tags.routes.ts`, `/t/:code` in `profile.routes.ts`, app «ميدالياتي» sheet in `card_screen.dart` (the app does not write NFC); admin programme in `routes/admin/cards.routes.ts` + `services/{cards-settings,card-stats}.service.ts`, pages `apps/admin/src/app/(dash)/{cards,tags}`.
+  - Tests pin the sky with the harness `skyClock:` so goldens are deterministic.
+- **Agent tooling** (Claude Code project skills in `.claude/skills`, vendored as published; MIT/Apache licences inside):
+  - `DESIGN.md` (repo root, Stitch / awesome-design-md format) is the design brief for agents. Its front matter is generated from `packages/design-tokens/tokens.json` (`pnpm --filter @yaqeen/design-tokens build`; `--check` fails on drift); edit the prose by hand.
+  - Design: `impeccable` (critique/audit/polish; telemetry and its hook are off in `.impeccable/config.json`, and its engine is a checksum-verified download on first use), `taste-skill` (web pages only — run it with `--keep palette,type` so it keeps Yaqeen's tokens), `img2threejs` (image → Three.js model; don't run its installer or `img2` harness, which edit user settings).
+  - `playwright-cli` drives a real browser for the admin and the API-rendered pages. In a cloud container point it at the bundled Chromium: `--config` with `{"browser":{"browserName":"chromium","launchOptions":{"executablePath":"/opt/pw-browsers/chromium-*/chrome-linux/chrome"}}}`.
+  - Code graph: `pip install graphifyy` → `graphify extract . --code-only && graphify cluster-only . --no-label` (ignores in `.graphifyignore`, output `graphify-out/` is git-ignored); then `graphify query "…"`, `graphify explain X`, `graphify affected X` before cross-cutting changes.
+  - None of these skills override the non-negotiables (brand, tokens, no ornament, RTL, privacy).
+- **Routine:** `quranSlot`/`hifzSlot`/`dhikrSlot` (`RoutineSlot`) drive Home's «Your day» stops and local reminders.
+  They are device-only and never go in `serverPatch()`.
 - **Performance:**
   - Live blur (`LiquidGlass(blur: …)`, `BackdropFilter`) only on fixed chrome, never on cards inside scroll views.
   - Long lists are lazy (`SliverList.builder` / `ListView.builder`).
@@ -65,3 +83,10 @@ touching user privacy.
   snake_case error codes.
 - **Schema change:** `pnpm db:generate`, then commit the SQL. CI fails on drift.
 - **Never commit** secrets, signing material (`key.properties`, keystores, `Secrets.xcconfig`) or licensed content packs.
+- **Observability & delivery:** errors via Sentry (`services/api/src/lib/observability.ts`, `apps/admin/src/sentry.shared.ts`, app `core/platform/error_reporter.dart`) — scrub everything personal; metrics `services/api/src/lib/metrics.ts` (route templates only); product analytics only through `PRODUCT_EVENTS` (closed list, never worship; a test mirrors it in Dart); deploys only through `.github/workflows/deploy.yml` / `tools/deploy/deploy.sh` (migrations backwards compatible).
+- **Ads:** app sinks live in `lib/core/analytics/sinks/` (Firebase Analytics for Google Ads, Meta App Events) behind the `Analytics` gate: `ads_measurement` consent + ATT, `AdEvent` values and allowlisted params only, registered only in builds with their ids, native auto-collection off. TikTok has no app SDK. The only server-to-ad-platform flow is the consented `purchase` conversion (`services/api/src/services/conversions.service.ts`, flag `serverConversions`, off by default). Never add an event or a param without a privacy review.
+- **Cloud backup:** device-first stores stay local-first; `features/backup` adapters export/merge them only when the user turned on `cloud_backup`. A new device-only store that holds personal progress needs an adapter (and a `BACKUP_KINDS` entry) or a documented reason to stay off the backup. Never read `user_backups` from admin, analytics or ads code (a test enforces it).
+- **NFC:** only through `NfcService` (`core/platform/nfc_service.dart`); accept only our `/t/<code>` URLs; never start a session at launch.
+- **Browser E2E:** `e2e/` (Playwright + axe) resets its own `*e2e*` database and runs the admin, the website and the card pages; add a test there when you change an admin page or a public page.
+- **Ramadan, widgets, website:** Ramadan mode in `features/ramadan` (on only with flag `ramadan` and a Ramadan/Sha'ban Hijri date; the log is device-only; Ramadan bonuses are claimed with the tick's date). Home-screen widgets read the snapshot from `features/home/data/widget_snapshot.dart` (written after each re-plan through `HomeWidgetPublisher`); native code in `android/.../NextPrayerWidget.kt` and `ios/YaqeenWidget/` — colours only from the generated `yq_tokens.xml` / `YqTokens.swift` (`pnpm --filter @yaqeen/design-tokens build`). The public website is `services/api/src/web/site-pages.ts` (no scripts; keep owner-only legal facts bracketed; bump `LEGAL_VERSION` when the policy changes) and `docs/STORE_LISTING.md` must match what the build collects.
+- **Quran:** the mushaf text is never altered — search works on derived keys (`core/text/arabic.dart` `searchKey`) and highlights map back to the original. Reader state lives in `features/quran/presentation/reader_screen.dart` (spread, focus, memorise); annotations, stats and the khatma are device-only in `ReadingRepository` (writes go through `_serial`). Markers in the text are plain hairline pills (no ornament). Pages are the printed Madani print drawn with per-page KFGQPC QCF V2 fonts (`madani_page.dart` + pure `domain/page_geometry.dart`; layout `assets/quran/layout_v2.json` from `tools/quran/build_layout.py`; fonts via `data/mushaf_fonts.dart`) — never scrolled; the Amiri `FittedMushafPage` is the offline fallback. Turning is `page_curl.dart` (`MushafPager`, pure `TurnDrag` / `FoldGeometry`). Page boundaries come from the layout (`QuranData.fromJson(..., pageStarts:)`).

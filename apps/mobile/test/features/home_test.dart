@@ -28,6 +28,7 @@ void main() {
     await tester.pumpWidget(
       harness(
         const Scaffold(body: HomeScreen()),
+        skyClock: () => now,
         overrides: [
           clockProvider.overrideWithValue(() => now),
           initialSettingsProvider.overrideWithValue(const AppSettings(place: Place.cairo)),
@@ -47,8 +48,10 @@ void main() {
     expect(find.text('3:53 م · الأذان بعد'), findsOneWidget);
     expect(find.text('00:53:00'), findsOneWidget);
     expect(find.text('ابدأ القراءة'), findsOneWidget);
+    expect(find.text('0 / 2 صفحات'), findsNWidgets(2)); // wird orb + the Quran stop in «Your day»
+    // «Your day»: the challenge closes the timeline.
+    await tester.scrollUntilVisible(find.text('ابدأ رحلة 365 يوماً'), 300, scrollable: find.byType(Scrollable).first);
     expect(find.text('ابدأ رحلة 365 يوماً'), findsOneWidget);
-    expect(find.text('0 / 2 صفحات'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -65,6 +68,28 @@ void main() {
     await pump(tester, DateTime.utc(2026, 10, 23, 7));
     expect(find.text('الجمعة: سورة الكهف'), findsOneWidget);
     expect(find.text('سورة الكهف · الصفحة 293 · الجزء 15'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('the page light follows the sun across the day (mirrored in RTL)', (tester) async {
+    double sunGlowX() {
+      final glow = tester
+          .widgetList<DecoratedBox>(find.descendant(of: find.byKey(const ValueKey('sky-light')), matching: find.byType(DecoratedBox)))
+          .map((b) => (b.decoration as BoxDecoration).gradient)
+          .whereType<RadialGradient>()
+          .first;
+      return (glow.center as Alignment).x;
+    }
+
+    await pump(tester, DateTime.utc(2026, 10, 20, 4)); // 07:00 Cairo, after Fajr
+    await tester.pump(const Duration(seconds: 2));
+    final morning = sunGlowX();
+    await tester.pumpWidget(const SizedBox());
+    await pump(tester, DateTime.utc(2026, 10, 20, 15, 30)); // 18:30 Cairo, after Maghrib
+    await tester.pump(const Duration(seconds: 2));
+    final evening = sunGlowX();
+    // Arabic: the day starts on the right (x > 0) and moves left.
+    expect(morning, greaterThan(evening));
     await tester.pumpWidget(const SizedBox());
   });
 }

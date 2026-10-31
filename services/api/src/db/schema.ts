@@ -10,6 +10,8 @@
  */
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
+  bigserial,
   boolean,
   date,
   index,
@@ -35,6 +37,8 @@ export const consentKind = pgEnum('consent_kind', [
   'challenge_rewards',
   'store_offers',
   'ads_measurement',
+  'product_analytics',
+  'cloud_backup',
 ]);
 export const taskKey = pgEnum('task_key', [
   'wird',
@@ -44,7 +48,7 @@ export const taskKey = pgEnum('task_key', [
   'listen',
   'daily_task',
 ]);
-export const bonusKind = pgEnum('bonus_kind', ['white_days_fast', 'mon_thu_fast', 'friday_kahf']);
+export const bonusKind = pgEnum('bonus_kind', ['white_days_fast', 'mon_thu_fast', 'friday_kahf', 'ramadan_fast', 'taraweeh', 'ramadan_juz']);
 export const ledgerReason = pgEnum('ledger_reason', [
   'task',
   'bonus',
@@ -160,6 +164,154 @@ export const userActivityDays = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.date] }), index('user_activity_days_date_idx').on(t.date)],
 );
 
+/**
+ * Opt-in public card («بطاقة يقين») for NFC tags and QR codes. One per account; unpublished by
+ * default and unpublished again on an erasure request. Holds what the owner typed and the
+ * visibility switches only — the activity it shows (level, streak, badges) is computed at read
+ * time and never includes worship detail.
+ */
+export const publicProfiles = pgTable(
+  'public_profiles',
+  {
+    userId: uuid('user_id')
+      .primaryKey()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** Lower-case; unique across all profiles. */
+    handle: text('handle').notNull(),
+    published: boolean('published').notNull().default(false),
+    displayName: text('display_name').notNull(),
+    bio: text('bio').notNull().default(''),
+    links: jsonb('links').$type<{ kind: string; value: string }[]>().notNull().default([]),
+    show: jsonb('show')
+      .$type<{ level: boolean; streak: boolean; challengeDay: boolean; badges: boolean; memberSince: boolean; timeline?: boolean }>()
+      .notNull(),
+    theme: text('theme').notNull().default('sky'),
+    /** Page opens (bots excluded). A count only — no visitor data is kept. */
+    views: integer('views').notNull().default(0),
+    /** Hidden by support (audited); the owner can't publish again until it is restored. */
+    moderatedAt: ts('moderated_at'),
+    moderationReason: text('moderation_reason'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex('public_profiles_handle_uq').on(t.handle)],
+);
+
+/**
+ * Physical card tags (key medals, cards): a permanent code in the NFC chip + printed QR, minted in
+ * batches for the manufacturer and activated by the owner in the app. `/t/<code>` follows the owner's
+ * current handle; a lost tag is switched off (`disabled_at`). Only a scan counter is kept.
+ */
+export const profileTags = pgTable(
+  'profile_tags',
+  {
+    code: text('code').primaryKey(),
+    kind: text('kind').notNull().default('medal'),
+    batch: text('batch').notNull(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+    linkedAt: ts('linked_at'),
+    disabledAt: ts('disabled_at'),
+    scans: integer('scans').notNull().default(0),
+    /** Written onto a chip in-house with the staff encoder (last write; null = not yet). */
+    encodedAt: ts('encoded_at'),
+    /** The chip's UID (hex) the encoder reported, when the phone could read it. */
+    encodedUid: text('encoded_uid'),
+    /** The chip was made read-only after writing (permanent). */
+    encodedLocked: boolean('encoded_locked').notNull().default(false),
+    createdAt: createdAt(),
+  },
+  (t) => [index('profile_tags_user_idx').on(t.userId), index('profile_tags_batch_idx').on(t.batch)],
+);
+
+/**
+ * Consented product analytics («تحسين التطبيق»). Keyed by a random per-install id, never the account:
+ * no user_id column on purpose. Closed event list without worship activity (contracts PRODUCT_EVENTS).
+ * Kept 180 days (purge job), shown to admins as aggregates with small counts withheld.
+ */
+export const productEvents = pgTable(
+  'product_events',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    anonId: uuid('anon_id').notNull(),
+    name: text('name').notNull(),
+    props: jsonb('props').$type<Record<string, string>>().notNull().default({}),
+    platform: text('platform').notNull(),
+    appVersion: text('app_version').notNull(),
+    locale: text('locale').notNull(),
+    occurredAt: ts('occurred_at').notNull(),
+    receivedAt: createdAt(),
+  },
+  (t) => [index('product_events_time_idx').on(t.occurredAt), index('product_events_name_time_idx').on(t.name, t.occurredAt)],
+);
+
+/**
+ * Server-side `purchase` conversions already sent, one row per Shopify order and ad platform, so a
+ * replayed orders/paid webhook never sends twice. No user id, no amount — only what dedupe needs.
+ * `failed` rows may be retried by a later replay (`attempts` caps it).
+ */
+export const conversionSends = pgTable(
+  'conversion_sends',
+  {
+    orderId: text('order_id').notNull(),
+    /** meta · ga4 · tiktok */
+    platform: text('platform').notNull(),
+    /** pending · sent · failed */
+    status: text('status').notNull(),
+    attempts: smallint('attempts').notNull().default(1),
+    sentAt: ts('sent_at'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [primaryKey({ columns: [t.orderId, t.platform] }), index('conversion_sends_sent_idx').on(t.sentAt)],
+);
+
+/** A production run of tags: what the factory was asked for and where it stands. */
+export const tagBatches = pgTable('tag_batches', {
+  batch: text('batch').primaryKey(),
+  kind: text('kind').notNull().default('medal'),
+  /** ordered → received → on_sale; void = faulty run, every tag switched off. */
+  status: text('status').notNull().default('ordered'),
+  note: text('note').notNull().default(''),
+  createdBy: uuid('created_by').references(() => adminUsers.id, { onDelete: 'set null' }),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+/**
+ * Short-lived staff encoding sessions: marketing opens one for a batch in admin, a staff phone opens
+ * `yaqeen://encode/<token>` and writes `/t/<code>` onto blank chips. The token is a capability scoped
+ * to one batch; only its SHA-256 is stored. Expires (2 h) or is revoked; creation/revocation audited.
+ */
+export const tagEncodeSessions = pgTable(
+  'tag_encode_sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    batch: text('batch')
+      .notNull()
+      .references(() => tagBatches.batch, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull().unique(),
+    createdBy: uuid('created_by').references(() => adminUsers.id, { onDelete: 'set null' }),
+    expiresAt: ts('expires_at').notNull(),
+    revokedAt: ts('revoked_at'),
+    createdAt: createdAt(),
+  },
+  (t) => [index('tag_encode_sessions_batch_idx').on(t.batch)],
+);
+
+/**
+ * Card programme counters per day (Africa/Cairo): page opens, medal scans, app / store clicks,
+ * publishes, activations. Counts only — no visitor, user or handle is stored.
+ */
+export const cardDailyStats = pgTable(
+  'card_daily_stats',
+  {
+    date: date('date', { mode: 'string' }).notNull(),
+    metric: text('metric').notNull(),
+    value: integer('value').notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.date, t.metric] })],
+);
+
 /** Current consent state per bucket. */
 export const consents = pgTable(
   'consents',
@@ -190,6 +342,29 @@ export const consentEvents = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index('consent_events_user_idx').on(t.userId, t.createdAt)],
+);
+
+/**
+ * Opt-in cloud backup of the user's personal progress (consent `cloud_backup`, signed-in accounts
+ * only): one document per kind (contracts `BACKUP_KINDS`), sealed with AES-256-GCM under
+ * BACKUP_SECRETS_KEY. Only the user reads it (GET /v1/me/backup, /v1/me/export); no admin route,
+ * aggregate, analytics or ad sink touches it. Withdrawing the consent or erasure deletes the rows.
+ */
+export const userBackups = pgTable(
+  'user_backups',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    /** "enc:v1:<iv>.<tag>.<ciphertext>" — the JSON document, never stored in the clear in production. */
+    blob: text('blob').notNull(),
+    /** Optimistic-concurrency counter: 1 on the first write, +1 on each accepted PUT. */
+    version: integer('version').notNull().default(1),
+    deviceId: text('device_id'),
+    updatedAt: updatedAt(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.kind] })],
 );
 
 /* -------------------------------------------------------------- challenge */
@@ -327,6 +502,9 @@ export const redemptions = pgTable(
     expiresAt: ts('expires_at').notNull(),
     /** Client key for one confirm tap: a retry returns the same code instead of spending twice. */
     idempotencyKey: text('idempotency_key'),
+    /** Set by the Shopify orders/paid webhook when the code is used at checkout. */
+    usedAt: ts('used_at'),
+    shopifyOrderId: text('shopify_order_id'),
     createdAt: createdAt(),
   },
   (t) => [
@@ -335,10 +513,25 @@ export const redemptions = pgTable(
     index('redemptions_user_idx').on(t.userId),
     // Monthly caps count per reward per month inside the redeem transaction.
     index('redemptions_reward_created_idx').on(t.rewardId, t.createdAt),
+    // The expiry job scans issued codes past their date.
+    index('redemptions_status_expires_idx').on(t.status, t.expiresAt),
   ],
 );
 
 /* ---------------------------------------------------------------- content */
+
+export interface LiveContent {
+  category: string;
+  title: string;
+  textAr: string;
+  translationEn: string | null;
+  source: string;
+  virtue: string | null;
+  repeatCount: number;
+  sortOrder: number;
+  featured: boolean;
+  version: number;
+}
 
 export const contentItems = pgTable(
   'content_items',
@@ -360,25 +553,40 @@ export const contentItems = pgTable(
     createdBy: uuid('created_by'),
     reviewedBy: uuid('reviewed_by'),
     publishedAt: ts('published_at'),
+    /**
+     * The reviewer-approved text the app is served. An edit goes back through review while this
+     * snapshot stays live; approving the edit replaces it.
+     */
+    live: jsonb('live').$type<LiveContent>(),
+    liveAt: ts('live_at'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [index('content_items_status_idx').on(t.status, t.type)],
+  (t) => [index('content_items_status_idx').on(t.status, t.type), index('content_items_live_idx').on(t.type, t.liveAt)],
 );
 
-/** Licensed recitations offered in the app (GET /v1/content/reciters). */
+/**
+ * Curated recitations offered in the app (GET /v1/content/reciters): our allowlist, order and
+ * Arabic names. `source = 'qf'` rows point at a Quran Foundation chapter reciter (`qf_id`) whose
+ * audio + timings are resolved per surah; `source = 'own'` rows serve files from our CDN.
+ */
 export const reciters = pgTable('reciters', {
   id: text('id').primaryKey(),
   nameAr: text('name_ar').notNull(),
   nameEn: text('name_en').notNull(),
-  /** murattal | mujawwad */
+  /** murattal | mujawwad | muallim */
   style: text('style').notNull().default('murattal'),
   riwaya: text('riwaya').notNull().default('hafs'),
-  /** Per-surah MP3 base: `${baseUrl}/${surah:03}.mp3`. */
-  baseUrl: text('base_url').notNull(),
+  /** qf | own */
+  source: text('source').notNull().default('own'),
+  /** Quran Foundation chapter-reciter id (`/resources/chapter_reciters`), for `source = 'qf'`. */
+  qfId: integer('qf_id'),
+  /** `own` only — per-surah MP3 base: `${baseUrl}/${surah:03}.mp3`. */
+  baseUrl: text('base_url'),
   timingUrl: text('timing_url'),
   sampleUrl: text('sample_url'),
-  sizeBytes: integer('size_bytes').notNull().default(0),
+  /** Whole-mushaf download size (Quran Foundation recitations exceed 2^31 bytes). */
+  sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull().default(0),
   sortOrder: smallint('sort_order').notNull().default(0),
   active: boolean('active').notNull().default(true),
   updatedAt: updatedAt(),

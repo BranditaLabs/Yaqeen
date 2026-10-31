@@ -1,11 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/analytics/analytics.dart';
+import '../../../core/analytics/product_analytics.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
+import '../../backup/data/backup_engine.dart';
 import '../data/auth_repository.dart';
+import '../data/consent_repository.dart';
 
 enum SignInOutcome { signedIn, cancelled, failed, offline }
 
@@ -34,6 +39,7 @@ class SessionController extends Notifier<Session> {
       state = await _repo.signIn(provider, idToken: cred.idToken, displayName: cred.displayName, locale: _locale);
       // Consent isn't decided yet during onboarding → queued, sent only if ads are allowed.
       await ref.read(analyticsProvider).logOrQueue(AdEvent.signUp);
+      unawaited(ref.read(productAnalyticsProvider).track(ProductEvent.signIn, {'provider': provider.name}));
       await _afterSignIn();
       return SignInOutcome.signedIn;
     } on OfflineException {
@@ -46,6 +52,7 @@ class SessionController extends Notifier<Session> {
   /// Works with zero network (spec §5.3 acceptance).
   Future<void> continueAsGuest() async {
     state = await _repo.continueAsGuest(locale: _locale);
+    unawaited(ref.read(productAnalyticsProvider).track(ProductEvent.signIn, {'provider': 'guest'}));
     if (!state.pendingServer) await _afterSignIn();
   }
 
@@ -85,9 +92,12 @@ class SessionController extends Notifier<Session> {
     await _repo.signOut();
     await ref.read(socialAuthProvider).signOut();
     final kv = ref.read(kvStoreProvider);
-    for (final key in ['cache.challenge.summary', 'cache.rewards', 'cache.redemptions']) {
+    for (final key in ['cache.challenge.summary', 'cache.rewards', 'cache.redemptions', ...BackupEngine.storageKeys]) {
       await kv.delete(key);
     }
+    // The cloud backup belongs to the account: the next account on this phone decides for itself
+    // (the server copy and the consent record stay with this one).
+    await ref.read(consentRepositoryProvider).adopt(ConsentKind.cloudBackup, false);
     state = Session.none;
   }
 
@@ -100,6 +110,7 @@ class SessionController extends Notifier<Session> {
     for (final key in [
       'cache.challenge.summary', 'cache.rewards', 'cache.redemptions', 'cache.content', 'cache.dailyTask', //
       'consents.v1', 'consents.pending.v1', 'consents.decided', 'analytics.pending.v1', 'outbox.v1',
+      ...BackupEngine.storageKeys, BackupEngine.offeredKey,
     ]) {
       await kv.delete(key);
     }

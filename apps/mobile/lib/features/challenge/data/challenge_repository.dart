@@ -108,6 +108,17 @@ class ChallengeRepository {
     return TickResult(stillQueued ? TickOutcome.queued : TickOutcome.synced);
   }
 
+  /// Self-reported bonus for today (e.g. Ramadan's fast). Queued like a tick so it survives being
+  /// offline; the server checks the day, the admin switch and once-per-day. Never queued twice.
+  /// [date] is the place's today: a claim that only syncs on a later day is refused by the server.
+  Future<void> claimBonus(String kindWire, String date) async {
+    final path = '/v1/challenge/bonuses/$kindWire/claim';
+    if ((await outbox.items()).any((i) => i.path == path && i.body?['date'] == date)) return;
+    await outbox.add(OutboxItem(id: Outbox.newEventId(), method: 'POST', path: path, body: {'date': date}));
+    await sync.flush(force: true);
+    await cache.delete(_cacheKey); // the balance changed
+  }
+
   Future<int> syncPending() => sync.flush();
 
   Future<void> clearCache() => cache.delete(_cacheKey);

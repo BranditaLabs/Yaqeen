@@ -1,7 +1,6 @@
 {
   "@@locale": "ar",
   "appName": "يقين",
-  "tagline": "حيث تبدأ السكينة",
   "tabHome": "الرئيسية",
   "tabQuran": "القرآن",
   "tabPrayer": "الصلاة",
@@ -47,7 +46,6 @@
   "servicesDuas": "الأدعية",
   "servicesQibla": "القبلة",
   "servicesCalendar": "التقويم",
-  "comingSoon": "قيد البناء",
   "todayTasks": "مهام اليوم",
   "balance": "الرصيد",
   "streak": "المواظبة",
@@ -75,22 +73,6 @@
   "accountRequired": "سجّل الدخول لتحفظ نقاطك",
   "redeemTitle": "استبدل نقاطك",
   "redeemCta": "استبدال",
-  "redeemCodeReady": "كودك جاهز — صالح حتى {date}",
-  "@redeemCodeReady": {
-    "placeholders": {
-      "date": {
-        "type": "String"
-      }
-    }
-  },
-  "notEnoughPoints": "يلزمك {points} نقطة",
-  "@notEnoughPoints": {
-    "placeholders": {
-      "points": {
-        "type": "String"
-      }
-    }
-  },
   "savedOffline": "حُفظ وسيُزامَن عند الاتصال",
   "retry": "إعادة المحاولة",
   "errorGeneric": "تعذّر التحميل. تحقق من الاتصال.",
@@ -123,8 +105,6 @@
   "copied": "تم النسخ",
   "copy": "نسخ",
   "share": "مشاركة",
-  "settingsTitle": "الإعدادات",
-  "notificationsTitle": "الإشعارات",
   "searchHint": "بحث",
   "clearSearch": "مسح البحث",
   "soon": "قريباً",
@@ -147,7 +127,6 @@
     }
   },
   "openSettings": "افتح الإعدادات",
-  "errorSignIn": "تعذّر تسجيل الدخول، حاول مرة أخرى",
   "prayerFajr": "الفجر",
   "prayerSunrise": "الشروق",
   "prayerDhuhr": "الظهر",
@@ -216,14 +195,6 @@
   "@prayerIn": {
     "placeholders": {
       "time": {
-        "type": "String"
-      }
-    }
-  },
-  "prayerNow": "حان وقت صلاة {prayer}",
-  "@prayerNow": {
-    "placeholders": {
-      "prayer": {
         "type": "String"
       }
     }
@@ -301,15 +272,6 @@
       }
     }
   },
-  "qiblaCardFrom": "من الشمال باتجاه {direction}",
-  "@qiblaCardFrom": {
-    "placeholders": {
-      "direction": {
-        "type": "String"
-      }
-    }
-  },
-  "qiblaOpen": "افتح بوصلة القبلة",
   "dirN": "الشمال",
   "dirNE": "الشمال الشرقي",
   "dirE": "الشرق",
@@ -347,7 +309,6 @@
   "qiblaCalibrate": "معايرة البوصلة",
   "qiblaCalibrateHint": "حرّك هاتفك على شكل الرقم 8 عدة مرات بعيداً عن المعادن والمغناطيس.",
   "qiblaNeedsCalibration": "البوصلة تحتاج معايرة",
-  "qiblaCalibrated": "البوصلة معايرة",
   "qiblaCamera": "عرض بالكاميرا",
   "qiblaNoCompass": "لا تتوفر بوصلة في هذا الجهاز. اتجاه القبلة {qibla}° من الشمال.",
   "@qiblaNoCompass": {
@@ -367,8 +328,6 @@
   },
   "locationTitle": "الموقع",
   "locationChange": "تغيير",
-  "locationAuto": "تم تحديد موقعك تلقائياً",
-  "locationManual": "اخترتها من القائمة",
   "locationUseMine": "استخدم موقعي الحالي",
   "locationSearch": "ابحث عن مدينة",
   "locationDenied": "لم نتمكن من تحديد موقعك. اختر مدينتك من القائمة.",
@@ -419,7 +378,6 @@
   },
   "notifPermissionTitle": "الإشعارات متوقفة",
   "notifPermissionBody": "فعّل الإشعارات ليصلك الأذان والتذكيرات.",
-  "notifExactAlarms": "قد تتأخر التنبيهات بضع دقائق: اسمح بالتنبيهات الدقيقة من إعدادات الهاتف.",
   "inboxTitle": "الإشعارات",
   "inboxReadAll": "قراءة الكل",
   "inboxAll": "الكل",
@@ -431,18 +389,10 @@
   "inboxEarlier": "سابقاً",
   "inboxEmpty": "لا إشعارات هنا",
   "inboxEmptyHint": "ستظهر هنا تذكيراتك وعروض المتجر",
-  "homeBellA11y": "الإشعارات، {count} غير مقروءة",
-  "@homeBellA11y": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "quranTitle": "القرآن الكريم",
   "quranListen": "الاستماع",
   "quranHifzPlan": "خطة الحفظ",
-  "quranSearchHint": "ابحث عن سورة أو رقمها",
+  "quranSearchHint": "ابحث في السور والآيات",
   "quranBrowse": "طريقة التصفح",
   "quranSurahs": "السور",
   "quranJuzs": "الأجزاء",
@@ -522,7 +472,7 @@
   "quranLastRead": "آخر قراءة",
   "quranSavedMark": "علامة محفوظة",
   "quranNoResults": "لا توجد نتائج",
-  "quranNoResultsHint": "جرّب اسماً آخر أو رقم السورة",
+  "quranNoResultsHint": "جرّب كلمة أخرى، أو اسم السورة أو رقمها",
   "quranNoBookmarks": "لا توجد علامات بعد",
   "quranNoBookmarksHint": "اضغط مطولاً على أي آية لحفظ علامة",
   "quranPageOf": "{page} من 604",
@@ -655,7 +605,7 @@
   "reciterDownloading": "جارٍ التحميل · المس للإلغاء",
   "reciterDownloadAll": "تحميل المصحف كاملاً للاستماع دون اتصال",
   "reciterWifiOnly": "عبر Wi-Fi فقط",
-  "recitersFooter": "التلاوات المتاحة تأتي من مصدر المحتوى المرخّص، والتحميل يتيح الاستماع دون اتصال.",
+  "recitersFooter": "التلاوات من Quran.com · Quran Foundation، والتحميل يتيح الاستماع دون اتصال.",
   "recitersEmpty": "لا يوجد قارئ بهذا الاسم",
   "recitersEmptyHint": "جرّب جزءاً من الاسم",
   "reciteTitle": "التسميع",
@@ -881,7 +831,6 @@
       }
     }
   },
-  "azkarReset": "إعادة العدّ",
   "azkarEmpty": "ستظهر الأذكار هنا بعد مراجعتها ونشرها",
   "contentOfflineHint": "اتصل بالإنترنت مرة واحدة لتنزيل المحتوى المراجَع",
   "azkarHaptics": "الاهتزاز مع كل عدّة",
@@ -973,7 +922,6 @@
   },
   "homeStartReading": "ابدأ القراءة",
   "homeKahfSuggestion": "الجمعة: سورة الكهف",
-  "homeStreakHint": "أكمل ورد اليوم للحفاظ عليها",
   "homeJoin": "ابدأ رحلة 365 يوماً",
   "homeJoinHint": "مهام يومية بسيطة ونقاط تُستبدل في متجر يقين",
   "servicesTitle": "الخدمات",
@@ -1007,7 +955,6 @@
   },
   "taskPrivate": "خاص بك",
   "taskAuto": "يُحتسب تلقائياً",
-  "taskOpen": "افتح",
   "tickDayClosed": "انتهى هذا اليوم، ولم تُحتسب المهمة",
   "tickQadaPassed": "انتهت مهلة القضاء لهذا اليوم",
   "tickFailed": "تعذّر احتساب المهمة الآن، سنحاول لاحقاً",
@@ -1183,7 +1130,7 @@
   "welcomeError": "تعذّر تسجيل الدخول، حاول مرة أخرى",
   "welcomeOffline": "يلزم اتصال لتسجيل الدخول",
   "languageOther": "English",
-  "stepOf": "الخطوة {n} من 4",
+  "stepOf": "الخطوة {n} من 5",
   "@stepOf": {
     "placeholders": {
       "n": {
@@ -1191,7 +1138,7 @@
       }
     }
   },
-  "stepEyebrow": "0{n} / 04",
+  "stepEyebrow": "0{n} / 05",
   "@stepEyebrow": {
     "placeholders": {
       "n": {
@@ -1209,7 +1156,6 @@
   "scriptUthmaniDetail": "مصحف المدينة النبوية",
   "scriptIndopak": "الرسم الهندي",
   "scriptIndopakDetail": "شائع في جنوب آسيا",
-  "langFontSize": "حجم الخط",
   "prayerSetupTitle": "مواقيت دقيقة لمكانك",
   "prayerSetupSub": "نستخدم موقعك لحساب الصلاة والقبلة فقط، ويُحفظ على جهازك.",
   "prayerSetupAuto": "تم تحديد موقعك تلقائياً",
@@ -1248,7 +1194,6 @@
   "goalTwoPages": "صفحتان",
   "goalFourPages": "4 صفحات",
   "goalJuz": "جزء",
-  "goalReminder": "وقت التذكير",
   "goalChallengeEyebrow": "تحدٍّ سنوي",
   "goalJoin": "الانضمام إلى التحدي",
   "goalChallengeBody": "أكمل وردك وأذكارك وصلواتك كل يوم، واجمع النقاط لتستبدلها بخصومات حصرية في متجر يقين.",
@@ -1289,7 +1234,6 @@
   "downloadPending": "متاح بعد اعتماد المصدر المرخّص",
   "downloadStart": "ابدأ الآن",
   "downloadBackground": "يستمر التحميل في الخلفية",
-  "profileTitle": "حسابي",
   "profileLinked": "مرتبط بحساب {provider} · مزامنة مفعّلة",
   "@profileLinked": {
     "placeholders": {
@@ -1378,5 +1322,854 @@
   "packInstalled": "مثبّت",
   "packChecksumFailed": "تعذّر التحقق من الملف، لم يُثبَّت. حاول مرة أخرى.",
   "packsTitle": "الكتب والتفاسير",
-  "tafsirAttribution": "التفسير الميسر · مجمع الملك فهد لطباعة المصحف الشريف · المصدر: QuranEnc.com"
+  "tafsirAttribution": "التفسير الميسر · مجمع الملك فهد لطباعة المصحف الشريف · المصدر: QuranEnc.com",
+  "homeQiblaLive": "بوصلة مباشرة",
+  "homeQiblaStatic": "من الشمال",
+  "tasbeehTitle": "المسبحة",
+  "tasbeehRound": "الدورة {round}",
+  "@tasbeehRound": {
+    "placeholders": {
+      "round": {
+        "type": "String"
+      }
+    }
+  },
+  "tasbeehA11y": "المسبحة، العدد {count}. انقر للعد، واضغط مطولاً للتصفير",
+  "@tasbeehA11y": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "tasbeehResetDone": "صُفّرت المسبحة",
+  "homeAzkarHint": "ابدأ الآن · يُحفظ تقدّمك",
+  "homeWirdDone": "اكتمل وردك",
+  "dirShortN": "ش",
+  "homeDayTitle": "يومك",
+  "homeNow": "الآن",
+  "homeAzkarOpen": "متاحة الآن",
+  "homeNextTag": "التالية",
+  "notifDhikrTitle": "وقت ذكرك",
+  "notifDhikrBody": "دقائق مع المسبحة",
+  "routineTitle": "متى يناسبك؟",
+  "routineSub": "اختر وقتاً لكل عادة، وسنرتّب يومك على مواقيت الصلاة ونذكّرك في وقتها.",
+  "routineCta": "رتّب يومي",
+  "habitQuran": "قراءة القرآن",
+  "habitHifz": "مراجعة الحفظ",
+  "habitDhikr": "ورد الذكر",
+  "slotAfter": "بعد {prayer}",
+  "@slotAfter": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "slotAt": "وقت محدد",
+  "slotOff": "إيقاف",
+  "slotOffPreview": "غير مفعّل",
+  "slotPreview": "{when} · {time}",
+  "@slotPreview": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "routineSettingsTitle": "روتيني",
+  "homeRoutineQuran": "وردك من القرآن",
+  "homeRoutineDue": "حان وقته",
+  "homeRoutineDone": "تم",
+  "prayerOrbAlerts": "التنبيهات",
+  "prayerOrbAlertsStatus": "{on} من {total} مفعّلة",
+  "@prayerOrbAlertsStatus": {
+    "placeholders": {
+      "on": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerPrayingNow": "حان وقت الصلاة",
+  "prayerOrbDay": "النهار",
+  "prayerOrbNight": "الليل",
+  "prayerOrbUntil": "حتى {name}",
+  "@prayerOrbUntil": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "quranKhatma": "الختمة",
+  "quranKhatmaStatus": "الصفحة {page} من {total}",
+  "@quranKhatmaStatus": {
+    "placeholders": {
+      "page": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "challengeStreak": "المواظبة",
+  "challengeQada": "القضاء",
+  "notifTodayTitle": "تنبيهات اليوم",
+  "cardTitle": "بطاقة يقين",
+  "cardTeaserTitle": "بطاقتك العامة",
+  "cardTeaserBody": "حسابك وروابطك ومستواك في يقين، على ميدالية أو بطاقة يقين",
+  "cardGuest": "سجّل الدخول لتصنع بطاقتك العامة وتشاركها",
+  "cardLive": "منشورة",
+  "cardHidden": "مخفية",
+  "cardOpens": "مرات الفتح",
+  "cardOpensStatus": "من NFC وQR والرابط",
+  "cardQr": "رمز QR",
+  "cardQrStatus": "للطباعة والمشاركة",
+  "cardPublish": "نشر البطاقة",
+  "cardPublishHint": "عند إخفائها لا يراها أحد، حتى من يمسح الوسم",
+  "cardIdentity": "هويتك",
+  "cardName": "الاسم الظاهر",
+  "cardHandle": "اسم المستخدم",
+  "cardHandleFormat": "من 3 إلى 24: حروف إنجليزية صغيرة وأرقام و _ و . ويبدأ بحرف",
+  "cardHandleTaken": "هذا الاسم مستخدم",
+  "cardHandleReserved": "هذا الاسم محجوز",
+  "cardHandleOk": "متاح",
+  "cardBio": "نبذة",
+  "cardBioHint": "سطر أو سطران عنك",
+  "cardLinks": "روابطك",
+  "cardAddLink": "إضافة رابط",
+  "cardLinkValue": "اسم المستخدم أو الرابط",
+  "cardLinkInvalid": "لا يمكن فتح هذا كرابط آمن",
+  "cardLinksMax": "8 روابط كحد أقصى",
+  "socialInstagram": "إنستغرام",
+  "socialX": "إكس",
+  "socialTiktok": "تيك توك",
+  "socialFacebook": "فيسبوك",
+  "socialYoutube": "يوتيوب",
+  "socialSnapchat": "سناب شات",
+  "socialLinkedin": "لينكدإن",
+  "socialWhatsapp": "واتساب",
+  "socialWebsite": "الموقع",
+  "cardShows": "ما يراه من يفتح بطاقتك",
+  "cardShowLevel": "مستواك في يقين",
+  "cardShowStreak": "أيام المواظبة المتتالية",
+  "cardShowChallenge": "يومك في رحلة 365",
+  "cardShowBadges": "أوسمة المواظبة",
+  "cardShowSince": "تاريخ انضمامك",
+  "cardPrivacy": "عباداتك لا تظهر أبداً: لا صلوات ولا أذكار ولا صفحات. تظهر فقط الأرقام التي تختارها هنا.",
+  "cardThemeTitle": "المظهر",
+  "cardThemeSky": "سماء",
+  "cardThemeGold": "ذهبي",
+  "cardThemeNight": "ليل",
+  "cardSave": "حفظ البطاقة",
+  "cardSaved": "حُفظت بطاقتك",
+  "cardShare": "مشاركة الرابط",
+  "cardLevel": "المستوى {level}",
+  "@cardLevel": {
+    "placeholders": {
+      "level": {
+        "type": "int"
+      }
+    }
+  },
+  "cardQrTitle": "امسح لفتح بطاقتي",
+  "challengeStreakRestart": "ابدأ من جديد، والقضاء متاح",
+  "cardShowTimeline": "رحلتك (محطّات بتواريخها)",
+  "journeyTitle": "رحلتك في يقين",
+  "journeyJoined": "الانضمام إلى يقين",
+  "journeyChallengeStart": "بداية رحلة 365 يوماً",
+  "journeyChallengeDay": "اليوم {day} من رحلة 365",
+  "@journeyChallengeDay": {
+    "placeholders": {
+      "day": {
+        "type": "String"
+      }
+    }
+  },
+  "journeyLevel": "مستوى «{name}»",
+  "@journeyLevel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "journeyBadge": "{days, plural, =1{وسام المواظبة · يوم واحد} =2{وسام المواظبة · يومان} few{وسام المواظبة · {days} أيام} many{وسام المواظبة · {days} يوماً} other{وسام المواظبة · {days} يوم}}",
+  "@journeyBadge": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "journeyLifetime": "{points} نقطة منذ البداية",
+  "@journeyLifetime": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "journeyToNext": "{points} نقطة إلى «{name}»",
+  "@journeyToNext": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "journeyTop": "بلغت أعلى مستوى",
+  "journeyShowAll": "الرحلة كاملة",
+  "journeyShowLess": "عرض أقل",
+  "journeyEmpty": "رحلتك تبدأ اليوم، وكل محطة تُسجَّل هنا.",
+  "journeyPrivate": "خاصة بك. تظهر على بطاقتك فقط إن فعّلتها.",
+  "cardMedals": "ميدالياتي",
+  "cardMedalsNone": "فعّل ميداليتك",
+  "cardMedalsCount": "{count} مفعّلة",
+  "@cardMedalsCount": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "medalsTitle": "ميدالية وبطاقة يقين",
+  "medalsBody": "على ميداليتك أو بطاقتك رمز من 8 خانات بجوار رمز QR. فعّله مرة واحدة، وبعدها تفتح كل لمسة أو مسح بطاقتك العامة، حتى لو غيّرت اسم المستخدم.",
+  "medalCodeLabel": "رمز التفعيل",
+  "medalActivate": "تفعيل",
+  "medalActivated": "فُعّلت! كل لمسة أو مسح يفتح بطاقتك الآن.",
+  "medalActivatedHidden": "فُعّلت. انشر بطاقتك واحفظها لتفتحها الميدالية.",
+  "medalErrFormat": "الرمز 8 خانات، مثل AB12-CD34",
+  "medalErrNotFound": "لم نجد هذا الرمز، أو فُعّل من قبل. تأكد منه أو تواصل معنا.",
+  "medalErrLimit": "وصلت إلى الحد الأقصى (10). أوقف واحدة أولاً.",
+  "medalErrNetwork": "تعذّر الاتصال، حاول مجدداً",
+  "medalKindMedal": "ميدالية مفاتيح",
+  "medalKindCard": "بطاقة",
+  "medalMeta": "{scans} مسح · فُعّلت {date}",
+  "@medalMeta": {
+    "placeholders": {
+      "scans": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "medalLost": "إيقاف، فقدتها؟",
+  "medalLostTitle": "إيقاف هذه القطعة؟",
+  "medalLostBody": "لن تفتح بطاقتك بعد الآن، ولن يستطيع أحد تفعيلها. لا يمكن التراجع من التطبيق.",
+  "medalLostConfirm": "إيقافها",
+  "medalBuy": "اطلب ميدالية يقين من المتجر",
+  "cardModerated": "أوقف فريق يقين ظهور بطاقتك لمخالفتها الإرشادات. تواصل معنا لمراجعتها.",
+  "cardPaused": "البطاقات العامة متوقفة مؤقتاً، وستعود قريباً.",
+  "medalPaused": "تفعيل الميداليات متوقف مؤقتاً، حاول لاحقاً.",
+  "consentAnalytics": "تحسين التطبيق",
+  "consentAnalyticsDetail": "إحصاءات استخدام مجهولة تساعدنا على تحسين يقين: الصفحات والخطوات فقط، بلا حسابك ولا أي عبادة.",
+  "ramadanTitle": "رمضان",
+  "ramadanYearTitle": "رمضان {year}",
+  "@ramadanYearTitle": {
+    "placeholders": {
+      "year": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanDayOf": "اليوم {day} من رمضان",
+  "@ramadanDayOf": {
+    "placeholders": {
+      "day": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanUntilIftar": "حتى الإفطار",
+  "ramadanUntilFajr": "حتى أذان الفجر",
+  "ramadanIftarAt": "المغرب {time}",
+  "@ramadanIftarAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanImsakAt": "الإمساك {imsak} · الفجر {fajr}",
+  "@ramadanImsakAt": {
+    "placeholders": {
+      "imsak": {
+        "type": "String"
+      },
+      "fajr": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanAccepted": "تقبّل الله صيامك",
+  "ramadanEidTomorrow": "العيد غداً",
+  "ramadanApproaching": "رمضان يقترب",
+  "ramadanInDays": "{n, plural, =1{غداً} =2{بعد يومين} few{بعد {n} أيام} other{بعد {n} يوماً}}",
+  "@ramadanInDays": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ramadanSoon": "قريباً",
+  "ramadanOrbFast": "صيام اليوم",
+  "ramadanOrbTaraweeh": "التراويح",
+  "ramadanOrbKhatma": "الختمة",
+  "ramadanDone": "تم",
+  "ramadanMark": "سجّل",
+  "ramadanNights": "{n, plural, =0{لا ليالٍ بعد} =1{ليلة واحدة} =2{ليلتان} few{{n} ليالٍ} other{{n} ليلة}}",
+  "@ramadanNights": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ramadanJuz": "الجزء {n}",
+  "@ramadanJuz": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanKhatmaDone": "اكتملت",
+  "ramadanBonus": "+{points} نقطة",
+  "@ramadanBonus": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanImsakiyya": "الإمساكية",
+  "ramadanColDay": "اليوم",
+  "ramadanColDate": "التاريخ",
+  "ramadanColImsak": "الإمساك",
+  "ramadanTodayTag": "اليوم",
+  "ramadanImsakNote": "الإمساك: 10 دقائق قبل أذان الفجر، كما في الإمساكيات المصرية. المواقيت محسوبة لمدينتك على جهازك.",
+  "ramadanEmpty": "تظهر الإمساكية بعد أول اتصال بالإنترنت",
+  "ramadanKhatmaTitle": "ختمة رمضان",
+  "ramadanKhatmaSub": "{n} من 30 جزءاً",
+  "@ramadanKhatmaSub": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanReminders": "تنبيهات السحور والإفطار",
+  "ramadanTrackerPrivate": "سجلّ رمضان يُحفظ على جهازك فقط",
+  "ramadanHomeChip": "رمضان · اليوم {day}",
+  "@ramadanHomeChip": {
+    "placeholders": {
+      "day": {
+        "type": "String"
+      }
+    }
+  },
+  "notifSuhoorTitle": "السحور",
+  "notifSuhoorBody": "أذان الفجر بعد {minutes} دقيقة",
+  "@notifSuhoorBody": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "notifIftarTitle": "الإفطار قريب",
+  "notifIftarBody": "المغرب بعد {minutes} دقيقة",
+  "@notifIftarBody": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "notifSectionRamadan": "رمضان",
+  "notifSuhoorRow": "تنبيه السحور",
+  "notifSuhoorSub": "قبل الفجر بـ {minutes} دقيقة",
+  "@notifSuhoorSub": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "notifIftarRow": "تنبيه الإفطار",
+  "notifIftarSub": "قبل المغرب بـ {minutes} دقيقة",
+  "@notifIftarSub": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "calBonusRamadanFast": "رمضان · صيام اليوم",
+  "calBonusTaraweeh": "رمضان · صلاة التراويح",
+  "calBonusRamadanJuz": "رمضان · جزء من الختمة",
+  "widgetWird": "ورد اليوم",
+  "widgetStale": "افتح يقين لتحديث المواقيت",
+  "quranInAyat": "{count, plural, =1{في الآيات · نتيجة واحدة} =2{في الآيات · نتيجتان} few{في الآيات · {count} نتائج} other{في الآيات · {count} نتيجة}}",
+  "@quranInAyat": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "quranShowMore": "عرض المزيد",
+  "quranSearching": "جارٍ البحث في الآيات…",
+  "quranAyahResultA11y": "{surah}، الآية {ayah}، الصفحة {page}",
+  "@quranAyahResultA11y": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      },
+      "ayah": {
+        "type": "String"
+      },
+      "page": {
+        "type": "String"
+      }
+    }
+  },
+  "quranMarkJuz": "الجزء {n}",
+  "@quranMarkJuz": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "quranMarkHizb": "الحزب {n}",
+  "@quranMarkHizb": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "quranMarkQuarter": "{fraction} الحزب {n}",
+  "@quranMarkQuarter": {
+    "placeholders": {
+      "fraction": {
+        "type": "String"
+      },
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "quranMarkSajdah": "سجدة",
+  "quranNoteA11y": "ملاحظتك على الآية",
+  "quranHiddenAyahA11y": "آية مخفية للحفظ، اضغط لإظهارها",
+  "jumpTitle": "انتقل إلى",
+  "jumpSurah": "السورة",
+  "jumpJuz": "الجزء",
+  "jumpPage": "الصفحة",
+  "jumpAyah": "الآية",
+  "jumpFilter": "ابحث عن سورة",
+  "jumpPageField": "رقم الصفحة (1–604)",
+  "jumpAyahField": "رقم الآية",
+  "jumpGo": "انتقل",
+  "jumpAyahOf": "من {count} آية",
+  "@jumpAyahOf": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "noteTitle": "ملاحظتي",
+  "noteHint": "اكتب ما تتدبّره في هذه الآية…",
+  "noteSave": "حفظ",
+  "noteDelete": "حذف الملاحظة",
+  "notePrivate": "تُحفظ على جهازك فقط",
+  "readerPageTurn": "تقليب الصفحات",
+  "pageTurnBook": "كالكتاب",
+  "pageTurnSlide": "انزلاق",
+  "readerAutoNight": "الوضع الليلي تلقائياً بعد المغرب",
+  "readerImmersive": "إخفاء شريط الحالة أثناء القراءة",
+  "readerMemorise": "حفظ",
+  "memoriseTitle": "وضع الحفظ",
+  "memoriseOff": "إيقاف",
+  "memoriseAyat": "إخفاء الآيات",
+  "memoriseWords": "إخفاء كلمة وترك كلمة",
+  "memoriseHint": "اضغط على الآية لإظهارها، واضغط مرة أخرى لإخفائها.",
+  "memoriseShowAll": "إظهار الكل",
+  "memoriseHideAll": "إخفاء الكل",
+  "memoriseBanner": "وضع الحفظ · {mode}",
+  "@memoriseBanner": {
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "memoriseExit": "إنهاء وضع الحفظ",
+  "khatmaDoneToast": "تمّت الختمة — تقبّل الله منك",
+  "readerOpenJump": "انتقل إلى سورة أو جزء أو صفحة",
+  "ayahHighlight": "تظليل",
+  "ayahNote": "ملاحظة",
+  "ayahNoteEdit": "تعديل الملاحظة",
+  "ayahHighlightRemove": "بلا تظليل",
+  "ayahBookmarkColor": "لون العلامة",
+  "markColorGold": "ذهبي",
+  "markColorLapis": "أزرق",
+  "markColorSky": "سماوي",
+  "markColorGreen": "أخضر",
+  "khatmaTitle": "الختمة",
+  "khatmaSubtitle": "خطة لختم المصحف، على جهازك",
+  "khatmaPagesDone": "{done} من 604 صفحة",
+  "@khatmaPagesDone": {
+    "placeholders": {
+      "done": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaStart": "ابدأ ختمة",
+  "khatmaEmptyTitle": "لا توجد ختمة جارية",
+  "khatmaEmptyHint": "حدّد موعداً للختم أو عدد صفحات يومياً، ونحسب لك حصّة كل يوم.",
+  "khatmaSetupTitle": "خطة الختمة",
+  "khatmaByDate": "بحلول تاريخ",
+  "khatmaByPace": "صفحات يومياً",
+  "khatmaInDays": "{n} يوماً",
+  "@khatmaInDays": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaPickDate": "اختر تاريخاً",
+  "khatmaFinishOn": "الختم في {date}",
+  "@khatmaFinishOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaPerDay": "{n} صفحة يومياً",
+  "@khatmaPerDay": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaFromStart": "من أول المصحف",
+  "khatmaFromHere": "من حيث توقفت (الصفحة {page})",
+  "@khatmaFromHere": {
+    "placeholders": {
+      "page": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaSetWird": "اجعل حصّة الختمة وِردي اليومي",
+  "khatmaCreate": "ابدأ",
+  "khatmaSave": "حفظ التعديل",
+  "khatmaToday": "حصّة اليوم",
+  "khatmaPortion": "من الصفحة {from} إلى {to}",
+  "@khatmaPortion": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaPortionCount": "{n} صفحة · قرأت {read}",
+  "@khatmaPortionCount": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      },
+      "read": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaReadNow": "اقرأ الآن",
+  "khatmaOnTrack": "على الخطة",
+  "khatmaAhead": "متقدّم {n} صفحة",
+  "@khatmaAhead": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaBehind": "متأخّر {n} صفحة — اقرأ أكثر قليلاً اليوم",
+  "@khatmaBehind": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaTarget": "الموعد {date} · بقي {days} يوماً",
+  "@khatmaTarget": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "days": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaProjected": "بهذا المعدل تختم في {date}",
+  "@khatmaProjected": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaWeek": "هذا الأسبوع",
+  "khatmaWeekSummary": "{pages} صفحة · {minutes} دقيقة · {days} أيام قراءة",
+  "@khatmaWeekSummary": {
+    "placeholders": {
+      "pages": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "String"
+      },
+      "days": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaStreak": "{n} يوماً متتالياً",
+  "@khatmaStreak": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaHistory": "ختمات سابقة",
+  "khatmaRecord": "{days} يوماً · {from} – {to}",
+  "@khatmaRecord": {
+    "placeholders": {
+      "days": {
+        "type": "String"
+      },
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaEdit": "تعديل الخطة",
+  "khatmaEnd": "إنهاء الخطة",
+  "khatmaEndConfirm": "إنهاء الختمة الحالية؟ يبقى سجلّك في الإحصاءات.",
+  "khatmaDoneTitle": "تمّت الختمة",
+  "khatmaDoneBody": "تقبّل الله منك. ابدأ ختمة جديدة متى شئت.",
+  "khatmaOrbStatus": "{pct}% · اليوم {today}/{target}",
+  "@khatmaOrbStatus": {
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      },
+      "today": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "notifKhatmaTitle": "حصّتك من الختمة",
+  "notifKhatmaBody": "صفحات اليوم بانتظارك",
+  "savedAll": "الكل",
+  "savedMarks": "العلامات",
+  "savedNotes": "الملاحظات",
+  "savedHighlights": "التظليل",
+  "savedNoNotes": "لا توجد ملاحظات بعد",
+  "savedNoNotesHint": "اضغط مطولاً على آية ثم «ملاحظة» لتكتب تدبّرك",
+  "savedNoHighlights": "لا يوجد تظليل بعد",
+  "savedNoHighlightsHint": "اضغط مطولاً على آية ثم «تظليل»",
+  "medalNfcScan": "قرّب الميدالية من الهاتف",
+  "medalNfcWaiting": "قرّب الميدالية من ظهر الهاتف وأبقها ثابتة…",
+  "medalNfcPrompt": "قرّب ميدالية أو بطاقة يقين من أعلى الهاتف",
+  "medalNfcFound": "وجدنا الميدالية {code}. اضغط «تفعيل» لتأكيدها.",
+  "@medalNfcFound": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "medalNfcNotOurs": "هذه ليست ميدالية يقين، أو أن رابطها غير صحيح. أدخل الرمز المطبوع بدلاً منها.",
+  "medalNfcEmpty": "الشريحة فارغة. أدخل الرمز المطبوع على الميدالية.",
+  "medalNfcFailed": "لم نتمكن من قراءتها. أبقها ثابتة وحاول مرة أخرى.",
+  "medalNfcOff": "فعّل NFC من إعدادات الهاتف لقراءة الميدالية باللمس.",
+  "encodeTitle": "ترميز الميداليات",
+  "encodeBatch": "الدفعة {batch}",
+  "@encodeBatch": {
+    "placeholders": {
+      "batch": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeProgress": "{done} من {total} مُرمّزة",
+  "@encodeProgress": {
+    "placeholders": {
+      "done": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeNext": "التالية: {code}",
+  "@encodeNext": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeSelected": "المختارة: {code}",
+  "@encodeSelected": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeAllDone": "رُمّزت كل قطع الدفعة. اختر رمزاً من القائمة لإعادة ترميزه.",
+  "encodeWrite": "قرّب شريحة فارغة من الهاتف",
+  "encodeWriting": "أبقِ الشريحة ثابتة… نكتب الرابط ثم نتحقق منه",
+  "encodeVerifyAgain": "كُتبت. قرّب الشريحة مرة أخرى للتحقق منها.",
+  "encodeDone": "تمّت {code} وتحققنا منها",
+  "@encodeDone": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeLock": "قفل الشريحة بعد الكتابة",
+  "encodeLockHint": "اختياري. القفل نهائي: لن يمكن إعادة كتابة الشريحة أو تصحيحها أبداً.",
+  "encodeLockOnWarning": "القفل مفعّل: كل شريحة تُكتب الآن تُقفل إلى الأبد. تأكد من الرابط أولاً.",
+  "encodeTest": "اختبار شريحة",
+  "encodeTestResult": "الشريحة تحمل {code} من هذه الدفعة.",
+  "@encodeTestResult": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeTestOther": "الشريحة تحمل رابطاً آخر: {uri}",
+  "@encodeTestOther": {
+    "placeholders": {
+      "uri": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeCodes": "رموز الدفعة",
+  "encodeCodeDone": "مُرمّزة",
+  "encodeCodeTodo": "لم تُرمّز بعد",
+  "encodeExpires": "الجلسة تنتهي {time}",
+  "@encodeExpires": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeGone": "انتهت جلسة الترميز أو أُوقفت. افتح جلسة جديدة من لوحة الإدارة.",
+  "encodeNoNfc": "هذا الهاتف لا يدعم NFC. استخدم هاتفاً يدعمه للترميز.",
+  "encodeNfcOff": "NFC متوقف. فعّله من إعدادات الهاتف ثم عد إلى هنا.",
+  "encodeErrNotNdef": "نوع الشريحة غير مدعوم (ليست NDEF). استخدم شرائح NTAG.",
+  "encodeErrReadOnly": "الشريحة مقفلة ولا يمكن الكتابة عليها.",
+  "encodeErrTooSmall": "الرابط لا يتسع في هذه الشريحة. استخدم شريحة أكبر.",
+  "encodeErrWrite": "فشلت الكتابة. أبقِ الشريحة ثابتة وحاول مجدداً.",
+  "encodeErrVerify": "كُتبت لكن القراءة لم تطابق الرابط. حاول مجدداً.",
+  "encodeErrLock": "كُتبت الشريحة لكن تعذّر قفلها.",
+  "encodeErrTimeout": "لم نجد شريحة. قرّبها من الهاتف وحاول مجدداً.",
+  "encodeErrNotInBatch": "هذا الرمز ليس من الدفعة.",
+  "encodeErrNetwork": "كُتبت الشريحة لكن تعذّر الحفظ. تحقق من الاتصال وأعد المحاولة.",
+  "encodeRetrySave": "أعد الحفظ",
+  "nfcFailed": "لم ينجح ذلك، حاول مجدداً",
+  "nfcSuccess": "تم",
+  "backupTitle": "نسخ احتياطي سحابي",
+  "backupDetail": "نسخة مشفّرة من تقدّمك الشخصي تعود معك على هاتف جديد: القراءة والعلامات والملاحظات والختمة والحفظ والأذكار والروتين ورمضان والمسبحة. لا يراها أحد غيرك، ولا تُستخدم في التحليلات أو الإعلانات، وتُحذف من خوادمنا عند الإيقاف. لا تشمل التحميلات.",
+  "backupGuest": "سجّل الدخول بجوجل أو أبل لتفعيله",
+  "backupLast": "آخر نسخة: {when}",
+  "@backupLast": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "backupNever": "لم يُنسخ بعد",
+  "backupSyncing": "جارٍ النسخ…",
+  "backupOffline": "بلا اتصال — يُنسخ عند عودة الاتصال",
+  "backupNow": "انسخ الآن",
+  "backupOffTitle": "إيقاف النسخ الاحتياطي؟",
+  "backupOffBody": "ستُحذف النسخة المحفوظة على خوادمنا. تبقى بياناتك على هذا الهاتف كما هي.",
+  "backupOffCta": "إيقاف وحذف النسخة",
+  "backupRestoreTitle": "لديك نسخة احتياطية",
+  "backupRestoreBody": "وجدنا نسخة من تقدّمك على حسابك. هل تستعيدها على هذا الهاتف؟ تُدمج مع ما عليه ولا يُحذف شيء.",
+  "backupRestoreCta": "استعادة",
+  "backupNotNow": "ليس الآن",
+  "backupRestored": "تمت الاستعادة",
+  "styleMuallim": "معلّم",
+  "tafsirSourceQf": "المصدر: Quran.com · Quran Foundation",
+  "tafsirChoose": "اختر التفسير",
+  "mushafPagesTitle": "صفحات المصحف كما في الطبعة",
+  "mushafPagesHint": "تُنزَّل كل صفحة عند فتحها وتبقى على جهازك للقراءة دون اتصال. حجم الخط يتبع الصفحة كما في المصحف المطبوع.",
+  "mushafPagesStatus": "{n} من 604 صفحة على الجهاز",
+  "@mushafPagesStatus": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "mushafPagesAll": "المصحف كاملاً على جهازك",
+  "mushafDownloadAll": "تنزيل المصحف كاملاً (نحو {mb} م.ب)",
+  "@mushafDownloadAll": {
+    "placeholders": {
+      "mb": {
+        "type": "String"
+      }
+    }
+  },
+  "mushafDownloadFailed": "تعذّر تنزيل بعض الصفحات، أعد المحاولة لاحقاً",
+  "mushafCredit": "خط المصحف: مجمع الملك فهد لطباعة المصحف الشريف (QCF V2) · تخطيط الصفحات: Quran.com",
+  "readerFallbackHint": "نزّل الصفحة لتظهر كما في الطبعة",
+  "readerNextPage": "الصفحة التالية",
+  "readerPreviousPage": "الصفحة السابقة"
 }

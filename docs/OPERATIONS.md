@@ -13,7 +13,7 @@ keeps most of that load off the servers:
 | Where | What keeps it cheap |
 | --- | --- |
 | App | Quran, prayer times, Qibla, azkar, duas, hifz and reminders are fully on-device. Remote config is cached 1 h. Challenge ticks go through the Outbox (one request each, replayed later if offline). Failed syncs back off exponentially with full jitter (30 s → 15 min), so phones never retry in lockstep after an outage. |
-| API — public reads | `/v1/config`, `/v1/content`, `/v1/daily-task`, `/v1/calendar/hijri`, `/v1/content/reciters`, `/v1/content/packs` are served from a two-level cache (5 s in-process + Redis), single-flighted (one DB query per key even under a stampede), with `ETag` → `304` and `Cache-Control: stale-while-revalidate`. Admin writes invalidate the affected namespace on every instance immediately. |
+| API — public reads | `/v1/config`, `/v1/content`, `/v1/daily-task`, `/v1/calendar/hijri`, `/v1/content/reciters`, `/v1/content/packs` and the Quran Foundation reads (`/v1/content/reciters/:id/surahs/:n`, `…/timings`, `/v1/content/tafsirs/…` — namespace `quran`, 24 h: QF terms cap caching at one week) are served from a two-level cache (5 s in-process + Redis), single-flighted (one DB query per key even under a stampede), with `ETag` → `304` and `Cache-Control: stale-while-revalidate`. Admin writes invalidate the affected namespace on every instance immediately. |
 | API — personal | Challenge, rewards and profile hit Postgres through indexed queries; the redeem path is serialised per user with an advisory lock. |
 | Jobs | Dispatcher and purge take a Postgres advisory lock — overlapping runs skip. |
 
@@ -77,26 +77,83 @@ guest-link 10/min/IP, redeem 5/min, admin login 5 per 5 min.
 
 ## Observability
 
-- Every response carries `x-request-id` (honoured from the load balancer when present); logs are JSON
-  (pino) with tokens, ID tokens, passwords and TOTP codes redacted.
+| Signal | Where | What |
+| --- | --- | --- |
+| Logs | stdout (pino JSON) | every response carries `x-request-id` (honoured from the load balancer); tokens, ID tokens, passwords and TOTP codes redacted |
+| Errors | **Sentry** — projects `yaqeen-api`, `yaqeen-admin`, `yaqeen-app` | API 5xx + unhandled rejections (route template + request id), cron jobs as **cron monitors** (missed/failed runs alert), admin server + browser errors, app crashes (Dart + native). Release = commit SHA (API/admin) or `yaqeen@version+build` (app); deploys are marked by the pipeline. Set `SENTRY_DSN` (API secret), `ADMIN_SENTRY_DSN` / `APP_SENTRY_DSN` (CI variables). Scrubbing: docs/SECURITY_PRIVACY.md. |
+| Metrics | **Prometheus** scrape of `:9100/metrics` (`METRICS_PORT`, never through the ingress) | `yaqeen_http_request_duration_seconds{method,route,status}`, `yaqeen_cache_lookups_total{namespace,result}`, `yaqeen_pg_pool_{total,idle,waiting}`, `yaqeen_external_calls_total{service,outcome}`, `yaqeen_product_events_total{event}`, `yaqeen_conversions_total{platform,outcome}` (sent · failed · duplicate), Node defaults (`yaqeen_*`) |
+| Dashboards | **Grafana** — `deploy/k8s/monitoring/dashboards/yaqeen-api.json` (sidecar-loaded ConfigMap) | rate, errors, latency, slowest routes, cache, pool, event loop, memory, probes |
+| Alerts | `deploy/k8s/monitoring/alerts.yaml` (PrometheusRule) | **page**: 5xx > 1 % 5 min · p99 > 1 s 10 min · Postgres pool waiting · HPA at max 15 min · probe down 3 min. **ticket**: load shedding · cache miss storm · Shopify failing · pod restarts · job failed · TLS < 14 days |
+| Uptime | blackbox `Probe` (in cluster, every minute) + `.github/workflows/synthetics.yml` (outside, every 10 min) | `/health`, `/ready`, `/v1/config`, Hijri, card 404 page, `/get-app`, admin login. External failures open one `outage` issue per environment and close it on recovery; run the same checks by hand: `API_URL=… ADMIN_URL=… bash tools/synthetics/check.sh` |
+| Product | admin «التحليلات» (aggregates, counts < 20 withheld) + PostHog EU (`POSTHOG_KEY`) | consented `PRODUCT_EVENTS` only — docs/ANALYTICS_EVENTS.md |
+| Ad conversions | admin «النقاط والمكافآت» strip «قياس المشتريات للإعلانات» (flag, salt, platforms configured, last send) + `yaqeen_conversions_total` | server-side `purchase` to Meta / GA4 / TikTok — docs/ANALYTICS_EVENTS.md › Server-side purchase; failures go to Sentry as `conversions: <platform> <status>` |
+
 - **SLOs**: availability 99.9 % monthly; p99 < 300 ms for cached reads and < 800 ms for personal reads;
   redeem success (excluding user errors) ≥ 99 %.
-- **Alerts**: 5xx rate > 1 % for 5 min · p99 > 1 s for 10 min · any `503` from load shedding · pod
-  restarts · Postgres connections > 80 % · Redis unavailable · dispatcher job failed twice ·
-  `shopify_unavailable` > 5 in 10 min (the dashboard also shows this).
-- Crash and performance monitoring in the app: Firebase Crashlytics (spec §6.21) — no worship data in
-  keys or logs.
+- Monitoring needs kube-prometheus-stack (Prometheus Operator + Grafana) and
+  prometheus-blackbox-exporter in the `monitoring` namespace: `kubectl apply -k deploy/k8s/monitoring`.
+
+## Delivery pipeline
+
+```
+PR ──► CI (typecheck, tests + Postgres, migration drift, admin build, Flutter analyze/test,
+       APK + emulator smoke, iOS build, kustomize render, image build)
+main ─► Deploy: build → Trivy scan → push ghcr.io/branditalabs/yaqeen-{api,admin}:sha-<12> ─► staging (auto)
+v1.2.3 tag ─► Deploy: same images ─► production (after the environment's reviewers approve)
+mobile-v1.2.3 tag ─► Release mobile: signed AAB → Play (internal) + IPA → TestFlight, symbols → Sentry
+```
+
+Each environment rollout (`tools/deploy/deploy.sh <env> <tag>`, also runnable from a laptop):
+1. renders `deploy/k8s/overlays/<env>` with both images pinned to the commit;
+2. replaces and waits for the `yaqeen-migrate` Job — **a failed migration stops the deploy before any pod changes**;
+3. applies everything and waits for both rollouts (`maxUnavailable: 0`);
+4. runs the synthetic checks against the environment;
+5. a failed rollout or check runs `kubectl rollout undo` on both Deployments and fails the run;
+6. marks the Sentry release + deploy.
+
+**Rollback** any time: Actions › Deploy › Run workflow › `rollback` (or `tools/deploy/deploy.sh production --rollback`).
+**Re-deploy an older commit**: Run workflow › `deploy` with that `sha` (its images are already in GHCR).
+
+### One-time setup
+
+| Where | Name | Value |
+| --- | --- | --- |
+| Settings › Environments | `staging`, `production` | create both; on `production` add **required reviewers** (the approval gate) and restrict to `v*` tags |
+| Environment secret (each) | `KUBE_CONFIG` | base64 kubeconfig of a deployer ServiceAccount bound to that namespace only (`edit` role) |
+| Repository variables | `DEPLOY_ENABLED` | `true` once the clusters exist (until then images are built and scanned, nothing deploys) |
+| | `STAGING_API_URL`, `STAGING_ADMIN_URL`, `PROD_API_URL`, `PROD_ADMIN_URL` | public URLs (smoke checks + synthetics) |
+| | `SENTRY_ORG`, `ADMIN_SENTRY_DSN`, `APP_SENTRY_DSN` | Sentry organisation and the admin/app project DSNs (DSNs are not secrets) |
+| Repository secret | `SENTRY_AUTH_TOKEN` | Sentry internal integration token (releases, source maps, app symbols) |
+| Cluster secret `yaqeen-api-secrets` | `SENTRY_DSN`, `POSTHOG_KEY` | API project DSN; PostHog EU project key (optional) |
+| | `ADMIN_SECRETS_KEY` | **required in production** — `openssl rand -base64 32`; seals admin 2FA secrets. Back it up: losing it means every admin re-enrols 2FA |
+| | `BACKUP_SECRETS_KEY` | **required in production** — `openssl rand -base64 32`, a different value from `ADMIN_SECRETS_KEY`; seals users' opt-in cloud backups (`user_backups`, AES-256-GCM). Back it up with the other secrets and never rotate it casually: without it every stored backup is unreadable (phones keep their own data; users would re-upload by switching backup off and on) |
+| | `SHOPIFY_WEBHOOK_SECRET` | signing secret of the shop's `orders/paid` webhook → `<api>/webhooks/shopify/orders-paid` (marks reward codes used) |
+| | `CONVERSIONS_ID_SALT` | server-side purchase conversions (optional): `openssl rand -base64 32`. Keep it stable — rotating it gives every buyer a new pseudonymous id. Without it nothing is sent |
+| | `META_PIXEL_ID`, `META_CAPI_TOKEN` | Meta Events Manager › the store's pixel (dataset) › Settings: the dataset id, and **Conversions API › Generate access token**. Optional `META_TEST_EVENT_CODE` from the Test events tab while verifying, then remove it |
+| | `GA4_MEASUREMENT_ID`, `GA4_API_SECRET` | GA4 › Admin › Data streams › the store's web stream: the `G-…` id, and **Measurement Protocol API secrets › Create** |
+| | `TIKTOK_PIXEL_ID`, `TIKTOK_ACCESS_TOKEN` | TikTok Ads Manager › Tools › Events › the web pixel: the pixel id, and **Settings › Generate access token** (Events API). Optional `TIKTOK_TEST_EVENT_CODE` from Test events |
+| | `QF_CLIENT_ID`, `QF_CLIENT_SECRET` | Quran Foundation Content API (audio, timings, tafsir — spec §10): request access at **api-docs.quran.foundation › Request Access**, create an app in the QF Developer Console, and copy the **client id / secret** (pre-live first, production once approved). Server only. Without them the API falls back to the legacy public `https://api.quran.com/api/v4` (`QF_PUBLIC_BASE_URL`; set it empty to turn the fallback off → those routes answer 503 `content_unavailable`) |
+| ConfigMap / env | `QF_ENV` | `production` (default) or `prelive` — must match the credentials. Pre-live serves only surahs 1–2 |
+| ConfigMap / env | `SUPPORT_EMAIL` | shown on the website's help, privacy and deletion pages |
+| Packages | GHCR | the cluster pulls `ghcr.io/branditalabs/*`: make the packages public or add an image pull secret |
+
+Namespaces: `yaqeen-staging` (1 replica, HPA 1–4, campaigns suspended, 20 % traces) and `yaqeen`
+(production, base manifests). Dependabot opens grouped weekly PRs for npm, pub, Actions and base images.
 
 ## Runbooks
 
 | Symptom | Do |
 | --- | --- |
+| `503 content_unavailable` on `/v1/content/reciters/…/surahs/…` or `/v1/content/tafsirs/…` | Quran Foundation is down, rate-limiting or rejecting us. Check `yaqeen_external_calls_total{service="quran_foundation",outcome="failed"}` and Sentry (`route: integration:quran_foundation`, message `quran_foundation: <status> <path>` — never the token). `token 401/403` → wrong/revoked `QF_CLIENT_ID`/`QF_CLIENT_SECRET` or `QF_ENV` not matching them. Phones keep playing downloaded/cached surahs and cached tafsir; server copies live 24 h (cache namespace `quran`). |
 | Latency climbing, CPU high | Confirm HPA is scaling (`kubectl -n yaqeen get hpa`); if at max, raise `maxReplicas` and check Postgres. |
 | `503` from load shedding | Expected briefly during a spike; sustained → scale up and check for a slow query (`pg_stat_statements`). The app retries with backoff. |
 | Postgres connections exhausted | Lower `PG_POOL_MAX` or add PgBouncer; look for long transactions. |
 | Redis down | Service degrades gracefully; restore Redis. Expect higher DB read load meanwhile. |
 | Shopify failing | Redemptions refund automatically (`shopify_unavailable`, points not deducted). Check the token/scopes on the dashboard pill. |
-| Bad deploy | `kubectl -n yaqeen rollout undo deploy/yaqeen-api` (migrations are backwards compatible). |
+| Bad deploy | Actions › Deploy › Run workflow › `rollback` (or `tools/deploy/deploy.sh production --rollback`); migrations are backwards compatible. |
+| Error spike after a deploy | Sentry › Releases › compare the new release with the previous one; roll back first, investigate after. |
+| `outage` issue opened | Synthetics failed from outside: check the probe dashboard (in-cluster view) to tell a cluster outage from an ingress/DNS/TLS one. |
+| Conversions failing (`yaqeen_conversions_total{outcome="failed"}`) | Sentry shows `conversions: <platform> HTTP 4xx` (token revoked / wrong pixel: regenerate and update the secret) or `timeout`/`HTTP 5xx` (platform side). A failed order is retried only if Shopify replays its webhook (max 3 attempts); purchases are never queued. To stop all sends: turn `serverConversions` off in الإعدادات. |
 | Need to pause a feature | Dashboard → الإعدادات → turn the flag off (apps pick it up within the config cache window), or maintenance mode for a full stop — Quran, prayer and azkar keep working offline. |
 
 ## Release checklist (ops)
@@ -107,3 +164,5 @@ guest-link 10/min/IP, redeem 5/min, admin login 5 per 5 min.
 - [ ] HPA `minReplicas` raised ahead of a known peak.
 - [ ] Dashboard Shopify pill shows «متصل» with `write_discounts`.
 - [ ] Firebase service account set (pushes), AlAdhan reachable from the cluster (Hijri).
+- [ ] Sentry DSNs set (API secret, admin/app variables); alert routes for `page` / `ticket` configured in Alertmanager.
+- [ ] Staging deploy green and smoke checks passing before tagging `v*` for production.

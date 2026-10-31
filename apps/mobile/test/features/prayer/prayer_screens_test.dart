@@ -36,18 +36,27 @@ void main() {
         initialSettingsProvider.overrideWithValue(settings),
       ];
 
+  void tall(WidgetTester tester) {
+    tester.view.physicalSize = const Size(390 * 3, 1500 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+  }
+
   testWidgets('prayer times: six rows, Asr highlighted with a countdown, Qibla 136°', (tester) async {
+    tall(tester);
     await tester.pumpWidget(harness(const Scaffold(body: PrayerScreen()), overrides: [...base()].cast()));
     await tester.pump();
     expect(find.text('مواقيت الصلاة'), findsOneWidget);
-    expect(find.text('العصر'), findsOneWidget);
+    // The stage leads with Asr; the arc and the day's journey name it too.
+    expect(find.text('العصر'), findsNWidgets(3));
     expect(find.text('3:53 م'), findsOneWidget);
     expect(find.text('بعد 00:53:00'), findsOneWidget);
-    expect(find.text('اتجاه القبلة 136°'), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('اتجاه القبلة 136°')), findsOneWidget);
     expect(find.textContaining('الهيئة المصرية العامة للمساحة'), findsOneWidget);
   });
 
   testWidgets('bell toggles a prayer off and on (device-only setting)', (tester) async {
+    tall(tester);
     final kv = MemoryKvStore();
     await tester.pumpWidget(harness(const Scaffold(body: PrayerScreen()), kv: kv, overrides: [...base()].cast()));
     await tester.pump();
@@ -58,6 +67,7 @@ void main() {
   });
 
   testWidgets('Friday shows Jumu\'ah instead of Dhuhr', (tester) async {
+    tall(tester);
     final friday = DateTime.utc(2026, 10, 23, 6);
     await tester.pumpWidget(
       harness(
@@ -66,7 +76,8 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.text('الجمعة'), findsOneWidget);
+    expect(find.text('الجمعة'), findsWidgets);
+    expect(find.text('الظهر'), findsNothing);
   });
 
   void phone(WidgetTester tester) {
@@ -110,6 +121,10 @@ void main() {
   });
 
   testWidgets('notification settings: tapping a mode cycles adhan → notify → silent', (tester) async {
+    // Tall view: the per-prayer modes sit below today's reminders and the routine.
+    tester.view.physicalSize = const Size(390 * 3, 2600 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
     final scheduler = NoopLocalNotificationScheduler();
     await tester.pumpWidget(
       harness(
@@ -160,12 +175,13 @@ void main() {
   });
 
   testWidgets('prayer screen golden', (tester) async {
-    tester.view.physicalSize = const Size(390 * 3, 900 * 3);
+    tester.view.physicalSize = const Size(390 * 3, 1300 * 3);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     debugDisableShadows = false;
     await tester.pumpWidget(harness(const Scaffold(body: PrayerScreen()), overrides: base().cast()));
     await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
     try {
       await expectLater(find.byType(PrayerScreen), matchesGoldenFile('../../goldens/prayer_ar.png'));
     } finally {

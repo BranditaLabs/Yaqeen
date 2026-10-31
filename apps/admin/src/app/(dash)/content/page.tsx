@@ -74,6 +74,11 @@ export default async function ContentPage({ searchParams }: { searchParams: Prom
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <Badge tone={CONTENT_STATUS[c.status].tone}>{CONTENT_STATUS[c.status].label}</Badge>
                 <Badge tone="blue">{TYPE_LABEL[c.type]}</Badge>
+                {c.status !== 'published' && c.liveVersion != null && (
+                  <Badge tone="green">
+                    التطبيق يعرض النسخة المعتمدة <span className="num">{c.liveVersion}</span>
+                  </Badge>
+                )}
                 <span className="text-xs text-muted">
                   {CONTENT_CATEGORY_LABELS[c.category] ?? c.category} · نسخة <span className="num">{c.version}</span>
                   {c.featured ? ' · ضمن دعاء اليوم' : ''}

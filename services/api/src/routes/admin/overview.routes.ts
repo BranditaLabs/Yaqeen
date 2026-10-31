@@ -117,7 +117,7 @@ export const adminOverviewRoutes: FastifyPluginAsync = async (app) => {
 
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     const capped = await db
-      .select({ id: rewards.id, title: rewards.titleAr, cap: rewards.monthlyCap, used: sql<string>`(select count(*) from ${redemptions} r where r.reward_id = ${rewards.id} and r.created_at >= ${monthStart} and r.status <> 'void')` })
+      .select({ id: rewards.id, title: rewards.titleAr, cap: rewards.monthlyCap, used: sql<string>`(select count(*) from ${redemptions} r where r.reward_id = rewards.id and r.created_at >= ${monthStart} and r.status <> 'void')` })
       .from(rewards)
       .where(and(eq(rewards.active, true), sql`${rewards.monthlyCap} is not null`));
     for (const r of capped) {

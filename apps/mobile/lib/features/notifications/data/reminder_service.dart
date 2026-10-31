@@ -35,34 +35,60 @@ class ReminderService {
         PrayerName.isha => Prayer.isha,
       };
 
+  /// The routine slot as the planner's daily time (null = off).
+  static SlotTime? _slot(RoutineSlot r) => switch (r.kind) {
+        SlotKind.off => null,
+        SlotKind.at => SlotTime.at(r.minutes),
+        SlotKind.afterPrayer => SlotTime.after(_prayer(r.prayer!), r.minutes),
+      };
+
   static PrayerAlert _alert(AlertMode m) => switch (m) {
         AlertMode.adhan => PrayerAlert.adhan,
         AlertMode.notify => PrayerAlert.notify,
         AlertMode.silent => PrayerAlert.silent,
       };
 
-  ReminderPrefs prefsFor(AppSettings s, {required bool wirdDone, Set<DateTime> hifzDue = const {}}) => ReminderPrefs(
+  ReminderPrefs prefsFor(
+    AppSettings s, {
+    required bool wirdDone,
+    Set<DateTime> hifzDue = const {},
+    Set<DateTime> ramadanDates = const {},
+    bool khatma = false,
+  }) =>
+      ReminderPrefs(
         modes: {for (final e in s.alertModes.entries) _prayer(e.key): _alert(e.value)},
         prePrayerMinutes: s.preReminderMinutes,
         morningAzkar: s.morningAzkar,
         eveningAzkar: s.eveningAzkar,
-        wirdAt: s.wirdReminderMinutes,
+        wird: _slot(s.quranSlot),
+        dhikr: _slot(s.dhikrSlot),
+        hifz: _slot(s.hifzSlot) ?? const SlotTime.at(9 * 60),
         kahfFriday: s.kahfFriday,
         wirdMissing: s.wirdMissing && !wirdDone,
         hifzDueDates: s.hifzDue ? hifzDue : const {},
+        ramadanDates: ramadanDates,
+        khatma: khatma,
+        suhoorMinutes: s.suhoorReminder ? s.suhoorMinutes : null,
+        iftarMinutes: s.iftarReminder ? s.iftarMinutes : null,
         quietStartMinutes: s.quietHours ? s.quietStartMinutes : null,
         quietEndMinutes: s.quietHours ? s.quietEndMinutes : null,
       );
 
-  List<PrayerDay> daysFor(AppSettings s, DateTime now, {bool ramadan = false}) {
+  /// [ramadanDates]: days on which Ramadan timings apply (Umm al-Qura's later Isha).
+  List<PrayerDay> daysFor(AppSettings s, DateTime now, {Set<DateTime> ramadanDates = const {}}) {
     final loc = Zoned.location(s.placeOrDefault.timezone);
     final today = prayers.today(s, now);
-    return [
-      for (final times in prayers.range(s, today, daysAhead, ramadan: ramadan))
+    final out = <PrayerDay>[];
+    for (var i = 0; i < daysAhead; i++) {
+      final date = DateTime(today.year, today.month, today.day + i);
+      final times = prayers.forDate(s, date, ramadan: ramadanDates.contains(date));
+      out.add(
         PrayerDay(tz.TZDateTime(loc, times.year, times.month, times.day), {
           for (final p in PrayerName.values) _prayer(p): tz.TZDateTime.from(times.of(p), loc),
         }),
-    ];
+      );
+    }
+    return out;
   }
 
   Future<NotificationPlan> replan(
@@ -71,7 +97,8 @@ class ReminderService {
     required bool worshipConsent,
     bool wirdDone = false,
     Set<DateTime> hifzDue = const {},
-    bool ramadan = false,
+    Set<DateTime> ramadanDates = const {},
+    bool khatma = false,
   }) async {
     if (!worshipConsent) {
       await scheduler.cancelAll();
@@ -80,8 +107,8 @@ class ReminderService {
     }
     final nowZoned = tz.TZDateTime.from(now.toUtc(), Zoned.location(s.placeOrDefault.timezone));
     final plan = NotificationPlanner.plan(
-      days: daysFor(s, now, ramadan: ramadan),
-      prefs: prefsFor(s, wirdDone: wirdDone, hifzDue: hifzDue),
+      days: daysFor(s, now, ramadanDates: ramadanDates),
+      prefs: prefsFor(s, wirdDone: wirdDone, hifzDue: hifzDue, ramadanDates: ramadanDates, khatma: khatma),
       now: nowZoned,
     );
     await scheduler.replaceAll(plan.items);
@@ -157,6 +184,10 @@ class NotificationCopy {
       ReminderKind.kahfFriday => (t.notifKahfTitle, t.notifKahfBody),
       ReminderKind.wirdMissing => (t.notifWirdMissingTitle, t.notifWirdMissingBody),
       ReminderKind.hifzDue => (t.notifHifzTitle, t.notifHifzBody),
+      ReminderKind.dhikr => (t.notifDhikrTitle, t.notifDhikrBody),
+      ReminderKind.suhoor => (t.notifSuhoorTitle, t.notifSuhoorBody(n.minutesBefore ?? s.suhoorMinutes)),
+      ReminderKind.iftar => (t.notifIftarTitle, t.notifIftarBody(n.minutesBefore ?? s.iftarMinutes)),
+      ReminderKind.khatma => (t.notifKhatmaTitle, t.notifKhatmaBody),
     };
   }
 }

@@ -17,9 +17,14 @@ import '../features/notifications/presentation/notification_settings_screen.dart
 import '../features/onboarding/presentation/onboarding_screens.dart';
 import '../features/onboarding/presentation/splash_gate.dart';
 import '../features/prayer/presentation/prayer_screen.dart';
+import '../features/card/presentation/card_screen.dart';
+import '../features/card/presentation/encode_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/prayer/presentation/qibla_screen.dart';
+import '../features/ramadan/presentation/ramadan_screen.dart';
 import '../features/quran/presentation/quran_index_screen.dart';
+import '../features/quran/domain/quran_data.dart';
+import '../features/quran/presentation/khatma_screen.dart';
 import '../features/quran/presentation/reader_screen.dart';
 import '../features/recite/presentation/recite_screen.dart';
 import '../features/rewards/presentation/redeem_screen.dart';
@@ -29,17 +34,28 @@ import 'shell.dart';
 /// Navigator for full-screen routes (reader, recitation, player, Qibla) — above the tab bar.
 final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 
+/// Where an incoming location must go first, or null to keep it. Universal / App Links arrive as
+/// `/app/<target>` and custom-scheme links whole (`yaqeen://tag/<code>`, `yaqeen://encode/<token>`,
+/// spec §4.2): both go through the splash, so a cold start still warms up and a first launch still
+/// onboards before landing on the target.
+String? deepLinkRedirect(Uri uri) {
+  if (uri.scheme == 'yaqeen' || uri.path.startsWith('/app/')) {
+    return Uri(path: '/splash', queryParameters: {'to': routeForDeepLink(uri)}).toString();
+  }
+  return null;
+}
+
 /// Route map (spec §4.1). Each tab is a branch so it keeps its own stack.
 /// Deep links map onto these paths in core/notifications/push_service.dart › routeForDeepLink.
 GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
       navigatorKey: rootNavigatorKey,
       initialLocation: initialLocation,
-      // Universal / App Links arrive as /app/<target> (spec §4.2): through the splash, so a cold
-      // start still warms up and a first launch still onboards before landing on the target.
-      redirect: (_, s) =>
-          s.uri.path.startsWith('/app/') ? Uri(path: '/splash', queryParameters: {'to': routeForDeepLink(s.uri)}).toString() : null,
+      redirect: (_, s) => deepLinkRedirect(s.uri),
       routes: [
         GoRoute(path: '/splash', builder: (_, s) => SplashGate(deepLink: s.uri.queryParameters['to'])),
+        // Staff encoding (deep link only, no menu entry): the token lives in this route while the
+        // screen is open and is never saved.
+        GoRoute(path: '/encode/:token', builder: (_, s) => EncodeScreen(token: s.pathParameters['token']!)),
         GoRoute(
           path: '/onboarding',
           redirect: (_, s) => s.uri.path == '/onboarding' ? '/onboarding/welcome' : null,
@@ -49,6 +65,7 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
             GoRoute(path: 'prayer', builder: (_, __) => const PrayerStep()),
             GoRoute(path: 'consent', builder: (_, __) => const ConsentStep()),
             GoRoute(path: 'goal', builder: (_, __) => const GoalStep()),
+            GoRoute(path: 'routine', builder: (_, __) => const RoutineStep()),
             GoRoute(path: 'download', builder: (_, __) => const DownloadStep()),
           ],
         ),
@@ -82,11 +99,15 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
                   builder: (_, s) => QuranIndexScreen(key: ValueKey(s.uri.query), focusSearch: s.uri.queryParameters['search'] == '1'),
                   routes: [
                     GoRoute(path: 'hifz', builder: (_, __) => const HifzScreen()),
+                    GoRoute(path: 'khatma', builder: (_, __) => const KhatmaScreen()),
                     GoRoute(path: 'reciters', builder: (_, __) => const RecitersScreen()),
                     GoRoute(
                       parentNavigatorKey: rootNavigatorKey,
                       path: 'read/:page',
-                      builder: (_, s) => ReaderScreen(initialPage: (int.tryParse(s.pathParameters['page'] ?? '') ?? 1).clamp(1, 604)),
+                      builder: (_, s) => ReaderScreen(
+                        initialPage: (int.tryParse(s.pathParameters['page'] ?? '') ?? 1).clamp(1, 604),
+                        focus: parseAyahRef(s.uri.queryParameters['ayah']),
+                      ),
                     ),
                     GoRoute(
                       parentNavigatorKey: rootNavigatorKey,
@@ -117,6 +138,7 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
                   builder: (_, __) => const PrayerScreen(),
                   routes: [
                     GoRoute(path: 'notifications', builder: (_, __) => const NotificationSettingsScreen()),
+                    GoRoute(path: 'ramadan', builder: (_, __) => const RamadanScreen()),
                     GoRoute(parentNavigatorKey: rootNavigatorKey, path: 'qibla', builder: (_, __) => const QiblaScreen()),
                   ],
                 ),
@@ -147,6 +169,7 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
                     GoRoute(path: 'privacy', builder: (_, __) => const PrivacyScreen()),
                     GoRoute(path: 'ledger', builder: (_, __) => const LedgerScreen()),
                     GoRoute(path: 'downloads', builder: (_, __) => const DownloadsScreen()),
+                    GoRoute(path: 'card', builder: (_, state) => CardScreen(tag: state.uri.queryParameters['tag'])),
                   ],
                 ),
               ],

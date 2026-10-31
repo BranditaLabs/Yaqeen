@@ -1,27 +1,38 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/analytics/analytics.dart';
+import '../../../core/analytics/product_analytics.dart';
 import '../../../core/config/config_controller.dart';
+import '../../../core/config/remote_config.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/format.dart';
 import '../../../core/settings/app_settings.dart';
+import '../../../core/config/env.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
-import '../../../core/widgets/ambient_background.dart';
+import '../../../core/design/living_sky.dart';
+import '../../../core/widgets/liquid_orb.dart';
 import '../../../core/widgets/controls.dart';
 import '../../../core/widgets/liquid_glass.dart';
 import '../../../core/widgets/yq_button.dart';
 import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_layout.dart';
 import '../../../core/widgets/yq_logo.dart';
+import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/yq_states.dart';
+import '../../../core/widgets/yq_timeline.dart';
 import '../../../l10n/gen/app_localizations.dart';
+import '../../routine/domain/routine.dart';
+import '../../routine/presentation/habit_picker.dart';
 import '../../challenge/presentation/challenge_controller.dart';
 import '../../notifications/presentation/reminders_controller.dart';
 import '../../prayer/domain/prayer_calculator.dart';
+import '../../prayer/domain/prayer_clock.dart';
 import '../../prayer/presentation/city_picker_sheet.dart';
 import '../../prayer/presentation/prayer_labels.dart';
 import '../../quran/domain/quran_data.dart';
@@ -34,22 +45,6 @@ import 'sign_in_sheet.dart';
 
 /// Each step saves as it goes (kill-safe, spec §6.2); `onboardingStep` lets a restart resume.
 void _saveStep(WidgetRef ref, int step) => ref.read(settingsProvider.notifier).update((s) => s.copyWith(onboardingStep: step), sync: false);
-
-/// Rises 14 px and fades in after [delay] (spec §5.3 entrance).
-class _Rise extends StatelessWidget {
-  const _Rise({required this.delay, required this.child});
-  final Duration delay;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0, end: 1),
-        duration: YqMotion.slow + delay,
-        curve: Interval(delay.inMilliseconds / (YqMotion.slow + delay).inMilliseconds, 1, curve: YqMotion.ease),
-        builder: (_, v, c) => Opacity(opacity: v, child: Transform.translate(offset: Offset(0, 14 * (1 - v)), child: c)),
-        child: child,
-      );
-}
 
 /* ------------------------------------------------------------------- 02 */
 
@@ -111,118 +106,107 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
       (YqIcons.store, t.welcomeBenefitPoints, true),
     ];
 
+    final settings = ref.watch(settingsProvider);
+    final repo = ref.watch(prayerRepositoryProvider);
+    final arc = dayArcAt(settings, repo, ref.watch(clockProvider)());
+
     return Scaffold(
       backgroundColor: YqColors.porcelain,
-      body: AmbientBackground(
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: YqSpace.gutter),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(
-                  height: 44,
-                  child: Row(
-                    children: [
-                      const YqLogo(variant: YqLogoVariant.horizontal, height: 34),
-                      const Spacer(),
-                      GlassTap(
-                        semanticLabel: t.languageOther,
-                        onTap: () => ref.read(settingsProvider.notifier).update((s) => s.copyWith(locale: locale == 'ar' ? 'en' : 'ar')),
-                        child: LiquidGlass(
-                          radius: YqRadii.pill,
-                          padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: 6),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.language_rounded, size: 16, color: YqColors.lapis),
-                              const SizedBox(width: 6),
-                              Text(t.languageOther, style: text.labelMedium),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.only(top: YqSpace.xxl),
-                    children: [
-                      _Rise(
-                        delay: const Duration(milliseconds: 100),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+      body: YqCanvas(
+        bottom: YqSpace.l,
+        stage: YqStage(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                height: 44,
+                child: Row(
+                  children: [
+                    const YqLogo(variant: YqLogoVariant.horizontal, height: 34),
+                    const Spacer(),
+                    GlassTap(
+                      semanticLabel: t.languageOther,
+                      onTap: () => ref.read(settingsProvider.notifier).update((s) => s.copyWith(locale: locale == 'ar' ? 'en' : 'ar')),
+                      child: LiquidGlass(
+                        radius: YqRadii.pill,
+                        padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: 6),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(t.welcomeSalam, style: text.labelMedium?.copyWith(color: YqColors.goldText, fontSize: 12)),
-                            const SizedBox(height: YqSpace.s),
-                            Text(
-                              t.welcomeTitle,
-                              style: text.headlineLarge?.copyWith(fontSize: 34, height: 1.35, fontWeight: FontWeight.w700),
-                            ),
-                            const SizedBox(height: YqSpace.m),
-                            Text(t.welcomeBody, style: text.bodyLarge?.copyWith(color: YqColors.muted)),
+                            const Icon(Icons.language_rounded, size: 16, color: YqColors.lapis),
+                            const SizedBox(width: 6),
+                            Text(t.languageOther, style: text.labelMedium),
                           ],
                         ),
                       ),
-                      const SizedBox(height: YqSpace.xl),
-                      _Rise(
-                        delay: const Duration(milliseconds: 300),
-                        child: Column(
-                          children: [
-                            for (final (i, (icon, label, gold)) in benefits.indexed) ...[
-                              if (i > 0) const YqDivider(),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(vertical: YqSpace.m),
-                                child: Row(
-                                  children: [
-                                    YqIconTile(icon, gold: gold, size: 40),
-                                    const SizedBox(width: YqSpace.m),
-                                    Expanded(child: Text(label, style: text.bodyLarge)),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                _Rise(
-                  delay: const Duration(milliseconds: 500),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (!online)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: YqSpace.s),
-                          child: Text(t.welcomeOffline, textAlign: TextAlign.center, style: text.bodySmall),
-                        ),
-                      YqButton.secondary(
-                        label: t.welcomeGoogle,
-                        loading: _busy == SignInProvider.google,
-                        onPressed: busy || !online ? null : () => _signIn(SignInProvider.google),
-                      ),
-                      const SizedBox(height: YqSpace.s),
-                      YqButton(
-                        label: t.welcomeApple,
-                        loading: _busy == SignInProvider.apple,
-                        onPressed: busy || !online ? null : () => _signIn(SignInProvider.apple),
-                      ),
-                      const SizedBox(height: YqSpace.xs),
-                      Center(
-                        child: YqButton.text(label: t.welcomeGuest, onPressed: busy ? null : () => _signIn(SignInProvider.guest)),
-                      ),
-                      Text(t.welcomeLegal, textAlign: TextAlign.center, style: text.bodySmall?.copyWith(fontSize: 11)),
-                      const SizedBox(height: YqSpace.m),
-                    ],
-                  ),
+              ),
+              const SizedBox(height: YqSpace.xl),
+              // The first thing Yaqeen shows is the user's own sky: the day's arc with the sun
+              // where it is right now.
+              ExcludeSemantics(
+                child: DayArc(
+                  position: arc.position,
+                  nextIndex: arc.nextIndex,
+                  night: arc.night,
+                  height: 84,
+                  labels: [for (final p in obligatory) prayerLabel(t, p)],
+                  current: arc.nextIndex.clamp(0, 4),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: YqSpace.l),
+              YqMoment(
+                eyebrow: t.welcomeSalam,
+                value: Text(t.welcomeTitle, style: YqMoment.display(context, size: 32).copyWith(height: 1.35)),
+                caption: Text(t.welcomeBody, style: text.bodyLarge?.copyWith(color: YqColors.muted)),
+              ),
+            ],
           ),
         ),
+        footer: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (!online)
+              Padding(
+                padding: const EdgeInsets.only(bottom: YqSpace.s),
+                child: Text(t.welcomeOffline, textAlign: TextAlign.center, style: text.bodySmall),
+              ),
+            YqButton.secondary(
+              label: t.welcomeGoogle,
+              loading: _busy == SignInProvider.google,
+              onPressed: busy || !online ? null : () => _signIn(SignInProvider.google),
+            ),
+            const SizedBox(height: YqSpace.s),
+            YqButton(
+              label: t.welcomeApple,
+              loading: _busy == SignInProvider.apple,
+              onPressed: busy || !online ? null : () => _signIn(SignInProvider.apple),
+            ),
+            const SizedBox(height: YqSpace.xs),
+            Center(child: YqButton.text(label: t.welcomeGuest, onPressed: busy ? null : () => _signIn(SignInProvider.guest))),
+            Text(t.welcomeLegal, textAlign: TextAlign.center, style: text.bodySmall?.copyWith(fontSize: 11)),
+          ],
+        ),
+        children: [
+          YqGroup(
+            children: [
+              for (final (icon, label, gold) in benefits)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: YqSpace.m),
+                  child: Row(
+                    children: [
+                      YqIconTile(icon, gold: gold, size: 40),
+                      const SizedBox(width: YqSpace.m),
+                      Expanded(child: Text(label, style: text.bodyLarge)),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -241,6 +225,7 @@ class _Step extends ConsumerWidget {
     this.onSkip,
     this.footer,
     this.ctaLoading = false,
+    this.visual,
   });
 
   final int step;
@@ -253,60 +238,52 @@ class _Step extends ConsumerWidget {
   final Widget? footer;
   final bool ctaLoading;
 
+  /// A live picture of the step in the stage (the day arc, the user's day).
+  final Widget? visual;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
     return Scaffold(
       backgroundColor: YqColors.porcelain,
-      body: AmbientBackground(
-        child: SafeArea(
+      body: YqCanvas(
+        bottom: YqSpace.l,
+        stage: YqStage(
+          compact: true,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(YqSpace.gutter, YqSpace.s, YqSpace.gutter, 0),
-                child: Row(
-                  children: [
-                    YqBackButton(label: t.back),
-                    const Spacer(),
-                    YqStepper(step: step, semanticLabel: t.stepOf(step)),
-                    const Spacer(),
-                    SizedBox(
-                      width: 64,
-                      child: onSkip == null ? null : TextButton(onPressed: onSkip, child: Text(t.skip)),
-                    ),
-                  ],
-                ),
+              Row(
+                children: [
+                  // Equal sides, so the stepper sits on the stage's centre line.
+                  SizedBox(width: 64, child: Align(alignment: AlignmentDirectional.centerStart, child: YqBackButton(label: t.back))),
+                  Expanded(child: Center(child: YqStepper(step: step, semanticLabel: t.stepOf(step)))),
+                  SizedBox(width: 64, child: onSkip == null ? null : TextButton(onPressed: onSkip, child: Text(t.skip))),
+                ],
               ),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(YqSpace.gutter, YqSpace.xl, YqSpace.gutter, YqSpace.l),
-                  children: [
-                    Text(t.stepEyebrow(step), style: YqText.numberSmall.copyWith(color: YqColors.goldText)),
-                    const SizedBox(height: YqSpace.xs),
-                    Semantics(
-                      header: true,
-                      child: Text(title, style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w700, height: 1.35)),
-                    ),
-                    const SizedBox(height: YqSpace.s),
-                    Text(sub, style: text.bodyMedium?.copyWith(color: YqColors.muted)),
-                    const SizedBox(height: YqSpace.xl),
-                    ...children,
-                  ],
-                ),
+              const SizedBox(height: YqSpace.xl),
+              Text(t.stepEyebrow(step), style: YqText.numberSmall.copyWith(color: YqColors.goldText)),
+              const SizedBox(height: YqSpace.xs),
+              Semantics(
+                header: true,
+                child: Text(title, style: YqMoment.display(context, size: 30).copyWith(height: 1.35)),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(YqSpace.gutter, 0, YqSpace.gutter, YqSpace.l),
-                child: Column(
-                  children: [
-                    YqButton(label: cta, loading: ctaLoading, onPressed: onCta),
-                    if (footer != null) ...[const SizedBox(height: YqSpace.s), footer!],
-                  ],
-                ),
-              ),
+              const SizedBox(height: YqSpace.s),
+              Text(sub, style: text.bodyMedium?.copyWith(color: YqColors.muted)),
+              if (visual != null) ...[const SizedBox(height: YqSpace.l), visual!],
             ],
           ),
         ),
+        footer: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            YqButton(label: cta, loading: ctaLoading, onPressed: onCta),
+            if (footer != null) ...[const SizedBox(height: YqSpace.s), footer!],
+          ],
+        ),
+        children: children,
       ),
     );
   }
@@ -321,7 +298,6 @@ class LanguageStep extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
-    final text = Theme.of(context).textTheme;
     final s = ref.watch(settingsProvider);
     final ctl = ref.read(settingsProvider.notifier);
     final quran = ref.watch(quranDataProvider).valueOrNull;
@@ -367,38 +343,15 @@ class LanguageStep extends ConsumerWidget {
                   quran.basmala,
                   textAlign: TextAlign.center,
                   textDirection: TextDirection.rtl,
-                  style: YqText.quran(size: s.quranFontSize, height: 2, color: YqColors.ink),
+                  style: YqText.quran(height: 2, color: YqColors.ink),
                 ),
             ],
           ),
         ),
-        const SizedBox(height: YqSpace.m),
-        YqSection(
-          title: t.langFontSize,
-          child: Column(
-            children: [
-              Slider(
-                value: AppSettings.fontSizes.indexOf(_nearest(s.quranFontSize)).toDouble(),
-                max: 3,
-                divisions: 3,
-                label: const ['S', 'M', 'L', 'XL'][AppSettings.fontSizes.indexOf(_nearest(s.quranFontSize))],
-                activeColor: YqColors.lapis,
-                onChanged: (v) => ctl.update((x) => x.copyWith(quranFontSize: AppSettings.fontSizes[v.round()]), sync: false),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  for (final l in const ['S', 'M', 'L', 'XL']) Text(l, style: text.labelSmall),
-                ],
-              ),
-            ],
-          ),
-        ),
+        // No font-size step: the reader draws the printed page, which sets its own size.
       ],
     );
   }
-
-  static double _nearest(double v) => AppSettings.fontSizes.reduce((a, b) => (a - v).abs() <= (b - v).abs() ? a : b);
 }
 
 class _RadioCard extends StatelessWidget {
@@ -504,10 +457,39 @@ class _PrayerStepState extends ConsumerState<PrayerStep> {
     final methods = {recommended, CalcMethod.egypt, CalcMethod.mwl, CalcMethod.ummAlQura}.toList();
     final adhanOn = s.alertModes.values.any((m) => m == AlertMode.adhan);
 
+    final arc = dayArcAt(s, ref.watch(prayerRepositoryProvider), ref.watch(clockProvider)());
+    final times = ref.watch(prayerRepositoryProvider).forDate(s, ref.watch(prayerRepositoryProvider).today(s, ref.watch(clockProvider)()));
     return _Step(
       step: 2,
       title: t.prayerSetupTitle,
       sub: t.prayerSetupSub,
+      // Today's real times at the chosen place, on the day's arc — it moves as the place changes.
+      visual: ExcludeSemantics(
+        child: Column(
+          children: [
+            DayArc(
+              position: arc.position,
+              nextIndex: arc.nextIndex,
+              night: arc.night,
+              height: 72,
+              labels: [for (final p in obligatory) prayerLabel(t, p)],
+              current: arc.nextIndex.clamp(0, 4),
+            ),
+            Row(
+              children: [
+                for (final p in obligatory)
+                  Expanded(
+                    child: Text(
+                      YqFormat.time(ref.watch(prayerRepositoryProvider).local(s, times.of(p)), s.locale),
+                      textAlign: TextAlign.center,
+                      style: YqText.numberSmall.copyWith(fontSize: 11, color: YqColors.ink),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
       cta: t.continueCta,
       onCta: () {
         if (s.place == null) ctl.update((x) => x.copyWith(place: Place.cairo));
@@ -613,7 +595,7 @@ class ConsentStep extends ConsumerStatefulWidget {
 
 class _ConsentStepState extends ConsumerState<ConsentStep> {
   late final Map<ConsentKind, bool> _values = {
-    for (final k in ConsentKind.values)
+    for (final k in onboardingConsents)
       k: ref.read(consentRepositoryProvider).decided ? ref.read(consentRepositoryProvider).granted(k) : consentDefaults[k]!,
   };
   bool _busy = false;
@@ -632,6 +614,7 @@ class _ConsentStepState extends ConsumerState<ConsentStep> {
     if (_values[ConsentKind.adsMeasurement]!) await ref.read(deviceServicesProvider).requestTracking();
     // Queued first_open / sign_up go out only if ads ended ON; otherwise they are dropped.
     await ref.read(analyticsProvider).onConsentChanged(_values[ConsentKind.adsMeasurement]!);
+    await ref.read(productAnalyticsProvider).onConsentChanged(_values[ConsentKind.productAnalytics]!);
     ref.read(remindersControllerProvider.notifier).replan().ignore();
     if (!mounted) return;
     setState(() => _busy = false);
@@ -649,6 +632,7 @@ class _ConsentStepState extends ConsumerState<ConsentStep> {
       (ConsentKind.challengeRewards, YqIcons.challenge, t.consentChallenge, t.consentChallengeDetail),
       (ConsentKind.storeOffers, YqIcons.store, t.consentOffers, t.consentOffersDetail),
       (ConsentKind.adsMeasurement, YqIcons.share, t.consentAds, t.consentAdsDetail),
+      (ConsentKind.productAnalytics, YqIcons.settings, t.consentAnalytics, t.consentAnalyticsDetail),
     ];
     return _Step(
       step: 3,
@@ -708,8 +692,7 @@ class _ConsentStepState extends ConsumerState<ConsentStep> {
                   children: [
                     Text(t.consentPrivacyNote, style: text.bodySmall?.copyWith(color: YqColors.success)),
                     GestureDetector(
-                      onTap: () =>
-                          ref.read(deviceServicesProvider).openUrl(Uri.parse('https://www.yaqin-brand.com/policies/privacy-policy')),
+                      onTap: () => ref.read(deviceServicesProvider).openUrl(Env.site('privacy', ref.read(settingsProvider).locale)),
                       child: Text(
                         t.privacyPolicy,
                         style: text.bodySmall?.copyWith(color: YqColors.success, decoration: TextDecoration.underline),
@@ -761,20 +744,7 @@ class _GoalStepState extends ConsumerState<GoalStep> {
     if (!mounted) return;
     setState(() => _busy = false);
     _saveStep(ref, 5);
-    context.go('/onboarding/download');
-  }
-
-  Future<void> _pickTime() async {
-    final s = ref.read(settingsProvider);
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay(hour: s.wirdReminderMinutes ~/ 60, minute: s.wirdReminderMinutes % 60),
-    );
-    if (picked != null) {
-      await ref
-          .read(settingsProvider.notifier)
-          .update((x) => x.copyWith(wirdReminderMinutes: picked.hour * 60 + picked.minute), sync: false);
-    }
+    context.go('/onboarding/routine');
   }
 
   @override
@@ -804,15 +774,6 @@ class _GoalStepState extends ConsumerState<GoalStep> {
                 onTap: () => ref.read(settingsProvider.notifier).update((x) => x.copyWith(wirdGoalPages: pages), sync: false),
               ),
           ],
-        ),
-        const SizedBox(height: YqSpace.m),
-        LiquidGlass(
-          child: YqListRow(
-            title: t.goalReminder,
-            trailing:
-                Text(YqFormat.minutesOfDay(s.wirdReminderMinutes, s.locale), style: YqText.numberSmall.copyWith(color: YqColors.lapis)),
-            onTap: _pickTime,
-          ),
         ),
         const SizedBox(height: YqSpace.m),
         LiquidGlass(
@@ -850,6 +811,79 @@ class _GoalStepState extends ConsumerState<GoalStep> {
   }
 }
 
+/// Step 5 — «متى يناسبك؟»: when the user reads Quran, reviews hifz and does a dhikr session.
+/// Each habit anchors to a prayer (or a set time); Home's «Your day» timeline and the local
+/// reminders follow it. Stays on the device.
+class RoutineStep extends ConsumerWidget {
+  const RoutineStep({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(context);
+    final s = ref.watch(settingsProvider);
+    final hifz = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.hifz)));
+    void set(AppSettings Function(AppSettings) f) => ref.read(settingsProvider.notifier).update(f, sync: false);
+
+    return _Step(
+      step: 5,
+      title: t.routineTitle,
+      sub: t.routineSub,
+      cta: t.routineCta,
+      onCta: () {
+        ref.read(remindersControllerProvider.notifier).replan().ignore();
+        _saveStep(ref, 6);
+        context.go('/onboarding/download');
+      },
+      children: [
+        HabitSlotCard(
+          habit: Habit.quran,
+          slot: s.quranSlot,
+          allowOff: false,
+          onChanged: (v) => set((x) => x.copyWith(quranSlot: v)),
+        ),
+        if (hifz) ...[
+          const SizedBox(height: YqSpace.m),
+          HabitSlotCard(habit: Habit.hifz, slot: s.hifzSlot, onChanged: (v) => set((x) => x.copyWith(hifzSlot: v))),
+        ],
+        const SizedBox(height: YqSpace.m),
+        HabitSlotCard(habit: Habit.dhikr, slot: s.dhikrSlot, onChanged: (v) => set((x) => x.copyWith(dhikrSlot: v))),
+        const SizedBox(height: YqSpace.xxl),
+        YqHeading(t.homeDayTitle),
+        _DayPreview(hifz: hifz),
+      ],
+    );
+  }
+}
+
+/// The user's day as it will look with this routine: the five prayers and each habit at its
+/// resolved time — it rearranges live as the choices change.
+class _DayPreview extends ConsumerWidget {
+  const _DayPreview({required this.hifz});
+  final bool hifz;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(context);
+    final s = ref.watch(settingsProvider);
+    final repo = ref.watch(prayerRepositoryProvider);
+    final times = repo.forDate(s, repo.today(s, ref.watch(clockProvider)()));
+    String at(DateTime utc) => YqFormat.time(repo.local(s, utc), s.locale);
+    final entries = <(YqStop, DateTime)>[
+      for (final p in obligatory) (YqStop(time: at(times.of(p)), title: prayerLabel(t, p)), times.of(p)),
+    ];
+    for (final (h, slot) in [(Habit.quran, s.quranSlot), if (hifz) (Habit.hifz, s.hifzSlot), (Habit.dhikr, s.dhikrSlot)]) {
+      final when = resolveSlot(slot, times, s.placeOrDefault.timezone);
+      if (when == null) continue;
+      entries.add((YqStop(time: at(when), title: habitLabel(t, h), icon: habitIcon(h), style: StopStyle.pill, highlight: true), when));
+    }
+    final indexed = [for (var i = 0; i < entries.length; i++) (i, entries[i])]..sort((a, b) {
+        final c = a.$2.$2.compareTo(b.$2.$2);
+        return c != 0 ? c : a.$1.compareTo(b.$1);
+      });
+    return ExcludeSemantics(child: YqTimeline(stops: [for (final e in indexed) e.$2.$1]));
+  }
+}
+
 class _Stat extends StatelessWidget {
   const _Stat(this.label);
   final String label;
@@ -872,6 +906,7 @@ class DownloadStep extends ConsumerWidget {
   Future<void> _finish(BuildContext context, WidgetRef ref) async {
     await ref.read(settingsProvider.notifier).update((s) => s.copyWith(onboardingCompletedAt: DateTime.now()), sync: false);
     await ref.read(analyticsProvider).logOrQueue(AdEvent.onboardingComplete);
+    unawaited(ref.read(productAnalyticsProvider).track(ProductEvent.onboardingComplete));
     if (context.mounted) context.go('/home');
   }
 
@@ -892,89 +927,85 @@ class DownloadStep extends ConsumerWidget {
         (ref.watch(packsCatalogueProvider).valueOrNull ?? const <ContentPack>[]).where((p) => p.kind == PackKind.tafsir).toList();
     return Scaffold(
       backgroundColor: YqColors.porcelain,
-      body: AmbientBackground(
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: YqSpace.gutter),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: YqSpace.xxl),
-                Text(t.downloadEyebrow, style: text.labelMedium?.copyWith(color: YqColors.goldText)),
-                const SizedBox(height: YqSpace.xs),
-                Text(t.downloadTitle, style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w700, height: 1.35)),
-                const SizedBox(height: YqSpace.s),
-                Text(t.downloadSub, style: text.bodyMedium?.copyWith(color: YqColors.muted)),
-                const SizedBox(height: YqSpace.xl),
-                Center(
-                  child: SizedBox.square(
-                    dimension: 120,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        CircularProgressIndicator(
-                          value: quran != null ? 1 : (failed ? 0 : null),
-                          strokeWidth: 6,
-                          color: YqColors.lapis,
-                          backgroundColor: YqColors.sky100,
+      body: YqCanvas(
+        bottom: YqSpace.l,
+        stage: YqStage(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: YqSpace.l),
+              Text(t.downloadEyebrow, style: text.labelMedium?.copyWith(color: YqColors.goldText)),
+              const SizedBox(height: YqSpace.xs),
+              Text(t.downloadTitle, style: YqMoment.display(context, size: 30).copyWith(height: 1.35)),
+              const SizedBox(height: YqSpace.s),
+              Text(t.downloadSub, style: text.bodyMedium?.copyWith(color: YqColors.muted)),
+              const SizedBox(height: YqSpace.xl),
+              // The mushaf filling the device: liquid that rises to full once the text is ready.
+              Center(
+                child: LiquidOrb(
+                  level: quran != null ? 1 : (failed ? 0 : 0.35),
+                  size: 132,
+                  complete: quran != null,
+                  child: failed
+                      ? const Icon(Icons.error_outline_rounded, color: YqColors.slate400, size: 36)
+                      : Text(
+                          quran == null ? '…' : '100%',
+                          textDirection: TextDirection.ltr,
+                          style: YqText.numeral.copyWith(fontSize: 26, color: YqColors.ink),
                         ),
-                        Center(
-                          child: failed
-                              ? const Icon(Icons.error_outline_rounded, color: YqColors.slate400, size: 36)
-                              : Text(quran == null ? '…' : '100 %', style: YqText.numeral.copyWith(fontSize: 24)),
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
-                const SizedBox(height: YqSpace.xl),
-                LiquidGlass(
-                  padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.xs),
-                  child: Column(
-                    children: [
-                      for (final (label, status, ready) in items)
-                        YqListRow(
-                          dense: true,
-                          title: label,
-                          subtitle: status,
-                          trailing: Icon(
-                            ready ? Icons.check_circle_rounded : Icons.schedule_rounded,
-                            color: ready ? YqColors.success : YqColors.slate400,
-                          ),
-                        ),
-                      if (tafsir.isEmpty)
-                        YqListRow(
-                          dense: true,
-                          title: t.downloadTafsir,
-                          subtitle: t.downloadPending,
-                          trailing: const Icon(Icons.schedule_rounded, color: YqColors.slate400),
-                        )
-                      else
-                        for (final p in tafsir) PackRow(pack: p),
-                    ],
-                  ),
-                ),
-                const Spacer(),
-                if (failed) ...[
-                  Text(t.errorGeneric, textAlign: TextAlign.center, style: text.bodyMedium?.copyWith(color: YqColors.muted)),
-                  TextButton(onPressed: () => ref.invalidate(quranDataProvider), child: Text(t.retry)),
-                ],
-                if (quran != null)
-                  Text(
-                    quran.text(const AyahRef(73, 4)),
-                    textAlign: TextAlign.center,
-                    textDirection: TextDirection.rtl,
-                    style: YqText.quran(size: 18, height: 2, color: YqColors.ink),
-                  ),
-                const SizedBox(height: YqSpace.l),
-                YqButton(label: t.downloadStart, onPressed: quran == null && !failed ? null : () => _finish(context, ref)),
-                const SizedBox(height: YqSpace.xs),
-                Text(t.downloadBackground, textAlign: TextAlign.center, style: text.bodySmall),
-                const SizedBox(height: YqSpace.l),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
+        footer: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            YqButton(label: t.downloadStart, onPressed: quran == null && !failed ? null : () => _finish(context, ref)),
+            const SizedBox(height: YqSpace.xs),
+            Text(t.downloadBackground, textAlign: TextAlign.center, style: text.bodySmall),
+          ],
+        ),
+        children: [
+          YqGroup(
+            children: [
+              for (final (label, status, ready) in items)
+                YqListRow(
+                  dense: true,
+                  title: label,
+                  subtitle: status,
+                  trailing: Icon(
+                    ready ? Icons.check_circle_rounded : Icons.schedule_rounded,
+                    color: ready ? YqColors.success : YqColors.slate400,
+                  ),
+                ),
+              if (tafsir.isEmpty)
+                YqListRow(
+                  dense: true,
+                  title: t.downloadTafsir,
+                  subtitle: t.downloadPending,
+                  trailing: const Icon(Icons.schedule_rounded, color: YqColors.slate400),
+                )
+              else
+                for (final p in tafsir) PackRow(pack: p),
+            ],
+          ),
+          if (failed) ...[
+            const SizedBox(height: YqSpace.l),
+            Text(t.errorGeneric, textAlign: TextAlign.center, style: text.bodyMedium?.copyWith(color: YqColors.muted)),
+            TextButton(onPressed: () => ref.invalidate(quranDataProvider), child: Text(t.retry)),
+          ],
+          if (quran != null) ...[
+            const SizedBox(height: YqSpace.xl),
+            Text(
+              quran.text(const AyahRef(73, 4)),
+              textAlign: TextAlign.center,
+              textDirection: TextDirection.rtl,
+              style: YqText.quran(size: 18, height: 2, color: YqColors.ink),
+            ),
+          ],
+        ],
       ),
     );
   }

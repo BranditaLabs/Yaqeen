@@ -5,6 +5,7 @@
  *
  * The database is wiped and migrated at the start of the run.
  */
+import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { eq, sql } from 'drizzle-orm';
@@ -37,7 +38,7 @@ describe.skipIf(!url)('integration (Postgres)', () => {
     await reset.end();
 
     ({ db, pool } = createDb(url!));
-    await migrate(db, { migrationsFolder: new URL('../drizzle', import.meta.url).pathname });
+    await migrate(db, { migrationsFolder: fileURLToPath(new URL('../drizzle', import.meta.url)) });
     await db.insert(s.taskRules).values([
       { key: 'wird', labelAr: 'وِرد', labelEn: 'Wird', points: 20, sortOrder: 1 },
       { key: 'morning_azkar', labelAr: 'الصباح', labelEn: 'Morning', points: 10, sortOrder: 2 },
@@ -238,7 +239,7 @@ describe.skipIf(!url)('integration (Postgres)', () => {
     expect((await app.inject({ method: 'PUT', url: '/admin/rewards/milestones', headers: H, payload: [{ days: 2, points: 70, labelAr: 'يومان', active: true }] })).statusCode).toBe(200);
 
     const cfg = (await app.inject({ method: 'GET', url: '/v1/config' })).json();
-    expect(cfg.points).toEqual({ dailyTotal: 120, qadaDayPoints: 60, qadaWindowDays: 3, challengeLengthDays: 365, cheapestRewardPoints: 1000 });
+    expect(cfg.points).toEqual({ dailyTotal: 120, qadaDayPoints: 60, qadaWindowDays: 3, challengeLengthDays: 365, cheapestRewardPoints: 1000, bonuses: [] });
 
     // 2) The app follows the new rules immediately.
     const u = await makeUser('Huda');

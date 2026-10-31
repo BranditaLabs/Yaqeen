@@ -8,11 +8,14 @@ import '../storage/kv_store.dart';
 
 /// Error returned by the Yaqeen API: `{ "error": { "code", "message" } }`.
 class ApiException implements Exception {
-  ApiException(this.status, this.code, [this.message]);
+  ApiException(this.status, this.code, [this.message, this.details]);
 
   final int status;
   final String code;
   final String? message;
+
+  /// `error.details` when the API sends one (e.g. the current document of a 409 `backup_conflict`).
+  final Object? details;
 
   /// 4xx except 408/429 will never succeed on retry (e.g. `already_completed`).
   bool get isPermanent => status >= 400 && status < 500 && status != 408 && status != 429;
@@ -106,7 +109,7 @@ class ApiClient {
     final decoded = jsonDecode(utf8.decode(res.bodyBytes));
     if (res.statusCode >= 400) {
       final err = (decoded is Map ? decoded['error'] : null) as Map<String, dynamic>?;
-      throw ApiException(res.statusCode, (err?['code'] as String?) ?? 'error', err?['message'] as String?);
+      throw ApiException(res.statusCode, (err?['code'] as String?) ?? 'error', err?['message'] as String?, err?['details']);
     }
     return decoded;
   }

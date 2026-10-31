@@ -3,6 +3,7 @@ import {
   AdminRole,
   AsrSchool,
   AuthProvider,
+  BackupKind,
   BonusKind,
   CampaignKind,
   CampaignSchedule,
@@ -100,6 +101,8 @@ export const RemoteConfig = z.object({
   maintenance: z.object({ enabled: z.boolean(), messageAr: z.string(), messageEn: z.string() }),
   splashVerse: z.object({ textAr: z.string(), reference: z.string() }),
   hijri: z.object({ region: z.string(), offsetDays: z.number().int(), effectiveFrom: z.string().nullable() }),
+  /** Public cards / medals: the store product the app's «get a medal» opens ('' = the store). */
+  cards: z.object({ medalProductUrl: z.string() }).default({ medalProductUrl: '' }),
   /** Read-only here; edited via /admin/rewards/program. */
   points: z.object({
     dailyTotal: z.number().int(),
@@ -108,6 +111,8 @@ export const RemoteConfig = z.object({
     challengeLengthDays: z.number().int(),
     /** Cost of the cheapest active reward (onboarding: «1,000 نقطة = مكافأة»). null when none. */
     cheapestRewardPoints: z.number().int().nullable(),
+    /** Bonuses the admin has enabled (others can't be claimed). The app offers them on eligible days. */
+    bonuses: z.array(z.object({ kind: BonusKind, points: z.number().int() })).default([]),
   }),
 });
 export type RemoteConfig = z.infer<typeof RemoteConfig>;
@@ -235,18 +240,83 @@ export const ContentItem = z.object({
 });
 export type ContentItem = z.infer<typeof ContentItem>;
 
+/**
+ * Where a recitation's audio comes from: `qf` = Quran.com / Quran Foundation (resolved per surah
+ * through `GET /v1/content/reciters/:id/surahs/:n`), `own` = our CDN (`<baseUrl>/<sss>.mp3`).
+ */
+export const ReciterSource = z.enum(['qf', 'own']);
+export type ReciterSource = z.infer<typeof ReciterSource>;
+
 export const Reciter = z.object({
   id: z.string(),
   nameAr: z.string(),
   nameEn: z.string(),
-  style: z.enum(['murattal', 'mujawwad']),
+  style: z.enum(['murattal', 'mujawwad', 'muallim']),
   riwaya: z.string(),
-  baseUrl: z.string(),
+  source: ReciterSource,
+  /** Quran Foundation chapter-reciter id (`/resources/chapter_reciters`); null for `own`. */
+  qfId: z.number().int().nullable(),
+  /** Per-ayah timings exist (ayah highlighting, ayah skip, ayah repeat). */
+  hasTimings: z.boolean(),
+  /** `own` only: per-surah MP3 base. Null for `qf` (resolve each surah instead). */
+  baseUrl: z.string().nullable(),
   timingUrl: z.string().nullable(),
+  /** Explicit sample; null → the app plays Al-Fatiha through the surah resolver. */
   sampleUrl: z.string().nullable(),
   sizeBytes: z.number().int(),
 });
 export type Reciter = z.infer<typeof Reciter>;
+
+/** One surah of one reciter: the audio file and per-ayah `[startMs, endMs]` (index 0 = ayah 1). */
+export const SurahAudio = z.object({
+  reciterId: z.string(),
+  surah: z.number().int().min(1).max(114),
+  url: z.string().url(),
+  sizeBytes: z.number().int().nullable(),
+  durationMs: z.number().int().nullable(),
+  timings: z.array(z.tuple([z.number().int(), z.number().int()])).nullable(),
+});
+export type SurahAudio = z.infer<typeof SurahAudio>;
+
+/** Every surah's timings for a reciter (the app's offline `timings.json`): `{"<surah>": [[s,e],…]}`. */
+export const ReciterTimings = z.record(z.string().regex(/^\d{1,3}$/), z.array(z.tuple([z.number().int(), z.number().int()])));
+export type ReciterTimings = z.infer<typeof ReciterTimings>;
+
+/** Shown wherever audio/tafsir from Quran Foundation appears (their Developer Terms ask for credit). */
+export const QF_ATTRIBUTION = 'Quran.com · Quran Foundation';
+
+export const Tafsir = z.object({
+  /** Our stable id (e.g. `muyassar`) — not the upstream number. */
+  id: z.string(),
+  nameAr: z.string(),
+  nameEn: z.string(),
+  language: z.enum(['ar', 'en']),
+  authorAr: z.string(),
+  authorEn: z.string(),
+  source: z.literal('qf'),
+  attribution: z.string(),
+});
+export type Tafsir = z.infer<typeof Tafsir>;
+
+/**
+ * Plain text (HTML and footnotes stripped) by `"<surah>:<ayah>"`. A commentary that covers several
+ * ayat sits on the first of them; the others are absent (the app shows the nearest previous one).
+ */
+export const TafsirSurah = z.object({
+  tafsirId: z.string(),
+  surah: z.number().int().min(1).max(114),
+  attribution: z.string(),
+  ayat: z.record(z.string().regex(/^\d{1,3}:\d{1,3}$/), z.string()),
+});
+export type TafsirSurah = z.infer<typeof TafsirSurah>;
+
+export const TafsirAyah = z.object({
+  tafsirId: z.string(),
+  ayahKey: z.string().regex(/^\d{1,3}:\d{1,3}$/),
+  text: z.string(),
+  attribution: z.string(),
+});
+export type TafsirAyah = z.infer<typeof TafsirAyah>;
 
 export const ContentPack = z.object({
   id: z.string(),
@@ -375,7 +445,13 @@ export const ReviewDecision = z.object({
 });
 export type ReviewDecision = z.infer<typeof ReviewDecision>;
 
-export const ContentAdminRow = ContentItem.extend({ status: ContentStatus, reviewNote: z.string().nullable(), editorName: z.string().nullable().optional() });
+export const ContentAdminRow = ContentItem.extend({
+  status: ContentStatus,
+  reviewNote: z.string().nullable(),
+  editorName: z.string().nullable().optional(),
+  /** The approved version the app is served right now (null = never approved). */
+  liveVersion: z.number().int().nullable().optional(),
+});
 export type ContentAdminRow = z.infer<typeof ContentAdminRow>;
 
 export const DailyTaskUpsert = z.object({
@@ -510,14 +586,100 @@ export const ShopifyStatus = z.object({
   scopes: z.array(z.string()),
   lastError: z.string().nullable(),
   lastErrorAt: z.string().nullable(),
+  /** orders/paid webhook: whether its secret is set and when a code was last marked used. */
+  webhook: z.object({ configured: z.boolean(), lastUsedAt: z.string().nullable() }),
+  /**
+   * Server-side `purchase` conversions (consented, docs/ANALYTICS_EVENTS.md): the `serverConversions`
+   * flag, whether the id salt is set, which platforms have credentials, and the last sent one.
+   * Booleans only — never a credential.
+   */
+  conversions: z.object({
+    enabled: z.boolean(),
+    salted: z.boolean(),
+    platforms: z.object({ meta: z.boolean(), ga4: z.boolean(), tiktok: z.boolean() }),
+    lastSentAt: z.string().nullable(),
+  }),
 });
 export type ShopifyStatus = z.infer<typeof ShopifyStatus>;
 
 export const ShopifyCollection = z.object({ id: z.string(), title: z.string(), productsCount: z.number().int().nullable() });
 export type ShopifyCollection = z.infer<typeof ShopifyCollection>;
 
-export const ConfigPatch = RemoteConfig.partial();
+/**
+ * Fields an admin may patch. Defaults are dropped so a patch never writes fields it didn't name
+ * (a flags save must not reset the rollouts); card settings have their own endpoint.
+ */
+export const ConfigPatch = RemoteConfig.omit({ cards: true })
+  .extend({ featureRollout: z.record(z.string(), z.number().int().min(0).max(100)) })
+  .partial();
 export type ConfigPatch = z.infer<typeof ConfigPatch>;
 
 export const Paged = <T extends z.ZodTypeAny>(item: T) =>
   z.object({ items: z.array(item), nextCursor: z.string().nullable() });
+
+/* ------------------------------------------------------- product analytics */
+
+/** POST /v1/events — a batch of consented product events from one install. */
+export const ProductEventsBatch = z.object({
+  /** Random per-install id (UUID v4), never the account id; rotated when consent is withdrawn. */
+  anonId: z.string().uuid(),
+  platform: z.enum(['ios', 'android']),
+  appVersion: z.string().max(32),
+  locale: z.enum(['ar', 'en']),
+  events: z
+    .array(
+      z.object({
+        name: z.string().max(40),
+        props: z.record(z.string().max(30), z.string().max(30)).default({}),
+        at: z.iso.datetime(),
+      }),
+    )
+    .min(1)
+    .max(50),
+});
+export type ProductEventsBatch = z.infer<typeof ProductEventsBatch>;
+
+/** GET /admin/analytics — aggregates only; any count under 20 is withheld (null). */
+export const ProductAnalyticsReport = z.object({
+  days: z.number().int(),
+  to: z.string(),
+  activeInstalls: z.array(z.object({ date: z.string(), value: z.number().int().nullable() })),
+  events: z.array(z.object({ name: z.string(), total: z.number().int().nullable(), installs: z.number().int().nullable() })),
+  onboardingFunnel: z.array(z.object({ step: z.string(), installs: z.number().int().nullable() })),
+  retention: z.array(z.object({ cohort: z.string(), size: z.number().int().nullable(), weeks: z.array(z.number().nullable()) })),
+  platforms: z.array(z.object({ platform: z.string(), installs: z.number().int().nullable() })),
+  versions: z.array(z.object({ version: z.string(), installs: z.number().int().nullable() })),
+});
+export type ProductAnalyticsReport = z.infer<typeof ProductAnalyticsReport>;
+
+/* ------------------------------------------------------------ cloud backup */
+
+/** Largest document per kind, as UTF-8 JSON bytes (the API answers 413 `backup_too_large`). */
+export const BACKUP_MAX_BYTES = 256 * 1024;
+
+/** GET /v1/me/backup — what the server holds; never the content. */
+export const BackupManifest = z.object({
+  kinds: z.array(z.object({ kind: BackupKind, version: z.number().int().min(1), updatedAt: z.string() })),
+});
+export type BackupManifest = z.infer<typeof BackupManifest>;
+
+/** GET /v1/me/backup/:kind, and the `details` of a 409 `backup_conflict`. */
+export const BackupDocument = z.object({
+  kind: BackupKind,
+  version: z.number().int().min(1),
+  updatedAt: z.string(),
+  data: z.record(z.string(), z.unknown()),
+});
+export type BackupDocument = z.infer<typeof BackupDocument>;
+
+/**
+ * PUT /v1/me/backup/:kind — optimistic concurrency: `baseVersion` is the version the client merged
+ * from (0 = none yet). A stale one answers 409 `backup_conflict` with the current document.
+ */
+export const BackupPutRequest = z.object({
+  baseVersion: z.number().int().min(0),
+  data: z.record(z.string(), z.unknown()),
+  /** Random per-install id, only to tell the user which phone wrote last. */
+  deviceId: z.string().max(64).optional(),
+});
+export type BackupPutRequest = z.infer<typeof BackupPutRequest>;

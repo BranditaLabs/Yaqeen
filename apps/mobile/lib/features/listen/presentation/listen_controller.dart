@@ -179,14 +179,16 @@ class ListenController extends Notifier<ListenState> {
   }
 
   /// Plays [r]'s sample through the single player; [stopSample] restores the surah, paused.
+  /// Quran Foundation reciters have no separate sample: Al-Fatiha plays through the same resolver.
   Future<void> playSample(Reciter r) async {
-    final url = r.sampleUrl;
-    if (url == null) return;
+    if (!r.hasSample) return;
     if (state.sampleOf != null) await stopSample();
     _save();
     state = state.copyWith(sampleOf: () => r.id);
     try {
-      await _engine.open(Uri.parse(url), meta: AudioMeta(id: 'sample/${r.id}', title: r.nameAr, artist: r.nameEn));
+      final explicit = r.sampleUrl;
+      final source = explicit != null ? Uri.parse(explicit) : await _downloads.sourceFor(r, 1);
+      await _engine.open(source, meta: AudioMeta(id: 'sample/${r.id}', title: r.nameAr, artist: r.nameEn));
       await _engine.play();
     } on Exception {
       state = state.copyWith(sampleOf: () => null);

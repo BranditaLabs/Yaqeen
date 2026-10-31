@@ -36,6 +36,37 @@ jobs:
           git diff --exit-code -- services/api/drizzle || (echo "Run pnpm db:generate and commit the migration" && exit 1)
       - run: pnpm --filter @yaqeen/admin build
 
+  e2e:
+    name: Browser E2E (admin · site · cards)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: yaqeen, POSTGRES_PASSWORD: yaqeen, POSTGRES_DB: yaqeen }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U yaqeen" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      E2E_DATABASE_URL: postgres://yaqeen:yaqeen@localhost:5432/yaqeen_e2e
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @yaqeen/contracts build && pnpm --filter @yaqeen/admin build
+      - run: pnpm --filter @yaqeen/e2e exec playwright install --with-deps chromium
+      - run: pnpm --filter @yaqeen/e2e e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-report
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+          retention-days: 7
+
   mobile:
     name: Flutter
     runs-on: ubuntu-latest
@@ -123,6 +154,21 @@ jobs:
       - run: flutter gen-l10n
       - run: cp ios/Flutter/Secrets.example.xcconfig ios/Flutter/Secrets.xcconfig
       - run: flutter build ios --no-codesign --debug
+
+  deploy-config:
+    name: Deploy config (kustomize, scripts)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Render every overlay
+        run: |
+          for d in deploy/k8s deploy/k8s/overlays/staging deploy/k8s/overlays/production deploy/k8s/monitoring; do
+            echo "::group::$d"; kubectl kustomize "$d" > /dev/null && echo "ok $d"; echo "::endgroup::"
+          done
+      - name: Scripts parse
+        run: for f in tools/deploy/deploy.sh tools/synthetics/check.sh; do bash -n "$f"; done
+      - name: Dashboard JSON
+        run: python3 -m json.tool deploy/k8s/monitoring/dashboards/yaqeen-api.json > /dev/null
 
   images:
     name: Docker images

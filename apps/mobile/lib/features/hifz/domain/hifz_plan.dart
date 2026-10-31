@@ -1,3 +1,4 @@
+import 'package:yaqeen/core/time/zoned.dart';
 import '../../quran/domain/quran_data.dart';
 import 'review_scheduler.dart';
 
@@ -68,7 +69,8 @@ class HifzPortion {
       );
 }
 
-/// Whole hifz state — device only (spec §5.25 rule; no sync, no analytics).
+/// Whole hifz state — device first; optional encrypted cloud backup (consent `cloud_backup`). Spec
+/// §5.25: no analytics.
 class HifzPlan {
   const HifzPlan({required this.goal, required this.perDay, this.portions = const [], this.activeDays = const {}});
 
@@ -119,7 +121,7 @@ class HifzPlan {
       to: t.to,
       memorisedOn: day,
       // First review tomorrow — new memorisation is fragile.
-      review: ReviewState(intervalDays: 1, due: day.add(const Duration(days: 1))),
+      review: ReviewState(intervalDays: 1, due: Zoned.addDays(day, 1)),
     );
     return copyWith(portions: [...portions, portion], activeDays: {...activeDays, _iso(day)});
   }
@@ -142,13 +144,13 @@ class HifzPlan {
   DateTime? finishEstimate(QuranData q, DateTime today) {
     final remaining = goal.ayat(q) - memorisedAyat();
     if (remaining <= 0) return null;
-    return DateTime(today.year, today.month, today.day).add(Duration(days: (remaining / perDay).ceil()));
+    return Zoned.addDays(DateTime(today.year, today.month, today.day), (remaining / perDay).ceil());
   }
 
   int activeInLast(int days, DateTime today) {
     var n = 0;
     for (var i = 0; i < days; i++) {
-      if (activeDays.contains(_iso(today.subtract(Duration(days: i))))) n++;
+      if (activeDays.contains(_iso(Zoned.addDays(today, -i)))) n++;
     }
     return n;
   }

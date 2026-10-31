@@ -1,17 +1,17 @@
 import 'dart:async';
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
-import '../../../core/widgets/ambient_background.dart';
 import '../../../core/widgets/controls.dart';
 import '../../../core/widgets/liquid_glass.dart';
+import '../../../core/widgets/outer_shadow.dart';
 import '../../../core/widgets/yq_icon.dart';
-import '../../../core/widgets/yq_layout.dart';
+import '../../../core/widgets/yq_misbaha.dart';
+import '../../../core/widgets/yq_stage.dart';
+import '../../../core/widgets/yq_timeline.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../content/data/content_controller.dart';
@@ -91,16 +91,20 @@ class _AzkarScreenState extends ConsumerState<AzkarScreen> {
     final content = ref.watch(contentProvider);
     return Scaffold(
       backgroundColor: YqColors.porcelain,
-      body: AmbientBackground(
-        child: SafeArea(
-          child: YqPage(
-            header: YqTopBar(
-              title: zikrSetTitle(t, _set),
-              actions: [
-                GlassIconButton(tooltip: t.azkarSettings, onPressed: _settings, icon: const YqIcon(YqIcons.settings, size: 20)),
-              ],
-            ),
+      body: YqCanvas(
+        stage: YqStage(
+          compact: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              YqStageBar(
+                back: true,
+                title: zikrSetTitle(t, _set),
+                actions: [
+                  GlassIconButton(tooltip: t.azkarSettings, onPressed: _settings, icon: const YqIcon(YqIcons.settings, size: 20)),
+                ],
+              ),
+              const SizedBox(height: YqSpace.l),
               Semantics(
                 label: t.azkarKinds,
                 child: YqSegmented<ZikrSet>(
@@ -112,14 +116,25 @@ class _AzkarScreenState extends ConsumerState<AzkarScreen> {
                   }),
                 ),
               ),
-              const SizedBox(height: YqSpace.l),
-              ...content.when(
-                loading: () => [const YqSkeleton(child: YqSkeletonBox(height: 320, radius: YqRadii.hero))],
-                error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(contentProvider))],
-                data: (lib) => _body(context, t, lib.azkar(_set)),
-              ),
             ],
           ),
+        ),
+        children: content.when(
+          loading: () => [
+            const YqSkeleton(
+              child: Column(
+                children: [
+                  YqSkeletonBox(width: 90, height: 12, radius: YqRadii.pill),
+                  SizedBox(height: YqSpace.m),
+                  YqSkeletonText(lines: 3, lineHeight: 20),
+                  SizedBox(height: YqSpace.xl),
+                  YqSkeletonBox.circle(220),
+                ],
+              ),
+            ),
+          ],
+          error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(contentProvider))],
+          data: (lib) => _body(context, t, lib.azkar(_set)),
         ),
       ),
     );
@@ -148,6 +163,9 @@ class _AzkarScreenState extends ConsumerState<AzkarScreen> {
     final index = items.indexOf(current);
     final count = day.countOf(current);
     final done = day.doneItem(current);
+    // The loop holds up to 33 beads; longer counts go round it again.
+    final beads = current.repeatCount.clamp(1, 33);
+    final inLoop = done ? beads : count % beads;
 
     void onTap() {
       if (done) return;
@@ -165,8 +183,6 @@ class _AzkarScreenState extends ConsumerState<AzkarScreen> {
     }
 
     return [
-      Text(t.azkarPosition(index + 1, items.length), style: text.labelMedium?.copyWith(color: YqColors.muted)),
-      const SizedBox(height: YqSpace.s),
       Semantics(
         button: true,
         label: t.azkarCounterA11y(count, current.repeatCount),
@@ -176,108 +192,112 @@ class _AzkarScreenState extends ConsumerState<AzkarScreen> {
           behavior: HitTestBehavior.opaque,
           // onTapDown, not onTap: no gesture-arena delay, so rapid counting never drops a tap.
           onTapDown: (_) => onTap(),
-          child: LiquidGlass(
-            radius: YqRadii.hero,
-            padding: const EdgeInsets.all(YqSpace.xl),
-            child: Column(
-              children: [
-                Text(current.textAr, textAlign: TextAlign.center, textDirection: TextDirection.rtl, style: YqText.dua),
-                const SizedBox(height: YqSpace.m),
-                Text(
-                  [if (current.virtue != null && current.virtue!.isNotEmpty) current.virtue!, current.source].join(' · '),
-                  textAlign: TextAlign.center,
-                  style: text.bodySmall?.copyWith(color: YqColors.goldText),
-                ),
-                const SizedBox(height: YqSpace.xl),
-                _Ring(count: count, total: current.repeatCount, label: t.azkarCount(count, current.repeatCount)),
-                const SizedBox(height: YqSpace.m),
-                AnimatedSwitcher(
-                  duration: YqMotion.fast,
-                  child: Text(
-                    setDone ? t.azkarSetDone : (done ? t.azkarNext : t.azkarTapHint),
-                    key: ValueKey('$setDone$done'),
-                    style: text.bodySmall?.copyWith(color: done ? YqColors.success : YqColors.muted),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      const SizedBox(height: YqSpace.xl),
-      YqSection(
-        title: t.azkarRest,
-        child: Column(
-          children: [
-            for (final i in items)
-              YqListRow(
-                dense: true,
-                title: i.title,
-                titleColor: i.id == current.id ? YqColors.lapis : null,
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
+          child: Column(
+            children: [
+              Text(
+                t.azkarPosition(index + 1, items.length),
+                style: text.labelMedium?.copyWith(color: YqColors.goldText, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: YqSpace.m),
+              LiquidGlass(
+                radius: YqRadii.hero,
+                padding: const EdgeInsets.symmetric(horizontal: YqSpace.xl, vertical: YqSpace.xxl),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (day.doneItem(i))
-                      const Padding(
-                        padding: EdgeInsets.only(left: 4, right: 4),
-                        child: Icon(Icons.check_rounded, size: 16, color: YqColors.success),
-                      ),
-                    Directionality(
-                      textDirection: TextDirection.ltr,
-                      child: Text(t.azkarCount(day.countOf(i), i.repeatCount), style: YqText.numberSmall),
+                    Text(current.textAr, textAlign: TextAlign.center, textDirection: TextDirection.rtl, style: YqText.dua),
+                    const SizedBox(height: YqSpace.m),
+                    Text(
+                      [if (current.virtue != null && current.virtue!.isNotEmpty) current.virtue!, current.source].join(' · '),
+                      textAlign: TextAlign.center,
+                      style: text.bodySmall?.copyWith(color: YqColors.goldText),
                     ),
                   ],
                 ),
-                onTap: () => setState(() => _currentId = i.id),
               ),
-          ],
+              const SizedBox(height: YqSpace.xl),
+              // The misbaha: a bead turns gold with each tap; the count sits in its heart.
+              SizedBox.square(
+                dimension: 220,
+                child: OuterShadow(
+                  circle: true,
+                  shadows: [
+                    BoxShadow(
+                      color: done ? const Color(0x59C6A867) : const Color(0x260A1530),
+                      blurRadius: 34,
+                      spreadRadius: -8,
+                      offset: const Offset(0, 14),
+                    ),
+                  ],
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: done ? const [YqColors.cream, YqColors.sand] : const [Color(0xE6FFFFFF), Color(0x99FFFFFF)],
+                      ),
+                      border: Border.all(color: const Color(0xF2FFFFFF), width: 1.4),
+                    ),
+                    child: RepaintBoundary(
+                      child: Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: KeyedSubtree(
+                          key: ValueKey(current.id),
+                          child: TweenAnimationBuilder<double>(
+                            tween: Tween(end: inLoop.toDouble()),
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOut,
+                            builder: (context, v, child) => CustomPaint(painter: MisbahaPainter(counted: v, beads: beads), child: child),
+                            child: Center(
+                              child: Directionality(
+                                textDirection: TextDirection.ltr,
+                                child: Text(
+                                  t.azkarCount(count, current.repeatCount),
+                                  style: YqMoment.numeral(size: 34, color: done ? YqColors.goldDeep : YqColors.ink),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: YqSpace.m),
+              AnimatedSwitcher(
+                duration: YqMotion.fast,
+                child: Text(
+                  setDone ? t.azkarSetDone : (done ? t.azkarNext : t.azkarTapHint),
+                  key: ValueKey('$setDone$done'),
+                  style:
+                      text.bodySmall?.copyWith(color: done ? YqColors.goldText : YqColors.muted, fontWeight: done ? FontWeight.w700 : null),
+                ),
+              ),
+            ],
+          ),
         ),
+      ),
+      const SizedBox(height: YqSpace.xxl),
+      YqHeading(t.azkarRest),
+      YqTimeline(
+        timeWidth: 0,
+        pastIndex: 0,
+        stops: [
+          for (final i in items)
+            YqStop(
+              title: i.title,
+              done: day.doneItem(i),
+              highlight: i.id == current.id && !day.doneItem(i),
+              trailing: Directionality(
+                textDirection: TextDirection.ltr,
+                child: Text(t.azkarCount(day.countOf(i), i.repeatCount), style: YqText.numberSmall),
+              ),
+              onTap: () => setState(() => _currentId = i.id),
+            ),
+        ],
       ),
     ];
   }
-}
-
-class _Ring extends StatelessWidget {
-  const _Ring({required this.count, required this.total, required this.label});
-  final int count;
-  final int total;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => SizedBox.square(
-        dimension: 120,
-        child: CustomPaint(
-          painter: _RingPainter(total == 0 ? 0 : count / total),
-          child: Center(
-            child: Directionality(
-              textDirection: TextDirection.ltr,
-              child: Text(label, style: YqText.numeral.copyWith(fontSize: 22)),
-            ),
-          ),
-        ),
-      );
-}
-
-class _RingPainter extends CustomPainter {
-  _RingPainter(this.value);
-  final double value;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final track = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 6
-      ..color = YqColors.sky100;
-    final arc = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 6
-      ..strokeCap = StrokeCap.round
-      ..color = value >= 1 ? YqColors.gold : YqColors.lapis;
-    canvas.drawArc(rect.deflate(4), 0, math.pi * 2, false, track);
-    canvas.drawArc(rect.deflate(4), -math.pi / 2, math.pi * 2 * value.clamp(0, 1), false, arc);
-  }
-
-  @override
-  bool shouldRepaint(_RingPainter old) => old.value != value;
 }

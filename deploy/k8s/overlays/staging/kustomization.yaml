@@ -1,0 +1,34 @@
+# Staging: the same manifests, smaller and in its own namespace. Deployed automatically from `main`
+# by .github/workflows/deploy.yml, which pins both images to the commit (`images:` below is rewritten).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources: [../..]
+namespace: yaqeen-staging
+images:
+  - { name: ghcr.io/branditalabs/yaqeen-api, newTag: latest }
+  - { name: ghcr.io/branditalabs/yaqeen-admin, newTag: latest }
+patches:
+  - target: { kind: HorizontalPodAutoscaler, name: yaqeen-api }
+    patch: |
+      - { op: replace, path: /spec/minReplicas, value: 1 }
+      - { op: replace, path: /spec/maxReplicas, value: 4 }
+  - target: { kind: PodDisruptionBudget, name: yaqeen-api }
+    patch: |
+      - { op: replace, path: /spec/minAvailable, value: 0 }
+  - target: { kind: Deployment, name: yaqeen-api }
+    patch: |
+      - { op: replace, path: /spec/replicas, value: 1 }
+  - target: { kind: Deployment, name: yaqeen-admin }
+    patch: |
+      - { op: replace, path: /spec/replicas, value: 1 }
+      - { op: add, path: /spec/template/spec/containers/0/env/-, value: { name: SENTRY_ENVIRONMENT, value: staging } }
+  - target: { kind: ConfigMap, name: yaqeen-api-config }
+    patch: |
+      - { op: replace, path: /data/CORS_ORIGINS, value: "https://admin-staging.yaqin-brand.com" }
+      - { op: add, path: /data/SENTRY_ENVIRONMENT, value: staging }
+      - { op: add, path: /data/PUBLIC_PROFILE_BASE_URL, value: "https://api-staging.yaqin-brand.com" }
+      - { op: add, path: /data/SENTRY_TRACES_SAMPLE_RATE, value: "0.2" }
+  # Staging doesn't send campaigns to anyone.
+  - target: { kind: CronJob, name: yaqeen-campaigns }
+    patch: |
+      - { op: add, path: /spec/suspend, value: true }

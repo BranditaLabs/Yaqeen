@@ -1,11 +1,11 @@
 /**
  * Public app endpoints: remote config, Hijri calendar, challenge, rewards, content.
  */
-import { and, asc, eq, gt, inArray } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNotNull } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { BonusKind, type ChallengeCalendar, CompleteTaskRequest, ContentType, type RemoteConfig, TaskKey } from '@yaqeen/contracts';
-import { appConfig, contentItems, contentPacks, dailyTasks, reciters, rewards, users } from '../../db/schema.js';
+import { appConfig, bonusRules, contentItems, contentPacks, dailyTasks, rewards, users } from '../../db/schema.js';
 import { specialDays } from '../../domain/hijri.js';
 import { addDays, localToday } from '../../domain/points.js';
 import { sendCachedJson } from '../../lib/cache.js';
@@ -15,18 +15,20 @@ import { adjustmentsFor, hijriRange } from '../../services/calendar.service.js';
 import * as challenge from '../../services/challenge.service.js';
 import { POINTS_CONFIG_KEY, getPointsSettings } from '../../services/program.service.js';
 import { redeem } from '../../services/rewards.service.js';
+import { CARDS_CONFIG_KEY, readCardsSettings } from '../../services/cards-settings.service.js';
 
 const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 export const DEFAULT_CONFIG: RemoteConfig = {
-  features: { challenge: true, rewards: true, hifz: true, listen: true, bonuses: false, recite: false, ramadan: false, tafsirFull: false },
+  features: { challenge: true, rewards: true, hifz: true, listen: true, bonuses: false, recite: false, ramadan: false, tafsirFull: false, publicCards: true, medalActivation: true, serverConversions: false },
   featureRollout: {},
   // 0.0.0 = no forced update; only an admin-set minimum may block clients.
   minVersion: { ios: '0.0.0', android: '0.0.0' },
   maintenance: { enabled: false, messageAr: '', messageEn: '' },
   splashVerse: { textAr: 'وَٱعْبُدْ رَبَّكَ حَتَّىٰ يَأْتِيَكَ ٱلْيَقِينُ', reference: 'الحجر: 99' },
   hijri: { region: 'EG', offsetDays: 0, effectiveFrom: null },
-  points: { dailyTotal: 100, qadaDayPoints: 80, qadaWindowDays: 7, challengeLengthDays: 365, cheapestRewardPoints: null },
+  cards: { medalProductUrl: '' },
+  points: { dailyTotal: 100, qadaDayPoints: 80, qadaWindowDays: 7, challengeLengthDays: 365, cheapestRewardPoints: null, bonuses: [] },
 };
 
 /** Content types the app syncs from /v1/content (the splash verse ships in /v1/config). */
@@ -36,7 +38,7 @@ export async function readConfig(app: Parameters<FastifyPluginAsync>[0]): Promis
   const rows = await app.ctx.db.select().from(appConfig);
   const merged: Record<string, unknown> = { ...DEFAULT_CONFIG };
   for (const r of rows) {
-    if (r.key === POINTS_CONFIG_KEY) continue;
+    if (r.key === POINTS_CONFIG_KEY || r.key === CARDS_CONFIG_KEY) continue;
     // Stored flags are merged over the defaults so new flags appear without a migration.
     merged[r.key] = r.key === 'features' ? { ...DEFAULT_CONFIG.features, ...(r.value as object) } : r.value;
   }
@@ -47,12 +49,19 @@ export async function readConfig(app: Parameters<FastifyPluginAsync>[0]): Promis
     .where(eq(rewards.active, true))
     .orderBy(asc(rewards.costPoints))
     .limit(1);
+  // Only the public part of the card settings reaches apps (reserved handles and copy stay server-side).
+  const cards = await readCardsSettings(app.ctx);
+  merged.cards = { medalProductUrl: cards.medalProductUrl || app.ctx.env.STORE_URL };
   merged.points = {
     dailyTotal: ps.dailyTotal,
     qadaDayPoints: ps.qadaDayPoints,
     qadaWindowDays: ps.qadaWindowDays,
     challengeLengthDays: ps.challengeLengthDays,
     cheapestRewardPoints: cheapest?.cost ?? null,
+    bonuses: await app.ctx.db
+      .select({ kind: bonusRules.kind, points: bonusRules.points })
+      .from(bonusRules)
+      .where(eq(bonusRules.enabled, true)),
   };
   const adj = (await adjustmentsFor(app.ctx, app.ctx.env.HIJRI_REGION))[0];
   merged.hijri = adj
@@ -94,51 +103,24 @@ export const appRoutes: FastifyPluginAsync = async (app) => {
     const q = z
       .object({ type: ContentType.exclude(['splash_verse']).optional(), since: z.iso.datetime().optional() })
       .parse(req.query);
-    const conds = [eq(contentItems.status, 'published'), inArray(contentItems.type, [...SYNCED_TYPES])];
+    // Served from the reviewer-approved snapshot, so an edit in review never takes an item offline.
+    const conds = [isNotNull(contentItems.live), inArray(contentItems.type, [...SYNCED_TYPES])];
     if (q.type) conds.push(eq(contentItems.type, q.type));
-    if (q.since) conds.push(gt(contentItems.updatedAt, new Date(q.since)));
-    const load = () => db
-      .select({
-        id: contentItems.id,
-        type: contentItems.type,
-        category: contentItems.category,
-        title: contentItems.title,
-        textAr: contentItems.textAr,
-        translationEn: contentItems.translationEn,
-        source: contentItems.source,
-        virtue: contentItems.virtue,
-        repeatCount: contentItems.repeatCount,
-        sortOrder: contentItems.sortOrder,
-        featured: contentItems.featured,
-        version: contentItems.version,
-        updatedAt: contentItems.updatedAt,
-      })
-      .from(contentItems)
-      .where(and(...conds))
-      .orderBy(asc(contentItems.category), asc(contentItems.sortOrder), asc(contentItems.title));
+    if (q.since) conds.push(gt(contentItems.liveAt, new Date(q.since)));
+    const load = async () => {
+      const rows = await db
+        .select({ id: contentItems.id, type: contentItems.type, live: contentItems.live, liveAt: contentItems.liveAt })
+        .from(contentItems)
+        .where(and(...conds));
+      return rows
+        .map((r) => ({ id: r.id, type: r.type, ...r.live!, updatedAt: r.liveAt }))
+        .sort((a, b) => a.category.localeCompare(b.category) || a.sortOrder - b.sortOrder || a.title.localeCompare(b.title));
+    };
     const json = await app.ctx.cache.getJson('content', `list:${q.type ?? '*'}:${q.since ?? ''}`, 300, load);
     return sendCachedJson(req, reply, json, 600);
   });
 
-  /** Licensed recitations (catalogue changes rarely; the app caches it). */
-  app.get('/content/reciters', async (req, reply) => {
-    const load = () => db
-      .select({
-        id: reciters.id,
-        nameAr: reciters.nameAr,
-        nameEn: reciters.nameEn,
-        style: reciters.style,
-        riwaya: reciters.riwaya,
-        baseUrl: reciters.baseUrl,
-        timingUrl: reciters.timingUrl,
-        sampleUrl: reciters.sampleUrl,
-        sizeBytes: reciters.sizeBytes,
-      })
-      .from(reciters)
-      .where(eq(reciters.active, true))
-      .orderBy(asc(reciters.sortOrder), asc(reciters.nameAr));
-    return sendCachedJson(req, reply, await app.ctx.cache.getJson('catalogue', 'reciters', 600, load), 3600);
-  });
+  // Reciters, surah audio and tafsir: routes/public/quran-content.routes.ts (/v1/content/…).
 
   /** Downloadable packs; the app verifies `sha256` before installing a pack. */
   app.get('/content/packs', async (req, reply) => {
@@ -225,7 +207,9 @@ export const appRoutes: FastifyPluginAsync = async (app) => {
 
     r.post('/challenge/bonuses/:kind/claim', async (req) => {
       const { kind } = z.object({ kind: BonusKind }).parse(req.params);
-      return { awarded: await challenge.claimBonus(app.ctx, userId(req), kind) };
+      // `date`: the day the app ticked it — a claim that synced after that day is refused, not moved.
+      const { date } = z.object({ date: IsoDate.optional() }).parse(req.body ?? {});
+      return { awarded: await challenge.claimBonus(app.ctx, userId(req), kind, date) };
     });
 
     /* ------------------------------------------------------------ rewards */

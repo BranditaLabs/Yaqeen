@@ -1,0 +1,57 @@
+name: Synthetics
+
+# External uptime: the same checks the deploy workflow runs after a rollout, every 10 minutes against
+# production (and staging), from outside the cluster. A failure opens (or updates) one issue labelled
+# `outage`, which notifies watchers; recovery closes it. Set repository variables PROD_API_URL,
+# PROD_ADMIN_URL, STAGING_API_URL, STAGING_ADMIN_URL.
+on:
+  schedule: [{ cron: "*/10 * * * *" }]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency: { group: synthetics, cancel-in-progress: false }
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [production, staging]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve URLs
+        id: urls
+        run: |
+          if [ "${{ matrix.env }}" = production ]; then
+            echo "api=${{ vars.PROD_API_URL }}" >> "$GITHUB_OUTPUT"; echo "admin=${{ vars.PROD_ADMIN_URL }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "api=${{ vars.STAGING_API_URL }}" >> "$GITHUB_OUTPUT"; echo "admin=${{ vars.STAGING_ADMIN_URL }}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Checks
+        id: run
+        if: steps.urls.outputs.api != ''
+        env: { API_URL: "${{ steps.urls.outputs.api }}", ADMIN_URL: "${{ steps.urls.outputs.admin }}" }
+        run: |
+          set -o pipefail
+          bash tools/synthetics/check.sh | tee result.txt
+      - name: Open or update the outage issue
+        if: failure() && steps.urls.outputs.api != ''
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          title="Outage: ${{ matrix.env }} synthetic checks failing"
+          body=$(printf 'Run: %s/%s/actions/runs/%s\n\n```\n%s\n```' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$(cat result.txt 2>/dev/null)")
+          n=$(gh issue list --label outage --state open --search "$title in:title" --json number -q '.[0].number')
+          if [ -n "$n" ]; then gh issue comment "$n" --body "$body"; else gh label create outage --color B23A48 --force >/dev/null; gh issue create --title "$title" --label outage --body "$body"; fi
+      - name: Close the outage issue on recovery
+        if: success() && steps.urls.outputs.api != ''
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          title="Outage: ${{ matrix.env }} synthetic checks failing"
+          for n in $(gh issue list --label outage --state open --search "$title in:title" --json number -q '.[].number'); do
+            gh issue close "$n" --comment "Recovered: all checks passing ($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)."
+          done

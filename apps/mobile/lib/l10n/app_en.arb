@@ -1,7 +1,6 @@
 {
   "@@locale": "en",
   "appName": "Yaqeen",
-  "tagline": "Where serenity begins",
   "tabHome": "Home",
   "tabQuran": "Quran",
   "tabPrayer": "Prayer",
@@ -20,7 +19,6 @@
   "servicesDuas": "Duas",
   "servicesQibla": "Qibla",
   "servicesCalendar": "Calendar",
-  "comingSoon": "In progress",
   "todayTasks": "Today's tasks",
   "balance": "Balance",
   "streak": "Streak",
@@ -48,22 +46,6 @@
   "accountRequired": "Sign in to keep your points",
   "redeemTitle": "Redeem your points",
   "redeemCta": "Redeem",
-  "redeemCodeReady": "Your code is ready — valid until {date}",
-  "@redeemCodeReady": {
-    "placeholders": {
-      "date": {
-        "type": "String"
-      }
-    }
-  },
-  "notEnoughPoints": "You need {points} points",
-  "@notEnoughPoints": {
-    "placeholders": {
-      "points": {
-        "type": "String"
-      }
-    }
-  },
   "savedOffline": "Saved — will sync when online",
   "retry": "Retry",
   "errorGeneric": "Couldn't load. Check your connection.",
@@ -96,8 +78,6 @@
   "copied": "Copied",
   "copy": "Copy",
   "share": "Share",
-  "settingsTitle": "Settings",
-  "notificationsTitle": "Notifications",
   "searchHint": "Search",
   "clearSearch": "Clear search",
   "soon": "Soon",
@@ -120,7 +100,6 @@
     }
   },
   "openSettings": "Open settings",
-  "errorSignIn": "Couldn't sign in, please try again",
   "prayerFajr": "Fajr",
   "prayerSunrise": "Sunrise",
   "prayerDhuhr": "Dhuhr",
@@ -189,14 +168,6 @@
   "@prayerIn": {
     "placeholders": {
       "time": {
-        "type": "String"
-      }
-    }
-  },
-  "prayerNow": "It's time for {prayer}",
-  "@prayerNow": {
-    "placeholders": {
-      "prayer": {
         "type": "String"
       }
     }
@@ -274,15 +245,6 @@
       }
     }
   },
-  "qiblaCardFrom": "From north towards the {direction}",
-  "@qiblaCardFrom": {
-    "placeholders": {
-      "direction": {
-        "type": "String"
-      }
-    }
-  },
-  "qiblaOpen": "Open the Qibla compass",
   "dirN": "north",
   "dirNE": "north-east",
   "dirE": "east",
@@ -320,7 +282,6 @@
   "qiblaCalibrate": "Calibrate compass",
   "qiblaCalibrateHint": "Move your phone in a figure 8 a few times, away from metal and magnets.",
   "qiblaNeedsCalibration": "The compass needs calibrating",
-  "qiblaCalibrated": "Compass calibrated",
   "qiblaCamera": "Camera view",
   "qiblaNoCompass": "This device has no compass. The Qibla is {qibla}° from north.",
   "@qiblaNoCompass": {
@@ -340,8 +301,6 @@
   },
   "locationTitle": "Location",
   "locationChange": "Change",
-  "locationAuto": "Detected automatically",
-  "locationManual": "Chosen from the list",
   "locationUseMine": "Use my current location",
   "locationSearch": "Search for a city",
   "locationDenied": "We couldn't get your location. Pick your city from the list.",
@@ -392,7 +351,6 @@
   },
   "notifPermissionTitle": "Notifications are off",
   "notifPermissionBody": "Turn on notifications to receive the adhan and reminders.",
-  "notifExactAlarms": "Alerts may arrive a few minutes late: allow exact alarms in your phone settings.",
   "inboxTitle": "Notifications",
   "inboxReadAll": "Mark all read",
   "inboxAll": "All",
@@ -404,18 +362,10 @@
   "inboxEarlier": "Earlier",
   "inboxEmpty": "No notifications here",
   "inboxEmptyHint": "Your reminders and store offers will show up here",
-  "homeBellA11y": "Notifications, {count} unread",
-  "@homeBellA11y": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "quranTitle": "The Holy Quran",
   "quranListen": "Listen",
   "quranHifzPlan": "Hifz plan",
-  "quranSearchHint": "Search a surah or its number",
+  "quranSearchHint": "Search surahs and ayat",
   "quranBrowse": "Browse by",
   "quranSurahs": "Surahs",
   "quranJuzs": "Juz",
@@ -495,7 +445,7 @@
   "quranLastRead": "Last read",
   "quranSavedMark": "Saved bookmark",
   "quranNoResults": "No results",
-  "quranNoResultsHint": "Try another name or the surah number",
+  "quranNoResultsHint": "Try another word, or a surah name or number",
   "quranNoBookmarks": "No bookmarks yet",
   "quranNoBookmarksHint": "Long-press any ayah to save one",
   "quranPageOf": "{page} of 604",
@@ -628,7 +578,7 @@
   "reciterDownloading": "Downloading · tap to cancel",
   "reciterDownloadAll": "Download the full mushaf for offline listening",
   "reciterWifiOnly": "Wi-Fi only",
-  "recitersFooter": "Recitations come from the licensed content source; downloads allow offline listening.",
+  "recitersFooter": "Recitations from Quran.com (Quran Foundation). Download a reciter to listen offline.",
   "recitersEmpty": "No reciter with that name",
   "recitersEmptyHint": "Try part of the name",
   "reciteTitle": "Recitation",
@@ -854,7 +804,6 @@
       }
     }
   },
-  "azkarReset": "Reset count",
   "azkarEmpty": "Azkar appear here once reviewed and published",
   "contentOfflineHint": "Connect once to download the reviewed content",
   "azkarHaptics": "Vibrate on each count",
@@ -946,7 +895,6 @@
   },
   "homeStartReading": "Start reading",
   "homeKahfSuggestion": "Friday: Surat al-Kahf",
-  "homeStreakHint": "Finish today's wird to keep it",
   "homeJoin": "Start the 365-day journey",
   "homeJoinHint": "Simple daily tasks and points for the Yaqeen store",
   "servicesTitle": "Services",
@@ -980,7 +928,6 @@
   },
   "taskPrivate": "Private to you",
   "taskAuto": "Counts automatically",
-  "taskOpen": "Open",
   "tickDayClosed": "That day has closed; the task wasn't counted",
   "tickQadaPassed": "The make-up window for that day has passed",
   "tickFailed": "Couldn't count it now — we'll retry",
@@ -1156,7 +1103,7 @@
   "welcomeError": "Couldn't sign in, please try again",
   "welcomeOffline": "Signing in needs a connection",
   "languageOther": "العربية",
-  "stepOf": "Step {n} of 4",
+  "stepOf": "Step {n} of 5",
   "@stepOf": {
     "placeholders": {
       "n": {
@@ -1164,7 +1111,7 @@
       }
     }
   },
-  "stepEyebrow": "0{n} / 04",
+  "stepEyebrow": "0{n} / 05",
   "@stepEyebrow": {
     "placeholders": {
       "n": {
@@ -1182,7 +1129,6 @@
   "scriptUthmaniDetail": "Madinah mushaf",
   "scriptIndopak": "Indo-Pak script",
   "scriptIndopakDetail": "Common in South Asia",
-  "langFontSize": "Font size",
   "prayerSetupTitle": "Accurate times for where you are",
   "prayerSetupSub": "We use your location only for prayer times and qibla, and keep it on your device.",
   "prayerSetupAuto": "Located automatically",
@@ -1221,7 +1167,6 @@
   "goalTwoPages": "2 pages",
   "goalFourPages": "4 pages",
   "goalJuz": "1 juz",
-  "goalReminder": "Reminder time",
   "goalChallengeEyebrow": "Yearly challenge",
   "goalJoin": "Join the challenge",
   "goalChallengeBody": "Complete your wird, azkar and prayers every day and collect points for exclusive Yaqeen store discounts.",
@@ -1262,7 +1207,6 @@
   "downloadPending": "Available once the licensed source is approved",
   "downloadStart": "Start now",
   "downloadBackground": "Downloads continue in the background",
-  "profileTitle": "My account",
   "profileLinked": "Linked to {provider} · sync on",
   "@profileLinked": {
     "placeholders": {
@@ -1351,5 +1295,854 @@
   "packInstalled": "Installed",
   "packChecksumFailed": "The file couldn't be verified and wasn't installed. Please try again.",
   "packsTitle": "Books and tafsir",
-  "tafsirAttribution": "Al-Tafsir al-Muyassar · King Fahd Complex · source: QuranEnc.com"
+  "tafsirAttribution": "Al-Tafsir al-Muyassar · King Fahd Complex · source: QuranEnc.com",
+  "homeQiblaLive": "Live compass",
+  "homeQiblaStatic": "From north",
+  "tasbeehTitle": "Tasbeeh",
+  "tasbeehRound": "Round {round}",
+  "@tasbeehRound": {
+    "placeholders": {
+      "round": {
+        "type": "String"
+      }
+    }
+  },
+  "tasbeehA11y": "Tasbeeh, count {count}. Tap to count, hold to reset",
+  "@tasbeehA11y": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "tasbeehResetDone": "Counter reset",
+  "homeAzkarHint": "Start now · your progress is saved",
+  "homeWirdDone": "Wird complete",
+  "dirShortN": "N",
+  "homeDayTitle": "Your day",
+  "homeNow": "Now",
+  "homeAzkarOpen": "Open now",
+  "homeNextTag": "Next",
+  "notifDhikrTitle": "Time for your dhikr",
+  "notifDhikrBody": "A few minutes with your tasbeeh",
+  "routineTitle": "When suits you?",
+  "routineSub": "Pick a time for each habit — we'll arrange your day around the prayers and remind you then.",
+  "routineCta": "Arrange my day",
+  "habitQuran": "Reading Quran",
+  "habitHifz": "Hifz review",
+  "habitDhikr": "Dhikr session",
+  "slotAfter": "After {prayer}",
+  "@slotAfter": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "slotAt": "Set time",
+  "slotOff": "Off",
+  "slotOffPreview": "Off",
+  "slotPreview": "{when} · {time}",
+  "@slotPreview": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "routineSettingsTitle": "My routine",
+  "homeRoutineQuran": "Your Quran wird",
+  "homeRoutineDue": "Due now",
+  "homeRoutineDone": "Done",
+  "prayerOrbAlerts": "Alerts",
+  "prayerOrbAlertsStatus": "{on} of {total} on",
+  "@prayerOrbAlertsStatus": {
+    "placeholders": {
+      "on": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerPrayingNow": "It's prayer time",
+  "prayerOrbDay": "Daylight",
+  "prayerOrbNight": "Night",
+  "prayerOrbUntil": "until {name}",
+  "@prayerOrbUntil": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "quranKhatma": "Khatma",
+  "quranKhatmaStatus": "Page {page} of {total}",
+  "@quranKhatmaStatus": {
+    "placeholders": {
+      "page": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "challengeStreak": "Streak",
+  "challengeQada": "Make-up",
+  "notifTodayTitle": "Today's reminders",
+  "cardTitle": "Yaqeen card",
+  "cardTeaserTitle": "Your public card",
+  "cardTeaserBody": "Your Yaqeen profile, links and level, on a Yaqeen medal or card",
+  "cardGuest": "Sign in to make and share your public card",
+  "cardLive": "Live",
+  "cardHidden": "Hidden",
+  "cardOpens": "Opens",
+  "cardOpensStatus": "From NFC, QR and link",
+  "cardQr": "QR code",
+  "cardQrStatus": "Print or share",
+  "cardPublish": "Publish card",
+  "cardPublishHint": "While hidden, nobody sees it — even from the tag",
+  "cardIdentity": "Identity",
+  "cardName": "Display name",
+  "cardHandle": "Username",
+  "cardHandleFormat": "3–24 lowercase letters, digits, _ or . starting with a letter",
+  "cardHandleTaken": "That name is taken",
+  "cardHandleReserved": "That name is reserved",
+  "cardHandleOk": "Available",
+  "cardBio": "Bio",
+  "cardBioHint": "A line or two about you",
+  "cardLinks": "Your links",
+  "cardAddLink": "Add a link",
+  "cardLinkValue": "Username or link",
+  "cardLinkInvalid": "This can't open as a safe link",
+  "cardLinksMax": "Up to 8 links",
+  "socialInstagram": "Instagram",
+  "socialX": "X",
+  "socialTiktok": "TikTok",
+  "socialFacebook": "Facebook",
+  "socialYoutube": "YouTube",
+  "socialSnapchat": "Snapchat",
+  "socialLinkedin": "LinkedIn",
+  "socialWhatsapp": "WhatsApp",
+  "socialWebsite": "Website",
+  "cardShows": "What visitors see",
+  "cardShowLevel": "Your Yaqeen level",
+  "cardShowStreak": "Day streak",
+  "cardShowChallenge": "Your 365-day journey day",
+  "cardShowBadges": "Streak badges",
+  "cardShowSince": "Member since",
+  "cardPrivacy": "Your worship never shows: no prayers, azkar or pages. Only the numbers you switch on here.",
+  "cardThemeTitle": "Look",
+  "cardThemeSky": "Sky",
+  "cardThemeGold": "Gold",
+  "cardThemeNight": "Night",
+  "cardSave": "Save card",
+  "cardSaved": "Card saved",
+  "cardShare": "Share link",
+  "cardLevel": "Level {level}",
+  "@cardLevel": {
+    "placeholders": {
+      "level": {
+        "type": "int"
+      }
+    }
+  },
+  "cardQrTitle": "Scan to open my card",
+  "challengeStreakRestart": "Start again — make-up days are open",
+  "cardShowTimeline": "Your journey (dated milestones)",
+  "journeyTitle": "Your journey in Yaqeen",
+  "journeyJoined": "Joined Yaqeen",
+  "journeyChallengeStart": "Started the 365-day journey",
+  "journeyChallengeDay": "Day {day} of the 365-day journey",
+  "@journeyChallengeDay": {
+    "placeholders": {
+      "day": {
+        "type": "String"
+      }
+    }
+  },
+  "journeyLevel": "Reached “{name}”",
+  "@journeyLevel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "journeyBadge": "{days, plural, =1{1-day streak badge} other{{days}-day streak badge}}",
+  "@journeyBadge": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "journeyLifetime": "{points} points earned in all",
+  "@journeyLifetime": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "journeyToNext": "{points} points to “{name}”",
+  "@journeyToNext": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "journeyTop": "You've reached the top level",
+  "journeyShowAll": "The whole journey",
+  "journeyShowLess": "Show less",
+  "journeyEmpty": "Your journey starts today; every milestone lands here.",
+  "journeyPrivate": "Private to you. Shown on your card only if you switch it on.",
+  "cardMedals": "My medals",
+  "cardMedalsNone": "Activate yours",
+  "cardMedalsCount": "{count} active",
+  "@cardMedalsCount": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "medalsTitle": "Yaqeen medal & card",
+  "medalsBody": "Your medal or card has an 8-character code next to its QR. Activate it once; from then on every tap or scan opens your public card, even if you change your username.",
+  "medalCodeLabel": "Activation code",
+  "medalActivate": "Activate",
+  "medalActivated": "Activated! Every tap or scan now opens your card.",
+  "medalActivatedHidden": "Activated. Publish and save your card so the medal can open it.",
+  "medalErrFormat": "The code has 8 characters, like AB12-CD34",
+  "medalErrNotFound": "We couldn't find this code, or it's already activated. Check it or contact us.",
+  "medalErrLimit": "You've reached the limit (10). Switch one off first.",
+  "medalErrNetwork": "Couldn't connect, try again",
+  "medalKindMedal": "Key medal",
+  "medalKindCard": "Card",
+  "medalMeta": "{scans} scans · activated {date}",
+  "@medalMeta": {
+    "placeholders": {
+      "scans": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "medalLost": "Switch off — lost it?",
+  "medalLostTitle": "Switch this one off?",
+  "medalLostBody": "It will stop opening your card and nobody can activate it. This can't be undone in the app.",
+  "medalLostConfirm": "Switch it off",
+  "medalBuy": "Get a Yaqeen medal from the store",
+  "cardModerated": "Yaqeen support has hidden your card for breaking the guidelines. Contact us to review it.",
+  "cardPaused": "Public cards are paused for now and will be back soon.",
+  "medalPaused": "Medal activation is paused for now, try again later.",
+  "consentAnalytics": "Improve the app",
+  "consentAnalyticsDetail": "Anonymous usage stats that help us improve Yaqeen: screens and steps only, never your account or any worship.",
+  "ramadanTitle": "Ramadan",
+  "ramadanYearTitle": "Ramadan {year}",
+  "@ramadanYearTitle": {
+    "placeholders": {
+      "year": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanDayOf": "Day {day} of Ramadan",
+  "@ramadanDayOf": {
+    "placeholders": {
+      "day": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanUntilIftar": "Until iftar",
+  "ramadanUntilFajr": "Until the Fajr adhan",
+  "ramadanIftarAt": "Maghrib {time}",
+  "@ramadanIftarAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanImsakAt": "Imsak {imsak} · Fajr {fajr}",
+  "@ramadanImsakAt": {
+    "placeholders": {
+      "imsak": {
+        "type": "String"
+      },
+      "fajr": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanAccepted": "May Allah accept your fast",
+  "ramadanEidTomorrow": "Eid is tomorrow",
+  "ramadanApproaching": "Ramadan is near",
+  "ramadanInDays": "{n, plural, =1{Tomorrow} other{In {n} days}}",
+  "@ramadanInDays": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ramadanSoon": "Soon",
+  "ramadanOrbFast": "Today's fast",
+  "ramadanOrbTaraweeh": "Taraweeh",
+  "ramadanOrbKhatma": "Khatma",
+  "ramadanDone": "Done",
+  "ramadanMark": "Mark",
+  "ramadanNights": "{n, plural, =0{No nights yet} =1{1 night} other{{n} nights}}",
+  "@ramadanNights": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "ramadanJuz": "Juz {n}",
+  "@ramadanJuz": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanKhatmaDone": "Complete",
+  "ramadanBonus": "+{points} pts",
+  "@ramadanBonus": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanImsakiyya": "Imsakiyya",
+  "ramadanColDay": "Day",
+  "ramadanColDate": "Date",
+  "ramadanColImsak": "Imsak",
+  "ramadanTodayTag": "Today",
+  "ramadanImsakNote": "Imsak: 10 minutes before the Fajr adhan, as printed on Egyptian imsakiyyas. Times are computed for your city on this device.",
+  "ramadanEmpty": "The imsakiyya appears after you've been online once",
+  "ramadanKhatmaTitle": "Ramadan khatma",
+  "ramadanKhatmaSub": "{n} of 30 juz",
+  "@ramadanKhatmaSub": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "ramadanReminders": "Suhoor & iftar reminders",
+  "ramadanTrackerPrivate": "Your Ramadan log stays on this device",
+  "ramadanHomeChip": "Ramadan · day {day}",
+  "@ramadanHomeChip": {
+    "placeholders": {
+      "day": {
+        "type": "String"
+      }
+    }
+  },
+  "notifSuhoorTitle": "Suhoor",
+  "notifSuhoorBody": "Fajr adhan in {minutes} minutes",
+  "@notifSuhoorBody": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "notifIftarTitle": "Iftar is near",
+  "notifIftarBody": "Maghrib in {minutes} minutes",
+  "@notifIftarBody": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "notifSectionRamadan": "Ramadan",
+  "notifSuhoorRow": "Suhoor reminder",
+  "notifSuhoorSub": "{minutes} min before Fajr",
+  "@notifSuhoorSub": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "notifIftarRow": "Iftar reminder",
+  "notifIftarSub": "{minutes} min before Maghrib",
+  "@notifIftarSub": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "calBonusRamadanFast": "Ramadan · today's fast",
+  "calBonusTaraweeh": "Ramadan · taraweeh",
+  "calBonusRamadanJuz": "Ramadan · a juz of the khatma",
+  "widgetWird": "Today's wird",
+  "widgetStale": "Open Yaqeen to refresh the times",
+  "quranInAyat": "{count, plural, =1{In the ayat · 1 result} other{In the ayat · {count} results}}",
+  "@quranInAyat": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "quranShowMore": "Show more",
+  "quranSearching": "Searching the ayat…",
+  "quranAyahResultA11y": "{surah}, ayah {ayah}, page {page}",
+  "@quranAyahResultA11y": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      },
+      "ayah": {
+        "type": "String"
+      },
+      "page": {
+        "type": "String"
+      }
+    }
+  },
+  "quranMarkJuz": "Juz {n}",
+  "@quranMarkJuz": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "quranMarkHizb": "Hizb {n}",
+  "@quranMarkHizb": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "quranMarkQuarter": "{fraction} Hizb {n}",
+  "@quranMarkQuarter": {
+    "placeholders": {
+      "fraction": {
+        "type": "String"
+      },
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "quranMarkSajdah": "Sajdah",
+  "quranNoteA11y": "Your note on this ayah",
+  "quranHiddenAyahA11y": "Hidden for memorising — tap to show",
+  "jumpTitle": "Go to",
+  "jumpSurah": "Surah",
+  "jumpJuz": "Juz",
+  "jumpPage": "Page",
+  "jumpAyah": "Ayah",
+  "jumpFilter": "Find a surah",
+  "jumpPageField": "Page number (1–604)",
+  "jumpAyahField": "Ayah number",
+  "jumpGo": "Go",
+  "jumpAyahOf": "of {count} ayat",
+  "@jumpAyahOf": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "noteTitle": "My note",
+  "noteHint": "Write your reflection on this ayah…",
+  "noteSave": "Save",
+  "noteDelete": "Delete note",
+  "notePrivate": "Kept on this device only",
+  "readerPageTurn": "Page turn",
+  "pageTurnBook": "Like a book",
+  "pageTurnSlide": "Slide",
+  "readerAutoNight": "Night pages automatically after Maghrib",
+  "readerImmersive": "Hide the status bar while reading",
+  "readerMemorise": "Memorise",
+  "memoriseTitle": "Memorise mode",
+  "memoriseOff": "Off",
+  "memoriseAyat": "Hide ayat",
+  "memoriseWords": "Hide every other word",
+  "memoriseHint": "Tap an ayah to show it; tap again to hide it.",
+  "memoriseShowAll": "Show all",
+  "memoriseHideAll": "Hide all",
+  "memoriseBanner": "Memorise · {mode}",
+  "@memoriseBanner": {
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "memoriseExit": "Exit memorise mode",
+  "khatmaDoneToast": "Khatma complete — may Allah accept it from you",
+  "readerOpenJump": "Go to a surah, juz or page",
+  "ayahHighlight": "Highlight",
+  "ayahNote": "Note",
+  "ayahNoteEdit": "Edit note",
+  "ayahHighlightRemove": "No highlight",
+  "ayahBookmarkColor": "Bookmark colour",
+  "markColorGold": "Gold",
+  "markColorLapis": "Blue",
+  "markColorSky": "Sky",
+  "markColorGreen": "Green",
+  "khatmaTitle": "Khatma",
+  "khatmaSubtitle": "A plan to finish the mushaf, on your phone",
+  "khatmaPagesDone": "{done} of 604 pages",
+  "@khatmaPagesDone": {
+    "placeholders": {
+      "done": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaStart": "Start a khatma",
+  "khatmaEmptyTitle": "No khatma in progress",
+  "khatmaEmptyHint": "Pick a finish date or a daily pace and we'll work out each day's portion.",
+  "khatmaSetupTitle": "Khatma plan",
+  "khatmaByDate": "By a date",
+  "khatmaByPace": "Pages a day",
+  "khatmaInDays": "{n} days",
+  "@khatmaInDays": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaPickDate": "Pick a date",
+  "khatmaFinishOn": "Finish on {date}",
+  "@khatmaFinishOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaPerDay": "{n} pages a day",
+  "@khatmaPerDay": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaFromStart": "From the start",
+  "khatmaFromHere": "From where I stopped (page {page})",
+  "@khatmaFromHere": {
+    "placeholders": {
+      "page": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaSetWird": "Make the daily portion my wird goal",
+  "khatmaCreate": "Start",
+  "khatmaSave": "Save changes",
+  "khatmaToday": "Today's portion",
+  "khatmaPortion": "Pages {from} to {to}",
+  "@khatmaPortion": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaPortionCount": "{n} pages · {read} read",
+  "@khatmaPortionCount": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      },
+      "read": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaReadNow": "Read now",
+  "khatmaOnTrack": "On track",
+  "khatmaAhead": "{n} pages ahead",
+  "@khatmaAhead": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaBehind": "{n} pages behind — read a little more today",
+  "@khatmaBehind": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaTarget": "Due {date} · {days} days left",
+  "@khatmaTarget": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "days": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaProjected": "At this pace you finish on {date}",
+  "@khatmaProjected": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaWeek": "This week",
+  "khatmaWeekSummary": "{pages} pages · {minutes} min · {days} reading days",
+  "@khatmaWeekSummary": {
+    "placeholders": {
+      "pages": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "String"
+      },
+      "days": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaStreak": "{n}-day streak",
+  "@khatmaStreak": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaHistory": "Past khatmas",
+  "khatmaRecord": "{days} days · {from} – {to}",
+  "@khatmaRecord": {
+    "placeholders": {
+      "days": {
+        "type": "String"
+      },
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "khatmaEdit": "Edit plan",
+  "khatmaEnd": "End plan",
+  "khatmaEndConfirm": "End the current khatma? Your stats stay.",
+  "khatmaDoneTitle": "Khatma complete",
+  "khatmaDoneBody": "May Allah accept it from you. Start a new one whenever you like.",
+  "khatmaOrbStatus": "{pct}% · today {today}/{target}",
+  "@khatmaOrbStatus": {
+    "placeholders": {
+      "pct": {
+        "type": "String"
+      },
+      "today": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "notifKhatmaTitle": "Your khatma portion",
+  "notifKhatmaBody": "Today's pages are waiting for you",
+  "savedAll": "All",
+  "savedMarks": "Bookmarks",
+  "savedNotes": "Notes",
+  "savedHighlights": "Highlights",
+  "savedNoNotes": "No notes yet",
+  "savedNoNotesHint": "Long-press an ayah, then «Note» to write your reflection",
+  "savedNoHighlights": "No highlights yet",
+  "savedNoHighlightsHint": "Long-press an ayah, then «Highlight»",
+  "medalNfcScan": "Hold your medal to the phone",
+  "medalNfcWaiting": "Hold the medal against the back of the phone…",
+  "medalNfcPrompt": "Hold your Yaqeen medal or card near the top of the phone",
+  "medalNfcFound": "Found medal {code}. Tap Activate to confirm.",
+  "@medalNfcFound": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "medalNfcNotOurs": "This isn't a Yaqeen medal, or its link isn't ours. Type the printed code instead.",
+  "medalNfcEmpty": "The chip is empty. Type the code printed on the medal.",
+  "medalNfcFailed": "We couldn't read it. Hold it still and try again.",
+  "medalNfcOff": "Turn on NFC in your phone's settings to read the medal by touch.",
+  "encodeTitle": "Encode medals",
+  "encodeBatch": "Batch {batch}",
+  "@encodeBatch": {
+    "placeholders": {
+      "batch": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeProgress": "{done} of {total} encoded",
+  "@encodeProgress": {
+    "placeholders": {
+      "done": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeNext": "Next: {code}",
+  "@encodeNext": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeSelected": "Selected: {code}",
+  "@encodeSelected": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeAllDone": "Every piece in the batch is encoded. Pick a code below to re-encode it.",
+  "encodeWrite": "Hold a blank chip to the phone",
+  "encodeWriting": "Keep the chip still… writing the link, then checking it",
+  "encodeVerifyAgain": "Written. Hold the chip again to check it.",
+  "encodeDone": "{code} written and checked",
+  "@encodeDone": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeLock": "Lock the chip after writing",
+  "encodeLockHint": "Optional. Locking is permanent: the chip can never be rewritten or fixed.",
+  "encodeLockOnWarning": "Locking is on: every chip written now is locked for good. Check the link first.",
+  "encodeTest": "Test a chip",
+  "encodeTestResult": "This chip carries {code} from this batch.",
+  "@encodeTestResult": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeTestOther": "This chip carries another link: {uri}",
+  "@encodeTestOther": {
+    "placeholders": {
+      "uri": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeCodes": "Codes in this batch",
+  "encodeCodeDone": "Encoded",
+  "encodeCodeTodo": "Not encoded yet",
+  "encodeExpires": "Session ends {time}",
+  "@encodeExpires": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "encodeGone": "This encoding session has ended or was revoked. Open a new one from the admin dashboard.",
+  "encodeNoNfc": "This phone has no NFC. Use a phone with NFC to encode.",
+  "encodeNfcOff": "NFC is off. Turn it on in your phone's settings, then come back.",
+  "encodeErrNotNdef": "This chip type isn't supported (not NDEF). Use NTAG chips.",
+  "encodeErrReadOnly": "This chip is locked and can't be written.",
+  "encodeErrTooSmall": "The link doesn't fit on this chip. Use a larger chip.",
+  "encodeErrWrite": "Writing failed. Keep the chip still and try again.",
+  "encodeErrVerify": "It was written but didn't read back the same. Try again.",
+  "encodeErrLock": "The chip was written but couldn't be locked.",
+  "encodeErrTimeout": "No chip found. Hold it to the phone and try again.",
+  "encodeErrNotInBatch": "This code isn't in the batch.",
+  "encodeErrNetwork": "The chip was written but couldn't be saved. Check the connection and try again.",
+  "encodeRetrySave": "Save again",
+  "nfcFailed": "That didn't work, try again",
+  "nfcSuccess": "Done",
+  "backupTitle": "Cloud backup",
+  "backupDetail": "An encrypted copy of your personal progress that comes back on a new phone: reading, bookmarks, notes, khatma, hifz, azkar, routine, Ramadan and tasbeeh. Only you can see it; it's never used for analytics or ads, and it's deleted from our servers when you turn this off. Downloads aren't included.",
+  "backupGuest": "Sign in with Google or Apple to turn this on",
+  "backupLast": "Last backed up {when}",
+  "@backupLast": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "backupNever": "Not backed up yet",
+  "backupSyncing": "Backing up…",
+  "backupOffline": "Offline — backs up when you're connected",
+  "backupNow": "Back up now",
+  "backupOffTitle": "Turn off cloud backup?",
+  "backupOffBody": "This deletes the copy on our servers. Everything on this phone stays as it is.",
+  "backupOffCta": "Turn off and delete",
+  "backupRestoreTitle": "You have a backup",
+  "backupRestoreBody": "We found a copy of your progress on your account. Restore it on this phone? It's merged with what's here — nothing is deleted.",
+  "backupRestoreCta": "Restore",
+  "backupNotNow": "Not now",
+  "backupRestored": "Restored",
+  "styleMuallim": "Muallim (teaching)",
+  "tafsirSourceQf": "Source: Quran.com · Quran Foundation",
+  "tafsirChoose": "Choose a tafsir",
+  "mushafPagesTitle": "Printed mushaf pages",
+  "mushafPagesHint": "Each page downloads when you open it and stays on your device for offline reading. The text size follows the page, as in the printed mushaf.",
+  "mushafPagesStatus": "{n} of 604 pages on this device",
+  "@mushafPagesStatus": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "mushafPagesAll": "The whole mushaf is on this device",
+  "mushafDownloadAll": "Download the whole mushaf (about {mb} MB)",
+  "@mushafDownloadAll": {
+    "placeholders": {
+      "mb": {
+        "type": "String"
+      }
+    }
+  },
+  "mushafDownloadFailed": "Some pages couldn't download — try again later",
+  "mushafCredit": "Mushaf font: King Fahd Glorious Qur'an Printing Complex (QCF V2) · page layout: Quran.com",
+  "readerFallbackHint": "Download the page to see it as printed",
+  "readerNextPage": "Next page",
+  "readerPreviousPage": "Previous page"
 }

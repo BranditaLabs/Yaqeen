@@ -55,7 +55,12 @@ first review. Then set it to `completed`.
 2. **Identifier** `com.yaqinbrand.yaqeen` with these capabilities:
    - Associated Domains;
    - Sign in with Apple;
-   - Push Notifications (for phase 2).
+   - Push Notifications (FCM campaigns; regenerate the App Store profile after enabling it);
+   - **NFC Tag Reading** (medal scan + staff encoding, `com.apple.developer.nfc.readersession.formats`
+     NDEF + TAG in `Runner.entitlements`). Enable it on the App ID, then **regenerate the App Store
+     provisioning profile** — a profile without it fails signing. `NFCReaderUsageDescription` is in
+     `Info.plist`. iPhone 7+ reads; writing needs iOS 13+. The plugin (`nfc_manager` ≥ 4.2) ships a
+     Swift Package, so no CocoaPods is needed.
 3. **App Store Connect** → New App with the same bundle id.
 4. **Apple Distribution** certificate. Export it from Keychain as a `.p12` with a password, then
    `base64 -i dist.p12`.
@@ -73,6 +78,31 @@ first review. Then set it to `completed`.
 | `IOS_PROFILE_NAME` | the App Store profile's name |
 | `ASC_API_KEY_ID` / `ASC_ISSUER_ID` / `ASC_API_PRIVATE_KEY` | App Store Connect API key |
 | `GOOGLE_IOS_CLIENT_ID` / `GOOGLE_REVERSED_CLIENT_ID` | Google Sign-In iOS client |
+
+### Sign in with Google and Apple (one-time)
+
+Google — the clients live in Firebase project `yaqeen-eg` (= its Google Cloud project). Their ids are public
+and are the defaults everywhere, so nothing has to be set unless you move projects:
+1. **Web** client `215304787392-2papc2vde7pj9j6uh7u6pgdsokff8gen` = the *server client id* (`Env.googleServerClientId`;
+   override with repo variable `GOOGLE_SERVER_CLIENT_ID`).
+2. **iOS** client `215304787392-25qvm0s481ebaeoa7213qkk9b1l2bqm5` (`ios/Flutter/{Debug,Release}.xcconfig`; override with
+   the `GOOGLE_IOS_CLIENT_ID` / `GOOGLE_REVERSED_CLIENT_ID` secrets).
+3. **Android**: Google only issues a token to an app whose signing-key SHA is registered. Add every key's SHA-1
+   and SHA-256 to the Firebase Android app (this also creates the Android OAuth client):
+   `firebase apps:android:sha:create 1:215304787392:android:6f92341e76e275ef0aa425 <SHA> --project yaqeen-eg` —
+   each developer's debug key (`keytool -list -v -keystore ~/.android/debug.keystore -storepass android`), the
+   upload key, and the Play app-signing key (Play Console › App integrity).
+4. OAuth consent screen (Google Cloud › Google Auth Platform): published, or your test accounts listed.
+5. API: `GOOGLE_CLIENT_IDS` defaults to the Web + iOS ids above.
+
+Apple (developer.apple.com › Certificates, Identifiers & Profiles):
+1. App ID `com.yaqinbrand.yaqeen` with **Sign in with Apple** (iOS uses it natively).
+2. **Services ID** `com.yaqinbrand.yaqeen.signin` (Android web flow) → Configure → primary App ID above,
+   domain `api.yaqin-brand.com`, return URL `https://api.yaqin-brand.com/v1/auth/apple/callback`.
+   Different values → repo variables `APPLE_SERVICE_ID` / `APPLE_REDIRECT_URI`.
+3. API: `APPLE_CLIENT_IDS=com.yaqinbrand.yaqeen,com.yaqinbrand.yaqeen.signin` (bundle id + Services ID).
+   The callback form-posts back into the app (`signinwithapple://callback`, package `ANDROID_APP_ID`).
+| `FACEBOOK_APP_ID` / `FACEBOOK_CLIENT_TOKEN` | optional — Meta App Events (see *Ad measurement SDKs*) |
 
 TestFlight builds appear after Apple's processing (about 10–30 min). Internal testers (up to 100
 people on your team) can install them at once. External testers need a one-time beta review.
@@ -92,3 +122,79 @@ people on your team) can install them at once. External testers need a one-time 
   the profile must contain the imported distribution certificate.
 - **iOS "requires a development team" for a CocoaPods bundle**: ask Claude to add a Podfile
   `post_install` that sets the team for pod targets.
+
+## Crash reporting (Sentry)
+
+Optional; the workflow skips it when unset.
+
+| Where | Name | Value |
+| --- | --- | --- |
+| Variable | `APP_SENTRY_DSN` | DSN of the `yaqeen-app` Sentry project (compiled in with `--dart-define=SENTRY_DSN`) |
+| Variable | `SENTRY_ORG` | Sentry organisation slug |
+| Secret | `SENTRY_AUTH_TOKEN` | token allowed to upload debug files |
+
+After each build, `dart run sentry_dart_plugin` uploads the obfuscation symbols (`build/symbols`,
+config under `sentry:` in `pubspec.yaml`) for release `yaqeen@<version>+<build number>` — the
+same release the app reports — so crashes show readable stack traces. Reports carry no user,
+URLs, navigation or screenshots (docs/SECURITY_PRIVACY.md).
+
+
+## Ad measurement SDKs (Google Ads, Meta)
+
+Optional; the workflow builds without them and the app then ships no active ad SDK. With them, each
+SDK still stays off until the user grants `ads_measurement` (docs/SECURITY_PRIVACY.md › Ads & tracking).
+
+| Where | Name | Value |
+| --- | --- | --- |
+| Variable | `FIREBASE_ANALYTICS` | `true` to register the Google Ads sink (Firebase Analytics) |
+| Secret | `FACEBOOK_APP_ID` | Meta app id (digits only, no `fb` prefix) |
+| Secret | `FACEBOOK_CLIENT_TOKEN` | Meta client token (App settings › Advanced › Security) |
+
+Meta needs **both** values or neither — the workflow fails otherwise. They are compiled in twice from
+the same secrets, and the two must match:
+- as `--dart-define`s, which decide whether the Dart sink is registered (both platforms) and, on
+  Android, fill the manifest through `android/app/build.gradle.kts`;
+- on iOS also in `ios/Flutter/Secrets.xcconfig` → `Info.plist` (`FacebookAppID`, `FacebookClientToken`).
+
+Building by hand: pass the same `--dart-define`s, and on iOS put the same values in
+`ios/Flutter/Secrets.xcconfig` (see `Secrets.example.xcconfig`). Never pass the Meta defines to an
+iOS build whose `Secrets.xcconfig` lacks them: the SDK would start without an app id.
+
+### One-time setup — Google Ads (Firebase)
+1. Firebase console › project `yaqeen-eg` › Project settings › Integrations › **Google Analytics**:
+   enable it (pick or create a GA4 property; data region and sharing settings: turn off sharing
+   with Google for benchmarking/support unless counsel agrees).
+2. GA4 › Admin › Product links › **Google Ads**: link the Ads account. Mark `sign_up` and
+   `purchase` as key events (conversions) and import them into Google Ads.
+3. Set the variable `FIREBASE_ANALYTICS=true` and release.
+4. Check with **DebugView** (`adb shell setprop debug.firebase.analytics.app com.yaqinbrand.yaqeen`,
+   or `-FIRDebugEnabled` on iOS) on a device that granted `ads_measurement`. If Android logs
+   "Missing google_app_id", ask Claude to add the Firebase Android config resource.
+
+### One-time setup — Meta
+1. developers.facebook.com › Create app (type *Business*), add the **App Events** product, and add
+   both platforms: Android package `com.yaqinbrand.yaqeen` (+ key hashes from Play App Signing),
+   iOS bundle id `com.yaqinbrand.yaqeen`.
+2. Copy the App ID and the Client Token into the secrets above.
+3. Events Manager: connect the app to the ad account. Check events with **Test Events**.
+
+### TikTok
+No SDK in the app: conversions go server-side through the TikTok Events API (see
+docs/ANALYTICS_EVENTS.md). Nothing to set here.
+
+### Store forms and SKAdNetwork
+- Update the App Store privacy label and Play Data safety before the first build with these
+  values (docs/STORE_LISTING.md). Play: the app declares `com.google.android.gms.permission.AD_ID`
+  (the SDKs merge it in too), so answer *Yes* to "uses advertising ID".
+- `SKAdNetworkItems` is **not** needed: that list is for apps that *show* ads from those networks.
+  Yaqeen only advertises; the SDKs handle SKAdNetwork conversion values themselves.
+
+## Home-screen widget (iOS extension)
+
+The app embeds the `YaqeenWidget` WidgetKit extension (`com.yaqinbrand.yaqeen.YaqeenWidget`), which shares data with the app through the App Group `group.com.yaqinbrand.yaqeen`. One-time, in the Apple Developer account:
+
+1. Create the App Group `group.com.yaqinbrand.yaqeen`.
+2. Enable *App Groups* (with that group) on **both** App IDs: `com.yaqinbrand.yaqeen` and `com.yaqinbrand.yaqeen.YaqeenWidget`.
+3. Create an App Store provisioning profile for the widget's App ID and put its name in the secret `IOS_WIDGET_PROFILE_NAME` (the workflow downloads it and passes it as `WIDGET_PROVISIONING_PROFILE_SPECIFIER`). Regenerate the app's own profile too, so it includes the App Group.
+
+Android needs nothing: `NextPrayerWidget` ships inside the APK/AAB.

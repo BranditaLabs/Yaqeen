@@ -1,0 +1,20 @@
+# Uptime from inside the cluster's egress (blackbox exporter, module http_2xx). An external check runs
+# too (.github/workflows/synthetics.yml), so a cluster-wide outage still pages.
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: yaqeen-public
+  labels: { release: kube-prometheus-stack }
+spec:
+  interval: 60s
+  module: http_2xx
+  prober: { url: prometheus-blackbox-exporter.monitoring.svc:9115 }
+  targets:
+    staticConfig:
+      static:
+        - https://api.yaqin-brand.com/health
+        - https://api.yaqin-brand.com/ready
+        - https://api.yaqin-brand.com/v1/config
+        - https://api.yaqin-brand.com/get-app
+        - https://admin.yaqin-brand.com/login
+      labels: { service: yaqeen }

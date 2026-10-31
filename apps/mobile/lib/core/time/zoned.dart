@@ -30,6 +30,10 @@ abstract final class Zoned {
     return DateTime(l.year, l.month, l.day);
   }
 
+  /// [d] moved by [n] calendar days. Calendar arithmetic, not `Duration(days: n)`: a local midnight
+  /// plus 24 h lands on 23:00 the day before when a DST switch (Egypt, late October) falls in between.
+  static DateTime addDays(DateTime d, int n) => d.isUtc ? DateTime.utc(d.year, d.month, d.day + n) : DateTime(d.year, d.month, d.day + n);
+
   static String isoDate(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }

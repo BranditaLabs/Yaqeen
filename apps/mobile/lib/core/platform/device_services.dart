@@ -19,6 +19,10 @@ abstract interface class DeviceServices {
   /// iOS App Tracking Transparency prompt (only after `ads_measurement` is granted, spec §5.6).
   /// Denied keeps ad SDKs in limited mode; the consent itself stays as the user chose.
   Future<void> requestTracking();
+
+  /// Whether ad SDKs may use the advertising identifier as far as the OS is concerned: iOS ATT is
+  /// "authorized"; always true on Android (no ATT — the `ads_measurement` consent gates it there).
+  Future<bool> trackingAuthorized();
 }
 
 class PluginDeviceServices implements DeviceServices {
@@ -49,6 +53,10 @@ class PluginDeviceServices implements DeviceServices {
       await AppTrackingTransparency.requestTrackingAuthorization();
     }
   }
+
+  @override
+  Future<bool> trackingAuthorized() async =>
+      !Platform.isIOS || await AppTrackingTransparency.trackingAuthorizationStatus == TrackingStatus.authorized;
 }
 
 /// Records calls; used as the default in tests.
@@ -77,6 +85,9 @@ class FakeDeviceServices implements DeviceServices {
   }
 
   int trackingRequests = 0;
+  bool tracking = false;
   @override
   Future<void> requestTracking() async => trackingRequests++;
+  @override
+  Future<bool> trackingAuthorized() async => tracking;
 }

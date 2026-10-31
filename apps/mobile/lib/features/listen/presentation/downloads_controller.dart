@@ -48,6 +48,8 @@ class DownloadsController extends Notifier<Map<String, ReciterDownload>> {
     final listen = ref.read(listenStoreProvider);
     final allowMetered = await listen.allowMetered();
     await listen.setDownloading(r.id, true);
+    // Every surah's ayah timings next to the files, so the whole download keeps ayah sync offline.
+    if (r.isQf) ref.read(reciterRepositoryProvider).saveOfflineTimings(r).ignore();
     var have = await d.downloadedSurahs(r.id);
     final inFlight = <int, double>{};
     var painted = DateTime.fromMillisecondsSinceEpoch(0);
@@ -64,14 +66,14 @@ class DownloadsController extends Notifier<Map<String, ReciterDownload>> {
         if (!have.contains(s))
           queue
               .add(
-                'audio:${r.id}:$s',
-                group: r.id,
-                run: (cancel, progress) => d.downloadSurah(r, s, cancel: cancel, allowMetered: allowMetered, onProgress: progress),
-                onProgress: (received, total) {
-                  if (total != null && total > 0) inFlight[s] = received / total;
-                  paint();
-                },
-              )
+            'audio:${r.id}:$s',
+            group: r.id,
+            run: (cancel, progress) => d.downloadSurah(r, s, cancel: cancel, allowMetered: allowMetered, onProgress: progress),
+            onProgress: (received, total) {
+              if (total != null && total > 0) inFlight[s] = received / total;
+              paint();
+            },
+          )
               .then((_) {
             inFlight.remove(s);
             have = {...have, s};

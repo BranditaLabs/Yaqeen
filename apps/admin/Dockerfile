@@ -5,6 +5,12 @@ WORKDIR /repo
 
 FROM base AS build
 ENV NEXT_TELEMETRY_DISABLED=1
+# Browser error reporting is configured at build time (public values only). The Sentry auth token for
+# source-map upload comes as a BuildKit secret, so it never lands in an image layer.
+ARG GIT_SHA=dev
+ARG NEXT_PUBLIC_SENTRY_DSN=""
+ARG SENTRY_ORG=""
+ENV GIT_SHA=$GIT_SHA NEXT_PUBLIC_GIT_SHA=$GIT_SHA NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN SENTRY_ORG=$SENTRY_ORG
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
 # Whole contracts package: its `prepare` script compiles it during install.
 COPY packages/contracts packages/contracts
@@ -13,11 +19,14 @@ COPY apps/admin/package.json apps/admin/
 RUN pnpm install --frozen-lockfile --filter @yaqeen/admin...
 COPY packages/design-tokens packages/design-tokens
 COPY apps/admin apps/admin
-RUN pnpm --filter @yaqeen/contracts build && pnpm --filter @yaqeen/admin build
+RUN --mount=type=secret,id=sentry_auth_token \
+    SENTRY_AUTH_TOKEN="$(cat /run/secrets/sentry_auth_token 2>/dev/null || true)" \
+    sh -c 'pnpm --filter @yaqeen/contracts build && pnpm --filter @yaqeen/admin build'
 
 # Next.js standalone output: only the traced runtime files.
 FROM node:22-alpine AS runtime
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
+ARG GIT_SHA=dev
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 GIT_SHA=$GIT_SHA
 WORKDIR /app
 RUN addgroup -S app && adduser -S app -G app
 COPY --from=build /repo/apps/admin/.next/standalone ./

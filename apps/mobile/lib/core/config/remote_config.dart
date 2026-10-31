@@ -14,6 +14,8 @@ abstract final class Flags {
   static const recite = 'recite';
   static const ramadan = 'ramadan';
   static const tafsirFull = 'tafsirFull';
+  static const publicCards = 'publicCards';
+  static const medalActivation = 'medalActivation';
 }
 
 /// Mirror of `RemoteConfig` in packages/contracts/src/api.ts.
@@ -34,6 +36,8 @@ class RemoteConfig {
     this.qadaWindowDays = 7,
     this.challengeLengthDays = 365,
     this.cheapestRewardPoints,
+    this.bonusPoints = const {},
+    this.medalProductUrl = '',
   });
 
   /// No forced update. Only a minimum an admin sets explicitly may block the app — never a missing
@@ -49,6 +53,8 @@ class RemoteConfig {
     Flags.recite: false,
     Flags.ramadan: false,
     Flags.tafsirFull: false,
+    Flags.publicCards: true,
+    Flags.medalActivation: true,
   };
 
   /// Bundled default (Quran 15:99) — replaced by the reviewed verse from remote config.
@@ -69,6 +75,12 @@ class RemoteConfig {
   final int qadaWindowDays;
   final int challengeLengthDays;
   final int? cheapestRewardPoints;
+
+  /// Bonuses the admin has enabled: wire kind → points (e.g. `ramadan_fast` → 30).
+  final Map<String, int> bonusPoints;
+
+  /// The Yaqeen medal product in the store ('' = the store home).
+  final String medalProductUrl;
 
   bool isOn(String flag, {String? userId}) => (features[flag] ?? false) && inRollout(userId, flag, featureRollout[flag]);
 
@@ -94,6 +106,11 @@ class RemoteConfig {
       qadaWindowDays: (points['qadaWindowDays'] as num?)?.toInt() ?? 7,
       challengeLengthDays: (points['challengeLengthDays'] as num?)?.toInt() ?? 365,
       cheapestRewardPoints: (points['cheapestRewardPoints'] as num?)?.toInt(),
+      bonusPoints: {
+        for (final b in (points['bonuses'] as List? ?? const []))
+          if (b is Map && b['kind'] is String && b['points'] is num) b['kind'] as String: (b['points'] as num).toInt(),
+      },
+      medalProductUrl: (m('cards')['medalProductUrl'] as String?) ?? '',
     );
   }
 }

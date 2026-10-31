@@ -2,9 +2,7 @@
 
 **Screens (design canvas):** Prayer times, Qibla, Notifications settings (adhan per prayer, pre-reminder, quiet hours), Inbox.
 
-**Built:** core/notifications/notification_planner.dart ✅ (pure planning, iOS 64 limit)
-
-**To build:** domain/: prayer_calculator (adhan package, Egyptian method default) · data/: location_repository · presentation/: prayer_screen, qibla_screen, notification_settings_screen, inbox_screen
+**Built:** `domain/` prayer calculator, clock, astronomy and Qibla (on-device, Egyptian method default) · `data/` prayer and city repositories · `presentation/` prayer screen, Qibla (full-screen orbit), city picker, labels. Adhan & notification settings and the inbox are in `features/notifications`; planning is `core/notifications/notification_planner.dart`.
 
 **Rule:** Times are computed on-device from location; the server never receives prayer times or location history.
 

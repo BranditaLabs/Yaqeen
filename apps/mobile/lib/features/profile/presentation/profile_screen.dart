@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/analytics/product_analytics.dart';
 import '../../../core/config/config_controller.dart';
 import '../../../core/config/env.dart';
 import '../../../core/config/remote_config.dart';
@@ -13,7 +15,9 @@ import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
-import '../../../core/widgets/ambient_background.dart';
+import '../../../core/widgets/yq_orb.dart';
+import '../../../core/widgets/yq_ring.dart';
+import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/controls.dart';
 import '../../../core/widgets/liquid_glass.dart';
 import '../../../core/widgets/yq_button.dart';
@@ -21,6 +25,8 @@ import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_layout.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
+import '../../backup/presentation/backup_widgets.dart';
+import '../../card/presentation/journey_widgets.dart';
 import '../../challenge/presentation/challenge_controller.dart';
 import '../../content/presentation/pack_row.dart';
 import '../../onboarding/data/auth_repository.dart';
@@ -71,159 +77,163 @@ class ProfileScreen extends ConsumerWidget {
           onTap: onTap,
         );
 
-    return AmbientBackground(
-      child: SafeArea(
-        bottom: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(YqSpace.gutter, YqSpace.m, YqSpace.gutter, 140),
+    final rewards = summary != null && config.isOn(Flags.rewards);
+    final initial = name.isEmpty ? '' : String.fromCharCode(name.runes.first);
+    final mb = megabytes(t, bytes);
+
+    return YqCanvas(
+      stage: YqStage(
+        child: Column(
           children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: YqColors.lapis,
-                  child: Text(
-                    name.isEmpty ? '' : String.fromCharCode(name.runes.first),
-                    style: const TextStyle(fontFamily: YqFonts.naskh, fontSize: 26, fontWeight: FontWeight.w700, color: YqColors.white),
-                  ),
+            const SizedBox(height: YqSpace.s),
+            // Identity: the initial in a lapis medallion with a soft halo, then the name.
+            Container(
+              width: 96,
+              height: 96,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [YqColors.lapis500, YqColors.lapis],
                 ),
-                const SizedBox(width: YqSpace.m),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(name, style: text.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-                      if (provider != null && session.canEarnPoints)
-                        Text(t.profileLinked(provider), style: text.bodySmall)
-                      else
-                        GestureDetector(
-                          onTap: () => showSignInSheet(context),
-                          child:
-                              Text(t.profileGuestCta, style: text.bodySmall?.copyWith(color: YqColors.lapis, fontWeight: FontWeight.w700)),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
+                border: Border.all(color: const Color(0xF2FFFFFF), width: 3),
+                boxShadow: const [BoxShadow(color: Color(0x401F3F94), blurRadius: 24, spreadRadius: -10, offset: Offset(0, 10))],
+              ),
+              child: Text(
+                initial,
+                style: const TextStyle(fontFamily: YqFonts.naskh, fontSize: 40, fontWeight: FontWeight.w700, color: YqColors.white),
+              ),
             ),
+            const SizedBox(height: YqSpace.m),
+            Semantics(header: true, child: Text(name, textAlign: TextAlign.center, style: YqMoment.display(context, size: 30))),
+            if (provider != null && session.canEarnPoints)
+              Text(t.profileLinked(provider), style: text.bodySmall)
+            else ...[
+              const SizedBox(height: YqSpace.s),
+              GlassTap(
+                onTap: () => showSignInSheet(context),
+                semanticLabel: t.profileGuestCta,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.s),
+                  decoration: BoxDecoration(color: YqColors.navy, borderRadius: BorderRadius.circular(YqRadii.pill)),
+                  child:
+                      Text(t.profileGuestCta, style: const TextStyle(color: YqColors.goldLight, fontWeight: FontWeight.w700, fontSize: 13)),
+                ),
+              ),
+            ],
             if (pending > 0) ...[
               const SizedBox(height: YqSpace.s),
               Text(t.profilePending(pending), style: text.bodySmall?.copyWith(color: YqColors.goldText)),
             ],
-            const SizedBox(height: YqSpace.l),
-            if (summary != null && config.isOn(Flags.rewards)) ...[
-              LiquidGlass(
-                tone: GlassTone.gold,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(child: Text(t.profileBalance, style: text.titleSmall)),
-                        Text(YqFormat.number(summary.balance), style: YqText.numeral.copyWith(fontSize: 26)),
-                      ],
-                    ),
-                    if (toNext != null && toNext > 0)
-                      Text(t.profileToNext(YqFormat.number(toNext)), style: text.bodySmall?.copyWith(color: YqColors.goldDeep)),
-                    const SizedBox(height: YqSpace.s),
-                    Row(
-                      children: [
-                        YqButton.text(label: t.profileLedger, onPressed: () => context.push('/profile/ledger')),
-                        const Spacer(),
-                        YqButton.text(label: t.myCodes, onPressed: () => context.push('/challenge/redeem/codes')),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: YqSpace.m),
-              LiquidGlass(
-                padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
-                child: Column(
-                  children: [
-                    row(t.profileRewards, icon: YqIcons.store, onTap: () => context.push('/challenge/redeem')),
-                    const YqDivider(),
-                    row(
-                      t.profileVisitStore,
-                      icon: YqIcons.share,
-                      onTap: () => ref.read(deviceServicesProvider).openUrl(Uri.parse(Env.storeUrl)),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: YqSpace.l),
-            ],
-            Text(t.profileSettings, style: text.titleMedium),
-            const SizedBox(height: YqSpace.s),
-            LiquidGlass(
-              padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
-              child: Column(
-                children: [
-                  row(
-                    t.profileLanguage,
-                    subtitle:
-                        '${s.locale == 'ar' ? t.langArabic : t.langEnglish} · ${s.script == QuranScript.uthmani ? t.scriptUthmani : t.scriptIndopak}',
-                    icon: YqIcons.quran,
-                    onTap: () => _languageSheet(context),
-                  ),
-                  const YqDivider(),
-                  row(
-                    t.profilePrayer,
-                    subtitle: methodLabel(t, s.method),
-                    icon: YqIcons.adhan,
-                    onTap: () => context.push('/prayer/notifications'),
-                  ),
-                  const YqDivider(),
-                  row(t.profilePrivacy, icon: YqIcons.settings, onTap: () => context.push('/profile/privacy')),
-                  const YqDivider(),
-                  row(
-                    t.profileDownloads,
-                    subtitle: megabytes(t, bytes),
-                    icon: YqIcons.download,
-                    onTap: () => context.push('/profile/downloads'),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: YqSpace.m),
-            LiquidGlass(
-              padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
-              child: Column(
-                children: [
-                  row(t.profileAbout, onTap: () => ref.read(deviceServicesProvider).openUrl(Uri.parse('${Env.storeUrl}/pages/about'))),
-                  const YqDivider(),
-                  row(
-                    t.terms,
-                    onTap: () => ref.read(deviceServicesProvider).openUrl(Uri.parse('${Env.storeUrl}/policies/terms-of-service')),
-                  ),
-                  const YqDivider(),
-                  row(
-                    t.privacyPolicy,
-                    onTap: () => ref.read(deviceServicesProvider).openUrl(Uri.parse('${Env.storeUrl}/policies/privacy-policy')),
-                  ),
-                  const YqDivider(),
-                  row(t.profileContact, onTap: () => ref.read(deviceServicesProvider).openUrl(Uri.parse('${Env.storeUrl}/pages/contact'))),
-                ],
-              ),
-            ),
-            if (session.signedIn && session.userId != null) ...[
-              const SizedBox(height: YqSpace.m),
-              LiquidGlass(
-                padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
-                child: Column(
-                  children: [
-                    row(t.profileExport, onTap: () => _export(context, ref)),
-                    const YqDivider(),
-                    row(t.profileDelete, color: YqColors.goldText, onTap: () => _delete(context, ref)),
-                    const YqDivider(),
-                    row(t.profileSignOut, onTap: () => _signOut(context, ref)),
-                  ],
-                ),
-              ),
-            ],
           ],
         ),
       ),
+      children: [
+        YqOrbRow(
+          orbs: [
+            if (rewards) ...[
+              YqOrb(
+                title: t.profileBalance,
+                status: t.challengePointsLabel(YqFormat.number(summary.balance)),
+                glow: true,
+                statusColor: YqColors.goldText,
+                onTap: () => context.push('/profile/ledger'),
+                semanticLabel: '${t.profileBalance}، ${t.challengePointsLabel(YqFormat.number(summary.balance))}',
+                disc: YqOrb.number(YqFormat.number(summary.balance), size: 21, color: YqColors.goldDeep),
+              ),
+              YqOrb(
+                title: t.profileRewards,
+                status: toNext != null && toNext > 0 ? t.profileToNext(YqFormat.number(toNext)) : t.redeemAvailable,
+                onTap: () => context.push('/challenge/redeem'),
+                disc: YqRing(
+                  value: cheapest == null || cheapest == 0 ? 0 : summary.balance / cheapest,
+                  gold: true,
+                  size: YqOrb.defaultSize - 12,
+                  stroke: 5,
+                  child: const YqIcon(YqIcons.store, size: 26, tone: YqIconTone.gold),
+                ),
+              ),
+            ] else
+              YqOrb(
+                title: t.langApp,
+                status: s.locale == 'ar' ? t.langArabic : t.langEnglish,
+                onTap: () => _languageSheet(context),
+                semanticLabel: '${t.langApp}، ${s.locale == 'ar' ? t.langArabic : t.langEnglish}',
+                disc: YqOrb.number(s.locale == 'ar' ? 'ع' : 'En', size: 28),
+              ),
+            YqOrb(
+              title: t.profileDownloads,
+              status: mb,
+              onTap: () => context.push('/profile/downloads'),
+              semanticLabel: '${t.profileDownloads}، $mb',
+              disc: const Center(child: YqIcon(YqIcons.download, size: 30)),
+            ),
+          ],
+        ),
+        const SizedBox(height: YqSpace.xxl),
+        if (rewards) ...[
+          YqGroup(
+            gold: true,
+            children: [
+              row(t.profileLedger, icon: YqIcons.streak, onTap: () => context.push('/profile/ledger')),
+              row(t.myCodes, icon: YqIcons.bookmark, onTap: () => context.push('/challenge/redeem/codes')),
+              row(
+                t.profileVisitStore,
+                icon: YqIcons.share,
+                onTap: () {
+                  unawaited(ref.read(productAnalyticsProvider).track(ProductEvent.storeClick, {'from': 'profile'}));
+                  ref.read(deviceServicesProvider).openUrl(Uri.parse(Env.storeUrl));
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: YqSpace.xl),
+        ],
+        if (session.canEarnPoints) const JourneySection(),
+        if (config.isOn(Flags.publicCards)) const _CardTeaser(),
+        const SizedBox(height: YqSpace.xl),
+        YqHeading(t.profileSettings),
+        YqGroup(
+          children: [
+            row(
+              t.profileLanguage,
+              subtitle:
+                  '${s.locale == 'ar' ? t.langArabic : t.langEnglish} · ${s.script == QuranScript.uthmani ? t.scriptUthmani : t.scriptIndopak}',
+              icon: YqIcons.quran,
+              onTap: () => _languageSheet(context),
+            ),
+            row(
+              t.profilePrayer,
+              subtitle: methodLabel(t, s.method),
+              icon: YqIcons.adhan,
+              onTap: () => context.push('/prayer/notifications'),
+            ),
+            row(t.profilePrivacy, icon: YqIcons.settings, onTap: () => context.push('/profile/privacy')),
+            row(t.profileDownloads, subtitle: mb, icon: YqIcons.download, onTap: () => context.push('/profile/downloads')),
+          ],
+        ),
+        const SizedBox(height: YqSpace.l),
+        YqGroup(
+          children: [
+            row(t.profileAbout, onTap: () => ref.read(deviceServicesProvider).openUrl(Uri.parse('${Env.storeUrl}/pages/about'))),
+            row(t.terms, onTap: () => ref.read(deviceServicesProvider).openUrl(Env.site('terms', s.locale))),
+            row(t.privacyPolicy, onTap: () => ref.read(deviceServicesProvider).openUrl(Env.site('privacy', s.locale))),
+            row(t.profileContact, onTap: () => ref.read(deviceServicesProvider).openUrl(Env.site('support', s.locale))),
+          ],
+        ),
+        if (session.signedIn && session.userId != null) ...[
+          const SizedBox(height: YqSpace.l),
+          YqGroup(
+            children: [
+              row(t.profileExport, onTap: () => _export(context, ref)),
+              row(t.profileDelete, color: YqColors.goldText, onTap: () => _delete(context, ref)),
+              row(t.profileSignOut, onTap: () => _signOut(context, ref)),
+            ],
+          ),
+        ],
+      ],
     );
   }
 
@@ -244,16 +254,10 @@ class ProfileScreen extends ConsumerWidget {
                 YqSegmented<String>(
                   segments: [('ar', t.langArabic), ('en', t.langEnglish)],
                   selected: s.locale,
-                  onChanged: (v) => ref.read(settingsProvider.notifier).update((x) => x.copyWith(locale: v)),
-                ),
-                const SizedBox(height: YqSpace.l),
-                Text(t.langFontSize, style: Theme.of(c).textTheme.titleSmall),
-                YqSegmented<double>(
-                  segments: [
-                    for (final (i, v) in AppSettings.fontSizes.indexed) (v, const ['S', 'M', 'L', 'XL'][i]),
-                  ],
-                  selected: AppSettings.fontSizes.reduce((a, b) => (a - s.quranFontSize).abs() <= (b - s.quranFontSize).abs() ? a : b),
-                  onChanged: (v) => ref.read(settingsProvider.notifier).update((x) => x.copyWith(quranFontSize: v), sync: false),
+                  onChanged: (v) {
+                    ref.read(settingsProvider.notifier).update((x) => x.copyWith(locale: v));
+                    unawaited(ref.read(productAnalyticsProvider).track(ProductEvent.settingsChange, {'setting': 'language'}));
+                  },
                 ),
               ],
             );
@@ -317,7 +321,8 @@ class ProfileScreen extends ConsumerWidget {
       false;
 }
 
-/// «الخصوصية والموافقات» — the same four switches as onboarding, recorded with source `settings`.
+/// «الخصوصية والموافقات» — the same five switches as onboarding, recorded with source `settings`, then
+/// the opt-in cloud backup (signed-in accounts only).
 class PrivacyScreen extends ConsumerStatefulWidget {
   const PrivacyScreen({super.key});
 
@@ -329,9 +334,11 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
   Future<void> _set(ConsentKind k, bool v) async {
     await ref.read(consentRepositoryProvider).set(k, v, ConsentSource.settings);
     if (k == ConsentKind.adsMeasurement) {
-      await ref.read(analyticsProvider).onConsentChanged(v);
+      // ATT first (iOS), so the SDKs start with its answer.
       if (v) await ref.read(deviceServicesProvider).requestTracking();
+      await ref.read(analyticsProvider).onConsentChanged(v);
     }
+    if (k == ConsentKind.productAnalytics) await ref.read(productAnalyticsProvider).onConsentChanged(v);
     if (mounted) setState(() {});
   }
 
@@ -345,46 +352,45 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
       (ConsentKind.challengeRewards, t.consentChallenge, t.consentChallengeDetail),
       (ConsentKind.storeOffers, t.consentOffers, t.consentOffersDetail),
       (ConsentKind.adsMeasurement, t.consentAds, t.consentAdsDetail),
+      (ConsentKind.productAnalytics, t.consentAnalytics, t.consentAnalyticsDetail),
     ];
     return Scaffold(
       backgroundColor: YqColors.porcelain,
-      body: AmbientBackground(
-        child: SafeArea(
-          child: YqPage(
-            header: YqTopBar(title: t.profilePrivacy),
-            children: [
-              LiquidGlass(
-                padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.s),
-                child: Column(
-                  children: [
-                    for (final (i, (k, title, detail)) in rows.indexed) ...[
-                      if (i > 0) const YqDivider(),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: YqSpace.m),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                                  Text(detail, style: text.bodySmall),
-                                ],
-                              ),
-                            ),
-                            YqSwitch(label: title, value: consents.granted(k), onChanged: (v) => _set(k, v)),
-                          ],
+      body: YqCanvas(
+        stage: YqStage(compact: true, child: YqStageBar(back: true, title: t.profilePrivacy)),
+        children: [
+          LiquidGlass(
+            padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.s),
+            child: Column(
+              children: [
+                for (final (i, (k, title, detail)) in rows.indexed) ...[
+                  if (i > 0) const YqDivider(),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: YqSpace.m),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                              Text(detail, style: text.bodySmall),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(height: YqSpace.m),
-              Text(t.consentPrivacyNote, style: text.bodySmall?.copyWith(color: YqColors.success)),
-            ],
+                        YqSwitch(label: title, value: consents.granted(k), onChanged: (v) => _set(k, v)),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
-        ),
+          const SizedBox(height: YqSpace.m),
+          Text(t.consentPrivacyNote, style: text.bodySmall?.copyWith(color: YqColors.success)),
+          const SizedBox(height: YqSpace.l),
+          const BackupSection(),
+        ],
       ),
     );
   }
@@ -411,39 +417,35 @@ class LedgerScreen extends ConsumerWidget {
         };
     return Scaffold(
       backgroundColor: YqColors.porcelain,
-      body: AmbientBackground(
-        child: SafeArea(
-          child: YqPage(
-            header: YqTopBar(title: t.profileLedger),
-            children: ledger.when(
-              loading: () => [const YqSkeleton(child: YqSkeletonBox(height: 200))],
-              error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(ledgerProvider))],
-              data: (list) => list.isEmpty
-                  ? [LiquidGlass(child: YqEmptyState(icon: YqIcons.challenge, title: t.ledgerEmpty))]
-                  : [
-                      LiquidGlass(
-                        padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
-                        child: Column(
-                          children: [
-                            for (final e in list)
-                              YqListRow(
-                                dense: true,
-                                title: reason(e.reason),
-                                subtitle: YqFormat.fullDate(e.createdAt.toLocal(), locale),
-                                trailing: Directionality(
-                                  textDirection: TextDirection.ltr,
-                                  child: Text(
-                                    '${e.delta > 0 ? '+' : '−'}${YqFormat.number(e.delta.abs())}',
-                                    style: YqText.numberSmall.copyWith(color: e.delta > 0 ? YqColors.success : YqColors.goldText),
-                                  ),
-                                ),
+      body: YqCanvas(
+        stage: YqStage(compact: true, child: YqStageBar(back: true, title: t.profileLedger)),
+        children: ledger.when(
+          loading: () => [const YqSkeleton(child: YqSkeletonRows(rows: 4, leading: 0, trailing: true))],
+          error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(ledgerProvider))],
+          data: (list) => list.isEmpty
+              ? [LiquidGlass(child: YqEmptyState(icon: YqIcons.challenge, title: t.ledgerEmpty))]
+              : [
+                  LiquidGlass(
+                    padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
+                    child: Column(
+                      children: [
+                        for (final e in list)
+                          YqListRow(
+                            dense: true,
+                            title: reason(e.reason),
+                            subtitle: YqFormat.fullDate(e.createdAt.toLocal(), locale),
+                            trailing: Directionality(
+                              textDirection: TextDirection.ltr,
+                              child: Text(
+                                '${e.delta > 0 ? '+' : '−'}${YqFormat.number(e.delta.abs())}',
+                                style: YqText.numberSmall.copyWith(color: e.delta > 0 ? YqColors.success : YqColors.goldText),
                               ),
-                          ],
-                        ),
-                      ),
-                    ],
-            ),
-          ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
         ),
       ),
     );
@@ -492,70 +494,127 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
     final total = _sizes?.values.fold<int>(0, (a, b) => a + b) ?? 0;
     return Scaffold(
       backgroundColor: YqColors.porcelain,
-      body: AmbientBackground(
-        child: SafeArea(
-          child: YqPage(
-            header: YqTopBar(title: t.profileDownloads, subtitle: t.downloadsUsed(megabytes(t, total + _packBytes))),
-            children: [
-              ...switch (ref.watch(packsCatalogueProvider).valueOrNull) {
-                final packs? when packs.isNotEmpty => [
-                    Text(t.packsTitle, style: Theme.of(context).textTheme.titleSmall),
-                    const SizedBox(height: YqSpace.s),
-                    LiquidGlass(
-                      padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
-                      child: Column(
-                        children: [
-                          for (final p in packs)
-                            PackRow(
-                              pack: p,
-                              onRemove: () async {
-                                await ref.read(packRepositoryProvider).remove(p.id);
-                                ref.invalidate(installedPacksProvider);
-                                ref.invalidate(tafsirRepositoryProvider);
-                                ref.invalidate(downloadsBytesProvider);
-                                await _load();
-                              },
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: YqSpace.l),
-                    Text(t.downloadsAudio, style: Theme.of(context).textTheme.titleSmall),
-                    const SizedBox(height: YqSpace.s),
-                  ],
-                _ => const <Widget>[],
-              },
-              if (_sizes == null)
-                const YqSkeleton(child: YqSkeletonBox(height: 120))
-              else if (_sizes!.isEmpty)
-                LiquidGlass(child: YqEmptyState(icon: YqIcons.download, title: t.downloadsNone))
-              else
-                FutureBuilder(
-                  future: ref.read(reciterRepositoryProvider).cached(),
-                  builder: (context, snap) => LiquidGlass(
-                    padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
-                    child: Column(
-                      children: [
-                        for (final r in snap.data ?? const [])
-                          if (_sizes!.containsKey(r.id))
-                            YqListRow(
-                              title: r.name(locale),
-                              subtitle: megabytes(t, _sizes![r.id]!),
-                              trailing: TextButton(
-                                onPressed: () async {
-                                  await ref.read(audioDownloadsProvider).delete(r.id);
-                                  ref.invalidate(downloadsBytesProvider);
-                                  await _load();
-                                },
-                                child: Text(t.delete),
-                              ),
-                            ),
-                      ],
-                    ),
+      body: YqCanvas(
+        stage: YqStage(
+          compact: true,
+          child: YqStageBar(back: true, title: t.profileDownloads, subtitle: t.downloadsUsed(megabytes(t, total + _packBytes))),
+        ),
+        children: [
+          ...switch (ref.watch(packsCatalogueProvider).valueOrNull) {
+            final packs? when packs.isNotEmpty => [
+                Text(t.packsTitle, style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: YqSpace.s),
+                LiquidGlass(
+                  padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
+                  child: Column(
+                    children: [
+                      for (final p in packs)
+                        PackRow(
+                          pack: p,
+                          onRemove: () async {
+                            await ref.read(packRepositoryProvider).remove(p.id);
+                            ref.invalidate(installedPacksProvider);
+                            ref.invalidate(tafsirRepositoryProvider);
+                            ref.invalidate(downloadsBytesProvider);
+                            await _load();
+                          },
+                        ),
+                    ],
                   ),
                 ),
-            ],
+                const SizedBox(height: YqSpace.l),
+                Text(t.downloadsAudio, style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: YqSpace.s),
+              ],
+            _ => const <Widget>[],
+          },
+          if (_sizes == null)
+            const YqSkeleton(child: YqSkeletonRows(rows: 2, leading: 40))
+          else if (_sizes!.isEmpty)
+            LiquidGlass(child: YqEmptyState(icon: YqIcons.download, title: t.downloadsNone))
+          else
+            FutureBuilder(
+              future: ref.read(reciterRepositoryProvider).cached(),
+              builder: (context, snap) => LiquidGlass(
+                padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
+                child: Column(
+                  children: [
+                    for (final r in snap.data ?? const [])
+                      if (_sizes!.containsKey(r.id))
+                        YqListRow(
+                          title: r.name(locale),
+                          subtitle: megabytes(t, _sizes![r.id]!),
+                          trailing: TextButton(
+                            onPressed: () async {
+                              await ref.read(audioDownloadsProvider).delete(r.id);
+                              ref.invalidate(downloadsBytesProvider);
+                              await _load();
+                            },
+                            child: Text(t.delete),
+                          ),
+                        ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Entry to «بطاقة يقين»: an ink card with a gold edge — the public card for NFC tags and QR.
+class _CardTeaser extends StatelessWidget {
+  const _CardTeaser();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    return GlassTap(
+      onTap: () => context.push('/profile/card'),
+      semanticLabel: '${t.cardTitle}، ${t.cardTeaserBody}',
+      child: Container(
+        padding: const EdgeInsets.all(YqSpace.l),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(YqRadii.card),
+          gradient: const LinearGradient(
+            begin: AlignmentDirectional.centerStart,
+            end: AlignmentDirectional.centerEnd,
+            colors: [YqColors.midnight, YqColors.navy, YqColors.lapis],
           ),
+          border: Border.all(color: const Color(0x40E9D49E)),
+          boxShadow: const [BoxShadow(color: Color(0x590A1530), blurRadius: 26, spreadRadius: -12, offset: Offset(0, 12))],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: YqColors.goldLight.withValues(alpha: 0.6)),
+                color: const Color(0x14E9D49E),
+              ),
+              child: const Icon(Icons.contactless_outlined, color: YqColors.goldLight, size: 28),
+            ),
+            const SizedBox(width: YqSpace.m),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    t.cardTitle,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: YqColors.goldLight, letterSpacing: 0.4),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(t.cardTeaserTitle, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: YqColors.white)),
+                  Text(t.cardTeaserBody, style: const TextStyle(fontSize: 12, height: 1.5, color: YqColors.navy200)),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: YqColors.goldLight),
+          ],
         ),
       ),
     );

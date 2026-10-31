@@ -145,9 +145,16 @@ describe('streak', () => {
 
 describe('bonuses', () => {
   it('white days, Monday/Thursday and Friday', () => {
-    expect(eligibleBonuses({ weekday: 1, hijriDay: 13 })).toEqual(['white_days_fast', 'mon_thu_fast']);
-    expect(eligibleBonuses({ weekday: 5, hijriDay: 2 })).toEqual(['friday_kahf']);
-    expect(eligibleBonuses({ weekday: 2, hijriDay: 20 })).toEqual([]);
+    expect(eligibleBonuses({ weekday: 1, hijriDay: 13, hijriMonth: 5 })).toEqual(['white_days_fast', 'mon_thu_fast']);
+    expect(eligibleBonuses({ weekday: 5, hijriDay: 2, hijriMonth: 5 })).toEqual(['friday_kahf']);
+    expect(eligibleBonuses({ weekday: 2, hijriDay: 20, hijriMonth: 5 })).toEqual([]);
+  });
+  it('Ramadan: its own bonuses, no voluntary-fast ones; none on Eid or tashreeq days', () => {
+    expect(eligibleBonuses({ weekday: 1, hijriDay: 14, hijriMonth: 9 })).toEqual(['ramadan_fast', 'taraweeh', 'ramadan_juz']);
+    expect(eligibleBonuses({ weekday: 5, hijriDay: 3, hijriMonth: 9 })).toEqual(['friday_kahf', 'ramadan_fast', 'taraweeh', 'ramadan_juz']);
+    expect(eligibleBonuses({ weekday: 4, hijriDay: 1, hijriMonth: 10 })).toEqual([]); // Eid al-Fitr
+    expect(eligibleBonuses({ weekday: 1, hijriDay: 13, hijriMonth: 12 })).toEqual([]); // tashreeq
+    expect(eligibleBonuses({ weekday: 1, hijriDay: 14, hijriMonth: 12 })).toEqual(['white_days_fast', 'mon_thu_fast']);
   });
 });
 

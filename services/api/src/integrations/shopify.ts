@@ -1,4 +1,5 @@
 import { type DiscountRequest } from '../domain/shopify.js';
+import { externalCalls } from '../lib/metrics.js';
 import { AppError } from '../lib/errors.js';
 
 export interface ShopifyConfig {
@@ -41,8 +42,10 @@ export class ShopifyClient {
       if (body.errors?.length || !body.data) {
         throw new AppError(502, 'shopify_rejected', (body.errors ?? []).map((e) => e.message).join('; ') || 'Empty response');
       }
+      externalCalls.inc({ service: 'shopify', outcome: 'ok' });
       return body.data;
     } catch (err) {
+      externalCalls.inc({ service: 'shopify', outcome: 'error' });
       this.lastError = { message: err instanceof Error ? err.message : String(err), at: new Date() };
       throw err instanceof AppError ? err : new AppError(502, 'shopify_upstream', this.lastError.message);
     }

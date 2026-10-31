@@ -11,8 +11,15 @@ abstract interface class PushService {
   /// Emits a token whenever FCM rotates it — re-register with POST /v1/me/devices.
   Stream<String> get onTokenRefresh;
 
-  /// Emits the deep link (e.g. "yaqeen://redeem") when the user taps a push.
-  Stream<Uri> get onOpened;
+  /// Emits when the user taps a push (including the one that launched the app).
+  Stream<PushOpened> get onOpened;
+}
+
+/// A tapped push: where it leads, and the campaign it came from (for the open count).
+class PushOpened {
+  const PushOpened(this.link, {this.campaignId});
+  final Uri link;
+  final String? campaignId;
 }
 
 class NoopPushService implements PushService {
@@ -23,7 +30,7 @@ class NoopPushService implements PushService {
   @override
   Stream<String> get onTokenRefresh => const Stream.empty();
   @override
-  Stream<Uri> get onOpened => const Stream.empty();
+  Stream<PushOpened> get onOpened => const Stream.empty();
 }
 
 /// Deep-link targets (`yaqeen://<target>` and `https://yaqin-brand.com/app/<target>`, spec §4.2).
@@ -40,11 +47,25 @@ const deepLinkRoutes = {
   'hifz': '/quran/hifz',
   'qibla': '/prayer/qibla',
   'store': '/challenge/redeem',
+  'card': '/profile/card',
+  'ramadan': '/prayer/ramadan',
+  'khatma': '/quran/khatma',
 };
 
 /// Maps a deep link to a router location. Unknown targets go home.
+/// `yaqeen://tag/<code>` (the «activate in the app» button on a blank medal's page) opens the card
+/// screen with the code ready to activate. `yaqeen://encode/<token>` (admin › «ترميز بالهاتف», staff
+/// only) opens the encoding screen; it is never a campaign target and has no tab or menu entry.
 String routeForDeepLink(Uri uri) {
   final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
+  if (uri.scheme == 'yaqeen' && uri.host == 'encode') {
+    final token = segments.length == 1 ? segments.first : '';
+    return RegExp(r'^[A-Za-z0-9_-]{43}$').hasMatch(token) ? '/encode/$token' : '/home';
+  }
+  if (uri.scheme == 'yaqeen' && uri.host == 'tag' && segments.isNotEmpty) {
+    final code = segments.first.toUpperCase().replaceAll(RegExp('[^0-9A-Z]'), '');
+    if (code.isNotEmpty && code.length <= 16) return '/profile/card?tag=$code';
+  }
   final String key;
   if (uri.scheme == 'yaqeen') {
     key = uri.host.isNotEmpty ? uri.host : (segments.isNotEmpty ? segments.first : '');

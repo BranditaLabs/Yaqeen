@@ -138,6 +138,8 @@ for name in ['mark-navy', 'mark-white', 'splash-wings-navy', 'splash-diamond-gol
     im = Image.open(src)
     im.thumbnail((900, 900), Image.LANCZOS)  # 3x of the largest on-screen size
     im.save(mob / f'{name}.png', optimize=True)
+# The iOS home-screen widget shows the same mark (from the artwork, never typeset).
+shutil.copy(mob / 'mark-navy.png', REPO / 'apps/mobile/ios/YaqeenWidget/Assets.xcassets/WidgetMark.imageset/mark-navy.png')
 launch = mob / 'launcher'
 launch.mkdir(exist_ok=True)
 for f in [*(BRAND / 'app-icon/ios').glob('*.png'), *(BRAND / 'app-icon/android').glob('*.png'), BRAND / 'splash/android12-splash-icon.png']:

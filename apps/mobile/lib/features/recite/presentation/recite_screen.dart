@@ -11,12 +11,12 @@ import '../../../core/format.dart';
 import '../../../core/platform/recitation_engine.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
-import '../../../core/widgets/ambient_background.dart';
 import '../../../core/widgets/controls.dart';
 import '../../../core/widgets/liquid_glass.dart';
 import '../../../core/widgets/yq_button.dart';
 import '../../../core/widgets/yq_icon.dart';
-import '../../../core/widgets/yq_layout.dart';
+import '../../../core/widgets/yq_ring.dart';
+import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../hifz/presentation/hifz_controller.dart';
@@ -146,40 +146,28 @@ class _ReciteScreenState extends ConsumerState<ReciteScreen> {
       final q = quran.valueOrNull;
       return ReaderScreen(initialPage: q == null ? 1 : q.surah(widget.surah).startPage);
     }
+    final q = quran.valueOrNull;
+    final expected = q == null ? null : _expected(q);
+    final first = expected?.first.$1;
+    final page = q == null || first == null ? null : q.pageOf(first);
+    final results = expected == null ? const <AyahResult>[] : (_results.isEmpty ? RecitationAligner.align(expected, _heard) : _results);
+    final recited = RecitationAligner.recitedCount(results);
+
     return Scaffold(
       backgroundColor: YqColors.porcelain,
-      body: AmbientBackground(
-        child: SafeArea(
-          child: quran.when(
-            loading: () => const Center(child: CircularProgressIndicator(color: YqColors.lapis)),
-            error: (_, __) => YqErrorState(onRetry: () => ref.invalidate(quranDataProvider)),
-            data: (q) => _body(context, t, q),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _body(BuildContext context, AppLocalizations t, QuranData q) {
-    final text = Theme.of(context).textTheme;
-    final expected = _expected(q);
-    final first = expected.first.$1;
-    final page = q.pageOf(first);
-    final results = _results.isEmpty ? RecitationAligner.align(expected, _heard) : _results;
-    final recited = RecitationAligner.recitedCount(results);
-    final okAyat = results.take(recited).where((r) => r.ok).length;
-    final warnings = [for (final r in results.take(recited)) ...r.words.where((w) => w.mark == WordMark.warn)];
-    final started = _heard.isNotEmpty;
-
-    return Column(
-      children: [
-        Expanded(
-          child: YqPage(
-            header: YqTopBar(
-              title: q.surah(widget.surah).nameAr,
-              subtitle: '${t.quranJuz(q.juzOf(first))} · ${t.quranPageN(page)}',
-            ),
+      body: YqCanvas(
+        bottom: YqSpace.l,
+        stage: YqStage(
+          compact: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              YqStageBar(
+                back: true,
+                title: q == null ? '' : q.surah(widget.surah).nameAr,
+                subtitle: q == null || first == null ? null : '${t.quranJuz(q.juzOf(first))} · ${t.quranPageN(page!)}',
+              ),
+              const SizedBox(height: YqSpace.l),
               YqSegmented<_Mode>(
                 segments: [
                   (_Mode.read, t.reciteModeRead),
@@ -188,115 +176,162 @@ class _ReciteScreenState extends ConsumerState<ReciteScreen> {
                 ],
                 selected: _Mode.recite,
                 onChanged: (m) => switch (m) {
-                  _Mode.read => context.pushReplacement('/quran/read/$page'),
-                  _Mode.listen => context.pushReplacement('/quran/listen/${widget.surah}?ayah=${first.ayah}'),
+                  _Mode.read => context.pushReplacement('/quran/read/${page ?? 1}'),
+                  _Mode.listen => context.pushReplacement('/quran/listen/${widget.surah}?ayah=${first?.ayah ?? 1}'),
                   _Mode.recite => null,
                 },
               ),
-              const SizedBox(height: YqSpace.m),
-              Row(
-                children: [
-                  Expanded(child: Text(t.reciteShowAyat, style: text.bodyMedium)),
-                  YqSwitch(label: t.reciteShowAyat, value: _showAyat, onChanged: (v) => setState(() => _showAyat = v)),
-                ],
-              ),
-              const SizedBox(height: YqSpace.m),
-              if (_available == false)
-                LiquidGlass(child: YqEmptyState(icon: YqIcons.quran, title: t.reciteUnavailable))
-              else
-                LiquidGlass(
-                  padding: const EdgeInsets.all(YqSpace.l),
-                  child: Directionality(
-                    textDirection: TextDirection.rtl,
-                    child: Text.rich(
-                      TextSpan(
-                        children: [
-                          for (final (i, r) in results.indexed)
-                            // Memorisation test: ayat stay hidden until recited when «إظهار الآيات» is off.
-                            if (_showAyat || i < recited) ...[
-                              for (final w in r.words)
-                                TextSpan(
-                                  text: '${w.word} ',
-                                  style: w.mark == WordMark.warn
-                                      ? const TextStyle(
-                                          decoration: TextDecoration.underline,
-                                          decorationColor: YqColors.gold,
-                                          decorationThickness: 2,
-                                          color: YqColors.goldText,
-                                        )
-                                      : TextStyle(color: started && w.mark == WordMark.skipped && i < recited ? YqColors.muted : null),
-                                ),
-                              TextSpan(text: '﴿${YqFormat.toArabicIndic(r.ayah.ayah)}﴾ ', style: const TextStyle(color: YqColors.goldText)),
-                            ] else
-                              TextSpan(text: '﴿${YqFormat.toArabicIndic(r.ayah.ayah)}﴾ ', style: const TextStyle(color: YqColors.slate200)),
-                        ],
-                      ),
-                      textAlign: TextAlign.justify,
-                      style: YqText.quran(size: 24, height: 2.2, color: YqColors.ink),
-                    ),
-                  ),
-                ),
-              if (started) ...[
-                const SizedBox(height: YqSpace.m),
-                Wrap(
-                  spacing: YqSpace.s,
-                  runSpacing: YqSpace.s,
-                  children: [
-                    if (okAyat > 0) _ResultChip(label: t.reciteOk(okAyat), color: YqColors.success),
-                    for (final w in warnings)
-                      _ResultChip(
-                        label: t.reciteWarn(w.word),
-                        color: YqColors.goldText,
-                        onTap: () => context.push('/quran/listen/${w.ayah.surah}?ayah=${w.ayah.ayah}'),
-                      ),
-                  ],
-                ),
-                if (widget.fromHifz && !_listening && recited == results.length && warnings.isEmpty) ...[
-                  const SizedBox(height: YqSpace.m),
-                  YqButton.secondary(
-                    label: t.hifzMarkDone,
-                    onPressed: () async {
-                      await ref.read(hifzControllerProvider.notifier).memoriseToday();
-                      if (context.mounted) context.pop();
-                    },
-                  ),
-                ],
-              ],
             ],
           ),
         ),
-        if (_available != false)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(YqSpace.gutter, YqSpace.s, YqSpace.gutter, YqSpace.l),
-            child: Column(
-              children: [
-                Semantics(
-                  button: true,
-                  label: _listening ? t.reciteStop : t.reciteStart,
-                  child: GestureDetector(
-                    onTap: _available == null ? null : () => _toggle(q),
-                    child: AnimatedContainer(
-                      duration: YqMotion.base,
-                      width: 76,
-                      height: 76,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _listening ? YqColors.lapis : YqColors.ink,
-                        boxShadow: [if (_listening) const BoxShadow(color: Color(0x551F3F94), blurRadius: 24, spreadRadius: 4)],
-                      ),
-                      child: Icon(_listening ? Icons.stop_rounded : Icons.mic_rounded, color: YqColors.white, size: 34),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: YqSpace.s),
-                Text(_listening ? t.reciteListening : t.reciteStart, style: text.labelMedium),
-                TextButton(
-                  onPressed: () => context.push('/quran/listen/${widget.surah}?ayah=${first.ayah}'),
-                  child: Text(t.reciteHearReciter),
-                ),
-              ],
+        footer: q == null || _available == false
+            ? null
+            : _Mic(
+                listening: _listening,
+                progress: results.isEmpty ? 0 : recited / results.length,
+                onTap: _available == null ? null : () => _toggle(q),
+                onHear: () => context.push('/quran/listen/${widget.surah}?ayah=${first!.ayah}'),
+              ),
+        children: quran.when(
+          loading: () => [const YqSkeleton(child: YqSkeletonText(lines: 6, lineHeight: 20))],
+          error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(quranDataProvider))],
+          data: (q) => _body(context, t, q, results, recited),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _body(BuildContext context, AppLocalizations t, QuranData q, List<AyahResult> results, int recited) {
+    final text = Theme.of(context).textTheme;
+    final okAyat = results.take(recited).where((r) => r.ok).length;
+    final warnings = [for (final r in results.take(recited)) ...r.words.where((w) => w.mark == WordMark.warn)];
+    final started = _heard.isNotEmpty;
+
+    return [
+      LiquidGlass(
+        padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.s),
+        child: Row(
+          children: [
+            Expanded(child: Text(t.reciteShowAyat, style: text.bodyMedium)),
+            YqSwitch(label: t.reciteShowAyat, value: _showAyat, onChanged: (v) => setState(() => _showAyat = v)),
+          ],
+        ),
+      ),
+      const SizedBox(height: YqSpace.m),
+      if (_available == false)
+        LiquidGlass(child: YqEmptyState(icon: YqIcons.quran, title: t.reciteUnavailable))
+      else
+        LiquidGlass(
+          padding: const EdgeInsets.all(YqSpace.xl),
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  for (final (i, r) in results.indexed)
+                    // Memorisation test: ayat stay hidden until recited when «إظهار الآيات» is off.
+                    if (_showAyat || i < recited) ...[
+                      for (final w in r.words)
+                        TextSpan(
+                          text: '${w.word} ',
+                          style: w.mark == WordMark.warn
+                              ? const TextStyle(
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: YqColors.gold,
+                                  decorationThickness: 2,
+                                  color: YqColors.goldText,
+                                )
+                              : TextStyle(color: started && w.mark == WordMark.skipped && i < recited ? YqColors.muted : null),
+                        ),
+                      TextSpan(text: '﴿${YqFormat.toArabicIndic(r.ayah.ayah)}﴾ ', style: const TextStyle(color: YqColors.goldText)),
+                    ] else
+                      TextSpan(text: '﴿${YqFormat.toArabicIndic(r.ayah.ayah)}﴾ ', style: const TextStyle(color: YqColors.slate200)),
+                ],
+              ),
+              textAlign: TextAlign.justify,
+              style: YqText.quran(size: 24, height: 2.2, color: YqColors.ink),
             ),
           ),
+        ),
+      if (started) ...[
+        const SizedBox(height: YqSpace.m),
+        Wrap(
+          spacing: YqSpace.s,
+          runSpacing: YqSpace.s,
+          children: [
+            if (okAyat > 0) _ResultChip(label: t.reciteOk(okAyat), color: YqColors.success),
+            for (final w in warnings)
+              _ResultChip(
+                label: t.reciteWarn(w.word),
+                color: YqColors.goldText,
+                onTap: () => context.push('/quran/listen/${w.ayah.surah}?ayah=${w.ayah.ayah}'),
+              ),
+          ],
+        ),
+        if (widget.fromHifz && !_listening && recited == results.length && warnings.isEmpty) ...[
+          const SizedBox(height: YqSpace.m),
+          YqButton.secondary(
+            label: t.hifzMarkDone,
+            onPressed: () async {
+              await ref.read(hifzControllerProvider.notifier).memoriseToday();
+              if (context.mounted) context.pop();
+            },
+          ),
+        ],
+      ],
+    ];
+  }
+}
+
+/// The microphone as an orb: ink at rest, lapis with a soft halo while listening, ringed by how
+/// much of the passage has been recited.
+class _Mic extends StatelessWidget {
+  const _Mic({required this.listening, required this.progress, required this.onTap, required this.onHear});
+  final bool listening;
+  final double progress;
+  final VoidCallback? onTap;
+  final VoidCallback onHear;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Semantics(
+          button: true,
+          label: listening ? t.reciteStop : t.reciteStart,
+          child: GestureDetector(
+            onTap: onTap,
+            child: YqRing(
+              value: progress,
+              gold: progress >= 1,
+              size: 104,
+              stroke: 4,
+              child: AnimatedContainer(
+                duration: YqMotion.base,
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: listening ? YqColors.lapis : YqColors.navy,
+                  boxShadow: [
+                    BoxShadow(
+                      color: listening ? const Color(0x661F3F94) : const Color(0x330A1530),
+                      blurRadius: listening ? 30 : 18,
+                      spreadRadius: listening ? 6 : -4,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Icon(listening ? Icons.stop_rounded : Icons.mic_rounded, color: YqColors.goldLight, size: 36),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: YqSpace.xs),
+        Text(listening ? t.reciteListening : t.reciteStart, style: Theme.of(context).textTheme.labelMedium),
+        TextButton(onPressed: onHear, child: Text(t.reciteHearReciter)),
       ],
     );
   }

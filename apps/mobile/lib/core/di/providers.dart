@@ -1,7 +1,10 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../features/card/data/card_repository.dart';
+import '../../features/card/data/encode_repository.dart';
 import '../../features/calendar/data/calendar_repository.dart';
 import '../../features/challenge/data/challenge_repository.dart';
 import '../../features/azkar/data/azkar_store.dart';
@@ -24,12 +27,15 @@ import '../../features/quran/data/tafsir_repository.dart';
 import '../../features/quran/domain/quran_data.dart';
 import '../../features/rewards/data/rewards_repository.dart';
 import '../analytics/analytics.dart';
+import '../analytics/product_analytics.dart';
+import '../settings/settings_controller.dart';
 import '../config/env.dart';
 import '../config/remote_config.dart';
 import '../network/download_queue.dart';
 import '../network/api_client.dart';
 import '../network/connectivity.dart';
 import '../notifications/notification_planner.dart';
+import '../notifications/push_registration.dart';
 import '../notifications/push_service.dart';
 import '../offline/outbox.dart';
 import '../platform/audio_engine.dart';
@@ -41,16 +47,33 @@ import '../settings/app_settings.dart';
 import '../settings/settings_repository.dart';
 import '../storage/kv_store.dart';
 import '../storage/local_store.dart';
+import '../platform/home_widget_publisher.dart';
+import '../platform/nfc_service.dart';
 
 /// Dependency graph. Platform-backed providers are overridden in `main.dart`
 /// (real plugins) and in tests (fakes) — features only depend on these providers.
 
 final kvStoreProvider = Provider<KvStore>((_) => throw UnimplementedError('Override kvStoreProvider in main()'));
 final secureStoreProvider = Provider<KvStore>((_) => SecureKvStore());
+
+/// Keys written to [kvStoreProvider] — empty unless main() wraps it in an [ObservableKvStore].
+final kvChangesProvider = Provider<Stream<String>>((ref) {
+  final kv = ref.watch(kvStoreProvider);
+  return kv is ObservableKvStore ? kv.changes : const Stream.empty();
+});
 final localStoreProvider = Provider((ref) => LocalStore(ref.watch(kvStoreProvider)));
 
 /// Injectable clock (tests pin "now").
 final clockProvider = Provider<DateTime Function()>((_) => DateTime.now);
+
+/// Home-screen widgets' data sink; the plugin one is set in main().
+final homeWidgetPublisherProvider = Provider<HomeWidgetPublisher>((_) => NoopHomeWidgetPublisher());
+
+/// NFC (medal scan, staff encoding); the plugin one is set in main(). Never started at boot.
+final nfcServiceProvider = Provider<NfcService>((_) => const NoopNfcService());
+
+/// Whether NFC is present and on, checked only when a screen that offers it is open.
+final nfcStateProvider = FutureProvider.autoDispose<NfcState>((ref) => ref.watch(nfcServiceProvider).availability());
 
 final tokenStoreProvider = Provider((ref) => TokenStore(ref.watch(secureStoreProvider)));
 final apiClientProvider = Provider((ref) => ApiClient(baseUrl: Env.apiBaseUrl, tokens: ref.watch(tokenStoreProvider)));
@@ -98,6 +121,8 @@ final challengeRepositoryProvider = Provider(
     cache: ref.watch(kvStoreProvider),
   ),
 );
+final cardRepositoryProvider = Provider((ref) => CardRepository(ref.watch(apiClientProvider)));
+final encodeRepositoryProvider = Provider((ref) => EncodeRepository(ref.watch(apiClientProvider)));
 final rewardsRepositoryProvider = Provider((ref) => RewardsRepository(ref.watch(apiClientProvider), cache: ref.watch(kvStoreProvider)));
 final calendarRepositoryProvider =
     Provider((ref) => CalendarRepository(api: ref.watch(apiClientProvider), cache: ref.watch(kvStoreProvider)));
@@ -111,14 +136,31 @@ final initialSessionProvider = Provider<Session>((_) => Session.none);
 
 /* -------------------------------------------------------------- analytics */
 
-/// Ad SDK sinks (Firebase/Google Ads, Meta, TikTok) are appended here once added.
-final adSinksProvider = Provider<List<AdSink>>((_) => [DebugAdSink()]);
+/// Ad SDK sinks. Default: none (the in-memory debug sink in debug builds). main() overrides it with
+/// the SDKs whose build values exist (core/analytics/sinks/ad_sinks.dart).
+final adSinksProvider = Provider<List<AdSink>>((_) => [if (kDebugMode) DebugAdSink()]);
 final analyticsProvider = Provider((ref) {
   final consents = ref.watch(consentRepositoryProvider);
   return Analytics(
     sinks: ref.watch(adSinksProvider),
     adsConsent: () => consents.granted(ConsentKind.adsMeasurement),
+    consentDecided: () => consents.decided,
+    attAuthorized: ref.watch(deviceServicesProvider).trackingAuthorized,
     store: ref.watch(kvStoreProvider),
+  );
+});
+
+/// Consented product analytics («تحسين التطبيق»), to our API only — see core/analytics/product_analytics.dart.
+final productAnalyticsProvider = Provider((ref) {
+  final consents = ref.watch(consentRepositoryProvider);
+  final device = ref.watch(deviceServicesProvider);
+  return ProductAnalytics(
+    api: ref.watch(apiClientProvider),
+    store: ref.watch(kvStoreProvider),
+    consent: () => consents.granted(ConsentKind.productAnalytics),
+    platform: device.isIOS ? 'ios' : 'android',
+    appVersion: device.appVersion,
+    locale: () => ref.read(settingsProvider).locale,
   );
 });
 
@@ -148,9 +190,17 @@ final packRepositoryProvider = Provider(
   ),
 );
 
-/// Tafsir from the installed, verified pack only; invalidate after an install to reload it.
-final tafsirRepositoryProvider =
-    Provider((ref) => TafsirRepository(packFile: () => ref.read(packRepositoryProvider).installedFile(PackKind.tafsir)));
+/// Tafsir: an installed, verified pack first, then Quran Foundation through our API (cached per
+/// surah on the device). Invalidate after a pack install or a tafsir change to reload it.
+final tafsirRepositoryProvider = Provider(
+  (ref) => TafsirRepository(
+    packFile: () => ref.read(packRepositoryProvider).installedFile(PackKind.tafsir),
+    api: ref.watch(apiClientProvider),
+    store: ref.watch(kvStoreProvider),
+    root: ref.watch(filesDirProvider),
+    now: ref.watch(clockProvider),
+  ),
+);
 
 /* ------------------------------------------------------------------ audio */
 
@@ -161,14 +211,24 @@ final filesDirProvider = Provider<Future<Directory> Function()>((_) {
   Future<Directory>? dir;
   return () => dir ??= Directory.systemTemp.createTemp('yaqeen');
 });
+
 /// One queue for every large download, alive for the whole session (never tied to a screen).
 final downloadQueueProvider = Provider((_) => DownloadQueue());
 final audioDownloadsProvider = Provider(
-  (ref) => AudioDownloads(root: ref.watch(filesDirProvider), isUnmetered: ref.watch(connectivityProvider).isUnmetered),
+  (ref) => AudioDownloads(
+    root: ref.watch(filesDirProvider),
+    isUnmetered: ref.watch(connectivityProvider).isUnmetered,
+    // Quran Foundation surahs are resolved through the API (the repository never reads this provider).
+    resolve: (r, surah) => ref.read(reciterRepositoryProvider).surahUri(r, surah),
+  ),
 );
 final reciterRepositoryProvider = Provider(
-  (ref) =>
-      ReciterRepository(api: ref.watch(apiClientProvider), cache: ref.watch(kvStoreProvider), downloads: ref.watch(audioDownloadsProvider)),
+  (ref) => ReciterRepository(
+    api: ref.watch(apiClientProvider),
+    cache: ref.watch(kvStoreProvider),
+    root: ref.watch(filesDirProvider),
+    now: ref.watch(clockProvider),
+  ),
 );
 final listenStoreProvider = Provider((ref) => ListenStore(ref.watch(localStoreProvider)));
 
@@ -193,3 +253,15 @@ final reminderServiceProvider = Provider(
   ),
 );
 final pushServiceProvider = Provider<PushService>((_) => NoopPushService());
+final pushRegistrarProvider = Provider((ref) {
+  final device = ref.watch(deviceServicesProvider);
+  final r = PushRegistrar(
+    api: ref.watch(apiClientProvider),
+    push: ref.watch(pushServiceProvider),
+    store: ref.watch(kvStoreProvider),
+    platform: device.isIOS ? 'ios' : 'android',
+    appVersion: device.appVersion,
+  );
+  ref.onDispose(r.dispose);
+  return r;
+});

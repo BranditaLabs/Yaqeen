@@ -2,7 +2,7 @@
  * Shopify discount-code builders — pure functions.
  * The API creates a single-use, customer-agnostic code per redemption via the Admin GraphQL API.
  */
-import { randomInt } from 'node:crypto';
+import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
 import type { RewardKind } from '@yaqeen/contracts';
 
 /** No 0/O/1/I to avoid misreading codes typed at checkout. */
@@ -76,4 +76,27 @@ export function buildDiscountRequest(args: {
     resultKey: 'discountCodeBasicCreate',
     variables: { basicCodeDiscount: { ...common, customerGets: { value: discountValue, items } } },
   };
+}
+
+/* ------------------------------------------------------------ webhooks */
+
+/** Shopify signs webhooks with base64(HMAC-SHA256(raw body, secret)) in X-Shopify-Hmac-Sha256. */
+export function verifyWebhookHmac(rawBody: Buffer, header: string | undefined, secret: string): boolean {
+  if (!secret || !header) return false;
+  const expected = createHmac('sha256', secret).update(rawBody).digest();
+  const given = Buffer.from(header, 'base64');
+  return given.length === expected.length && timingSafeEqual(given, expected);
+}
+
+/** Our codes used on a paid order (other discount codes on the order are ignored). */
+export function yaqeenCodesIn(order: unknown): string[] {
+  const codes = (order as { discount_codes?: { code?: unknown }[] } | null)?.discount_codes ?? [];
+  if (!Array.isArray(codes)) return [];
+  return [
+    ...new Set(
+      codes
+        .map((d) => (typeof d?.code === 'string' ? d.code.trim().toUpperCase() : ''))
+        .filter((c) => /^YQ-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(c)),
+    ),
+  ];
 }

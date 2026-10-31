@@ -13,6 +13,8 @@ erDiagram
   users ||--o{ task_completions : completes
   users ||--o{ points_ledger : earns-spends
   users ||--o{ redemptions : redeems
+  users ||--o| public_profiles : "public card"
+  users ||--o{ user_backups : "opt-in cloud backup"
   rewards ||--o{ redemptions : "issued as"
   campaigns ||--o{ campaign_deliveries : "sent to"
   users ||--o{ campaign_deliveries : receives
@@ -33,8 +35,15 @@ erDiagram
 | `bonus_rules` | White days / Mon–Thu fasting / Friday Kahf. Disabled until approved. |
 | `task_completions` | Unique `(user, date, task)` and `(user, client_event_id)`. `is_qada` for make-ups. |
 | `points_ledger` | **Append-only.** Unique `(user, ref_key)` makes awards idempotent. `ref_key` patterns: `YYYY-MM-DD:task:<task>`, `YYYY-MM-DD:bonus:<kind>`, `milestone:<days>`, `grant:<grantId>`, `redemption:<id>`, `reversal:redemption:<id>`, `admin:<adminId>:<uuid>`. |
-| `rewards` / `redemptions` | Catalogue (cost, value, validity days, monthly cap, per-user monthly limit) and issued Shopify codes. |
-| `content_items` | Duas / azkar with workflow `draft → pending_review → published / changes_requested`. |
+| `public_profiles` | Opt-in «بطاقة يقين» (NFC/QR). Unique lower-case `handle`; `published` false by default and set false on an erasure request or by support; the row is deleted by the erasure purge (handle freed); `links`/`show` JSON; `views` = human page opens (a counter, no visitor data); `moderated_at`/`moderation_reason` = hidden by support until restored. The page computes level (lifetime points), streak and badges (`milestone:*` ledger rows) at read time; the journey timeline is derived the same way (no new table). |
+| `user_backups` | Opt-in cloud backup (consent `cloud_backup`, migration 0013 adds the enum value, 0014 the table). PK `(user_id, kind)`, `kind` from the closed list `BACKUP_KINDS`; `blob` = the JSON document sealed with AES-256-GCM under `BACKUP_SECRETS_KEY` (`enc:v1:<iv>.<tag>.<ct>`, plaintext only in dev/test without a key), ≤ 256 KB per kind; `version` (1 on the first write, +1 per accepted PUT — optimistic concurrency); `device_id` (random per install, which phone wrote last); `updated_at`. FK to `users` on delete cascade; deleted explicitly when the consent is withdrawn and by the erasure purge (users are tombstoned, not deleted). Read only by `/v1/me/backup*` and the user's own export — never by admin routes, aggregates or analytics. |
+| `product_events` | Consented product analytics: `anon_id` (random per install — **no user id column**), `name` (closed list), `props` (closed values), `platform`, `app_version`, `locale`, `occurred_at`. Purged after 180 days by the purge job. Migration 0009 also adds `product_analytics` to `consent_kind`. |
+| `tag_batches` | A production run: `batch` PK, `kind`, `status` ordered·received·on_sale·void, `note`, `created_by`. Migration 0008 back-fills earlier batches as `on_sale`. |
+| `card_daily_stats` | `(date, metric)` → `value`: Cairo-day counters of the card programme (page_open, tag_scan, activation_open, get_app, store_click, card_published, tag_activated). Numbers only. |
+| `profile_tags` | Key medals / cards. `code` (PK, 8 chars from `TAG_ALPHABET`), `kind` medal·card, `batch`, `user_id` (null until activated; set null by the erasure purge or if the user row is deleted), `linked_at`, `disabled_at` (lost / erasure — never re-activated by a finder; support may re-issue), `scans` (a counter only), `encoded_at` / `encoded_uid` (chip UID hex, when the phone reads it) / `encoded_locked` — the last write by the staff encoder (migration 0013). |
+| `tag_encode_sessions` | Staff NFC encoding sessions (migration 0013): `id`, `batch` → `tag_batches` (cascade), `token_hash` (SHA-256 of the 32-byte token, unique — the token itself is never stored), `created_by` → `admin_users`, `expires_at` (2 h), `revoked_at`, `created_at`. Creation and revocation are in `audit_log`. |
+| `rewards` / `redemptions` | Catalogue (cost, value, validity days, monthly cap, per-user monthly limit) and issued Shopify codes (`issued → used` by the orders/paid webhook, `→ expired` daily, `void` when Shopify failed and the points came back). |
+| `content_items` | Duas / azkar with workflow `draft → pending_review → published / changes_requested`. `live` + `live_at` hold the last approved snapshot — what the app is served — so an edit in review never takes an item offline. |
 | `daily_tasks` | One "مهمة اليوم" per date. |
 | `campaigns` / `campaign_deliveries` | Push campaigns; deliveries enforce the daily cap and dedupe. |
 | `app_config` | Remote config by key (features, minVersion, maintenance, splashVerse). |

@@ -25,3 +25,14 @@ apps/mobile/android/app/google-services.json
 # Next.js / TS
 next-env.d.ts
 *.tsbuildinfo
+
+# tools/quran/build_layout.py download cache (604 API pages)
+tools/quran/.cache/
+
+# graphify knowledge graph (regenerate: graphify extract . --code-only && graphify cluster-only .)
+graphify-out/
+# Playwright CLI output (may contain credentials)
+.playwright-cli/
+
+# agent worktrees
+.claude/worktrees/

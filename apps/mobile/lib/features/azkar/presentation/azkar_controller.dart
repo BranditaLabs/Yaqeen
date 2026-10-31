@@ -62,6 +62,14 @@ class AzkarController extends Notifier<AzkarDay> {
     return finished;
   }
 
+  /// Cloud backup merged today's counts from another phone (never fewer than shown here).
+  void adopt(AzkarDay day) {
+    if (day.date != state.date) return;
+    _save?.cancel();
+    state = day;
+    _store.saveDay(state).ignore();
+  }
+
   void reset(ContentItem item) {
     state = state.reset(item);
     _store.saveDay(state).ignore();
