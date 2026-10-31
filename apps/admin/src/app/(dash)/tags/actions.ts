@@ -1,10 +1,36 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { AdminAssignTag, AdminTagBatchPatch, AdminTagBatchRequest } from '@yaqeen/contracts';
+import QRCode from 'qrcode';
+import { AdminAssignTag, type AdminEncodeSessionCreated, AdminTagBatchPatch, AdminTagBatchRequest } from '@yaqeen/contracts';
+import tokens from '@yaqeen/design-tokens/tokens.json';
 import { tryApi } from '@/lib/api';
 
 type S = { error: string | null; ok?: boolean };
+
+/** A just-opened staff encoding session: the link is shown once (QR + text) and never stored here. */
+export type EncodeState = { error: string | null; ok?: boolean; session?: { id: string; url: string; expiresAt: string; qrSvg: string } };
+
+export async function openEncodeSession(batch: string, _prev: EncodeState, _form: FormData): Promise<EncodeState> {
+  const { data, error, code } = await tryApi<AdminEncodeSessionCreated>(`/admin/tags/batches/${encodeURIComponent(batch)}/encode-sessions`, { method: 'POST' });
+  if (code === 'batch_void') return { error: 'الدفعة ملغاة ولا يمكن ترميزها' };
+  if (error || !data) return { error: error ?? 'تعذّر فتح جلسة الترميز' };
+  const qrSvg = await QRCode.toString(data.url, {
+    type: 'svg',
+    margin: 1,
+    errorCorrectionLevel: 'M',
+    color: { dark: tokens.color.ink, light: tokens.color.white },
+  });
+  revalidatePath('/tags');
+  return { error: null, ok: true, session: { id: data.id, url: data.url, expiresAt: data.expiresAt, qrSvg } };
+}
+
+export async function revokeEncodeSession(batch: string, id: string, _prev: S, _form: FormData): Promise<S> {
+  const { error } = await tryApi(`/admin/tags/batches/${encodeURIComponent(batch)}/encode-sessions/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (error) return { error };
+  revalidatePath('/tags');
+  return { error: null, ok: true };
+}
 
 export async function mintBatch(_prev: S, form: FormData): Promise<S> {
   const parsed = AdminTagBatchRequest.safeParse({

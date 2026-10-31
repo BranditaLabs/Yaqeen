@@ -210,6 +210,12 @@ export const profileTags = pgTable(
     linkedAt: ts('linked_at'),
     disabledAt: ts('disabled_at'),
     scans: integer('scans').notNull().default(0),
+    /** Written onto a chip in-house with the staff encoder (last write; null = not yet). */
+    encodedAt: ts('encoded_at'),
+    /** The chip's UID (hex) the encoder reported, when the phone could read it. */
+    encodedUid: text('encoded_uid'),
+    /** The chip was made read-only after writing (permanent). */
+    encodedLocked: boolean('encoded_locked').notNull().default(false),
     createdAt: createdAt(),
   },
   (t) => [index('profile_tags_user_idx').on(t.userId), index('profile_tags_batch_idx').on(t.batch)],
@@ -268,6 +274,27 @@ export const tagBatches = pgTable('tag_batches', {
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
+
+/**
+ * Short-lived staff encoding sessions: marketing opens one for a batch in admin, a staff phone opens
+ * `yaqeen://encode/<token>` and writes `/t/<code>` onto blank chips. The token is a capability scoped
+ * to one batch; only its SHA-256 is stored. Expires (2 h) or is revoked; creation/revocation audited.
+ */
+export const tagEncodeSessions = pgTable(
+  'tag_encode_sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    batch: text('batch')
+      .notNull()
+      .references(() => tagBatches.batch, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull().unique(),
+    createdBy: uuid('created_by').references(() => adminUsers.id, { onDelete: 'set null' }),
+    expiresAt: ts('expires_at').notNull(),
+    revokedAt: ts('revoked_at'),
+    createdAt: createdAt(),
+  },
+  (t) => [index('tag_encode_sessions_batch_idx').on(t.batch)],
+);
 
 /**
  * Card programme counters per day (Africa/Cairo): page opens, medal scans, app / store clicks,

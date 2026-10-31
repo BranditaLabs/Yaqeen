@@ -80,6 +80,8 @@
 	<false/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>نستخدم موقعك لحساب مواقيت الصلاة واتجاه القبلة فقط، ويبقى على جهازك. We use your location only for prayer times and the qibla; it stays on your device.</string>
+	<key>NFCReaderUsageDescription</key>
+	<string>نقرأ رابط ميدالية أو بطاقة يقين حين تقرّبها من الهاتف لتفعيلها. We read your Yaqeen medal or card's link when you hold it to the phone, to activate it.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>نستمع لتلاوتك على جهازك فقط للتسميع، ولا يُرفع أي صوت. We listen to your recitation on this device only; no audio is uploaded.</string>
 	<key>NSUserTrackingUsageDescription</key>

@@ -42,6 +42,7 @@ import 'core/time/zoned.dart';
 import 'features/onboarding/data/auth_repository.dart';
 import 'l10n/gen/app_localizations.dart';
 import 'core/platform/home_widget_publisher.dart';
+import 'core/platform/nfc_service.dart';
 
 void main() {
   Boot.reporter = SentryErrorReporter();
@@ -113,6 +114,8 @@ Future<void> _start() async {
       notificationTapsProvider.overrideWith((_) => notifier.taps),
       audioEngineProvider.overrideWithValue(JustAudioEngine()),
       homeWidgetPublisherProvider.overrideWithValue(PluginHomeWidgetPublisher()),
+      // Constructing it touches no platform channel; a session opens only on a user's tap.
+      nfcServiceProvider.overrideWithValue(PluginNfcService()),
       filesDirProvider.overrideWithValue(getApplicationSupportDirectory),
       pushServiceProvider.overrideWithValue(push),
       // Ad SDKs whose build values exist; each stays off until `ads_measurement` is granted.

@@ -92,6 +92,13 @@
       "when": 1793363657472,
       "tag": "0012_server_conversions",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793435964989,
+      "tag": "0013_nfc_encoding",
+      "breakpoints": true
     }
   ]
 }

@@ -1,10 +1,11 @@
 import Link from 'next/link';
-import type { AdminMe, AdminTagBatch, AdminTagRow } from '@yaqeen/contracts';
+import type { AdminEncodeSession, AdminMe, AdminTagBatch, AdminTagRow } from '@yaqeen/contracts';
 import { ActionForm } from '@/components/action-form';
 import { Badge, Button, Card, CardTitle, Kpi, Notice, PageHeader, Table, Td } from '@/components/ui';
 import { api } from '@/lib/api';
-import { date, num } from '@/lib/format';
+import { date, dateTime, num } from '@/lib/format';
 import { assignTag, disableTag, mintBatch, releaseTag, updateBatch, voidBatch } from './actions';
+import { EncodePanel } from './encode-panel';
 
 const KIND = { medal: 'ميدالية مفاتيح', card: 'بطاقة' } as const;
 const STATUS: Record<AdminTagRow['status'], [string, 'blue' | 'green' | 'gray' | 'red']> = {
@@ -34,6 +35,11 @@ export default async function TagsPage({ searchParams }: { searchParams: Promise
     api<AdminTagBatch[]>('/admin/tags/batches'),
     api<{ items: AdminTagRow[]; nextCursor: string | null }>(`/admin/tags?${qs}`),
   ]);
+  // Staff encoding sessions per open batch (marketing only; tokens are never listed).
+  const encodable = canMint ? batches.filter((b) => b.status !== 'void').slice(0, 30) : [];
+  const sessions = new Map(
+    await Promise.all(encodable.map(async (b) => [b.batch, await api<AdminEncodeSession[]>(`/admin/tags/batches/${encodeURIComponent(b.batch)}/encode-sessions`)] as const)),
+  );
   const total = batches.reduce((s, b) => s + b.total, 0);
   const active = batches.reduce((s, b) => s + b.active, 0);
 
@@ -53,7 +59,7 @@ export default async function TagsPage({ searchParams }: { searchParams: Promise
           {batches.length === 0 ? (
             <p className="text-sm text-muted">لا توجد دفعات بعد.</p>
           ) : (
-            <Table head={['الدفعة', 'الحالة', 'النوع', 'العدد', 'مفعّلة', 'موقوفة', 'التاريخ', '']}>
+            <Table head={['الدفعة', 'الحالة', 'النوع', 'العدد', 'مفعّلة', 'موقوفة', 'مُرمّزة', 'التاريخ', '']}>
               {batches.map((b) => (
                 <tr key={b.batch}>
                   <Td>
@@ -69,12 +75,25 @@ export default async function TagsPage({ searchParams }: { searchParams: Promise
                   <Td className="num">{num(b.total)}</Td>
                   <Td className="num">{num(b.active)}</Td>
                   <Td className="num">{num(b.disabled)}</Td>
+                  <Td className="num whitespace-nowrap">
+                    <span dir="ltr">
+                      {num(b.encoded)} / {num(b.total - b.disabled)}
+                    </span>
+                  </Td>
                   <Td className="whitespace-nowrap">{date(b.createdAt)}</Td>
                   <Td>
                     <div className="flex items-center gap-3">
                       <a href={`/tags-export/${encodeURIComponent(b.batch)}`} className="whitespace-nowrap text-sm text-lapis underline-offset-4 hover:underline">
                         تنزيل CSV
                       </a>
+                      {sessions.has(b.batch) && (
+                        <details>
+                          <summary className="cursor-pointer whitespace-nowrap text-sm text-lapis">ترميز بالهاتف</summary>
+                          <div className="mt-2 min-w-64">
+                            <EncodePanel batch={b.batch} sessions={sessions.get(b.batch) ?? []} />
+                          </div>
+                        </details>
+                      )}
                       {b.status !== 'void' && (canMint || canModerate) && (
                         <details>
                           <summary className="cursor-pointer text-sm text-lapis">إدارة</summary>
@@ -132,7 +151,7 @@ export default async function TagsPage({ searchParams }: { searchParams: Promise
             </ActionForm>
             <div className="mt-4">
               <Notice tone="blue">
-                ملف CSV فيه لكل قطعة: الرمز، الرمز المطبوع (XXXX-XXXX) والرابط. اكتب الرابط في الشريحة كسجل NDEF URI، واطبعه كرمز QR مع الرمز المطبوع. الرابط يُكتب مرة واحدة إلى الأبد، فتأكد من نطاق البطاقات قبل الإرسال للمصنع.
+                ملف CSV فيه لكل قطعة: الرمز، الرمز المطبوع (XXXX-XXXX) والرابط. اكتب الرابط في الشريحة كسجل NDEF URI (أو رمّزها بنفسك بالهاتف من «ترميز بالهاتف» في صف الدفعة)، واطبعه كرمز QR مع الرمز المطبوع. الرابط يُكتب مرة واحدة إلى الأبد، فتأكد من نطاق البطاقات قبل الإرسال للمصنع.
               </Notice>
             </div>
           </Card>
@@ -159,7 +178,7 @@ export default async function TagsPage({ searchParams }: { searchParams: Promise
         {list.items.length === 0 ? (
           <p className="text-sm text-muted">لا نتائج.</p>
         ) : (
-          <Table head={['الرمز', 'الحالة', 'البطاقة', 'المسح', 'التفعيل', '']}>
+          <Table head={['الرمز', 'الحالة', 'الشريحة', 'البطاقة', 'المسح', 'التفعيل', '']}>
             {list.items.map((t) => (
               <tr key={t.code}>
                 <Td>
@@ -169,6 +188,15 @@ export default async function TagsPage({ searchParams }: { searchParams: Promise
                 </Td>
                 <Td>
                   <Badge tone={STATUS[t.status][1]}>{STATUS[t.status][0]}</Badge>
+                </Td>
+                <Td>
+                  {t.encodedAt ? (
+                    <span className="whitespace-nowrap" title={dateTime(t.encodedAt)}>
+                      <Badge tone="blue">{t.encodedLocked ? 'مُرمّزة · مقفلة' : 'مُرمّزة'}</Badge>
+                    </span>
+                  ) : (
+                    <span className="text-muted">—</span>
+                  )}
                 </Td>
                 <Td>
                   {t.userId ? (

@@ -9,16 +9,29 @@
  *   PATCH /admin/tags/batches/:batch    production status (ordered → received → on_sale) + note (audited)
  *   POST /admin/tags/batches/:batch/void a faulty run: every tag in it switched off at once (audited)
  *   POST /admin/tags/:code/assign       link a blank tag to a customer who can't activate it (audited)
+ *   GET  /admin/tags/batches/:batch/encode-sessions          staff encoding sessions (never the token)
+ *   POST /admin/tags/batches/:batch/encode-sessions          open one: token shown once as QR + link (audited)
+ *   DELETE /admin/tags/batches/:batch/encode-sessions/:id    revoke it at once (audited)
  * Rows show the linked card's handle — never worship data.
  */
 import { and, desc, eq, isNotNull, isNull, lt, sql } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { AdminAssignTag, type AdminTagBatch, AdminTagBatchPatch, AdminTagBatchRequest, type AdminTagRow, TagCode, TagStatus, normalizeTagCode } from '@yaqeen/contracts';
-import { profileTags, publicProfiles, tagBatches, users } from '../../db/schema.js';
+import {
+  AdminAssignTag,
+  type AdminEncodeSession,
+  type AdminEncodeSessionCreated,
+  type AdminTagBatch, AdminTagBatchPatch, AdminTagBatchRequest,
+  type AdminTagRow,
+  TagCode,
+  TagStatus,
+  normalizeTagCode,
+} from '@yaqeen/contracts';
+import { profileTags, publicProfiles, tagBatches, tagEncodeSessions, users } from '../../db/schema.js';
 import { adminOf } from '../../plugins/auth.js';
 import { audit } from '../../lib/audit.js';
 import { badRequest, notFound } from '../../lib/errors.js';
+import * as encoding from '../../services/tag-encoding.service.js';
 import * as tags from '../../services/tags.service.js';
 
 const Reason = z.object({ reason: z.string().trim().min(3).max(500) });
@@ -43,6 +56,7 @@ export const adminTagsRoutes: FastifyPluginAsync = async (app) => {
         total: sql<number>`(select count(*) from profile_tags t where t.batch = tag_batches.batch)::int`,
         active: sql<number>`(select count(*) from profile_tags t where t.batch = tag_batches.batch and t.user_id is not null and t.disabled_at is null)::int`,
         disabled: sql<number>`(select count(*) from profile_tags t where t.batch = tag_batches.batch and t.disabled_at is not null)::int`,
+        encoded: sql<number>`(select count(*) from profile_tags t where t.batch = tag_batches.batch and t.encoded_at is not null and t.disabled_at is null)::int`,
       })
       .from(tagBatches)
       .orderBy(desc(tagBatches.createdAt));
@@ -148,8 +162,50 @@ export const adminTagsRoutes: FastifyPluginAsync = async (app) => {
       scans: t.scans,
       createdAt: t.createdAt.toISOString(),
       linkedAt: t.linkedAt?.toISOString() ?? null,
+      encodedAt: t.encodedAt?.toISOString() ?? null,
+      encodedLocked: t.encodedLocked,
     }));
     return { items, nextCursor: rows.length > q.limit ? items[items.length - 1]!.createdAt : null };
+  });
+
+  /* ------------------------------------------------ staff encoding sessions (NFC) */
+
+  const SessionParam = BatchParam.extend({ id: z.uuid() });
+
+  app.get('/batches/:batch/encode-sessions', { preHandler: mint }, async (req): Promise<AdminEncodeSession[]> => {
+    const { batch } = BatchParam.parse(req.params);
+    const rows = await db.select().from(tagEncodeSessions).where(eq(tagEncodeSessions.batch, batch)).orderBy(desc(tagEncodeSessions.createdAt)).limit(20);
+    const now = app.ctx.now();
+    return rows.map((r) => encoding.toAdminSession(r, now));
+  });
+
+  app.post('/batches/:batch/encode-sessions', { preHandler: mint }, async (req, reply) => {
+    const { batch } = BatchParam.parse(req.params);
+    const created = await db.transaction(async (tx): Promise<AdminEncodeSessionCreated> => {
+      const [b] = await tx.select({ status: tagBatches.status }).from(tagBatches).where(eq(tagBatches.batch, batch));
+      if (!b) throw notFound('batch');
+      if (b.status === 'void') throw badRequest('batch_void', 'A voided batch cannot be encoded');
+      const { token, row } = await encoding.createSession(tx, app.ctx.now(), batch, adminOf(req).sub);
+      // The audit row carries the session id and expiry — never the token or its hash.
+      await audit(tx, req, { action: 'tags.encode_session.create', targetType: 'tag_batch', targetId: batch, after: { sessionId: row.id, expiresAt: row.expiresAt.toISOString() } });
+      return { ...encoding.toAdminSession(row, app.ctx.now()), token, url: encoding.encodeDeepLink(token) };
+    });
+    reply.header('Cache-Control', 'no-store');
+    return reply.status(201).send(created);
+  });
+
+  app.delete('/batches/:batch/encode-sessions/:id', { preHandler: mint }, async (req, reply) => {
+    const { batch, id } = SessionParam.parse(req.params);
+    await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(tagEncodeSessions)
+        .set({ revokedAt: app.ctx.now() })
+        .where(and(eq(tagEncodeSessions.id, id), eq(tagEncodeSessions.batch, batch), isNull(tagEncodeSessions.revokedAt)))
+        .returning({ id: tagEncodeSessions.id });
+      if (!row) throw notFound('encode_session');
+      await audit(tx, req, { action: 'tags.encode_session.revoke', targetType: 'tag_batch', targetId: batch, after: { sessionId: id } });
+    });
+    return reply.status(204).send();
   });
 
   app.post('/:code/disable', { preHandler: write }, async (req) => {

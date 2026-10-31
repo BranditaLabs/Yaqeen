@@ -51,6 +51,7 @@ dependencies:
   # Ad measurement sinks (lib/core/analytics/sinks): Meta App Events, deferred init, Swift Package.
   # TikTok has no SDK in the app — server-side Events API (docs/ANALYTICS_EVENTS.md).
   facebook_app_events: ^0.31.0
+  nfc_manager: 4.2.1
 
 dev_dependencies:
   flutter_test:
