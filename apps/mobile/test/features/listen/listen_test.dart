@@ -166,7 +166,7 @@ void main() {
           (ref) => ReciterRepository(
             api: ref.watch(apiClientProvider),
             cache: ref.watch(kvStoreProvider),
-            downloads: ref.watch(audioDownloadsProvider),
+            root: ref.watch(filesDirProvider),
             client: fakeServer(),
           ),
         ),

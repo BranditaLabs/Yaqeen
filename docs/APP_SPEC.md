@@ -541,7 +541,7 @@ Result strip: «3 آيات صحيحة» (success tone) · «تنبيه واحد:
 
 **Layout** Back «رجوع إلى المصحف» · download button «تنزيل السورة». Eyebrow «يُشغَّل الآن», surah card «السورة 18 · مكية · 110 آيات» with name «الكهف» in display face, reciter «مشاري راشد العفاسي». Current ayah card (glass) with ayah text and number + collapsible tafsir line. Progress bar «4:12 / 23:40» (seek). Controls «التحكم في التشغيل»: repeat ayah · previous ayah · play/pause (64 dark pill) · next ayah · speed (0.75/1/1.25/1.5). Bottom chips «تغيير القارئ» (→ 12) · «مؤقت النوم» (sheet: 15/30/45/60 min, end of surah).
 
-**Rules (§6.7)** `just_audio` + `audio_service`: background playback, lock-screen + notification controls, Bluetooth buttons, interruption handling (pause on call, resume after). Ayah sync from per-ayah timing files; current ayah also highlighted if the reader is open. Streaming when online; downloaded files preferred. Repeat modes: ayah ×N, range A–B, surah. Listening ≥ 5 minutes in a day ticks challenge task `listen`.
+**Rules (§6.7)** `just_audio` + `audio_service`: background playback, lock-screen + notification controls, Bluetooth buttons, interruption handling (pause on call, resume after). Ayah sync from per-ayah timings (Quran Foundation verse timestamps, resolved per surah by `GET /v1/content/reciters/:id/surahs/:n` and kept on the device; a full download also saves `timings.json`); current ayah also highlighted if the reader is open. The tafsir line uses the same source as the reader (§6.6) and credits it. Streaming when online; downloaded files preferred. Repeat modes: ayah ×N, range A–B, surah. Listening ≥ 5 minutes in a day ticks challenge task `listen`.
 
 **Acceptance** [ ] Continues with screen off · [ ] Highlight within 150 ms of ayah boundaries · [ ] Resumes position after app kill.
 
@@ -549,10 +549,10 @@ Result strip: «3 آيات صحيحة» (success tone) · «تنبيه واحد:
 
 ### 5.14 `12 · Choose a reciter` — `/quran/reciters` ✅
 
-**Layout** Back «رجوع إلى المشغل», title «اختر القارئ», search «ابحث عن قارئ», filter chips «الكل | المحمّلة» + style «مرتّل | مجوّد». List rows: avatar initial · name · «مرتّل · حفص عن عاصم» · sample play («استمع لعينة من …» / «إيقاف العينة») · download state («محمّل · المس للحذف», ring «جارٍ التحميل · المس للإلغاء», or button «تحميل المصحف كاملاً للاستماع دون اتصال»). Selected row has lapis check. Footer note «التلاوات المتاحة تأتي من مصدر المحتوى المرخّص، والتحميل يتيح الاستماع دون اتصال.»
+**Layout** Back «رجوع إلى المشغل», title «اختر القارئ», search «ابحث عن قارئ», filter chips «الكل | المحمّلة» + style «مرتّل | مجوّد». List rows: avatar initial · name · «مرتّل · حفص عن عاصم» · sample play («استمع لعينة من …» / «إيقاف العينة») · download state («محمّل · المس للحذف», ring «جارٍ التحميل · المس للإلغاء», or button «تحميل المصحف كاملاً للاستماع دون اتصال»). Selected row has lapis check. Footer note «التلاوات من Quran.com · Quran Foundation، والتحميل يتيح الاستماع دون اتصال.» (attribution, §10). Style chip «معلّم» appears only when the catalogue has a muallim recitation. The sample button plays an explicit `sampleUrl`, else Al-Fatiha through the same per-surah resolver.
 Empty search: «لا يوجد قارئ بهذا الاسم» / «جرّب جزءاً من الاسم».
 
-**Data** Reciter catalogue from content sync (`GET /v1/content/reciters` — new, §8.2): `{id, nameAr, nameEn, style, riwaya, baseUrl, sizeBytes, timingUrl}`. Launch list: العفاسي · عبد الباسط · الحصري · المنشاوي · المعيقلي · الشريم · السديس (subject to licences, §10).
+**Data** Curated catalogue `GET /v1/content/reciters` (table `reciters`: allowlist, order, Arabic names, `active`): `{id, nameAr, nameEn, style, riwaya, source: qf|own, qfId, hasTimings, baseUrl, timingUrl, sampleUrl, sizeBytes}`. `qf` rows point at a Quran Foundation chapter reciter; each surah resolves through `GET /v1/content/reciters/:id/surahs/:n` → `{url, sizeBytes, durationMs, timings: [[startMs, endMs]…]}` (cached in KV per reciter/surah so downloaded files keep ayah sync offline); a full download also writes `GET …/:id/timings` as `timings.json`. `own` rows (future self-hosted audio) keep `<baseUrl>/<sss>.mp3`. Launch list (QF id): العفاسي (7) · عبد الباسط مرتّل (2) / مجوّد (1) · الحصري (6) · المنشاوي (9) · السديس (3) · الشريم (10) · الشاطري (4) · الدوسري (97) · الرفاعي (5). المعيقلي is not a QF chapter reciter — hidden until we host it.
 
 **Acceptance** [ ] Full download resumable, Wi-Fi only unless overridden · [ ] Deleting frees storage shown in Profile.
 
@@ -837,11 +837,12 @@ Each function: **what · where in code · rules · tests**. Pure logic goes in `
 - Bundled `assets/quran/quran.db` (SQLite): `surah(114)`, `ayah(6236: surah, ayah, page, juz, hizb, rub, text_uthmani, text_plain)`, `page(604 line layout)`, `juz`, `hizb`. Built by `tools/quran/build_db.py` (new) from licensed sources (§10) with a checksum test (6236 ayat, 604 pages, known hashes).
 - Fonts: Amiri Quran bundled (OFL); KFGQPC page fonts as optional download pack after licence.
 - Tafsir packs (التفسير الميسر first) downloadable `tafsir_<id>.db`; versioned via `GET /v1/content/packs` (new) → `{id, kind, version, url, sha256, sizeBytes}`; weekly background check.
+- Tafsir from **Quran.com / Quran Foundation** (§10) when no pack has the ayah: `GET /v1/content/tafsirs` (curated: التفسير الميسر first, ابن كثير, السعدي, Ibn Kathir abridged English) and `GET /v1/content/tafsirs/:id/surahs/:n` → `{tafsirId, surah, attribution, ayat: {"s:a": plain text}}` (HTML and footnotes stripped server-side; a commentary covering several ayat sits on the first — the app shows it for the following ayat too), `GET …/:id/by-ayah/:key`. The app caches each surah on disk (`<files>/tafsir/<id>/<surah>.json`), refreshes copies older than 7 days when online, reads older copies offline, and shows the bracketed placeholder only when offline with nothing cached. Picker chips in the ayah sheet's tafsir panel (device-only choice, `tafsir.selected`). Every display credits the source («المصدر: Quran.com · Quran Foundation», or the QuranEnc line for the pack).
 - Bookmarks/lastRead/wird in local `user.db` (drift).
 
-### 6.7 Audio ✅ (recitations + timings pending licence)
+### 6.7 Audio ✅ (Quran.com / Quran Foundation, §10)
 
-- `just_audio` + `audio_service` + `background_downloader`. Per reciter: surah MP3s + `timings.json` (ayah start/end ms).
+- `just_audio` + `audio_service` + `background_downloader`. Per reciter: surah MP3s + `timings.json` (ayah start/end ms). QF audio streams/downloads straight from their CDN (`download.quranicaudio.com`); the URL + timings come from our API (the app never holds QF credentials).
 - Player state persisted (surah, ayah, position, reciter, speed, repeat). Lock-screen metadata: surah name, reciter, mark artwork.
 - Downloads: queue, pause/resume, Wi-Fi only default, storage accounting. Delete reclaims.
 
@@ -1046,9 +1047,9 @@ Errors `{error: {code, message}}` with stable snake_case codes (`insufficient_po
 | Mushaf page fonts | **KFGQPC** (King Fahd Complex) QCF v2 page fonts | Request written permission from KFGQPC | Request |
 | Fallback Quran font | Amiri Quran | OFL — bundled | ✅ |
 | Indo-Pak script | Tanzil / IndoPak text + font | Check licence; else ship «قريباً» | Decide |
-| Tafsir | التفسير الميسر (King Fahd Complex) via **QuranEnc.com** | QuranEnc republishing terms: unaltered · credit QuranEnc.com and state the version · keep transcript info · report notes · follow the latest version · no inappropriate ads. Built by `tools/tafsir/build_pack.py`, credited under every tafsir display, weekly version check | Chosen · build pending network access |
+| Tafsir | **Quran.com / Quran Foundation Content API v4** (owner decision 2026-10): التفسير الميسر (QF 16), ابن كثير (14), السعدي (91), Ibn Kathir abridged EN (169) — and the التفسير الميسر pack via **QuranEnc.com** when installed | QF Developer Terms: display unaltered inside the app only (no redistribution as data), credit Quran Foundation, cache QF content ≤ 1 week unless obtained via Content Sync (server cache 24 h; device copies refreshed weekly). QuranEnc pack terms as before (credit QuranEnc.com + version) | ✅ QF via API · pack optional |
 | English translation | Saheeh International | Licence from publisher | Request |
-| Recitation audio + timings | EveryAyah / Quran.com (QuranCDN) per reciter | Per-reciter permission; host on our CDN only with permission | Request |
+| Recitation audio + timings | **Quran.com / Quran Foundation** chapter recitations (`/chapter_recitations/{id}/{surah}?segments=true`, audio on `download.quranicaudio.com`) — curated in the `reciters` table | Same QF terms (credit, no redistribution; not re-hosted on our CDN). Server: OAuth2 client_credentials (`QF_CLIENT_ID`/`QF_CLIENT_SECRET`); until those are issued the legacy public `api.quran.com/api/v4` is used. Offline downloads: confirm with QF that full-surah downloads are covered (else move offline copies to Content Sync) | ✅ (credentials pending) |
 | Adhan audio | Licensed recordings (Makkah, Madinah, calm, takbir) | Buy/licence; ≤ 30 s cuts for iOS | Buy |
 | Azkar & duas | Hisn al-Muslim references (text is classical; translations need licence) | Every item reviewed by `religious_reviewer`; show hadith source | In admin |
 | Hijri | Umm al-Qura via AlAdhan API + admin Egypt offset | Free API; cache server-side | ✅ |

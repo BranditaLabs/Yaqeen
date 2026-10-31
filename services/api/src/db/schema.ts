@@ -10,6 +10,7 @@
  */
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   bigserial,
   boolean,
   date,
@@ -564,19 +565,28 @@ export const contentItems = pgTable(
   (t) => [index('content_items_status_idx').on(t.status, t.type), index('content_items_live_idx').on(t.type, t.liveAt)],
 );
 
-/** Licensed recitations offered in the app (GET /v1/content/reciters). */
+/**
+ * Curated recitations offered in the app (GET /v1/content/reciters): our allowlist, order and
+ * Arabic names. `source = 'qf'` rows point at a Quran Foundation chapter reciter (`qf_id`) whose
+ * audio + timings are resolved per surah; `source = 'own'` rows serve files from our CDN.
+ */
 export const reciters = pgTable('reciters', {
   id: text('id').primaryKey(),
   nameAr: text('name_ar').notNull(),
   nameEn: text('name_en').notNull(),
-  /** murattal | mujawwad */
+  /** murattal | mujawwad | muallim */
   style: text('style').notNull().default('murattal'),
   riwaya: text('riwaya').notNull().default('hafs'),
-  /** Per-surah MP3 base: `${baseUrl}/${surah:03}.mp3`. */
-  baseUrl: text('base_url').notNull(),
+  /** qf | own */
+  source: text('source').notNull().default('own'),
+  /** Quran Foundation chapter-reciter id (`/resources/chapter_reciters`), for `source = 'qf'`. */
+  qfId: integer('qf_id'),
+  /** `own` only — per-surah MP3 base: `${baseUrl}/${surah:03}.mp3`. */
+  baseUrl: text('base_url'),
   timingUrl: text('timing_url'),
   sampleUrl: text('sample_url'),
-  sizeBytes: integer('size_bytes').notNull().default(0),
+  /** Whole-mushaf download size (Quran Foundation recitations exceed 2^31 bytes). */
+  sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull().default(0),
   sortOrder: smallint('sort_order').notNull().default(0),
   active: boolean('active').notNull().default(true),
   updatedAt: updatedAt(),

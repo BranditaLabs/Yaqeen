@@ -9,6 +9,7 @@ import { sql } from 'drizzle-orm';
 import type { AppContext } from './context.js';
 import { type CacheNamespace, ResponseCache } from './lib/cache.js';
 import { errorHandler } from './lib/errors.js';
+import { type QuranFoundationClient, quranFoundationFromEnv } from './integrations/quran-foundation.js';
 import { httpDuration } from './lib/metrics.js';
 import { authPlugin } from './plugins/auth.js';
 import { adminAuthRoutes } from './routes/admin/auth.routes.js';
@@ -22,6 +23,7 @@ import { adminCardsRoutes } from './routes/admin/cards.routes.js';
 import { adminAnalyticsRoutes } from './routes/admin/analytics.routes.js';
 import { adminUsersRoutes } from './routes/admin/users.routes.js';
 import { appRoutes } from './routes/public/app.routes.js';
+import { quranContentRoutes } from './routes/public/quran-content.routes.js';
 import { authRoutes } from './routes/public/auth.routes.js';
 import { encodeRoutes } from './routes/public/encode.routes.js';
 import { redactEncodeToken } from './services/tag-encoding.service.js';
@@ -37,8 +39,10 @@ const INVALIDATES: [string, CacheNamespace[]][] = [
   ['/admin/rewards', ['config', 'catalogue']], // points program, cheapest reward
 ];
 
-export async function buildApp(input: Omit<AppContext, 'cache'> & { cache?: ResponseCache }): Promise<FastifyInstance> {
-  const ctx: AppContext = { ...input, cache: input.cache ?? new ResponseCache(input.redis) };
+export async function buildApp(
+  input: Omit<AppContext, 'cache' | 'qf'> & { cache?: ResponseCache; qf?: QuranFoundationClient },
+): Promise<FastifyInstance> {
+  const ctx: AppContext = { ...input, cache: input.cache ?? new ResponseCache(input.redis), qf: input.qf ?? quranFoundationFromEnv(input.env) };
   const app = Fastify({
     // Correlate logs across the load balancer, API and jobs.
     requestIdHeader: 'x-request-id',
@@ -131,6 +135,7 @@ export async function buildApp(input: Omit<AppContext, 'cache'> & { cache?: Resp
   await app.register(meRoutes, { prefix: '/v1/me' });
   await app.register(encodeRoutes, { prefix: '/v1/encode' });
   await app.register(appRoutes, { prefix: '/v1' });
+  await app.register(quranContentRoutes, { prefix: '/v1/content' });
   await app.register(profileRoutes);
   await app.register(siteRoutes);
   await app.register(shopifyWebhookRoutes, { prefix: '/webhooks/shopify' });

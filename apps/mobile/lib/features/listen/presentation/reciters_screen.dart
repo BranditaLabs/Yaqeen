@@ -20,7 +20,11 @@ import '../domain/audio_models.dart';
 import 'downloads_controller.dart';
 import 'listen_controller.dart';
 
-String styleLabel(AppLocalizations t, RecitationStyle s) => s == RecitationStyle.mujawwad ? t.styleMujawwad : t.styleMurattal;
+String styleLabel(AppLocalizations t, RecitationStyle s) => switch (s) {
+      RecitationStyle.murattal => t.styleMurattal,
+      RecitationStyle.mujawwad => t.styleMujawwad,
+      RecitationStyle.muallim => t.styleMuallim,
+    };
 String riwayaLabel(AppLocalizations t, String r) => r == 'hafs' ? t.riwayaHafs : r;
 
 /// `12 · Choose a reciter` (spec §5.14).
@@ -176,12 +180,14 @@ class _RecitersScreenState extends ConsumerState<RecitersScreen> {
                     for (final chip in [
                       YqChip(label: t.recitersAll, selected: !_downloadedOnly, onTap: () => setState(() => _downloadedOnly = false)),
                       YqChip(label: t.recitersDownloaded, selected: _downloadedOnly, onTap: () => setState(() => _downloadedOnly = true)),
+                      // «معلّم» only when the catalogue has one.
                       for (final s in RecitationStyle.values)
-                        YqChip(
-                          label: styleLabel(t, s),
-                          selected: _style == s,
-                          onTap: () => setState(() => _style = _style == s ? null : s),
-                        ),
+                        if (s != RecitationStyle.muallim || (reciters.valueOrNull?.any((r) => r.style == s) ?? false))
+                          YqChip(
+                            label: styleLabel(t, s),
+                            selected: _style == s,
+                            onTap: () => setState(() => _style = _style == s ? null : s),
+                          ),
                     ])
                       Padding(padding: const EdgeInsetsDirectional.only(end: YqSpace.s), child: chip),
                   ],
@@ -320,7 +326,7 @@ class _ReciterRow extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (reciter.sampleUrl != null)
+                  if (reciter.hasSample)
                     IconButton(
                       tooltip: sampling ? t.reciterSampleStop : t.reciterSample(name),
                       onPressed: onSample,

@@ -38,30 +38,25 @@ await db
   ])
   .onConflictDoNothing();
 
-// Launch reciters (spec §5.14). Audio is served from our CDN once each recitation is licensed
-// (spec §10) — upload `<id>/<surah:03>.mp3` + `<id>/timings.json`, then keep `active` on.
-const CDN = process.env.AUDIO_CDN_BASE ?? 'https://cdn.yaqin-brand.com/audio';
+// Launch reciters (spec §5.14): a curated allowlist of Quran.com / Quran Foundation chapter
+// reciters (`qfId` = `/resources/chapter_reciters` id; audio + timings resolved per surah by the
+// API, spec §10). Sizes are the sum of QF's per-surah `file_size` (2026-10). A self-hosted
+// recitation would be a `source: 'own'` row with `baseUrl` (+ `timingUrl`).
 const launchReciters = [
-  { id: 'alafasy', nameAr: 'مشاري راشد العفاسي', nameEn: 'Mishary Rashid Alafasy', style: 'murattal', sizeBytes: 1_100_000_000 },
-  { id: 'abdulbasit', nameAr: 'عبد الباسط عبد الصمد', nameEn: 'Abdul Basit Abdul Samad', style: 'murattal', sizeBytes: 1_300_000_000 },
-  { id: 'husary', nameAr: 'محمود خليل الحصري', nameEn: 'Mahmoud Khalil Al-Husary', style: 'murattal', sizeBytes: 1_200_000_000 },
-  { id: 'minshawi', nameAr: 'محمد صديق المنشاوي', nameEn: 'Mohamed Siddiq El-Minshawi', style: 'mujawwad', sizeBytes: 1_600_000_000 },
-  { id: 'muaiqly', nameAr: 'ماهر المعيقلي', nameEn: 'Maher Al-Muaiqly', style: 'murattal', sizeBytes: 900_000_000 },
-  { id: 'shuraim', nameAr: 'سعود الشريم', nameEn: 'Saud Al-Shuraim', style: 'murattal', sizeBytes: 800_000_000 },
-  { id: 'sudais', nameAr: 'عبد الرحمن السديس', nameEn: 'Abdul Rahman Al-Sudais', style: 'murattal', sizeBytes: 850_000_000 },
+  { id: 'alafasy', qfId: 7, nameAr: 'مشاري راشد العفاسي', nameEn: 'Mishary Rashid Alafasy', style: 'murattal', sizeBytes: 1_722_899_470 },
+  { id: 'abdulbasit', qfId: 2, nameAr: 'عبد الباسط عبد الصمد', nameEn: 'Abdul Basit Abdul Samad', style: 'murattal', sizeBytes: 2_693_361_920 },
+  { id: 'abdulbasit_mujawwad', qfId: 1, nameAr: 'عبد الباسط عبد الصمد', nameEn: 'Abdul Basit Abdul Samad', style: 'mujawwad', sizeBytes: 3_511_805_415 },
+  { id: 'husary', qfId: 6, nameAr: 'محمود خليل الحصري', nameEn: 'Mahmoud Khalil Al-Husary', style: 'murattal', sizeBytes: 2_275_957_803 },
+  { id: 'minshawi', qfId: 9, nameAr: 'محمد صديق المنشاوي', nameEn: 'Mohamed Siddiq El-Minshawi', style: 'murattal', sizeBytes: 1_667_107_237 },
+  { id: 'sudais', qfId: 3, nameAr: 'عبد الرحمن السديس', nameEn: 'Abdul Rahman Al-Sudais', style: 'murattal', sizeBytes: 1_769_412_031 },
+  { id: 'shuraim', qfId: 10, nameAr: 'سعود الشريم', nameEn: 'Saud Al-Shuraim', style: 'murattal', sizeBytes: 1_052_944_030 },
+  { id: 'shatri', qfId: 4, nameAr: 'أبو بكر الشاطري', nameEn: 'Abu Bakr Al-Shatri', style: 'murattal', sizeBytes: 1_258_422_528 },
+  { id: 'dussary', qfId: 97, nameAr: 'ياسر الدوسري', nameEn: 'Yasser Al-Dossari', style: 'murattal', sizeBytes: 1_494_395_866 },
+  { id: 'rifai', qfId: 5, nameAr: 'هاني الرفاعي', nameEn: 'Hani Ar-Rifai', style: 'murattal', sizeBytes: 2_209_390_343 },
 ];
 await db
   .insert(reciters)
-  .values(
-    launchReciters.map((r, i) => ({
-      ...r,
-      riwaya: 'hafs',
-      baseUrl: `${CDN}/${r.id}`,
-      timingUrl: `${CDN}/${r.id}/timings.json`,
-      sampleUrl: `${CDN}/${r.id}/001.mp3`,
-      sortOrder: i,
-    })),
-  )
+  .values(launchReciters.map((r, i) => ({ ...r, riwaya: 'hafs', source: 'qf', sortOrder: i })))
   .onConflictDoNothing();
 
 const existingRewards = await db.select({ id: rewards.id }).from(rewards).limit(1);

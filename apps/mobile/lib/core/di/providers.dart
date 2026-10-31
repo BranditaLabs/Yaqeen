@@ -190,9 +190,17 @@ final packRepositoryProvider = Provider(
   ),
 );
 
-/// Tafsir from the installed, verified pack only; invalidate after an install to reload it.
-final tafsirRepositoryProvider =
-    Provider((ref) => TafsirRepository(packFile: () => ref.read(packRepositoryProvider).installedFile(PackKind.tafsir)));
+/// Tafsir: an installed, verified pack first, then Quran Foundation through our API (cached per
+/// surah on the device). Invalidate after a pack install or a tafsir change to reload it.
+final tafsirRepositoryProvider = Provider(
+  (ref) => TafsirRepository(
+    packFile: () => ref.read(packRepositoryProvider).installedFile(PackKind.tafsir),
+    api: ref.watch(apiClientProvider),
+    store: ref.watch(kvStoreProvider),
+    root: ref.watch(filesDirProvider),
+    now: ref.watch(clockProvider),
+  ),
+);
 
 /* ------------------------------------------------------------------ audio */
 
@@ -207,11 +215,20 @@ final filesDirProvider = Provider<Future<Directory> Function()>((_) {
 /// One queue for every large download, alive for the whole session (never tied to a screen).
 final downloadQueueProvider = Provider((_) => DownloadQueue());
 final audioDownloadsProvider = Provider(
-  (ref) => AudioDownloads(root: ref.watch(filesDirProvider), isUnmetered: ref.watch(connectivityProvider).isUnmetered),
+  (ref) => AudioDownloads(
+    root: ref.watch(filesDirProvider),
+    isUnmetered: ref.watch(connectivityProvider).isUnmetered,
+    // Quran Foundation surahs are resolved through the API (the repository never reads this provider).
+    resolve: (r, surah) => ref.read(reciterRepositoryProvider).surahUri(r, surah),
+  ),
 );
 final reciterRepositoryProvider = Provider(
-  (ref) =>
-      ReciterRepository(api: ref.watch(apiClientProvider), cache: ref.watch(kvStoreProvider), downloads: ref.watch(audioDownloadsProvider)),
+  (ref) => ReciterRepository(
+    api: ref.watch(apiClientProvider),
+    cache: ref.watch(kvStoreProvider),
+    root: ref.watch(filesDirProvider),
+    now: ref.watch(clockProvider),
+  ),
 );
 final listenStoreProvider = Provider((ref) => ListenStore(ref.watch(localStoreProvider)));
 

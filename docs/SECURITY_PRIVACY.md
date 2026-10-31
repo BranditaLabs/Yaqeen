@@ -35,6 +35,7 @@ Task completions reveal religious practice. Rules:
    - **Merges, never overwrites blindly**: per-kind versions with optimistic concurrency (a stale write gets 409 `backup_conflict` and the app merges — union for bookmarks/notes/highlights/favourites/history, max for per-day counters, last-writer-wins for scalar state).
    - Losing `BACKUP_SECRETS_KEY` makes every stored backup unreadable (phones keep their data); back it up with the other production secrets, never rotate it without a re-seal migration.
 9. **Error reports carry no personal or worship data.** Sentry (app, API, jobs, admin): no user, cookies, request bodies, query strings or private headers; URLs reduced to route templates; app reports drop navigation, tap and HTTP breadcrumbs and never attach screenshots or view hierarchies. Metrics are labelled by route template and status only.
+10. **Quran Foundation (Quran.com) is a content provider, not a data processor.** Reciters' audio URLs, ayah timings and tafsir come from the Quran Foundation Content API. **Our server** calls it with our client credentials (`QF_CLIENT_ID`/`QF_CLIENT_SECRET`, server-side only — never in the app) and sends no user data: only content ids (reciter, surah, tafsir). The app asks **our** API for those answers; it then streams or downloads the MP3 **directly from QF's audio CDN** (`download.quranicaudio.com`), so that CDN sees the device's IP address, user agent and which surah file is requested — like any web request — but no account, token or worship history. No cookies or trackers are involved. Listed in the privacy policy as a content source.
 
 ### Processors
 
@@ -47,6 +48,7 @@ Task completions reveal religious practice. Rules:
 | Meta (Conversions API), from our server | Ad measurement — store purchases with a Yaqeen code (`ads_measurement` consent) | event, time, order id, total + currency, salted hashed id | US / global (cross-border transfer) |
 | Google (GA4 Measurement Protocol), from our server | same | same; `ad_personalization` denied | US / global (cross-border transfer) |
 | TikTok (Events API), from our server only — no TikTok SDK in the app | same | same | Singapore / US / global (cross-border transfer) |
+| Quran Foundation (content provider, not a processor) | Recitation audio + timings, tafsir | our server → QF: content ids only; app → QF audio CDN: the device IP / user agent of the file request | QF API + Bunny CDN (global) |
 
 All are listed in the privacy policy. Sentry and PostHog can be switched off by removing their DSN / key and the server-side conversions with the `serverConversions` flag (no app release needed: the app talks only to our API for those); an ad SDK is removed from a build by leaving out its build values.
 

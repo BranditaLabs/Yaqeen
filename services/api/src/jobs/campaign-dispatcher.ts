@@ -17,6 +17,7 @@ import { CONSENT_FOR_KIND, QUIET_START_MIN, checkSend, localClock } from '../dom
 import { coordsFor, prayerMinutes } from '../domain/prayer-times.js';
 import { AlAdhanClient } from '../integrations/aladhan.js';
 import { FcmSender } from '../integrations/fcm.js';
+import { quranFoundationFromEnv } from '../integrations/quran-foundation.js';
 import { ShopifyClient } from '../integrations/shopify.js';
 import { ResponseCache } from '../lib/cache.js';
 import { segmentQuery } from '../routes/admin/campaigns.routes.js';
@@ -122,6 +123,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     aladhan: new AlAdhanClient(env.ALADHAN_BASE_URL, redis),
     shopify: new ShopifyClient({ shopDomain: env.SHOPIFY_SHOP_DOMAIN, adminToken: env.SHOPIFY_ADMIN_TOKEN, apiVersion: env.SHOPIFY_API_VERSION }),
     fcm: new FcmSender(env.FIREBASE_SERVICE_ACCOUNT_JSON),
+    qf: quranFoundationFromEnv(env),
     now: () => new Date(),
   })));
   if (!res.ran) console.log('[campaigns] another dispatcher is running — skipped');

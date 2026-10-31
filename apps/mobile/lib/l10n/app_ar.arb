@@ -605,7 +605,7 @@
   "reciterDownloading": "جارٍ التحميل · المس للإلغاء",
   "reciterDownloadAll": "تحميل المصحف كاملاً للاستماع دون اتصال",
   "reciterWifiOnly": "عبر Wi-Fi فقط",
-  "recitersFooter": "التلاوات المتاحة تأتي من مصدر المحتوى المرخّص، والتحميل يتيح الاستماع دون اتصال.",
+  "recitersFooter": "التلاوات من Quran.com · Quran Foundation، والتحميل يتيح الاستماع دون اتصال.",
   "recitersEmpty": "لا يوجد قارئ بهذا الاسم",
   "recitersEmptyHint": "جرّب جزءاً من الاسم",
   "reciteTitle": "التسميع",
@@ -2145,5 +2145,8 @@
   "backupRestoreBody": "وجدنا نسخة من تقدّمك على حسابك. هل تستعيدها على هذا الهاتف؟ تُدمج مع ما عليه ولا يُحذف شيء.",
   "backupRestoreCta": "استعادة",
   "backupNotNow": "ليس الآن",
-  "backupRestored": "تمت الاستعادة"
+  "backupRestored": "تمت الاستعادة",
+  "styleMuallim": "معلّم",
+  "tafsirSourceQf": "المصدر: Quran.com · Quran Foundation",
+  "tafsirChoose": "اختر التفسير"
 }

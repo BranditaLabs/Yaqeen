@@ -36,6 +36,13 @@ const EnvSchema = z.object({
   FIREBASE_SERVICE_ACCOUNT_JSON: z.string().default(''),
   ALADHAN_BASE_URL: z.string().url().default('https://api.aladhan.com/v1'),
   HIJRI_REGION: z.string().default('EG'),
+  // Quran.com / Quran Foundation Content API (reciters' audio + timings, tafsir — spec §10). Server
+  // only: OAuth2 client_credentials from the QF Developer Console. Without credentials the API uses
+  // the legacy unauthenticated base below (empty = off → content routes answer 503 content_unavailable).
+  QF_CLIENT_ID: z.string().default(''),
+  QF_CLIENT_SECRET: z.string().default(''),
+  QF_ENV: z.enum(['production', 'prelive']).default('production'),
+  QF_PUBLIC_BASE_URL: z.union([z.literal(''), z.string().url()]).default('https://api.quran.com/api/v4'),
   // Public profile cards (NFC/QR): the host that serves /u/<handle> (point a vanity domain here),
   // the store and the app-store links its CTA opens.
   PUBLIC_PROFILE_BASE_URL: z.string().url().default('https://api.yaqin-brand.com'),

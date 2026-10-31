@@ -5,7 +5,7 @@ import { and, asc, eq, gt, inArray, isNotNull } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { BonusKind, type ChallengeCalendar, CompleteTaskRequest, ContentType, type RemoteConfig, TaskKey } from '@yaqeen/contracts';
-import { appConfig, bonusRules, contentItems, contentPacks, dailyTasks, reciters, rewards, users } from '../../db/schema.js';
+import { appConfig, bonusRules, contentItems, contentPacks, dailyTasks, rewards, users } from '../../db/schema.js';
 import { specialDays } from '../../domain/hijri.js';
 import { addDays, localToday } from '../../domain/points.js';
 import { sendCachedJson } from '../../lib/cache.js';
@@ -120,25 +120,7 @@ export const appRoutes: FastifyPluginAsync = async (app) => {
     return sendCachedJson(req, reply, json, 600);
   });
 
-  /** Licensed recitations (catalogue changes rarely; the app caches it). */
-  app.get('/content/reciters', async (req, reply) => {
-    const load = () => db
-      .select({
-        id: reciters.id,
-        nameAr: reciters.nameAr,
-        nameEn: reciters.nameEn,
-        style: reciters.style,
-        riwaya: reciters.riwaya,
-        baseUrl: reciters.baseUrl,
-        timingUrl: reciters.timingUrl,
-        sampleUrl: reciters.sampleUrl,
-        sizeBytes: reciters.sizeBytes,
-      })
-      .from(reciters)
-      .where(eq(reciters.active, true))
-      .orderBy(asc(reciters.sortOrder), asc(reciters.nameAr));
-    return sendCachedJson(req, reply, await app.ctx.cache.getJson('catalogue', 'reciters', 600, load), 3600);
-  });
+  // Reciters, surah audio and tafsir: routes/public/quran-content.routes.ts (/v1/content/…).
 
   /** Downloadable packs; the app verifies `sha256` before installing a pack. */
   app.get('/content/packs', async (req, reply) => {
