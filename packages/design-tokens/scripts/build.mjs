@@ -88,7 +88,7 @@ const frontMatter = [
 ].join('\n');
 const designPath = join(repo, 'DESIGN.md');
 const designMd = (() => {
-  const current = readFileSync(designPath, 'utf8');
+  const current = readFileSync(designPath, 'utf8').replace(/\r\n/g, '\n'); // CRLF checkouts (Windows autocrlf)
   const end = current.indexOf('\n---', 4); // the front matter's closing fence
   return frontMatter + current.slice(end + 4);
 })();
@@ -102,7 +102,7 @@ const outputs = [
 if (process.argv.includes('--check')) {
   const stale = outputs.filter(([f, body]) => {
     try {
-      return readFileSync(f, 'utf8') !== body;
+      return readFileSync(f, 'utf8').replace(/\r\n/g, '\n') !== body; // line endings don't make a file stale
     } catch {
       return true;
     }

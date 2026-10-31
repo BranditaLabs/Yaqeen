@@ -22,7 +22,10 @@ const EnvSchema = z.object({
   ADMIN_SECRETS_KEY: z.string().default(''),
   CORS_ORIGINS: csv,
   GOOGLE_CLIENT_IDS: csv,
+  /** Apple audiences: the iOS bundle id and the Services ID used by the Android web flow. */
   APPLE_CLIENT_IDS: csv,
+  /** Android package that Sign in with Apple's web callback returns to. */
+  ANDROID_APP_ID: z.string().regex(/^[a-zA-Z][\w.]+$/).default('com.yaqinbrand.yaqeen'),
   SHOPIFY_SHOP_DOMAIN: z.string().default(''),
   SHOPIFY_ADMIN_TOKEN: z.string().default(''),
   SHOPIFY_API_VERSION: z.string().default('2025-10'),

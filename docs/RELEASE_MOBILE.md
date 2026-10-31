@@ -73,6 +73,24 @@ first review. Then set it to `completed`.
 | `IOS_PROFILE_NAME` | the App Store profile's name |
 | `ASC_API_KEY_ID` / `ASC_ISSUER_ID` / `ASC_API_PRIVATE_KEY` | App Store Connect API key |
 | `GOOGLE_IOS_CLIENT_ID` / `GOOGLE_REVERSED_CLIENT_ID` | Google Sign-In iOS client |
+
+### Sign in with Google and Apple (one-time)
+
+Google (Google Cloud console of the Yaqeen project › APIs & Services › Credentials, OAuth consent screen published):
+1. **Web application** client → its id is the *server client id*. Repo **variable** `GOOGLE_SERVER_CLIENT_ID`
+   (both release jobs fail without it: Android returns no ID token).
+2. **Android** client for package `com.yaqinbrand.yaqeen` with the SHA-1 of the upload key **and** of the
+   Play app-signing key (Play Console › App integrity). No secret; it only has to exist.
+3. **iOS** client for bundle `com.yaqinbrand.yaqeen` → `GOOGLE_IOS_CLIENT_ID` / `GOOGLE_REVERSED_CLIENT_ID` secrets.
+4. API: `GOOGLE_CLIENT_IDS` = the web client id (add the iOS client id too).
+
+Apple (developer.apple.com › Certificates, Identifiers & Profiles):
+1. App ID `com.yaqinbrand.yaqeen` with **Sign in with Apple** (iOS uses it natively).
+2. **Services ID** `com.yaqinbrand.yaqeen.signin` (Android web flow) → Configure → primary App ID above,
+   domain `api.yaqin-brand.com`, return URL `https://api.yaqin-brand.com/v1/auth/apple/callback`.
+   Different values → repo variables `APPLE_SERVICE_ID` / `APPLE_REDIRECT_URI`.
+3. API: `APPLE_CLIENT_IDS=com.yaqinbrand.yaqeen,com.yaqinbrand.yaqeen.signin` (bundle id + Services ID).
+   The callback form-posts back into the app (`signinwithapple://callback`, package `ANDROID_APP_ID`).
 | `FACEBOOK_APP_ID` / `FACEBOOK_CLIENT_TOKEN` | optional — Meta App Events (see *Ad measurement SDKs*) |
 
 TestFlight builds appear after Apple's processing (about 10–30 min). Internal testers (up to 100

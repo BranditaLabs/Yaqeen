@@ -42,8 +42,7 @@ export default defineConfig({
     },
     {
       // The admin builds as Next standalone (like its Docker image): copy the static assets in, then run it.
-      command:
-        'cd ../apps/admin && cp -r .next/static .next/standalone/apps/admin/.next/ && cp -r public .next/standalone/apps/admin/ && node .next/standalone/apps/admin/server.js',
+      command: 'node scripts/start-admin.mjs',
       url: `${ADMIN}/login`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,

@@ -24,7 +24,9 @@ await db.connect();
 await db.query('drop schema if exists public cascade; drop schema if exists drizzle cascade; create schema public;');
 
 const env = { ...process.env, DATABASE_URL: url, REDIS_URL: '', NODE_ENV: 'development' };
-const run = (args, extra = {}) => execFileSync('pnpm', ['--filter', '@yaqeen/api', ...args], { cwd: repo, env: { ...env, ...extra }, encoding: 'utf8' });
+// pnpm is a .cmd shim on Windows, which only a shell can start (the args are fixed strings).
+const run = (args, extra = {}) =>
+  execFileSync('pnpm', ['--filter', '@yaqeen/api', ...args], { cwd: repo, env: { ...env, ...extra }, encoding: 'utf8', shell: process.platform === 'win32' });
 run(['db:migrate']);
 
 const email = 'e2e-admin@yaqin-brand.com';

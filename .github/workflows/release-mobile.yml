@@ -33,6 +33,12 @@ env:
   # Crash/error reporting (empty = off). Symbols for the obfuscated build go up with SENTRY_AUTH_TOKEN.
   SENTRY_DSN: ${{ vars.APP_SENTRY_DSN }}
   SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+  # Sign-in: the Google "Web application" OAuth client id of the API (the ID token's audience on
+  # both platforms; also listed in the API's GOOGLE_CLIENT_IDS). Required — without it Google
+  # sign-in returns no ID token on Android. Apple's Services ID / callback have working defaults.
+  GOOGLE_SERVER_CLIENT_ID: ${{ vars.GOOGLE_SERVER_CLIENT_ID }}
+  APPLE_SERVICE_ID: ${{ vars.APPLE_SERVICE_ID }}
+  APPLE_REDIRECT_URI: ${{ vars.APPLE_REDIRECT_URI }}
   # Ad measurement SDKs (optional; each stays off in the app until `ads_measurement` is granted).
   # Google Ads via Firebase Analytics: 'true' once GA4 is enabled on Firebase project yaqeen-eg.
   FIREBASE_ANALYTICS: ${{ vars.FIREBASE_ANALYTICS }}
@@ -58,6 +64,7 @@ jobs:
           missing=""
           [ -n "$KS" ] || missing="$missing ANDROID_KEYSTORE_BASE64"
           [ -n "$PLAY" ] || missing="$missing PLAY_SERVICE_ACCOUNT_JSON"
+          [ -n "$GOOGLE_SERVER_CLIENT_ID" ] || missing="$missing vars.GOOGLE_SERVER_CLIENT_ID"
           [ -n "$API" ] || missing="$missing vars.API_BASE_URL"
           if [ -n "$missing" ]; then echo "::error::Missing:$missing — see docs/RELEASE_MOBILE.md"; exit 1; fi
           if [ "${FACEBOOK_APP_ID:+1}" != "${FACEBOOK_CLIENT_TOKEN:+1}" ]; then
@@ -94,6 +101,9 @@ jobs:
             ${STORE_URL:+--dart-define=STORE_URL="$STORE_URL"} \
             ${SITE_URL:+--dart-define=SITE_URL="$SITE_URL"} \
             ${SENTRY_DSN:+--dart-define=SENTRY_DSN="$SENTRY_DSN"} \
+            --dart-define=GOOGLE_SERVER_CLIENT_ID="$GOOGLE_SERVER_CLIENT_ID" \
+            ${APPLE_SERVICE_ID:+--dart-define=APPLE_SERVICE_ID="$APPLE_SERVICE_ID"} \
+            ${APPLE_REDIRECT_URI:+--dart-define=APPLE_REDIRECT_URI="$APPLE_REDIRECT_URI"} \
             ${FIREBASE_ANALYTICS:+--dart-define=FIREBASE_ANALYTICS="$FIREBASE_ANALYTICS"} \
             ${FACEBOOK_APP_ID:+--dart-define=FACEBOOK_APP_ID="$FACEBOOK_APP_ID"} \
             ${FACEBOOK_CLIENT_TOKEN:+--dart-define=FACEBOOK_CLIENT_TOKEN="$FACEBOOK_CLIENT_TOKEN"} \
@@ -144,6 +154,7 @@ jobs:
           [ -n "$ASC_KEY" ] || missing="$missing ASC_API_PRIVATE_KEY"
           [ -n "$TEAM" ] || missing="$missing APPLE_TEAM_ID"
           [ -n "$GID" ] || missing="$missing GOOGLE_IOS_CLIENT_ID"
+          [ -n "$GOOGLE_SERVER_CLIENT_ID" ] || missing="$missing vars.GOOGLE_SERVER_CLIENT_ID"
           [ -n "$WPROFILE" ] || missing="$missing IOS_WIDGET_PROFILE_NAME"
           [ -n "$API" ] || missing="$missing vars.API_BASE_URL"
           if [ -n "$missing" ]; then echo "::error::Missing:$missing — see docs/RELEASE_MOBILE.md"; exit 1; fi
@@ -219,6 +230,9 @@ jobs:
             ${STORE_URL:+--dart-define=STORE_URL="$STORE_URL"} \
             ${SITE_URL:+--dart-define=SITE_URL="$SITE_URL"} \
             ${SENTRY_DSN:+--dart-define=SENTRY_DSN="$SENTRY_DSN"} \
+            --dart-define=GOOGLE_SERVER_CLIENT_ID="$GOOGLE_SERVER_CLIENT_ID" \
+            ${APPLE_SERVICE_ID:+--dart-define=APPLE_SERVICE_ID="$APPLE_SERVICE_ID"} \
+            ${APPLE_REDIRECT_URI:+--dart-define=APPLE_REDIRECT_URI="$APPLE_REDIRECT_URI"} \
             ${FIREBASE_ANALYTICS:+--dart-define=FIREBASE_ANALYTICS="$FIREBASE_ANALYTICS"} \
             ${FACEBOOK_APP_ID:+--dart-define=FACEBOOK_APP_ID="$FACEBOOK_APP_ID"} \
             ${FACEBOOK_CLIENT_TOKEN:+--dart-define=FACEBOOK_CLIENT_TOKEN="$FACEBOOK_CLIENT_TOKEN"} \
