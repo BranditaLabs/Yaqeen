@@ -18,6 +18,7 @@ import '../../../core/widgets/share_card.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../data/reading_repository.dart';
+import '../data/tafsir_repository.dart';
 import '../domain/annotations.dart';
 import '../domain/quran_data.dart';
 import 'note_sheet.dart';
@@ -42,7 +43,9 @@ class _AyahSheetState extends ConsumerState<_AyahSheet> {
   MarkColor _bookmarkColor = MarkColor.gold;
   bool _tafsirOpen = false;
   bool _highlightOpen = false;
-  String? _tafsir;
+  TafsirText? _tafsir;
+  List<TafsirInfo> _tafsirs = const [];
+  String? _tafsirId;
   MarkColor? _highlight;
   bool _hasNote = false;
 
@@ -94,12 +97,34 @@ class _AyahSheetState extends ConsumerState<_AyahSheet> {
   }
 
   Future<void> _openTafsir() async {
-    final text = await ref.read(tafsirRepositoryProvider).forAyah(widget.ayah);
+    if (_tafsirOpen) {
+      setState(() => _tafsirOpen = false);
+      return;
+    }
+    final repo = ref.read(tafsirRepositoryProvider);
+    final text = await repo.lookup(widget.ayah);
+    final id = await repo.selected();
     if (!mounted) return;
     setState(() {
-      _tafsirOpen = !_tafsirOpen;
+      _tafsirOpen = true;
       _tafsir = text;
+      _tafsirId = id;
     });
+    final list = await repo.list();
+    if (mounted) setState(() => _tafsirs = list);
+  }
+
+  /// Picker in the panel: switching re-reads this ayah from the chosen tafsir.
+  Future<void> _pickTafsir(String id) async {
+    final repo = ref.read(tafsirRepositoryProvider);
+    await repo.select(id);
+    final text = await repo.lookup(widget.ayah);
+    if (mounted) {
+      setState(() {
+        _tafsirId = id;
+        _tafsir = text;
+      });
+    }
   }
 
   Future<void> _copy() async {
@@ -182,17 +207,48 @@ class _AyahSheetState extends ConsumerState<_AyahSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(t.tafsirTitle, style: theme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                        const SizedBox(height: YqSpace.s),
-                        // Licensed text only; until a pack is installed the placeholder stays bracketed (rule 9).
                         Text(
-                          _tafsir ?? t.tafsirPlaceholder,
+                          _tafsir?.source == TafsirSource.qf
+                              ? (_tafsirs.where((x) => x.id == _tafsirId).firstOrNull?.name(Localizations.localeOf(context).languageCode) ??
+                                  t.tafsirTitle)
+                              : t.tafsirTitle,
+                          style: theme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        if (_tafsirs.length > 1 && _tafsir?.source != TafsirSource.pack) ...[
+                          const SizedBox(height: YqSpace.s),
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            clipBehavior: Clip.none,
+                            child: Row(
+                              children: [
+                                for (final x in _tafsirs)
+                                  Padding(
+                                    padding: const EdgeInsetsDirectional.only(end: YqSpace.s),
+                                    child: YqChip(
+                                      label: x.name(Localizations.localeOf(context).languageCode),
+                                      semanticLabel: '${t.tafsirChoose}: ${x.name(Localizations.localeOf(context).languageCode)}',
+                                      selected: x.id == _tafsirId,
+                                      onTap: () => _pickTafsir(x.id),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: YqSpace.s),
+                        // Licensed text only (installed pack or Quran Foundation); offline with nothing cached
+                        // the placeholder stays bracketed (rule 9).
+                        Text(
+                          _tafsir?.text ?? t.tafsirPlaceholder,
                           style: theme.bodyLarge?.copyWith(color: _tafsir == null ? YqColors.muted : YqColors.ink),
                         ),
-                        // Credit every time the licensed text is shown (QuranEnc republishing terms).
+                        // Credit every time the licensed text is shown (QuranEnc / Quran Foundation terms).
                         if (_tafsir != null) ...[
                           const SizedBox(height: YqSpace.s),
-                          Text(t.tafsirAttribution, style: theme.bodySmall?.copyWith(color: YqColors.goldText)),
+                          Text(
+                            _tafsir!.source == TafsirSource.qf ? t.tafsirSourceQf : t.tafsirAttribution,
+                            style: theme.bodySmall?.copyWith(color: YqColors.goldText),
+                          ),
                         ],
                       ],
                     ),

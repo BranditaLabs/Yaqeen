@@ -1,6 +1,6 @@
 # Non-secret settings. Secrets (DATABASE_URL, REDIS_URL, JWT_SECRET, ADMIN_JWT_SECRET, ADMIN_SECRETS_KEY, BACKUP_SECRETS_KEY,
 # SHOPIFY_ADMIN_TOKEN, SHOPIFY_WEBHOOK_SECRET, FIREBASE_SERVICE_ACCOUNT_JSON, GOOGLE_CLIENT_IDS, APPLE_CLIENT_IDS,
-# CONVERSIONS_ID_SALT, META_CAPI_TOKEN, GA4_API_SECRET, TIKTOK_ACCESS_TOKEN) live in
+# CONVERSIONS_ID_SALT, META_CAPI_TOKEN, GA4_API_SECRET, TIKTOK_ACCESS_TOKEN, QF_CLIENT_ID, QF_CLIENT_SECRET) live in
 # the `yaqeen-api-secrets` Secret, created from your secret manager — never committed:
 #   kubectl -n yaqeen create secret generic yaqeen-api-secrets --from-env-file=prod.env
 apiVersion: v1
@@ -12,6 +12,8 @@ data:
   LOG_LEVEL: info
   CORS_ORIGINS: https://admin.yaqin-brand.com
   HIJRI_REGION: EG
+  # Quran Foundation Content API environment — must match QF_CLIENT_ID/QF_CLIENT_SECRET (docs/OPERATIONS.md › One-time setup).
+  QF_ENV: production
   SHOPIFY_API_VERSION: "2025-10"
   # Per pod. Pods × PG_POOL_MAX must stay under what Postgres (or PgBouncer) accepts:
   # 30 pods × 20 = 600 → run PgBouncer in transaction mode. See docs/OPERATIONS.md › Database.

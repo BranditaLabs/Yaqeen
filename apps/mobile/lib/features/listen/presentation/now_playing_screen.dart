@@ -17,6 +17,7 @@ import '../../../core/widgets/yq_ring.dart';
 import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
+import '../../quran/data/tafsir_repository.dart';
 import '../../quran/domain/quran_data.dart';
 import '../../quran/presentation/quran_index_screen.dart';
 import '../data/audio_downloads.dart';
@@ -44,6 +45,7 @@ class NowPlayingScreen extends ConsumerStatefulWidget {
 class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
   bool _tafsir = false;
   String? _tafsirText;
+  TafsirSource? _tafsirSource;
   bool? _downloaded;
   double? _progress;
   CancelToken? _cancel;
@@ -100,11 +102,13 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
   }
 
   Future<void> _toggleTafsir(AyahRef ref0) async {
-    final text = _tafsir ? _tafsirText : await ref.read(tafsirRepositoryProvider).forAyah(ref0);
+    final found = _tafsir ? null : await ref.read(tafsirRepositoryProvider).lookup(ref0);
+    final text = _tafsir ? _tafsirText : found?.text;
     if (mounted) {
       setState(() {
         _tafsir = !_tafsir;
         _tafsirText = text;
+        if (found != null) _tafsirSource = found.source;
       });
     }
   }
@@ -272,7 +276,10 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
               if (_tafsir && _tafsirText != null)
                 Padding(
                   padding: const EdgeInsets.only(top: YqSpace.xs),
-                  child: Text(t.tafsirAttribution, style: text.bodySmall?.copyWith(color: YqColors.goldText)),
+                  child: Text(
+                    _tafsirSource == TafsirSource.qf ? t.tafsirSourceQf : t.tafsirAttribution,
+                    style: text.bodySmall?.copyWith(color: YqColors.goldText),
+                  ),
                 ),
             ],
           ),

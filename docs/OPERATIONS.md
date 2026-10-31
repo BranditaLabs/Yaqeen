@@ -13,7 +13,7 @@ keeps most of that load off the servers:
 | Where | What keeps it cheap |
 | --- | --- |
 | App | Quran, prayer times, Qibla, azkar, duas, hifz and reminders are fully on-device. Remote config is cached 1 h. Challenge ticks go through the Outbox (one request each, replayed later if offline). Failed syncs back off exponentially with full jitter (30 s → 15 min), so phones never retry in lockstep after an outage. |
-| API — public reads | `/v1/config`, `/v1/content`, `/v1/daily-task`, `/v1/calendar/hijri`, `/v1/content/reciters`, `/v1/content/packs` are served from a two-level cache (5 s in-process + Redis), single-flighted (one DB query per key even under a stampede), with `ETag` → `304` and `Cache-Control: stale-while-revalidate`. Admin writes invalidate the affected namespace on every instance immediately. |
+| API — public reads | `/v1/config`, `/v1/content`, `/v1/daily-task`, `/v1/calendar/hijri`, `/v1/content/reciters`, `/v1/content/packs` and the Quran Foundation reads (`/v1/content/reciters/:id/surahs/:n`, `…/timings`, `/v1/content/tafsirs/…` — namespace `quran`, 24 h: QF terms cap caching at one week) are served from a two-level cache (5 s in-process + Redis), single-flighted (one DB query per key even under a stampede), with `ETag` → `304` and `Cache-Control: stale-while-revalidate`. Admin writes invalidate the affected namespace on every instance immediately. |
 | API — personal | Challenge, rewards and profile hit Postgres through indexed queries; the redeem path is serialised per user with an advisory lock. |
 | Jobs | Dispatcher and purge take a Postgres advisory lock — overlapping runs skip. |
 
@@ -132,6 +132,8 @@ Each environment rollout (`tools/deploy/deploy.sh <env> <tag>`, also runnable fr
 | | `META_PIXEL_ID`, `META_CAPI_TOKEN` | Meta Events Manager › the store's pixel (dataset) › Settings: the dataset id, and **Conversions API › Generate access token**. Optional `META_TEST_EVENT_CODE` from the Test events tab while verifying, then remove it |
 | | `GA4_MEASUREMENT_ID`, `GA4_API_SECRET` | GA4 › Admin › Data streams › the store's web stream: the `G-…` id, and **Measurement Protocol API secrets › Create** |
 | | `TIKTOK_PIXEL_ID`, `TIKTOK_ACCESS_TOKEN` | TikTok Ads Manager › Tools › Events › the web pixel: the pixel id, and **Settings › Generate access token** (Events API). Optional `TIKTOK_TEST_EVENT_CODE` from Test events |
+| | `QF_CLIENT_ID`, `QF_CLIENT_SECRET` | Quran Foundation Content API (audio, timings, tafsir — spec §10): request access at **api-docs.quran.foundation › Request Access**, create an app in the QF Developer Console, and copy the **client id / secret** (pre-live first, production once approved). Server only. Without them the API falls back to the legacy public `https://api.quran.com/api/v4` (`QF_PUBLIC_BASE_URL`; set it empty to turn the fallback off → those routes answer 503 `content_unavailable`) |
+| ConfigMap / env | `QF_ENV` | `production` (default) or `prelive` — must match the credentials. Pre-live serves only surahs 1–2 |
 | ConfigMap / env | `SUPPORT_EMAIL` | shown on the website's help, privacy and deletion pages |
 | Packages | GHCR | the cluster pulls `ghcr.io/branditalabs/*`: make the packages public or add an image pull secret |
 
@@ -142,6 +144,7 @@ Namespaces: `yaqeen-staging` (1 replica, HPA 1–4, campaigns suspended, 20 % tr
 
 | Symptom | Do |
 | --- | --- |
+| `503 content_unavailable` on `/v1/content/reciters/…/surahs/…` or `/v1/content/tafsirs/…` | Quran Foundation is down, rate-limiting or rejecting us. Check `yaqeen_external_calls_total{service="quran_foundation",outcome="failed"}` and Sentry (`route: integration:quran_foundation`, message `quran_foundation: <status> <path>` — never the token). `token 401/403` → wrong/revoked `QF_CLIENT_ID`/`QF_CLIENT_SECRET` or `QF_ENV` not matching them. Phones keep playing downloaded/cached surahs and cached tafsir; server copies live 24 h (cache namespace `quran`). |
 | Latency climbing, CPU high | Confirm HPA is scaling (`kubectl -n yaqeen get hpa`); if at max, raise `maxReplicas` and check Postgres. |
 | `503` from load shedding | Expected briefly during a spike; sustained → scale up and check for a slow query (`pg_stat_statements`). The app retries with backoff. |
 | Postgres connections exhausted | Lower `PG_POOL_MAX` or add PgBouncer; look for long transactions. |

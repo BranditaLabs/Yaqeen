@@ -628,7 +628,7 @@
   "reciterDownloading": "Downloading · tap to cancel",
   "reciterDownloadAll": "Download the full mushaf for offline listening",
   "reciterWifiOnly": "Wi-Fi only",
-  "recitersFooter": "Recitations come from the licensed content source; downloads allow offline listening.",
+  "recitersFooter": "Recitations from Quran.com (Quran Foundation). Download a reciter to listen offline.",
   "recitersEmpty": "No reciter with that name",
   "recitersEmptyHint": "Try part of the name",
   "reciteTitle": "Recitation",
@@ -2218,5 +2218,8 @@
   "backupRestoreBody": "We found a copy of your progress on your account. Restore it on this phone? It's merged with what's here — nothing is deleted.",
   "backupRestoreCta": "Restore",
   "backupNotNow": "Not now",
-  "backupRestored": "Restored"
+  "backupRestored": "Restored",
+  "styleMuallim": "Muallim (teaching)",
+  "tafsirSourceQf": "Source: Quran.com · Quran Foundation",
+  "tafsirChoose": "Choose a tafsir"
 }

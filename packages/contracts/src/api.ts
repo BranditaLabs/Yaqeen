@@ -240,18 +240,83 @@ export const ContentItem = z.object({
 });
 export type ContentItem = z.infer<typeof ContentItem>;
 
+/**
+ * Where a recitation's audio comes from: `qf` = Quran.com / Quran Foundation (resolved per surah
+ * through `GET /v1/content/reciters/:id/surahs/:n`), `own` = our CDN (`<baseUrl>/<sss>.mp3`).
+ */
+export const ReciterSource = z.enum(['qf', 'own']);
+export type ReciterSource = z.infer<typeof ReciterSource>;
+
 export const Reciter = z.object({
   id: z.string(),
   nameAr: z.string(),
   nameEn: z.string(),
-  style: z.enum(['murattal', 'mujawwad']),
+  style: z.enum(['murattal', 'mujawwad', 'muallim']),
   riwaya: z.string(),
-  baseUrl: z.string(),
+  source: ReciterSource,
+  /** Quran Foundation chapter-reciter id (`/resources/chapter_reciters`); null for `own`. */
+  qfId: z.number().int().nullable(),
+  /** Per-ayah timings exist (ayah highlighting, ayah skip, ayah repeat). */
+  hasTimings: z.boolean(),
+  /** `own` only: per-surah MP3 base. Null for `qf` (resolve each surah instead). */
+  baseUrl: z.string().nullable(),
   timingUrl: z.string().nullable(),
+  /** Explicit sample; null → the app plays Al-Fatiha through the surah resolver. */
   sampleUrl: z.string().nullable(),
   sizeBytes: z.number().int(),
 });
 export type Reciter = z.infer<typeof Reciter>;
+
+/** One surah of one reciter: the audio file and per-ayah `[startMs, endMs]` (index 0 = ayah 1). */
+export const SurahAudio = z.object({
+  reciterId: z.string(),
+  surah: z.number().int().min(1).max(114),
+  url: z.string().url(),
+  sizeBytes: z.number().int().nullable(),
+  durationMs: z.number().int().nullable(),
+  timings: z.array(z.tuple([z.number().int(), z.number().int()])).nullable(),
+});
+export type SurahAudio = z.infer<typeof SurahAudio>;
+
+/** Every surah's timings for a reciter (the app's offline `timings.json`): `{"<surah>": [[s,e],…]}`. */
+export const ReciterTimings = z.record(z.string().regex(/^\d{1,3}$/), z.array(z.tuple([z.number().int(), z.number().int()])));
+export type ReciterTimings = z.infer<typeof ReciterTimings>;
+
+/** Shown wherever audio/tafsir from Quran Foundation appears (their Developer Terms ask for credit). */
+export const QF_ATTRIBUTION = 'Quran.com · Quran Foundation';
+
+export const Tafsir = z.object({
+  /** Our stable id (e.g. `muyassar`) — not the upstream number. */
+  id: z.string(),
+  nameAr: z.string(),
+  nameEn: z.string(),
+  language: z.enum(['ar', 'en']),
+  authorAr: z.string(),
+  authorEn: z.string(),
+  source: z.literal('qf'),
+  attribution: z.string(),
+});
+export type Tafsir = z.infer<typeof Tafsir>;
+
+/**
+ * Plain text (HTML and footnotes stripped) by `"<surah>:<ayah>"`. A commentary that covers several
+ * ayat sits on the first of them; the others are absent (the app shows the nearest previous one).
+ */
+export const TafsirSurah = z.object({
+  tafsirId: z.string(),
+  surah: z.number().int().min(1).max(114),
+  attribution: z.string(),
+  ayat: z.record(z.string().regex(/^\d{1,3}:\d{1,3}$/), z.string()),
+});
+export type TafsirSurah = z.infer<typeof TafsirSurah>;
+
+export const TafsirAyah = z.object({
+  tafsirId: z.string(),
+  ayahKey: z.string().regex(/^\d{1,3}:\d{1,3}$/),
+  text: z.string(),
+  attribution: z.string(),
+});
+export type TafsirAyah = z.infer<typeof TafsirAyah>;
 
 export const ContentPack = z.object({
   id: z.string(),
