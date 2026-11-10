@@ -58,6 +58,16 @@ export async function upsertDailyTask(_prev: S, form: FormData): Promise<S> {
   return { error: null, ok: true };
 }
 
+export async function reviewDailyTask(date: string, _prev: S, form: FormData): Promise<S> {
+  const parsed = ReviewDecision.safeParse({ decision: form.get('decision'), note: (form.get('note') as string) || undefined });
+  if (!parsed.success) return { error: 'قرار غير صالح' };
+  if (parsed.data.decision === 'request_changes' && !parsed.data.note) return { error: 'اكتب ملاحظة توضح التعديل المطلوب' };
+  const { error } = await tryApi(`/admin/content/daily-tasks/${date}/review`, { method: 'POST', body: parsed.data });
+  if (error) return { error };
+  revalidatePath('/content');
+  return { error: null, ok: true };
+}
+
 /** Dev-only «تعرض كـ» toggle (ignored in production builds). */
 export async function setPreviewRole(form: FormData) {
   if (process.env.NODE_ENV === 'production') return;

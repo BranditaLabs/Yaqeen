@@ -12,6 +12,7 @@ import {
   localToday,
   nextMilestone,
   reachedMilestones,
+  rulesForDate,
   validateTaskRules,
 } from '../src/domain/points.js';
 
@@ -34,6 +35,17 @@ describe('task rules', () => {
   it('rejects rules that do not total 100', () => {
     const bad = RULES.map((r) => (r.key === 'wird' ? { ...r, points: 30 } : r));
     expect(validateTaskRules(bad)).toMatchObject({ ok: false });
+  });
+});
+
+describe('daily task only on days with a published task', () => {
+  it('drops daily_task when none is published, so the day completes without it', () => {
+    expect(rulesForDate(RULES, true).map((r) => r.key)).toEqual(ALL);
+    const without = rulesForDate(RULES, false).map((r) => r.key);
+    expect(without).not.toContain('daily_task');
+    const completions: Completion[] = without.map((task) => ({ task, isQada: false }));
+    expect(dayStatus({ date: TODAY, today: TODAY, completions, allTasks: without })).toBe('done');
+    expect(dayStatus({ date: TODAY, today: TODAY, completions, allTasks: ALL })).toBe('today');
   });
 });
 

@@ -53,10 +53,17 @@ void main() {
 
     expect(find.text('سورة الناس · الآيات 1–5'), findsOneWidget);
     expect(find.text('اكتملت مراجعة اليوم'), findsOneWidget);
+    // A ticked step is saved with today's date, so leaving the screen (e.g. to listen) keeps it.
+    await tester.tap(find.text('استمع · 3 مرات'));
+    await tester.pumpAndSettle();
+    expect(kv.data['db.hifz'], contains('"steps"'));
     await tester.ensureVisible(find.text('حفظت مقطع اليوم'));
     await tester.tap(find.text('حفظت مقطع اليوم'));
     await tester.pumpAndSettle();
     expect(find.text('غداً'), findsOneWidget);
+    // The card keeps today's passage (also listed for review tomorrow); the next one is a preview.
+    expect(find.text('سورة الناس · الآيات 1–5'), findsNWidgets(2));
+    expect(find.text('غداً: سورة الناس · الآيات 6–6'), findsOneWidget);
     expect(kv.data['db.hifz'], contains('"s":114'));
 
     // Next day: the passage is due.
@@ -67,6 +74,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('مستحقة اليوم'), findsOneWidget);
+    expect(find.text('حُفظت قبل يوم · آخر مراجعة قبل يوم'), findsOneWidget);
     expect(find.text('سورة الناس · الآيات 6–6'), findsOneWidget);
     await tester.ensureVisible(find.text('جيدة · 3 أيام'));
     await tester.tap(find.text('جيدة · 3 أيام'));

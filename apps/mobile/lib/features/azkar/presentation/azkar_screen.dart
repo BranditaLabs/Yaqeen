@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/di/providers.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
@@ -16,6 +17,7 @@ import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../content/data/content_controller.dart';
 import '../../content/domain/content_item.dart';
+import '../../prayer/domain/prayer_calculator.dart';
 import 'azkar_controller.dart';
 
 String zikrSetTab(AppLocalizations t, ZikrSet s) => switch (s) {
@@ -32,6 +34,13 @@ String zikrSetTitle(AppLocalizations t, ZikrSet s) => switch (s) {
       ZikrSet.sleep => t.azkarTitleSleep,
     };
 
+/// The set to open when none was asked for — the same windows Home's «يومك» shows as open, from
+/// the place's prayer times: evening from Asr until Isha, morning otherwise.
+ZikrSet defaultZikrSet(DateTime now, PrayerDayTimes times) {
+  final instant = now.toUtc();
+  return !instant.isBefore(times.asr) && instant.isBefore(times.isha) ? ZikrSet.evening : ZikrSet.morning;
+}
+
 /// `16 · Azkar counter` (spec §5.19).
 class AzkarScreen extends ConsumerStatefulWidget {
   const AzkarScreen({super.key, this.initial});
@@ -42,15 +51,34 @@ class AzkarScreen extends ConsumerStatefulWidget {
 }
 
 class _AzkarScreenState extends ConsumerState<AzkarScreen> {
-  late ZikrSet _set = widget.initial ?? _bySunTime();
+  late ZikrSet _set = widget.initial ?? _byPrayerTime();
   String? _currentId;
   Timer? _advance;
+  late final AppLifecycleListener _lifecycle;
 
-  /// Morning until 15:00 local, evening after — a sensible default when opened without a set.
-  static ZikrSet _bySunTime() => DateTime.now().hour < 15 ? ZikrSet.morning : ZikrSet.evening;
+  ZikrSet _byPrayerTime() {
+    final s = ref.read(settingsProvider);
+    final repo = ref.read(prayerRepositoryProvider);
+    final now = ref.read(clockProvider)();
+    return defaultZikrSet(now, repo.forDate(s, repo.today(s, now)));
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Counts belong to a day: opened or resumed after midnight, start from zero.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _newDay());
+    _lifecycle = AppLifecycleListener(onResume: _newDay);
+  }
+
+  void _newDay() {
+    if (!mounted) return;
+    if (ref.read(azkarControllerProvider.notifier).ensureToday()) setState(() => _currentId = null);
+  }
 
   @override
   void dispose() {
+    _lifecycle.dispose();
     _advance?.cancel();
     super.dispose();
   }
@@ -62,6 +90,7 @@ class _AzkarScreenState extends ConsumerState<AzkarScreen> {
       builder: (c) => Consumer(
         builder: (c, ref, _) {
           final haptics = ref.watch(settingsProvider.select((s) => s.haptics));
+          final sound = ref.watch(settingsProvider.select((s) => s.azkarSound));
           return Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -75,6 +104,17 @@ class _AzkarScreenState extends ConsumerState<AzkarScreen> {
                     label: t.azkarHaptics,
                     value: haptics,
                     onChanged: (v) => ref.read(settingsProvider.notifier).update((s) => s.copyWith(haptics: v), sync: false),
+                  ),
+                ],
+              ),
+              const SizedBox(height: YqSpace.m),
+              Row(
+                children: [
+                  Expanded(child: Text(t.azkarSound)),
+                  YqSwitch(
+                    label: t.azkarSound,
+                    value: sound,
+                    onChanged: (v) => ref.read(settingsProvider.notifier).update((s) => s.copyWith(azkarSound: v), sync: false),
                   ),
                 ],
               ),
@@ -134,20 +174,20 @@ class _AzkarScreenState extends ConsumerState<AzkarScreen> {
             ),
           ],
           error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(contentProvider))],
-          data: (lib) => _body(context, t, lib.azkar(_set)),
+          data: (lib) => _body(context, t, lib.azkar(_set), synced: lib.synced),
         ),
       ),
     );
   }
 
-  List<Widget> _body(BuildContext context, AppLocalizations t, List<ContentItem> items) {
+  List<Widget> _body(BuildContext context, AppLocalizations t, List<ContentItem> items, {required bool synced}) {
     if (items.isEmpty) {
       return [
         LiquidGlass(
           child: YqEmptyState(
             icon: YqIcons.azkar,
             title: t.azkarEmpty,
-            hint: t.contentOfflineHint,
+            hint: synced ? t.contentPendingHint : t.contentOfflineHint,
             actionLabel: t.retry,
             onAction: () => ref.read(contentProvider.notifier).refresh(),
           ),
@@ -168,6 +208,11 @@ class _AzkarScreenState extends ConsumerState<AzkarScreen> {
     final inLoop = done ? beads : count % beads;
 
     void onTap() {
+      // Past midnight with the screen open: show the new day first rather than count on yesterday's card.
+      if (ctl.ensureToday()) {
+        setState(() => _currentId = null);
+        return;
+      }
       if (done) return;
       // Pin the card so a finished zikr stays on screen for the «تقبّل الله» beat before advancing.
       _currentId ??= current.id;

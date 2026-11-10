@@ -19,6 +19,7 @@ import '../../core/widgets/yq_states.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../calendar/data/hijri_today.dart';
 import '../challenge/presentation/challenge_controller.dart';
+import '../hifz/presentation/hifz_controller.dart';
 import '../notifications/presentation/inbox_screen.dart';
 import '../onboarding/presentation/session_controller.dart';
 import '../prayer/domain/prayer_calculator.dart';
@@ -308,6 +309,8 @@ class _Journey extends ConsumerWidget {
     final challenge = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.challenge)));
     final ramadan = ref.watch(ramadanStatusProvider.select((r) => r.active));
     final hifzOn = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.hifz)));
+    final hifz = hifzOn ? ref.watch(hifzControllerProvider).valueOrNull : null;
+    final quran = hifz == null ? null : ref.watch(quranDataProvider).valueOrNull;
 
     return YqTicker(
       now: clock,
@@ -364,11 +367,13 @@ class _Journey extends ConsumerWidget {
           required String title,
           String? subtitle,
           bool done = false,
+          bool idle = false,
           required VoidCallback onTap,
         }) {
           final at = resolveSlot(slot, times, tzName);
           if (at == null) return;
-          final due = !done && !instant.isBefore(at) && instant.isBefore(nextPrayerAfter(at));
+          // [idle]: nothing to do for this habit (e.g. no hifz plan yet) — neither due nor done.
+          final due = !done && !idle && !instant.isBefore(at) && instant.isBefore(nextPrayerAfter(at));
           entries.add(
             (
               YqStop(
@@ -397,7 +402,22 @@ class _Journey extends ConsumerWidget {
           done: s.wirdGoalPages > 0 && pages >= s.wirdGoalPages,
           onTap: () => lastPage == null ? context.go('/quran') : context.push('/quran/read/$lastPage'),
         );
-        if (hifzOn) habit(Habit.hifz, s.hifzSlot, title: t.habitHifz, onTap: () => context.push('/quran/hifz'));
+        if (hifzOn) {
+          // Done once nothing is due for review and today's passage is memorised (or the goal is complete).
+          final day = DateTime(today.year, today.month, today.day);
+          final hifzDone = hifz != null &&
+              quran != null &&
+              hifz.due(day).isEmpty &&
+              (hifz.memorisedToday(day) || hifz.today(quran) == null);
+          habit(
+            Habit.hifz,
+            s.hifzSlot,
+            title: t.habitHifz,
+            done: hifzDone,
+            idle: hifz == null,
+            onTap: () => context.push('/quran/hifz'),
+          );
+        }
         habit(Habit.dhikr, s.dhikrSlot, title: t.habitDhikr, onTap: () => context.push('/home/azkar'));
         // Stable sort by time: at the same minute a prayer stays before what follows it.
         final indexed = [for (var i = 0; i < entries.length; i++) (i, entries[i])]..sort((a, b) {

@@ -12,4 +12,13 @@ void main() {
     expect(u.isUtc, isTrue);
     expect(u, DateTime.utc(2027, 1, 1));
   });
+
+  test('daysBetween counts calendar days, never short across a 23-hour DST day', () {
+    expect(Zoned.daysBetween(DateTime(2026, 10, 20), DateTime(2026, 10, 22)), 2);
+    expect(Zoned.daysBetween(DateTime(2026, 10, 22), DateTime(2026, 10, 20)), -2);
+    // Only the dates count, so 47 h between midnights (Egypt springs forward on 24 Apr 2026) is 2.
+    expect(Zoned.daysBetween(DateTime(2026, 4, 23, 23), DateTime(2026, 4, 25)), 2);
+    expect(Zoned.daysBetween(DateTime(2026, 4, 23), DateTime(2026, 4, 24, 23)), 1);
+    expect(Zoned.daysBetween(DateTime(2026, 2, 28), DateTime(2026, 3, 1)), 1);
+  });
 }

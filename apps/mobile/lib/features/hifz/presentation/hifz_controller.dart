@@ -36,6 +36,16 @@ class HifzController extends AsyncNotifier<HifzPlan?> {
     await _commit(plan.memorise(q, _today));
   }
 
+  /// Ticks or unticks a «استمع · كرّر · اختبر نفسك» step for today; kept so leaving the screen (e.g.
+  /// to listen) doesn't reset it. Reminders don't depend on it, so no re-plan.
+  Future<void> toggleStep(int step) async {
+    final plan = state.valueOrNull;
+    if (plan == null) return;
+    final next = plan.toggleStep(step, _today);
+    state = AsyncData(next);
+    await ref.read(hifzRepositoryProvider).save(next);
+  }
+
   Future<void> rate(String portionId, ReviewGrade grade) async {
     final plan = state.valueOrNull;
     if (plan == null) return;

@@ -44,7 +44,7 @@ erDiagram
 | `tag_encode_sessions` | Staff NFC encoding sessions (migration 0013): `id`, `batch` → `tag_batches` (cascade), `token_hash` (SHA-256 of the 32-byte token, unique — the token itself is never stored), `created_by` → `admin_users`, `expires_at` (2 h), `revoked_at`, `created_at`. Creation and revocation are in `audit_log`. |
 | `rewards` / `redemptions` | Catalogue (cost, value, validity days, monthly cap, per-user monthly limit) and issued Shopify codes (`issued → used` by the orders/paid webhook, `→ expired` daily, `void` when Shopify failed and the points came back). |
 | `content_items` | Duas / azkar with workflow `draft → pending_review → published / changes_requested`. `live` + `live_at` hold the last approved snapshot — what the app is served — so an edit in review never takes an item offline. |
-| `daily_tasks` | One "مهمة اليوم" per date. |
+| `daily_tasks` | One "مهمة اليوم" per date; reviewed like content (`status`, `reviewed_by`), the app gets only the approved `live` text. No published task → `daily_task` can't be ticked that day and the day completes without it. |
 | `campaigns` / `campaign_deliveries` | Push campaigns; deliveries enforce the daily cap and dedupe. |
 | `app_config` | Remote config by key (features, minVersion, maintenance, splashVerse). |
 | `hijri_adjustments` | Regional offsets effective from a Hijri month. |
