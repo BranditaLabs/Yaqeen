@@ -100,9 +100,24 @@ jobs:
           printf 'org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError\nkotlin.daemon.jvmargs=-Xmx2g\norg.gradle.workers.max=2\n' > ~/.gradle/gradle.properties
       - run: flutter pub get
       - run: flutter gen-l10n
+      - name: Fixed test signing key (Google sign-in needs a registered SHA)
+        # Without it the runner makes a fresh debug key every run, whose SHA Firebase doesn't know, so
+        # Google sign-in can't work in the test APK. The key's SHA-1/256 are registered on the yaqeen-eg
+        # Android app (docs/RELEASE_MOBILE.md › Test APK). Never used for store builds.
+        env:
+          KEY: ${{ secrets.ANDROID_TEST_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEY" ]; then mkdir -p ~/.android && echo "$KEY" | base64 -d > ~/.android/debug.keystore; echo "signing with the test key";
+          else echo "::warning::ANDROID_TEST_KEYSTORE_BASE64 not set — Google sign-in won't work in this APK"; fi
       # Release mode (R8 shrinking, obfuscation) signed with the debug key when no key.properties exists:
       # proves manifest, Gradle, desugaring, R8 rules and plugin wiring. Store signing is in release-mobile.yml.
-      - run: flutter build apk --release --obfuscate --split-debug-info=build/symbols --dart-define=API_BASE_URL=https://api.yaqeenarabia.com
+      # The installable test APK talks to staging (production has no hosts yet).
+      - run: >-
+          flutter build apk --release --obfuscate --split-debug-info=build/symbols
+          --dart-define=API_BASE_URL=https://api-staging.yaqeenarabia.com
+          --dart-define=SITE_URL=https://api-staging.yaqeenarabia.com
+          --dart-define=APPLE_REDIRECT_URI=https://api-staging.yaqeenarabia.com/v1/auth/apple/callback
+          --dart-define=FLAVOR=staging
       # Installable test build (debug-signed, so it sideloads but can't go to Play): Actions › this run › Artifacts.
       - uses: actions/upload-artifact@v4
         with:

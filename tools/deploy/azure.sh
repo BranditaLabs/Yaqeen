@@ -51,6 +51,7 @@ case "$ENVIRONMENT" in
 esac
 HOSTS=("$API_HOST" "$ADMIN_HOST")
 [[ -z "$SITE_HOST" ]] || HOSTS+=("$SITE_HOST")
+TAG_GIVEN=${TAG:-}
 TAG=${TAG:-$(git -C "$ROOT" rev-parse --short=12 HEAD)}
 WORK=$(native "$(mktemp -d)")
 trap 'rm -rf "$WORK"' EXIT
@@ -110,8 +111,30 @@ domain_mode() {
   if [[ "${certs:-0}" -ge "$want" ]]; then echo bind; elif [[ "${hosts:-0}" -ge 1 ]]; then echo add; else echo none; fi
 }
 
+# The image tag the API's last *ready* revision runs ('' before the first rollout). Not the app's
+# template: a failed rollout leaves that pointing at the tag that didn't work.
+deployed_tag() {
+  local rev image
+  rev=$(q containerapp show -g "$RG" -n yaqeen-api --query properties.latestReadyRevisionName 2>/dev/null || true)
+  [[ -n "$rev" ]] || return 0
+  image=$(q containerapp revision show -g "$RG" -n yaqeen-api --revision "$rev" --query 'properties.template.containers[0].image' 2>/dev/null || true)
+  [[ "$image" == *:* ]] && printf '%s' "${image##*:}"
+}
+
+# Never point the apps at a tag that isn't in the registry (a failed or skipped `images` step, or a
+# commit that changed no image): the new revision would fail to pull and the jobs would break.
+require_images() {
+  local acr image
+  acr=$(q acr list -g "$RG" --query '[0].name')
+  for image in yaqeen-api yaqeen-admin; do
+    q acr repository show -n "$acr" --image "$image:$TAG" --query name >/dev/null 2>&1 ||
+      die "$image:$TAG is not in $acr — run: $0 $ENVIRONMENT images (or set TAG to a pushed commit)"
+  done
+}
+
 deploy() { # deploy <deployApps true|false> <domainMode>
   local apps=$1 mode=$2 kv acr settings='{}' extra='[]' storage principal ptype apps_location=$LOCATION
+  [[ "$apps" != true ]] || require_images
   kv=$(vault)
   [[ -z "$SHARED_ENV" ]] || apps_location=$(q containerapp env show --ids "$SHARED_ENV" --query location | tr -d ' ' | tr 'A-Z' 'a-z')
   read -r principal ptype <<<"$(deployer)"
@@ -203,14 +226,6 @@ images() {
 
 apps() {
   log "apps :$TAG"
-  # Never point the apps at a tag that isn't in the registry (a failed or skipped `images` step):
-  # the new revision would fail to pull and the jobs would break.
-  local acr image
-  acr=$(q acr list -g "$RG" --query '[0].name')
-  for image in yaqeen-api yaqeen-admin; do
-    q acr repository show -n "$acr" --image "$image:$TAG" --query name >/dev/null 2>&1 ||
-      die "$image:$TAG is not in $acr — run: $0 $ENVIRONMENT images (or set TAG to a pushed commit)"
-  done
   deploy true "$(domain_mode)"
 }
 
@@ -300,7 +315,10 @@ domains() {
     nslookup "$SITE_HOST" 8.8.8.8 2>/dev/null | grep -q "$(q containerapp env show -g "$ENV_RG" -n "$ENV_NAME" --query properties.staticIp)" ||
       die "$SITE_HOST doesn't point at the environment yet — create the A record from: $0 $ENVIRONMENT dns"
   fi
-  log "hostnames (validation)"
+  # A config-only change: keep the images that run now (unless TAG was given explicitly).
+  [[ -n "$TAG_GIVEN" ]] || TAG=$(deployed_tag)
+  [[ -n "$TAG" ]] || die "nothing deployed yet: run $0 $ENVIRONMENT all first"
+  log "hostnames (validation) — images stay at :$TAG"
   deploy true add
   log "managed certificates + SNI binding (a few minutes)"
   deploy true bind

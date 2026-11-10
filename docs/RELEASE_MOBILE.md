@@ -113,6 +113,17 @@ people on your team) can install them at once. External testers need a one-time 
 | `API_BASE_URL` | the deployed API, e.g. `https://api.yaqeenarabia.com` |
 | `STORE_URL` | optional; defaults to `https://www.yaqin-brand.com` |
 
+### Test APK (CI)
+
+Every CI run uploads an installable `yaqeen-android-apk` (Actions › the run › Artifacts) that talks to
+**staging** (`https://api-staging.yaqeenarabia.com`). Google sign-in only works when the APK is signed
+with a key whose SHA Firebase knows, so CI signs it with a fixed *test* key: repository secret
+`ANDROID_TEST_KEYSTORE_BASE64` (base64 of a debug-format keystore, alias `androiddebugkey`, password
+`android`). Its SHA-1 `8C:9B:DF:8F:59:3D:5C:94:80:97:B6:02:DD:E1:50:4D:EB:86:56:54` and SHA-256 are
+registered on the `yaqeen-eg` Android app. Without the secret the APK still builds, minus Google
+sign-in. Never commit the keystore or use it for store builds — anyone holding it could ship an app
+that receives Google tokens for Yaqeen.
+
 ## If a run fails
 - **"Missing: …"**: a secret or variable from the tables above is not set in the
   `production-mobile` environment.
