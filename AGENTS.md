@@ -35,7 +35,7 @@ cd apps/mobile && flutter pub get && flutter gen-l10n && flutter analyze --no-fa
 1. Worship data never reaches ad platforms. Only contract `AD_EVENTS`, only with `ads_measurement` consent.
 2. Admins see worship **aggregates only**.
 3. The points ledger is append-only (new row + unique `ref_key`). Admin writes are audited.
-4. Religious content publishes only after approval by a `religious_reviewer` who is not the author.
+4. Religious content comes only from an authenticated published source we hold written permission for, imported verbatim with each item's reference (that source is the approval; the import is audited). Hand-typed or edited items still need a `religious_reviewer` who is not the author. No source is licensed yet — see `docs/CONTENT_SOURCES.md`.
 5. Marketing pushes respect prayer guardrails. Worship reminders are local notifications.
 6. Offline first: Quran, prayer times, Qibla, azkar, duas, hifz, challenge ticks (Outbox).
 7. Arabic RTL first, Western digits (`YqFormat.number`). English fully supported.

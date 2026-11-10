@@ -35,7 +35,7 @@ screen matches its design artboard (spacing, type, colour, RTL, states). Say exa
 1. **Worship data never reaches ad platforms.** Only `AdEvent` values (contracts `AD_EVENTS`) go to Google/Meta/TikTok, only with `ads_measurement` consent. No API exists to send worship events; don't add one.
 2. **Admins see aggregates only** for worship. Per-user views show points ledger + redemptions, never which prayers/azkar.
 3. **Points ledger is append-only.** Never update a balance. New row + unique `ref_key`. Admin writes are audited in the same transaction.
-4. **Religious content** (duas, azkar, daily task, splash verse) publishes only after a `religious_reviewer` who is not the author approves it.
+4. **Religious content** (duas, azkar, daily task, splash verse) comes only from an **authenticated published source we hold written permission for**, imported verbatim with each item's source reference — that source is the approval (owner decision, 2026-11-10); the import is audited. Anything typed or edited by hand in the admin still publishes only after a `religious_reviewer` who is not the author approves it. Today no source is licensed: Hisn al-Muslim permission requested from the author's office (`docs/CONTENT_SOURCES.md`); until granted, content stays empty.
 5. **Marketing pushes respect prayer**: server guardrails (quiet hours, ±prayer windows, Jumu'ah, daily cap, consent). Worship reminders are **local** notifications.
 6. **Offline first** for Quran, prayer times, Qibla, azkar, duas, hifz and challenge ticks (Outbox).
 7. **Arabic RTL first, Western digits** everywhere (`YqFormat.number`, `ar-EG-u-nu-latn`). English fully supported.
