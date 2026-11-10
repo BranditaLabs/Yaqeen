@@ -40,7 +40,8 @@ class _QiblaScreenState extends ConsumerState<QiblaScreen> {
   void initState() {
     super.initState();
     // No compass: the orbit stays static (north up, the Kaaba at the bearing).
-    final stream = ref.read(compassServiceProvider).headings;
+    final here = ref.read(settingsProvider).placeOrDefault;
+    final stream = ref.read(compassServiceProvider).headingsAt(here.lat, here.lng);
     if (stream != null) {
       _sub = stream.listen((h) {
         if (!mounted) return;
@@ -128,7 +129,7 @@ class _QiblaScreenState extends ConsumerState<QiblaScreen> {
                   TextButton(
                     onPressed: () async {
                       final p = await showCityPicker(context);
-                      if (p != null) await ref.read(settingsProvider.notifier).update((x) => x.copyWith(place: p));
+                      if (p != null && context.mounted) await savePlace(context, ref, p);
                     },
                     child: Text(t.locationChange),
                   ),

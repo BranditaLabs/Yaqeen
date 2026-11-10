@@ -6,6 +6,7 @@ import '../../../core/config/remote_config.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/format.dart';
 import '../../../core/notifications/local_notifier.dart';
+import '../../../core/notifications/notification_planner.dart' show ReminderPrefs;
 import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
@@ -61,7 +62,7 @@ class _NotificationSettingsScreenState extends ConsumerState<NotificationSetting
           YqButton(
             label: t.openSettings,
             onPressed: () {
-              ref.read(deviceServicesProvider).openUrl(Uri.parse('app-settings:'));
+              ref.read(deviceServicesProvider).openNotificationSettings();
               Navigator.of(c).pop();
             },
           ),
@@ -356,6 +357,10 @@ class _TodayReminders extends ConsumerWidget {
     final times = repo.forDate(s, repo.today(s, now));
     final hifzOn = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.hifz)));
     String at(DateTime utc) => YqFormat.time(repo.local(s, utc), s.locale);
+    // The azkar reminders fire after Fajr / Asr by the planner's offsets — shown at that time.
+    const prefs = ReminderPrefs();
+    final morning = times.fajr.add(Duration(minutes: prefs.morningAfterFajrMinutes));
+    final evening = times.asr.add(Duration(minutes: prefs.eveningAfterAsrMinutes));
     final entries = <(YqStop, DateTime)>[
       for (final p in displayOrder)
         (
@@ -373,8 +378,8 @@ class _TodayReminders extends ConsumerWidget {
           ),
           times.of(p),
         ),
-      if (s.morningAzkar) (YqStop(time: at(times.fajr), title: t.azkarMorning, icon: YqIcons.azkar, style: StopStyle.pill), times.fajr),
-      if (s.eveningAzkar) (YqStop(time: at(times.asr), title: t.azkarEvening, icon: YqIcons.azkar, style: StopStyle.pill), times.asr),
+      if (s.morningAzkar) (YqStop(time: at(morning), title: t.azkarMorning, icon: YqIcons.azkar, style: StopStyle.pill), morning),
+      if (s.eveningAzkar) (YqStop(time: at(evening), title: t.azkarEvening, icon: YqIcons.azkar, style: StopStyle.pill), evening),
     ];
     for (final (h, slot) in [(Habit.quran, s.quranSlot), if (hifzOn) (Habit.hifz, s.hifzSlot), (Habit.dhikr, s.dhikrSlot)]) {
       final when = resolveSlot(slot, times, s.placeOrDefault.timezone);

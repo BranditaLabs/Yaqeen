@@ -249,6 +249,61 @@
     }
   },
   "prayerTravelUpdate": "تحديث المواقيت",
+  "prayerSettingsTitle": "إعدادات المواقيت",
+  "prayerSettingsHighLat": "خطوط العرض العليا",
+  "prayerSettingsHighLatDetail": "حين لا يغيب الشفق صيفاً في البلاد البعيدة عن خط الاستواء",
+  "highLatTwilight": "زاوية الشفق",
+  "highLatMiddle": "منتصف الليل",
+  "highLatSeventh": "سُبع الليل",
+  "prayerSettingsAdjust": "تعديل بالدقائق",
+  "prayerSettingsAdjustDetail": "لمطابقة مسجدك إن اختلف توقيته قليلاً",
+  "prayerAdjustEarlier": "تقديم {prayer} دقيقة",
+  "@prayerAdjustEarlier": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerAdjustLater": "تأخير {prayer} دقيقة",
+  "@prayerAdjustLater": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "hijriOffsetTitle": "تعديل التاريخ الهجري",
+  "hijriOffsetDetail": "إن اختلفت رؤية الهلال في بلدك عن التقويم",
+  "hijriOffsetMinus": "−1 يوم",
+  "hijriOffsetNone": "بدون",
+  "hijriOffsetPlus": "+1 يوم",
+  "hijriOffsetPreview": "اليوم {date}",
+  "@hijriOffsetPreview": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerMethodOfferTitle": "استخدام {method}؟",
+  "@prayerMethodOfferTitle": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerMethodOfferBody": "هي طريقة الحساب الموصى بها في {city}.",
+  "@prayerMethodOfferBody": {
+    "placeholders": {
+      "city": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerMethodOfferUse": "استخدامها",
+  "prayerMethodOfferKeep": "إبقاء الطريقة الحالية",
   "methodEgypt": "الهيئة المصرية العامة للمساحة",
   "methodMwl": "رابطة العالم الإسلامي",
   "methodUmmAlQura": "أم القرى",

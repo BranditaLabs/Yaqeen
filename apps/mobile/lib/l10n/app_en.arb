@@ -222,6 +222,61 @@
     }
   },
   "prayerTravelUpdate": "Update times",
+  "prayerSettingsTitle": "Prayer time settings",
+  "prayerSettingsHighLat": "High latitudes",
+  "prayerSettingsHighLatDetail": "When twilight lasts all night in summer, far from the equator",
+  "highLatTwilight": "Twilight angle",
+  "highLatMiddle": "Middle of the night",
+  "highLatSeventh": "Seventh of the night",
+  "prayerSettingsAdjust": "Adjust by minutes",
+  "prayerSettingsAdjustDetail": "To match your mosque if its times differ slightly",
+  "prayerAdjustEarlier": "{prayer} one minute earlier",
+  "@prayerAdjustEarlier": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerAdjustLater": "{prayer} one minute later",
+  "@prayerAdjustLater": {
+    "placeholders": {
+      "prayer": {
+        "type": "String"
+      }
+    }
+  },
+  "hijriOffsetTitle": "Hijri date adjustment",
+  "hijriOffsetDetail": "If the moon sighting where you live differs from the calendar",
+  "hijriOffsetMinus": "−1 day",
+  "hijriOffsetNone": "None",
+  "hijriOffsetPlus": "+1 day",
+  "hijriOffsetPreview": "Today is {date}",
+  "@hijriOffsetPreview": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerMethodOfferTitle": "Use {method}?",
+  "@prayerMethodOfferTitle": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerMethodOfferBody": "It's the recommended calculation method in {city}.",
+  "@prayerMethodOfferBody": {
+    "placeholders": {
+      "city": {
+        "type": "String"
+      }
+    }
+  },
+  "prayerMethodOfferUse": "Use it",
+  "prayerMethodOfferKeep": "Keep the current method",
   "methodEgypt": "Egyptian General Authority of Survey",
   "methodMwl": "Muslim World League",
   "methodUmmAlQura": "Umm al-Qura",

@@ -208,7 +208,7 @@ class ProfileScreen extends ConsumerWidget {
               t.profilePrayer,
               subtitle: methodLabel(t, s.method),
               icon: YqIcons.adhan,
-              onTap: () => context.push('/prayer/notifications'),
+              onTap: () => context.push('/prayer/settings'),
             ),
             row(t.profilePrivacy, icon: YqIcons.settings, onTap: () => context.push('/profile/privacy')),
             row(t.profileDownloads, subtitle: mb, icon: YqIcons.download, onTap: () => context.push('/profile/downloads')),

@@ -17,6 +17,7 @@ import '../features/notifications/presentation/notification_settings_screen.dart
 import '../features/onboarding/presentation/onboarding_screens.dart';
 import '../features/onboarding/presentation/splash_gate.dart';
 import '../features/prayer/presentation/prayer_screen.dart';
+import '../features/prayer/presentation/prayer_settings_screen.dart';
 import '../features/card/presentation/card_screen.dart';
 import '../features/card/presentation/encode_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
@@ -138,6 +139,7 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
                   builder: (_, __) => const PrayerScreen(),
                   routes: [
                     GoRoute(path: 'notifications', builder: (_, __) => const NotificationSettingsScreen()),
+                    GoRoute(path: 'settings', builder: (_, __) => const PrayerSettingsScreen()),
                     GoRoute(path: 'ramadan', builder: (_, __) => const RamadanScreen()),
                     GoRoute(parentNavigatorKey: rootNavigatorKey, path: 'qibla', builder: (_, __) => const QiblaScreen()),
                   ],

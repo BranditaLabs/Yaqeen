@@ -21,11 +21,7 @@ import '../../../l10n/gen/app_localizations.dart';
 import '../../challenge/domain/challenge_models.dart';
 import '../../challenge/presentation/challenge_controller.dart';
 import '../../challenge/presentation/challenge_screen.dart';
-
-const hijriMonthsEn = [
-  'Muharram', 'Safar', 'Rabiʿ al-Awwal', 'Rabiʿ al-Thani', 'Jumada al-Ula', 'Jumada al-Akhirah',
-  'Rajab', 'Shaʿban', 'Ramadan', 'Shawwal', 'Dhu al-Qaʿdah', 'Dhu al-Hijjah', //
-];
+import '../domain/hijri_day.dart';
 
 String hijriMonthName(CalendarCell c, String locale) =>
     locale == 'ar' ? c.hijriMonthNameAr : hijriMonthsEn[(c.hijriMonth - 1).clamp(0, 11)];

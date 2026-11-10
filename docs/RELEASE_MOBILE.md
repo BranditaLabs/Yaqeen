@@ -56,6 +56,9 @@ first review. Then set it to `completed`.
    - Associated Domains;
    - Sign in with Apple;
    - Push Notifications (FCM campaigns; regenerate the App Store profile after enabling it);
+   - **Time Sensitive Notifications** (the adhan breaks through Focus,
+     `com.apple.developer.usernotifications.time-sensitive` in `Runner.entitlements`); regenerate the
+     App Store profile after enabling it;
    - **NFC Tag Reading** (medal scan + staff encoding, `com.apple.developer.nfc.readersession.formats`
      NDEF + TAG in `Runner.entitlements`). Enable it on the App ID, then **regenerate the App Store
      provisioning profile** — a profile without it fails signing. `NFCReaderUsageDescription` is in

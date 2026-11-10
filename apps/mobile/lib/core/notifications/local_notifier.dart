@@ -32,6 +32,12 @@ class PluginLocalNotifier implements LocalNotificationScheduler {
 
   static const bundledAdhan = bool.fromEnvironment('ADHAN_SOUNDS');
 
+  /// The bundled recording for an adhan (`res/raw/<name>`, `<name>.caf`), also its Android channel
+  /// id: Android 8+ fixes a channel's sound when the channel is created, so Fajr's own recording
+  /// needs its own channel. null until the licensed recordings are bundled (default sound).
+  static String? adhanSoundFor(String voice, Prayer? prayer, {bool bundled = bundledAdhan}) =>
+      bundled ? 'adhan_$voice${prayer == Prayer.fajr ? '_fajr' : ''}' : null;
+
   final _plugin = FlutterLocalNotificationsPlugin();
   final _taps = StreamController<Uri>.broadcast();
   Future<void>? _init;
@@ -92,10 +98,10 @@ class PluginLocalNotifier implements LocalNotificationScheduler {
     final channel = n.channel;
     final adhan = channel == NotificationChannel.adhan;
     final voice = adhanVoice();
-    final sound = adhan && bundledAdhan ? 'adhan_$voice${n.prayer == Prayer.fajr ? '_fajr' : ''}' : null;
+    final sound = adhan ? adhanSoundFor(voice, n.prayer) : null;
     return NotificationDetails(
       android: AndroidNotificationDetails(
-        sound == null ? channel.name : 'adhan_$voice',
+        sound ?? channel.name,
         names[channel] ?? channel.name,
         importance: adhan ? Importance.max : Importance.defaultImportance,
         priority: adhan ? Priority.high : Priority.defaultPriority,
