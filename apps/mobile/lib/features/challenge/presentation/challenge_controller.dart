@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/analytics/analytics.dart';
 import '../../../core/di/providers.dart';
+import '../../onboarding/presentation/session_controller.dart';
 import '../data/challenge_repository.dart';
 import '../domain/challenge_models.dart';
 
@@ -10,6 +11,8 @@ class ChallengeController extends AsyncNotifier<ChallengeSummary> {
   /// answers. With nothing cached, waits for the network as before.
   @override
   Future<ChallengeSummary> build() async {
+    // Another account (sign-in, sign-out, ended session) never sees this one's summary.
+    ref.watch(sessionProvider.select((s) => s.userId));
     final repo = ref.read(challengeRepositoryProvider);
     final cached = await repo.cachedSummary().catchError((Object _) => null);
     if (cached == null) return repo.summary();

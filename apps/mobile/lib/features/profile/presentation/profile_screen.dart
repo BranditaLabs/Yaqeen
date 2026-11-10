@@ -332,7 +332,11 @@ class PrivacyScreen extends ConsumerStatefulWidget {
 
 class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
   Future<void> _set(ConsentKind k, bool v) async {
-    await ref.read(consentRepositoryProvider).set(k, v, ConsentSource.settings);
+    final consents = ref.read(consentRepositoryProvider);
+    await consents.record(k, v, ConsentSource.settings);
+    // The switch follows the tap; the event reaches the server in the background (queued offline).
+    if (mounted) setState(() {});
+    unawaited(consents.syncAll().catchError((Object _) {}));
     if (k == ConsentKind.adsMeasurement) {
       // ATT first (iOS), so the SDKs start with its answer.
       if (v) await ref.read(deviceServicesProvider).requestTracking();

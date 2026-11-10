@@ -81,15 +81,23 @@ class AuthRepository {
     return _consume(json, provider);
   }
 
-  /// Guest that works with zero network: saved locally now, created on the server later.
+  /// Guest that works with zero network: saved locally now, created on the server later. An API
+  /// that is down or rate-limiting (5xx, 429) is treated like no network.
   Future<Session> continueAsGuest({String locale = 'ar'}) async {
     try {
       return await signIn(SignInProvider.guest, locale: locale);
     } on OfflineException {
-      const s = Session(provider: SignInProvider.guest, pendingServer: true);
-      await _save(s);
-      return s;
+      return _pendingGuest();
+    } on ApiException catch (e) {
+      if (e.status >= 500 || e.status == 429) return _pendingGuest();
+      rethrow;
     }
+  }
+
+  Future<Session> _pendingGuest() async {
+    const s = Session(provider: SignInProvider.guest, pendingServer: true);
+    await _save(s);
+    return s;
   }
 
   /// Completes an offline guest once the network is back. No-op otherwise.
@@ -121,6 +129,11 @@ class AuthRepository {
     } on Exception {
       // Sign out locally regardless.
     }
+    await forget();
+  }
+
+  /// Ends the session on this phone only (the server already refused it).
+  Future<void> forget() async {
     await tokens.clear();
     await store.delete(_key);
   }

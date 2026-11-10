@@ -25,10 +25,18 @@ import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../challenge/presentation/challenge_controller.dart';
+import '../../onboarding/presentation/session_controller.dart';
 import '../domain/reward.dart';
 
-final rewardsProvider = FutureProvider.autoDispose((ref) => ref.watch(rewardsRepositoryProvider).list());
-final codesProvider = FutureProvider.autoDispose((ref) => ref.watch(rewardsRepositoryProvider).codes());
+// Both follow the account: a sign-in or sign-out reloads them.
+final rewardsProvider = FutureProvider.autoDispose((ref) {
+  ref.watch(sessionProvider.select((s) => s.userId));
+  return ref.watch(rewardsRepositoryProvider).list();
+});
+final codesProvider = FutureProvider.autoDispose((ref) {
+  ref.watch(sessionProvider.select((s) => s.userId));
+  return ref.watch(rewardsRepositoryProvider).codes();
+});
 
 String redeemErrorCopy(AppLocalizations t, RedeemError e) => switch (e) {
       RedeemError.insufficientPoints => t.redeemErrInsufficient,

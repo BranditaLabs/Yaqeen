@@ -198,6 +198,63 @@ void main() {
     expect(kv.data['settings.v1'], contains('onboardingCompletedAt'));
   });
 
+  group('welcome guest button', () {
+    List<Override> server(MemoryKvStore kv, http.Response Function() signIn, {AppSettings settings = const AppSettings()}) => [
+          kvStoreProvider.overrideWithValue(kv),
+          secureStoreProvider.overrideWithValue(MemoryKvStore()),
+          initialSettingsProvider.overrideWithValue(settings),
+          quranDataProvider.overrideWith((_) async => q),
+          apiClientProvider.overrideWith(
+            (ref) => ApiClient(
+              baseUrl: 'https://api.test',
+              tokens: ref.watch(tokenStoreProvider),
+              client: MockClient((req) async {
+                calls.add('${req.method} ${req.url.path}');
+                return signIn();
+              }),
+            ),
+          ),
+        ];
+
+    Future<void> tapGuest(WidgetTester tester) async {
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('المتابعة كضيف'));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 3)); // toast in and out
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('an API refusal shows the error toast and frees the buttons', (tester) async {
+      final kv = MemoryKvStore();
+      await tester.pumpWidget(app(server(kv, () => json({'error': {'code': 'bad_request'}}, 400))));
+      await tapGuest(tester);
+      expect(calls, contains('POST /v1/auth/sign-in'));
+      expect(find.text('المتابعة كضيف'), findsOneWidget); // still on Welcome
+      expect(kv.data['auth.session'], isNull);
+      // Not stuck: a second tap goes out again.
+      calls.clear();
+      await tapGuest(tester);
+      expect(calls, contains('POST /v1/auth/sign-in'));
+    });
+
+    testWidgets('a rate-limited or failing API continues as an offline guest', (tester) async {
+      final kv = MemoryKvStore();
+      await tester.pumpWidget(app(server(kv, () => http.Response('<html>502 Bad Gateway</html>', 502))));
+      await tapGuest(tester);
+      expect(find.text('لغتك ومصحفك'), findsOneWidget);
+      expect(kv.data['auth.session'], contains('"pendingServer":true'));
+    });
+
+    testWidgets('after a sign-out an onboarded user goes home, not through onboarding again', (tester) async {
+      final kv = MemoryKvStore();
+      final done = AppSettings(onboardingCompletedAt: DateTime.utc(2026, 1, 1));
+      await tester.pumpWidget(app(server(kv, () => http.Response('', 503), settings: done)));
+      await tapGuest(tester);
+      expect(find.text('HOME'), findsOneWidget);
+    });
+  });
+
   testWidgets('profile: guest sees the sign-in CTA and no destructive rows', (tester) async {
     tester.view.physicalSize = const Size(390 * 3, 1600 * 3);
     tester.view.devicePixelRatio = 3;
