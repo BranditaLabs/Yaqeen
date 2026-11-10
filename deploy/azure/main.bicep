@@ -37,6 +37,8 @@ param redisImage string = ''
 @description('Public hosts once DNS points here (docs/OPERATIONS.md › Azure › Custom domains).')
 param apiHost string
 param adminHost string
+@description('Root-domain host for the website, cards and app links (e.g. yaqeenarabia.com), served by the API too; empty = they live on apiHost.')
+param siteHost string = ''
 @allowed(['none', 'add', 'bind'])
 param domainMode string = 'none'
 
@@ -328,7 +330,7 @@ var apiDefaults = {
   METRICS_PORT: '0'
   SENTRY_ENVIRONMENT: envName
   SENTRY_TRACES_SAMPLE_RATE: isProd ? '0' : '0.2'
-  PUBLIC_PROFILE_BASE_URL: 'https://${apiHost}'
+  PUBLIC_PROFILE_BASE_URL: 'https://${empty(siteHost) ? apiHost : siteHost}'
 }
 // Empty REDIS_URL = in-memory cache and rate limits (the env default would point at localhost).
 var redisOffEnv = redisOn ? {} : { REDIS_URL: '' }
@@ -340,17 +342,25 @@ var apiEnv = concat(apiPlainEnv, apiSecretVars)
 module managedCerts 'certs.bicep' = if (domainMode == 'bind') {
   name: 'yaqeen-${envName}-certs'
   scope: resourceGroup(envRg)
-  params: { environmentName: envResourceName, location: appsLocation, hosts: [apiHost, adminHost] }
+  params: {
+    environmentName: envResourceName
+    location: appsLocation
+    // A root domain can't have a CNAME: its certificate validates over HTTP (A record + asuid TXT).
+    hosts: concat(
+      [{ host: apiHost, validation: 'CNAME' }, { host: adminHost, validation: 'CNAME' }],
+      empty(siteHost) ? [] : [{ host: siteHost, validation: 'HTTP' }]
+    )
+  }
   dependsOn: [cae]
 }
 var apiCertId = resourceId(subscription().subscriptionId, envRg, 'Microsoft.App/managedEnvironments/managedCertificates', envResourceName, 'cert-${replace(apiHost, '.', '-')}')
+var siteCertId = resourceId(subscription().subscriptionId, envRg, 'Microsoft.App/managedEnvironments/managedCertificates', envResourceName, 'cert-${replace(siteHost, '.', '-')}')
 var adminCertId = resourceId(subscription().subscriptionId, envRg, 'Microsoft.App/managedEnvironments/managedCertificates', envResourceName, 'cert-${replace(adminHost, '.', '-')}')
 
-var apiDomains = domainMode == 'none' ? [] : [
-  domainMode == 'bind'
-    ? { name: apiHost, bindingType: 'SniEnabled', certificateId: apiCertId }
-    : { name: apiHost, bindingType: 'Disabled' }
-]
+var apiDomains = domainMode == 'none' ? [] : concat(
+  [domainMode == 'bind' ? { name: apiHost, bindingType: 'SniEnabled', certificateId: apiCertId } : { name: apiHost, bindingType: 'Disabled' }],
+  empty(siteHost) ? [] : [domainMode == 'bind' ? { name: siteHost, bindingType: 'SniEnabled', certificateId: siteCertId } : { name: siteHost, bindingType: 'Disabled' }]
+)
 var adminDomains = domainMode == 'none' ? [] : [
   domainMode == 'bind'
     ? { name: adminHost, bindingType: 'SniEnabled', certificateId: adminCertId }

@@ -175,7 +175,7 @@ link in the vault (`seed-admin-password`, `seed-admin-totp`) — add the link to
 sign in, then delete both secrets.
 
 **Custom domains**: `azure.sh <env> dns` prints a CNAME + an `asuid` TXT record per host
-(`api-staging` / `admin-staging`, or `api` / `admin` in production). Create them at the DNS provider,
+(`api-staging` / `admin-staging`; production adds `api`, `admin` and an A record for the root `yaqeenarabia.com`). Create them at the DNS provider,
 then `azure.sh <env> domains` binds the hostnames with free managed certificates.
 
 **Known limits (staging)**: Postgres accepts connections from Azure-hosted clients (firewall rule

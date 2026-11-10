@@ -29,7 +29,7 @@ const run = (args, extra = {}) =>
   execFileSync('pnpm', ['--filter', '@yaqeen/api', ...args], { cwd: repo, env: { ...env, ...extra }, encoding: 'utf8', shell: process.platform === 'win32' });
 run(['db:migrate']);
 
-const email = 'e2e-admin@yaqin-brand.com';
+const email = 'e2e-admin@yaqeenarabia.com';
 const password = 'e2e-password-not-secret';
 const seedOut = run(['db:seed'], { SEED_ADMIN_EMAIL: email, SEED_ADMIN_PASSWORD: password });
 const totpSecret = /secret=([A-Z2-7]+)/.exec(seedOut)?.[1];

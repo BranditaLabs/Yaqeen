@@ -68,6 +68,29 @@ describe('website', () => {
     expect(res.body).toContain('utm_source=yaqeen_site');
   });
 
+  it('app-link files answer 404 until configured — never placeholder ids', async () => {
+    for (const url of ['/.well-known/apple-app-site-association', '/.well-known/assetlinks.json']) {
+      expect((await app.inject({ method: 'GET', url })).statusCode).toBe(404);
+    }
+  });
+
+  it('app-link files carry the team id and signing fingerprints as JSON, no redirect', async () => {
+    const sha = Array.from({ length: 32 }, (_, i) => (i * 7).toString(16).padStart(2, '0')).join(':');
+    const linked = await build({ APPLE_TEAM_ID: 'AB12CD34EF', ANDROID_CERT_SHA256: `${sha.toLowerCase()}, not-a-fingerprint` });
+    const aasa = await linked.inject({ method: 'GET', url: '/.well-known/apple-app-site-association' });
+    expect(aasa.statusCode).toBe(200);
+    expect(aasa.headers['content-type']).toContain('application/json');
+    expect(aasa.json().applinks.details[0]).toMatchObject({ appIDs: ['AB12CD34EF.com.yaqinbrand.yaqeen'], components: [{ '/': '/app/*' }] });
+    const links = await linked.inject({ method: 'GET', url: '/.well-known/assetlinks.json' });
+    expect(links.statusCode).toBe(200);
+    // Only well-formed fingerprints, upper-cased as Google expects.
+    expect(links.json()[0].target).toEqual({ namespace: 'android_app', package_name: 'com.yaqinbrand.yaqeen', sha256_cert_fingerprints: [sha.toUpperCase()] });
+    await linked.close();
+    const malformed = await build({ APPLE_TEAM_ID: 'short' });
+    expect((await malformed.inject({ method: 'GET', url: '/.well-known/apple-app-site-association' })).statusCode).toBe(404);
+    await malformed.close();
+  });
+
   it('the support email appears once the owner sets it', async () => {
     const withMail = await build({ SUPPORT_EMAIL: 'help@yaqeen.test' });
     const res = await withMail.inject({ method: 'GET', url: '/support?lang=en' });

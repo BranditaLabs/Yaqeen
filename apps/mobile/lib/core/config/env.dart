@@ -6,8 +6,9 @@ abstract final class Env {
   static const flavor = String.fromEnvironment('FLAVOR', defaultValue: 'dev');
   static const storeUrl = String.fromEnvironment('STORE_URL', defaultValue: 'https://www.yaqin-brand.com');
 
-  /// The Yaqeen website (privacy policy, terms, help) — served by the API on the cards host.
-  static const siteUrl = String.fromEnvironment('SITE_URL', defaultValue: 'https://api.yaqin-brand.com');
+  /// The Yaqeen website (privacy policy, terms, help) and the cards host — served by the API at the
+  /// root domain (also where medal chips and QR codes point: /t/<code>, /u/<handle>).
+  static const siteUrl = String.fromEnvironment('SITE_URL', defaultValue: 'https://yaqeenarabia.com');
 
   /// A website page in the user's language, e.g. `site('privacy', 'ar')`.
   static Uri site(String page, String locale) => Uri.parse('$siteUrl/$page?lang=$locale');
@@ -22,7 +23,7 @@ abstract final class Env {
   /// Sign in with Apple on Android uses the web flow: Services ID + the API's redirect endpoint.
   static const appleServiceId = String.fromEnvironment('APPLE_SERVICE_ID', defaultValue: 'com.yaqinbrand.yaqeen.signin');
   static const appleRedirectUri =
-      String.fromEnvironment('APPLE_REDIRECT_URI', defaultValue: 'https://api.yaqin-brand.com/v1/auth/apple/callback');
+      String.fromEnvironment('APPLE_REDIRECT_URI', defaultValue: 'https://api.yaqeenarabia.com/v1/auth/apple/callback');
 
   /// Where the per-page KFGQPC QCF V2 mushaf fonts (`p{page}.ttf`) are downloaded from. Default:
   /// Quran.com's public CDN (spec §10); set it to our CDN once we mirror the 604 files.

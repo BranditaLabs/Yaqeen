@@ -12,9 +12,9 @@ spec:
   targets:
     staticConfig:
       static:
-        - https://api.yaqin-brand.com/health
-        - https://api.yaqin-brand.com/ready
-        - https://api.yaqin-brand.com/v1/config
-        - https://api.yaqin-brand.com/get-app
-        - https://admin.yaqin-brand.com/login
+        - https://api.yaqeenarabia.com/health
+        - https://api.yaqeenarabia.com/ready
+        - https://api.yaqeenarabia.com/v1/config
+        - https://api.yaqeenarabia.com/get-app
+        - https://admin.yaqeenarabia.com/login
       labels: { service: yaqeen }

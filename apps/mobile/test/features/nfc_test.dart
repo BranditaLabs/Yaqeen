@@ -70,9 +70,9 @@ void tall(WidgetTester tester) {
 
 void main() {
   group('chip links: only our own /t/<code>', () {
-    const site = 'https://api.yaqin-brand.com';
+    const site = 'https://api.yaqeenarabia.com';
     test('accepts our site and any https host with exactly /t/<code>', () {
-      expect(tagCodeFromChipUri('https://api.yaqin-brand.com/t/AB23CD45', siteUrl: site), 'AB23CD45');
+      expect(tagCodeFromChipUri('https://api.yaqeenarabia.com/t/AB23CD45', siteUrl: site), 'AB23CD45');
       expect(tagCodeFromChipUri('https://id.yaqin.cards/t/ab23cd45', siteUrl: site), 'AB23CD45');
       expect(tagCodeFromChipUri('http://localhost:4000/t/AB23CD45', siteUrl: 'http://localhost:4000'), 'AB23CD45');
     });

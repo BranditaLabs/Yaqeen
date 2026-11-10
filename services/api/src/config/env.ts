@@ -38,6 +38,13 @@ const EnvSchema = z.object({
   APPLE_CLIENT_IDS: csvOf('com.yaqinbrand.yaqeen,com.yaqinbrand.yaqeen.signin'),
   /** Android package that Sign in with Apple's web callback returns to. */
   ANDROID_APP_ID: z.string().regex(/^[a-zA-Z][\w.]+$/).default('com.yaqinbrand.yaqeen'),
+  /** iOS bundle id, for the universal-links file. */
+  IOS_BUNDLE_ID: z.string().regex(/^[a-zA-Z][\w.-]+$/).default('com.yaqinbrand.yaqeen'),
+  /** Apple Developer Team ID (10 characters). Empty = /.well-known/apple-app-site-association answers 404. */
+  APPLE_TEAM_ID: z.string().default(''),
+  /** SHA-256 fingerprints (AA:BB:…) of every key that signs the Android app — the Play app-signing key
+   *  first. Empty = /.well-known/assetlinks.json answers 404. */
+  ANDROID_CERT_SHA256: csv,
   SHOPIFY_SHOP_DOMAIN: z.string().default(''),
   SHOPIFY_ADMIN_TOKEN: z.string().default(''),
   SHOPIFY_API_VERSION: z.string().default('2025-10'),
@@ -55,7 +62,7 @@ const EnvSchema = z.object({
   QF_PUBLIC_BASE_URL: z.union([z.literal(''), z.string().url()]).default('https://api.quran.com/api/v4'),
   // Public profile cards (NFC/QR): the host that serves /u/<handle> (point a vanity domain here),
   // the store and the app-store links its CTA opens.
-  PUBLIC_PROFILE_BASE_URL: z.string().url().default('https://api.yaqin-brand.com'),
+  PUBLIC_PROFILE_BASE_URL: z.string().url().default('https://yaqeenarabia.com'),
   STORE_URL: z.string().url().default('https://www.yaqin-brand.com'),
   PLAY_STORE_URL: z.string().url().default('https://play.google.com/store/apps/details?id=com.yaqinbrand.yaqeen'),
   /** Empty until the App Store listing exists; iPhone visitors then go to the store site. */

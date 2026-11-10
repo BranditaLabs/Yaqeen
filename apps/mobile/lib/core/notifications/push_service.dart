@@ -33,7 +33,7 @@ class NoopPushService implements PushService {
   Stream<PushOpened> get onOpened => const Stream.empty();
 }
 
-/// Deep-link targets (`yaqeen://<target>` and `https://yaqin-brand.com/app/<target>`, spec §4.2).
+/// Deep-link targets (`yaqeen://<target>` and `https://yaqeenarabia.com/app/<target>`, spec §4.2).
 const deepLinkRoutes = {
   'home': '/home',
   'quran': '/quran',
@@ -70,7 +70,7 @@ String routeForDeepLink(Uri uri) {
   if (uri.scheme == 'yaqeen') {
     key = uri.host.isNotEmpty ? uri.host : (segments.isNotEmpty ? segments.first : '');
   } else {
-    // Universal link: https://yaqin-brand.com/app/<target>
+    // Universal link: https://yaqeenarabia.com/app/<target>
     final i = segments.indexOf('app');
     key = i >= 0 && i + 1 < segments.length ? segments[i + 1] : '';
   }

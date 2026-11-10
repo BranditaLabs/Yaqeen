@@ -62,13 +62,13 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="yaqeen" />
             </intent-filter>
-            <!-- App Links: https://yaqin-brand.com/app/<target>, verified by /.well-known/assetlinks.json. -->
+            <!-- App Links: https://yaqeenarabia.com/app/<target>, verified by /.well-known/assetlinks.json. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="yaqin-brand.com" android:pathPrefix="/app" />
-                <data android:scheme="https" android:host="www.yaqin-brand.com" android:pathPrefix="/app" />
+                <data android:scheme="https" android:host="yaqeenarabia.com" android:pathPrefix="/app" />
+                <data android:scheme="https" android:host="www.yaqeenarabia.com" android:pathPrefix="/app" />
             </intent-filter>
         </activity>
 

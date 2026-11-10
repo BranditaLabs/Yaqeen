@@ -98,7 +98,7 @@ and are the defaults everywhere, so nothing has to be set unless you move projec
 Apple (developer.apple.com › Certificates, Identifiers & Profiles):
 1. App ID `com.yaqinbrand.yaqeen` with **Sign in with Apple** (iOS uses it natively).
 2. **Services ID** `com.yaqinbrand.yaqeen.signin` (Android web flow) → Configure → primary App ID above,
-   domain `api.yaqin-brand.com`, return URL `https://api.yaqin-brand.com/v1/auth/apple/callback`.
+   domain `api.yaqeenarabia.com`, return URL `https://api.yaqeenarabia.com/v1/auth/apple/callback`.
    Different values → repo variables `APPLE_SERVICE_ID` / `APPLE_REDIRECT_URI`.
 3. API: `APPLE_CLIENT_IDS=com.yaqinbrand.yaqeen,com.yaqinbrand.yaqeen.signin` (bundle id + Services ID).
    The callback form-posts back into the app (`signinwithapple://callback`, package `ANDROID_APP_ID`).
@@ -110,7 +110,7 @@ people on your team) can install them at once. External testers need a one-time 
 ### Both
 | Variable (not secret) | Value |
 | --- | --- |
-| `API_BASE_URL` | the deployed API, e.g. `https://api.yaqin-brand.com` |
+| `API_BASE_URL` | the deployed API, e.g. `https://api.yaqeenarabia.com` |
 | `STORE_URL` | optional; defaults to `https://www.yaqin-brand.com` |
 
 ## If a run fails

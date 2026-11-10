@@ -3,6 +3,7 @@
 
 param environmentName string
 param location string
+@description('[{ host, validation: CNAME | HTTP }] — HTTP for a root domain (no CNAME possible there).')
 param hosts array
 
 resource env 'Microsoft.App/managedEnvironments@2024-03-01' existing = {
@@ -10,11 +11,11 @@ resource env 'Microsoft.App/managedEnvironments@2024-03-01' existing = {
 }
 
 resource certs 'Microsoft.App/managedEnvironments/managedCertificates@2024-03-01' = [
-  for host in hosts: {
+  for h in hosts: {
     parent: env
-    name: 'cert-${replace(host, '.', '-')}'
+    name: 'cert-${replace(h.host, '.', '-')}'
     location: location
-    // The hostnames are already on the apps (the 'add' deploy); validation uses their CNAME records.
-    properties: { subjectName: host, domainControlValidation: 'CNAME' }
+    // The hostnames are already on the apps (the 'add' deploy); validation uses their DNS records.
+    properties: { subjectName: h.host, domainControlValidation: h.validation }
   }
 ]

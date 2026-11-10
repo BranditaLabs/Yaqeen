@@ -2,7 +2,7 @@
  * Seed reference data: task rules, bonus rules (disabled until approved), rewards, a first
  * super admin, and sample content in DRAFT (must pass religious review before publishing).
  *
- *   SEED_ADMIN_EMAIL=you@yaqin-brand.com SEED_ADMIN_PASSWORD='…' pnpm db:seed
+ *   SEED_ADMIN_EMAIL=you@yaqeenarabia.com SEED_ADMIN_PASSWORD='…' pnpm db:seed
  */
 import { loadEnv } from '../config/env.js';
 import { generateTotpSecret, hashPassword, sealSecret, secretsKey } from '../lib/crypto.js';

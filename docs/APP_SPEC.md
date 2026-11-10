@@ -201,7 +201,7 @@ hifz intervals, challenge model parsing/optimistic updates, splash uses artwork 
 - Full-screen routes hide the tab bar and use a top-level navigator.
 - Back from a tab root does nothing (Android: exits app after confirmation-free double back within 2 s is **not** used — standard behaviour).
 
-### 4.2 Deep links (`yaqeen://<target>`, also universal links `https://yaqin-brand.com/app/<target>`)
+### 4.2 Deep links (`yaqeen://<target>`, also universal links `https://yaqeenarabia.com/app/<target>`)
 
 `home · quran · prayer · challenge · calendar · redeem · azkar · hifz · store` → routes above
 (update `routeForDeepLink` when the sub-routes exist; it currently maps calendar/azkar/hifz to their tab roots).
@@ -915,7 +915,7 @@ Each function: **what · where in code · rules · tests**. Pure logic goes in `
 
 ### 6.20 Deep links ✅ (map) · 🟡 (universal links: AASA + assetlinks on the store theme)
 
-- `routeForDeepLink` → update to the new sub-routes (calendar → `/challenge/calendar`, azkar → `/home/azkar`, hifz → `/quran/hifz`, redeem → `/challenge/redeem`). iOS Associated Domains + Android App Links for `yaqin-brand.com/app/*` (`apple-app-site-association`, `assetlinks.json` hosted by the store theme).
+- `routeForDeepLink` → update to the new sub-routes (calendar → `/challenge/calendar`, azkar → `/home/azkar`, hifz → `/quran/hifz`, redeem → `/challenge/redeem`). iOS Associated Domains + Android App Links for `yaqeenarabia.com/app/*` (`apple-app-site-association`, `assetlinks.json` served by the API from `APPLE_TEAM_ID` / `ANDROID_CERT_SHA256`).
 
 ### 6.21 Quality, crash & performance ✅ (Sentry once DSNs are set)
 

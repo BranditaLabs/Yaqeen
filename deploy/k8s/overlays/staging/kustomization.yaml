@@ -24,9 +24,9 @@ patches:
       - { op: add, path: /spec/template/spec/containers/0/env/-, value: { name: SENTRY_ENVIRONMENT, value: staging } }
   - target: { kind: ConfigMap, name: yaqeen-api-config }
     patch: |
-      - { op: replace, path: /data/CORS_ORIGINS, value: "https://admin-staging.yaqin-brand.com" }
+      - { op: replace, path: /data/CORS_ORIGINS, value: "https://admin-staging.yaqeenarabia.com" }
       - { op: add, path: /data/SENTRY_ENVIRONMENT, value: staging }
-      - { op: add, path: /data/PUBLIC_PROFILE_BASE_URL, value: "https://api-staging.yaqin-brand.com" }
+      - { op: add, path: /data/PUBLIC_PROFILE_BASE_URL, value: "https://api-staging.yaqeenarabia.com" }
       - { op: add, path: /data/SENTRY_TRACES_SAMPLE_RATE, value: "0.2" }
   # Staging doesn't send campaigns to anyone.
   - target: { kind: CronJob, name: yaqeen-campaigns }

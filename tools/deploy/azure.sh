@@ -41,11 +41,16 @@ if [[ -n "$SHARED_ENV" ]]; then
 else
   ENV_RG=$RG ENV_NAME="cae-yaqeen-$ENVIRONMENT"
 fi
+# Hosts on DOMAIN. SITE_HOST (production) is the root domain: website, cards (/u, /t — burned into
+# medal chips) and app links, served by the API app; in staging those live on the API host.
+DOMAIN=yaqeenarabia.com
 case "$ENVIRONMENT" in
-  staging) API_HOST=api-staging.yaqin-brand.com ADMIN_HOST=admin-staging.yaqin-brand.com CAMPAIGNS=false ;;
-  production) API_HOST=api.yaqin-brand.com ADMIN_HOST=admin.yaqin-brand.com CAMPAIGNS=true ;;
+  staging) API_HOST=api-staging.$DOMAIN ADMIN_HOST=admin-staging.$DOMAIN SITE_HOST="" CAMPAIGNS=false ;;
+  production) API_HOST=api.$DOMAIN ADMIN_HOST=admin.$DOMAIN SITE_HOST=$DOMAIN CAMPAIGNS=true ;;
   *) echo "unknown environment $ENVIRONMENT"; exit 2 ;;
 esac
+HOSTS=("$API_HOST" "$ADMIN_HOST")
+[[ -z "$SITE_HOST" ]] || HOSTS+=("$SITE_HOST")
 TAG=${TAG:-$(git -C "$ROOT" rev-parse --short=12 HEAD)}
 WORK=$(native "$(mktemp -d)")
 trap 'rm -rf "$WORK"' EXIT
@@ -98,9 +103,11 @@ deployer() {
 # Hostnames already bound with managed certificates are kept on every redeploy.
 domain_mode() {
   local certs hosts
-  certs=$(q containerapp env certificate list -g "$ENV_RG" -n "$ENV_NAME" --managed-certificates-only --query "[?starts_with(name, 'cert-') && contains(name, 'yaqin-brand')].name" 2>/dev/null | grep -c . || true)
+  local h want=0
+  for h in "${HOSTS[@]}"; do want=$((want + 1)); done
+  certs=$(q containerapp env certificate list -g "$ENV_RG" -n "$ENV_NAME" --managed-certificates-only --query "[?starts_with(name, 'cert-') && contains(name, '${DOMAIN//./-}')].name" 2>/dev/null | grep -c . || true)
   hosts=$(q containerapp hostname list -g "$RG" -n yaqeen-api --query 'length(@)' 2>/dev/null || echo 0)
-  if [[ "${certs:-0}" -ge 2 ]]; then echo bind; elif [[ "${hosts:-0}" -ge 1 ]]; then echo add; else echo none; fi
+  if [[ "${certs:-0}" -ge "$want" ]]; then echo bind; elif [[ "${hosts:-0}" -ge 1 ]]; then echo add; else echo none; fi
 }
 
 deploy() { # deploy <deployApps true|false> <domainMode>
@@ -132,7 +139,7 @@ deploy() { # deploy <deployApps true|false> <domainMode>
   # Parameters (secrets included) go through a private temp file, not the command line.
   LOCATION="$LOCATION" APPS_LOCATION="$apps_location" SHARED_ENV="$SHARED_ENV" ENVIRONMENT="$ENVIRONMENT" PRINCIPAL="$principal" PTYPE="$ptype" \
   APPS="$apps" MODE="$mode" ACR="$acr" SETTINGS="$settings" EXTRA="$extra" STORAGE="${storage:-32}" TAG="$TAG" \
-  API_HOST="$API_HOST" ADMIN_HOST="$ADMIN_HOST" CAMPAIGNS="$CAMPAIGNS" CIDRS="${ADMIN_ALLOWED_CIDRS:-}" \
+  API_HOST="$API_HOST" ADMIN_HOST="$ADMIN_HOST" SITE_HOST="$SITE_HOST" CAMPAIGNS="$CAMPAIGNS" CIDRS="${ADMIN_ALLOWED_CIDRS:-}" \
   PG="$pg" REDIS="$redis" JWT="$jwt" AJWT="$ajwt" ASK="$ask" BSK="$bsk" \
   node -e '
     const e = process.env, v = (value) => ({ value });
@@ -142,7 +149,7 @@ deploy() { # deploy <deployApps true|false> <domainMode>
       existingEnvironmentId: v(e.SHARED_ENV),
       deployerPrincipalId: v(e.PRINCIPAL), deployerPrincipalType: v(e.PTYPE),
       deployApps: v(e.APPS === "true"), domainMode: v(e.MODE), enableCampaigns: v(e.CAMPAIGNS === "true"),
-      apiHost: v(e.API_HOST), adminHost: v(e.ADMIN_HOST), pgStorageGB: v(Number(e.STORAGE)),
+      apiHost: v(e.API_HOST), adminHost: v(e.ADMIN_HOST), siteHost: v(e.SITE_HOST), pgStorageGB: v(Number(e.STORAGE)),
       adminAllowedCidrs: v(e.CIDRS.split(",").map((s) => s.trim()).filter(Boolean)),
       apiImage: v(img(`yaqeen-api:${e.TAG}`)), adminImage: v(img(`yaqeen-admin:${e.TAG}`)), redisImage: v(img("redis:7-alpine")),
       apiSettings: v(JSON.parse(e.SETTINGS)), extraSecrets: v(JSON.parse(e.EXTRA)),
@@ -258,28 +265,38 @@ seed() {
 }
 
 dns() {
-  local verification api admin
+  local verification api admin ip
   verification=$(q containerapp env show -g "$ENV_RG" -n "$ENV_NAME" --query properties.customDomainConfiguration.customDomainVerificationId)
+  ip=$(q containerapp env show -g "$ENV_RG" -n "$ENV_NAME" --query properties.staticIp)
   api=$(q containerapp show -g "$RG" -n yaqeen-api --query properties.configuration.ingress.fqdn)
   admin=$(q containerapp show -g "$RG" -n yaqeen-admin --query properties.configuration.ingress.fqdn)
-  log "DNS records for yaqin-brand.com"
+  log "DNS records for $DOMAIN"
   printf '%-6s %-28s %s\n' TYPE NAME VALUE
-  printf '%-6s %-28s %s\n' CNAME "${API_HOST%%.yaqin-brand.com}" "$api"
-  printf '%-6s %-28s %s\n' TXT "asuid.${API_HOST%%.yaqin-brand.com}" "$verification"
-  printf '%-6s %-28s %s\n' CNAME "${ADMIN_HOST%%.yaqin-brand.com}" "$admin"
-  printf '%-6s %-28s %s\n' TXT "asuid.${ADMIN_HOST%%.yaqin-brand.com}" "$verification"
+  printf '%-6s %-28s %s\n' CNAME "${API_HOST%%."$DOMAIN"}" "$api"
+  printf '%-6s %-28s %s\n' TXT "asuid.${API_HOST%%."$DOMAIN"}" "$verification"
+  printf '%-6s %-28s %s\n' CNAME "${ADMIN_HOST%%."$DOMAIN"}" "$admin"
+  printf '%-6s %-28s %s\n' TXT "asuid.${ADMIN_HOST%%."$DOMAIN"}" "$verification"
+  if [[ -n "$SITE_HOST" ]]; then # the root domain: an A record (no CNAME allowed there)
+    printf '%-6s %-28s %s\n' A "@" "$ip"
+    printf '%-6s %-28s %s\n' TXT "asuid" "$verification"
+  fi
 }
 
 domains() {
+  local host
   for host in "$API_HOST" "$ADMIN_HOST"; do
     nslookup -type=CNAME "$host" 8.8.8.8 2>/dev/null | grep -qi 'canonical name' ||
       die "$host has no CNAME yet — create the records from: $0 $ENVIRONMENT dns"
   done
+  if [[ -n "$SITE_HOST" ]]; then
+    nslookup "$SITE_HOST" 8.8.8.8 2>/dev/null | grep -q "$(q containerapp env show -g "$ENV_RG" -n "$ENV_NAME" --query properties.staticIp)" ||
+      die "$SITE_HOST doesn't point at the environment yet — create the A record from: $0 $ENVIRONMENT dns"
+  fi
   log "hostnames (validation)"
   deploy true add
   log "managed certificates + SNI binding (a few minutes)"
   deploy true bind
-  for host in "$API_HOST" "$ADMIN_HOST"; do echo "https://$host"; done
+  for host in "${HOSTS[@]}"; do echo "https://$host"; done
 }
 
 case "$CMD" in

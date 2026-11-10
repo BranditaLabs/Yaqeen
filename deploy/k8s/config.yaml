@@ -10,7 +10,7 @@ metadata:
 data:
   NODE_ENV: production
   LOG_LEVEL: info
-  CORS_ORIGINS: https://admin.yaqin-brand.com
+  CORS_ORIGINS: https://admin.yaqeenarabia.com
   HIJRI_REGION: EG
   # Quran Foundation Content API environment — must match QF_CLIENT_ID/QF_CLIENT_SECRET (docs/OPERATIONS.md › One-time setup).
   QF_ENV: production

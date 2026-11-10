@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Synthetic checks of a Yaqeen environment, from outside the cluster (CI, a laptop).
-#   API_URL=https://api.yaqin-brand.com ADMIN_URL=https://admin.yaqin-brand.com bash tools/synthetics/check.sh
+#   API_URL=https://api.yaqeenarabia.com ADMIN_URL=https://admin.yaqeenarabia.com bash tools/synthetics/check.sh
 # Exits non-zero when any check fails; prints one line per check with status and time.
 set -uo pipefail
 API_URL=${API_URL:?set API_URL}

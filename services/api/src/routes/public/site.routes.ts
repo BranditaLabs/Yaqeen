@@ -2,6 +2,7 @@
  * The public website (spec §5.29) on the cards host:
  *   GET /  /privacy  /terms  /support  /delete-account   (Arabic by default; ?lang=en)
  *   GET /robots.txt  /sitemap.xml
+ *   GET /.well-known/apple-app-site-association  /.well-known/assetlinks.json   (app links)
  * Static per language, cached at the edge for an hour. The app's privacy/terms/help links, the
  * store listings and Google Play's account-deletion URL all point here.
  */
@@ -19,6 +20,7 @@ import {
   sitemapXml,
   type SiteLinks,
 } from '../../web/site-pages.js';
+import { appleAppSiteAssociation, assetLinks } from '../../web/well-known.js';
 
 const PAGES = {
   '/': renderHome,
@@ -49,6 +51,20 @@ export const siteRoutes: FastifyPluginAsync = async (app) => {
       return render(lang, await links());
     });
   }
+
+  // Universal links / App Links (spec §6.20): JSON with no redirect, as Apple and Google require.
+  app.get('/.well-known/apple-app-site-association', async (_req, reply) => {
+    const body = appleAppSiteAssociation(ctx.env.APPLE_TEAM_ID, ctx.env.IOS_BUNDLE_ID);
+    if (!body) return reply.code(404).send({ error: 'not_configured' });
+    reply.header('Cache-Control', 'public, max-age=3600');
+    return reply.type('application/json').send(body);
+  });
+  app.get('/.well-known/assetlinks.json', async (_req, reply) => {
+    const body = assetLinks(ctx.env.ANDROID_APP_ID, ctx.env.ANDROID_CERT_SHA256);
+    if (!body) return reply.code(404).send({ error: 'not_configured' });
+    reply.header('Cache-Control', 'public, max-age=3600');
+    return reply.type('application/json').send(body);
+  });
 
   app.get('/robots.txt', async (_req, reply) => {
     reply.header('Cache-Control', 'public, max-age=86400');
