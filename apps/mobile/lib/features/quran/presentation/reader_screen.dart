@@ -72,6 +72,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   Timer? _hideTimer;
   Timer? _wirdTimer;
   DateTime _pageShownAt = DateTime.now();
+  Future<void> _lastSave = Future.value();
   bool _pageMarked = false;
   MemoriseMode _memorise = MemoriseMode.off;
   final Set<AyahRef> _revealed = {};
@@ -92,7 +93,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   @override
   void dispose() {
-    _leavePage(); // the last page counts too if it was read long enough
+    // The last page counts too if it was read long enough. Home, the Quran index and the khatma
+    // orb stay mounted under the tabs, so «continue reading» and the week's minutes reload once the
+    // last writes land.
+    Future.wait([_leavePage(), _lastSave]).whenComplete(() {
+      _c
+        ..invalidate(lastReadProvider)
+        ..invalidate(readingStatsProvider);
+    }).ignore();
     _hideTimer?.cancel();
     _wirdTimer?.cancel();
     _focusTimer?.cancel();
@@ -117,7 +125,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   /// The pager moved (a turn, the slider, a jump): the old page counts, the new one starts.
   void _showPage(int page) {
     if (page == _page) return;
-    _leavePage();
+    _leavePage().ignore();
     setState(() {
       _page = page;
       _selected = null;
@@ -126,14 +134,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     _onPageShown(page);
   }
 
-  /// Fonts for the open pages first, then ±2 neighbours once the page has settled.
+  /// ±2 neighbours once the page has settled (the open pages ask for their own fonts, ahead of these).
   void _warmFonts(int page) {
     final layout = _c.read(mushafLayoutProvider).valueOrNull;
     if (layout == null) return;
     final fonts = _c.read(mushafFontsProvider);
-    for (final p in _visible(page)) {
-      fonts.prefetch(layout.fontsFor(p));
-    }
     Future<void>.delayed(const Duration(milliseconds: 400), () {
       if (!mounted || _page != page) return;
       final near = _spread ? [page - 2, page - 1, page + 2, page + 3] : [page - 2, page - 1, page + 1, page + 2];
@@ -197,18 +202,18 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     });
     final q = await _c.read(quranDataProvider.future);
     final reading = _c.read(readingRepositoryProvider);
-    await reading.saveLastRead(page, q.firstOfPage(page).surah, _c.read(clockProvider)());
+    await (_lastSave = reading.saveLastRead(page, q.firstOfPage(page).surah, _c.read(clockProvider)()));
     final marks = await reading.bookmarks();
     if (mounted) setState(() => _pageMarked = marks.any((b) => b.kind == BookmarkKind.page && _visible(page).contains(b.page)));
   }
 
   /// Leaving the current page: its pages may count, and the time goes into the reading stats.
-  void _leavePage() {
+  Future<void> _leavePage() {
     final shown = DateTime.now().difference(_pageShownAt);
-    for (final p in _visible(_page)) {
-      _countPage(p, shown);
-    }
-    _addSeconds(shown.inSeconds.clamp(0, ReadingStats.maxSecondsPerView));
+    return Future.wait([
+      for (final p in _visible(_page)) _countPage(p, shown),
+      _addSeconds(shown.inSeconds.clamp(0, ReadingStats.maxSecondsPerView)),
+    ]);
   }
 
   String _today() {
@@ -232,6 +237,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       if (k.plan != null) _c.invalidate(khatmaProvider);
       if (k.justFinished) {
         _c.invalidate(khatmaHistoryProvider);
+        // The daily reminder stops speaking of the khatma portion.
+        _c.read(remindersControllerProvider.notifier).replan().ignore();
         if (mounted) {
           HapticFeedback.heavyImpact();
           YqToast.show(context, AppLocalizations.of(context).khatmaDoneToast, duration: const Duration(seconds: 4));
@@ -328,6 +335,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
+    // «إبقاء الشاشة مضاءة» takes effect while reading, not only on the next open.
+    ref.listen(settingsProvider.select((s) => s.keepAwake), (_, on) => ref.read(deviceServicesProvider).keepAwake(on));
     // Only what the pages draw: other settings writes (e.g. readerHintSeen, wird counters) must not
     // rebuild the reader and its pre-built neighbour pages.
     final look0 = ref.watch(
@@ -377,7 +386,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   selected: _selected ?? _focus,
                   playing: playing,
                   onBackgroundTap: _onPageTap,
-                  onOpenSettings: () => showReaderSettings(context),
+                  onOpenSettings: () => showReaderSettings(context, page: _page),
                   annotations: annotations,
                   memorise: _memorise,
                   revealed: _revealed,
@@ -441,7 +450,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                     night: night,
                     marked: _pageMarked,
                     onExit: () => context.canPop() ? context.pop() : context.go('/quran'),
-                    onSettings: () => showReaderSettings(context),
+                    onSettings: () => showReaderSettings(context, page: _page),
                     onLock: () => setState(() {
                       _locked = true;
                       _setChrome(false);
@@ -1028,16 +1037,7 @@ class _BottomChrome extends ConsumerWidget {
                       value: t.quranPageOf(page),
                       child: Directionality(
                         textDirection: TextDirection.rtl,
-                        child: Slider(
-                          min: 1,
-                          max: QuranData.pageCount.toDouble(),
-                          divisions: QuranData.pageCount - 1,
-                          value: page.toDouble(),
-                          label: YqFormat.number(page),
-                          activeColor: YqColors.lapis,
-                          inactiveColor: YqColors.line,
-                          onChanged: (v) => onJump(v.round()),
-                        ),
+                        child: _PageSlider(page: page, onJump: onJump),
                       ),
                     ),
                   ],
@@ -1047,6 +1047,40 @@ class _BottomChrome extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The page slider: dragging only moves the thumb and its label; the reader turns to the page (and
+/// fetches its font, saves it as the last read) once the thumb is let go.
+class _PageSlider extends StatefulWidget {
+  const _PageSlider({required this.page, required this.onJump});
+  final int page;
+  final ValueChanged<int> onJump;
+
+  @override
+  State<_PageSlider> createState() => _PageSliderState();
+}
+
+class _PageSliderState extends State<_PageSlider> {
+  double? _drag;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = _drag ?? widget.page.toDouble();
+    return Slider(
+      min: 1,
+      max: QuranData.pageCount.toDouble(),
+      divisions: QuranData.pageCount - 1,
+      value: value,
+      label: YqFormat.number(value.round()),
+      activeColor: YqColors.lapis,
+      inactiveColor: YqColors.line,
+      onChanged: (v) => setState(() => _drag = v),
+      onChangeEnd: (v) {
+        setState(() => _drag = null);
+        widget.onJump(v.round());
+      },
     );
   }
 }

@@ -12,6 +12,7 @@ typedef ProgressFn = void Function(int received, int? total);
 ///   well without starving playback or the API.
 /// - A job is keyed: adding a key that is already queued or running joins the existing job.
 /// - Jobs belong to a group (a reciter id, `packs`) that can be cancelled at once.
+/// - An urgent job (what is on screen now) jumps the line, ahead of background work.
 /// - The queue outlives every screen (it sits in a keep-alive provider); leaving a screen never
 ///   cancels a download.
 class DownloadQueue {
@@ -27,18 +28,37 @@ class DownloadQueue {
 
   /// Queues [run] under [key]. The future completes when the job finishes, or fails with its
   /// error (a cancelled job fails with [DownloadCancelled]).
-  Future<T> add<T>(String key, {required String group, required Future<T> Function(CancelToken cancel, ProgressFn progress) run, ProgressFn? onProgress}) {
+  ///
+  /// [urgent] puts the job at the head of the line. Joining a queued job urgently moves it there
+  /// and moves it into [group], so cancelling the background group no longer cancels it.
+  Future<T> add<T>(
+    String key, {
+    required String group,
+    required Future<T> Function(CancelToken cancel, ProgressFn progress) run,
+    ProgressFn? onProgress,
+    bool urgent = false,
+  }) {
     final existing = _byKey[key];
     if (existing != null) {
       if (onProgress != null) existing.listeners.add(onProgress);
+      if (urgent) promote(key, group: group);
       return existing.done.future.then((v) => v as T);
     }
     final job = _Job(key, group, (c, p) async => run(c, p));
     if (onProgress != null) job.listeners.add(onProgress);
     _byKey[key] = job;
-    _waiting.add(job);
+    urgent ? _waiting.addFirst(job) : _waiting.add(job);
     _pump();
     return job.done.future.then((v) => v as T);
+  }
+
+  /// Moves a queued job to the head of the line, and into [group] when given (a running job only
+  /// changes group).
+  void promote(String key, {String? group}) {
+    final job = _byKey[key];
+    if (job == null) return;
+    if (group != null) job.group = group;
+    if (_waiting.remove(job)) _waiting.addFirst(job);
   }
 
   /// Cancels every queued and running job of [group].
@@ -81,7 +101,7 @@ class DownloadQueue {
 class _Job {
   _Job(this.key, this.group, this.run);
   final String key;
-  final String group;
+  String group;
   final Future<Object?> Function(CancelToken cancel, ProgressFn progress) run;
   final token = CancelToken();
   final listeners = <ProgressFn>[];

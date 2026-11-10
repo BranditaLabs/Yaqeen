@@ -198,6 +198,7 @@ final tafsirRepositoryProvider = Provider(
     api: ref.watch(apiClientProvider),
     store: ref.watch(kvStoreProvider),
     root: ref.watch(filesDirProvider),
+    language: () => ref.read(settingsProvider).locale,
     now: ref.watch(clockProvider),
   ),
 );

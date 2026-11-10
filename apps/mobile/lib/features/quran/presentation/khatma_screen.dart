@@ -20,11 +20,11 @@ import '../../../core/widgets/yq_ring.dart';
 import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
+import '../../notifications/presentation/reminders_controller.dart';
 import '../domain/khatma.dart';
 import '../domain/quran_data.dart';
 import 'quran_index_screen.dart';
 import 'quran_providers.dart';
-import 'reader_screen.dart';
 
 /// `24 · Khatma` (spec §5.30): the plan, today's portion, ahead/behind, the week's reading and past
 /// khatmas. Everything on the device.
@@ -98,6 +98,8 @@ class KhatmaScreen extends ConsumerWidget {
                     if (ok == true) {
                       await ref.read(readingRepositoryProvider).saveKhatma(null);
                       ref.invalidate(khatmaProvider);
+                      // The daily reminder goes back to the plain wird.
+                      ref.read(remindersControllerProvider.notifier).replan().ignore();
                     }
                   },
                 ),
@@ -115,12 +117,8 @@ String _today(WidgetRef ref) {
   return Zoned.isoDate(Zoned.today(s.placeOrDefault.timezone, ref.watch(clockProvider)()));
 }
 
-/// Pages of today's wird that also count towards the plan.
-int _readToday(WidgetRef ref, Khatma k, String today) {
-  final wird = ref.watch(todayWirdProvider).valueOrNull;
-  if (wird == null || wird.date != today) return 0;
-  return wird.pages.where(k.read.contains).length;
-}
+/// Pages that moved the plan today (re-reading pages that already count adds nothing).
+int _readToday(Khatma k, String today) => k.readOn(today);
 
 DateTime _date(String iso) {
   final p = iso.split('-').map(int.parse).toList();
@@ -175,7 +173,7 @@ class _TodayCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
     final today = _today(ref);
-    final read = _readToday(ref, plan, today);
+    final read = _readToday(plan, today);
     final target = plan.dailyTarget(today, readToday: read);
     final from = plan.nextPage ?? Khatma.total;
     final to = (from + (target - read).clamp(1, target) - 1).clamp(from, Khatma.total);
@@ -359,7 +357,7 @@ class KhatmaOrb extends ConsumerWidget {
     final String status;
     final double value;
     if (active) {
-      final read = _readToday(ref, k, today);
+      final read = _readToday(k, today);
       status = t.khatmaOrbStatus(
         YqFormat.number((k.progress * 100).round()),
         YqFormat.number(read),
@@ -435,6 +433,9 @@ class _SetupState extends ConsumerState<_Setup> {
       targetDate: target,
       pagesPerDay: _mode == _Mode.pace ? _pace : null,
       read: carried,
+      // Editing keeps what today's reading already moved.
+      lastDay: widget.editing?.lastDay,
+      dayPages: widget.editing?.dayPages ?? const {},
     );
     await ref.read(readingRepositoryProvider).saveKhatma(plan);
     if (_setWird) {
@@ -442,6 +443,8 @@ class _SetupState extends ConsumerState<_Setup> {
       await ref.read(settingsProvider.notifier).update((x) => x.copyWith(wirdGoalPages: daily));
     }
     ref.invalidate(khatmaProvider);
+    // The daily Quran reminder speaks of the plan's portion (a settings change already re-plans).
+    ref.read(remindersControllerProvider.notifier).replan().ignore();
     HapticFeedback.mediumImpact();
     if (mounted) Navigator.of(context).pop();
   }

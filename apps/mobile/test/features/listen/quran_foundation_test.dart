@@ -82,6 +82,13 @@ class FakeApi {
               'language': 'ar',
               'attribution': 'Quran.com · Quran Foundation',
             },
+            {
+              'id': 'ibn-kathir-en',
+              'nameAr': 'تفسير ابن كثير (بالإنجليزية)',
+              'nameEn': 'Ibn Kathir (English)',
+              'language': 'en',
+              'attribution': 'Quran.com · Quran Foundation',
+            },
           ]);
         }
         final t = RegExp(r'^/v1/content/tafsirs/([a-z-]+)/surahs/(\d+)$').firstMatch(p);
@@ -241,8 +248,14 @@ void main() {
   });
 
   group('tafsir', () {
-    TafsirRepository tafsir(KvStore kv, {Future<File?> Function()? pack}) =>
-        TafsirRepository(api: api(), store: kv, root: () async => tmp, now: () => now, packFile: pack);
+    TafsirRepository tafsir(KvStore kv, {Future<File?> Function()? pack, String? language}) => TafsirRepository(
+          api: api(),
+          store: kv,
+          root: () async => tmp,
+          now: () => now,
+          packFile: pack,
+          language: language == null ? null : () => language,
+        );
 
     test('fetches a surah once, caches it on disk, reads it offline; grouped ayat share a commentary', () async {
       final kv = MemoryKvStore();
@@ -268,12 +281,21 @@ void main() {
     test('choosing another tafsir switches the source; the list is cached for offline', () async {
       final kv = MemoryKvStore();
       final r = tafsir(kv);
-      expect((await r.list()).map((x) => x.id), ['muyassar', 'saadi']);
+      expect((await r.list()).map((x) => x.id), ['muyassar', 'saadi', 'ibn-kathir-en']);
       await r.select('saadi');
       expect(await r.forAyah(const AyahRef(2, 8)), '[saadi 2:8-9]');
       server.online = false;
-      expect((await tafsir(kv).list()).length, 2);
+      expect((await tafsir(kv).list()).length, 3);
       expect(await tafsir(kv).selected(), 'saadi');
+    });
+
+    test('until one is picked, the tafsir follows the app language; a pick wins', () async {
+      final kv = MemoryKvStore();
+      expect(await tafsir(kv, language: 'ar').selected(), 'muyassar');
+      final en = tafsir(kv, language: 'en');
+      expect(await en.forAyah(const AyahRef(2, 8)), '[ibn-kathir-en 2:8-9]');
+      await en.select('saadi');
+      expect(await tafsir(kv, language: 'en').selected(), 'saadi');
     });
 
     test('an installed pack wins over the API', () async {

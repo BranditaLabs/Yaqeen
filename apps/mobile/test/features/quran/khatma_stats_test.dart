@@ -41,6 +41,21 @@ void main() {
       expect(k.markRead(5, '2026-10-31'), same(k)); // finished plans don't change
     });
 
+    test('today\'s portion counts only pages that moved the plan, not re-read or carried-over ones', () {
+      var k = Khatma(startedOn: '2026-10-01', targetDate: '2026-10-30', read: {for (var p = 1; p <= 50; p++) p});
+      expect(k.readOn('2026-10-10'), 0);
+      k = k.markRead(10, '2026-10-10'); // carried over: already counts
+      expect(k.readOn('2026-10-10'), 0);
+      final target = k.dailyTarget('2026-10-10');
+      k = k.markRead(51, '2026-10-10').markRead(52, '2026-10-10').markRead(3, '2026-10-10');
+      expect(k.readOn('2026-10-10'), 2);
+      expect(k.dailyTarget('2026-10-10', readToday: k.readOn('2026-10-10')), target); // reading today doesn't move today's target
+      expect(Khatma.fromJson(k.toJson()).readOn('2026-10-10'), 2);
+      // A new day starts a new portion.
+      expect(k.readOn('2026-10-11'), 0);
+      expect(k.markRead(53, '2026-10-11').readOn('2026-10-11'), 1);
+    });
+
     test('repository: reading pages, finishing moves the plan to history', () async {
       final repo = ReadingRepository(LocalStore(MemoryKvStore()));
       expect((await repo.khatmaRead(1, '2026-10-01')).plan, isNull);

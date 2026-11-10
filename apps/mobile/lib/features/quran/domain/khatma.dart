@@ -10,6 +10,8 @@ class Khatma {
     this.pagesPerDay,
     this.read = const {},
     this.finishedOn,
+    this.lastDay,
+    this.dayPages = const {},
   }) : assert(targetDate != null || pagesPerDay != null);
 
   /// YYYY-MM-DD (the place's calendar).
@@ -24,6 +26,14 @@ class Khatma {
   /// Pages read since the plan started.
   final Set<int> read;
   final String? finishedOn;
+
+  /// The last day a page was added to the plan, and the pages added that day. Re-reading a page
+  /// that already counts (earlier in the plan, or carried over) adds nothing.
+  final String? lastDay;
+  final Set<int> dayPages;
+
+  /// Pages that moved the plan on [today] (today's portion).
+  int readOn(String today) => lastDay == today ? dayPages.length : 0;
 
   static const total = QuranData.pageCount;
 
@@ -80,6 +90,8 @@ class Khatma {
       pagesPerDay: pagesPerDay,
       read: next,
       finishedOn: next.length == total ? today : null,
+      lastDay: today,
+      dayPages: lastDay == today ? {...dayPages, page} : {page},
     );
   }
 
@@ -89,6 +101,8 @@ class Khatma {
         if (pagesPerDay != null) 'pagesPerDay': pagesPerDay,
         'read': _ranges(read),
         if (finishedOn != null) 'finishedOn': finishedOn,
+        if (lastDay != null) 'lastDay': lastDay,
+        if (lastDay != null) 'dayPages': _ranges(dayPages),
       };
 
   factory Khatma.fromJson(Map<String, dynamic> j) => Khatma(
@@ -97,6 +111,8 @@ class Khatma {
         pagesPerDay: (j['pagesPerDay'] as num?)?.toInt() ?? (j['targetDate'] == null ? 5 : null),
         read: _unranges(j['read']),
         finishedOn: j['finishedOn'] as String?,
+        lastDay: j['lastDay'] as String?,
+        dayPages: _unranges(j['dayPages']),
       );
 
   /// Pages stored as [from, to] runs — a whole khatma is one pair instead of 604 numbers.
