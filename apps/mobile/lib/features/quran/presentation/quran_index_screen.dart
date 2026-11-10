@@ -23,6 +23,7 @@ import '../../../l10n/gen/app_localizations.dart';
 import '../data/reading_repository.dart';
 import '../domain/quran_data.dart';
 import '../../home/widgets/orbs.dart';
+import '../../listen/presentation/now_playing_screen.dart';
 import 'reader_screen.dart';
 import '../domain/ayah_search.dart';
 import 'ayah_results.dart';
@@ -344,7 +345,7 @@ class _Orbs extends ConsumerWidget {
             title: t.quranListen,
             status: t.quranSurahName(q.surah(surah).name(s.locale)),
             semanticLabel: '${t.quranListen}، ${t.quranSurahName(q.surah(surah).name(s.locale))}',
-            onTap: () => context.push('/quran/listen/$surah'),
+            onTap: () => pushListen(context, ref, surah),
             disc: Center(
               child: Container(
                 width: 52,

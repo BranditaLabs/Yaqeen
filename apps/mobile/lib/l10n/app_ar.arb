@@ -189,6 +189,7 @@
   "channelReminders": "التذكيرات",
   "channelChallenge": "التحدي والمكافآت",
   "channelOffers": "عروض متجر يقين",
+  "channelRecitation": "التلاوة",
   "prayerTitle": "مواقيت الصلاة",
   "prayerToday": "مواقيت اليوم",
   "prayerIn": "بعد {time}",
@@ -566,6 +567,33 @@
   },
   "listenControls": "التحكم في التشغيل",
   "listenRepeat": "تكرار الآية",
+  "listenRepeatTitle": "التكرار",
+  "listenRepeatOff": "بلا تكرار",
+  "listenRepeatAyah": "الآية",
+  "listenRepeatRange": "مقطع",
+  "listenRepeatSurah": "السورة",
+  "listenRepeatTimesTitle": "عدد المرات",
+  "listenRepeatTimes": "{n}×",
+  "@listenRepeatTimes": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "listenRepeatForever": "بلا توقف",
+  "listenRepeatRangeLabel": "من الآية {from} إلى الآية {to}",
+  "@listenRepeatRangeLabel": {
+    "placeholders": {
+      "from": {
+        "type": "int"
+      },
+      "to": {
+        "type": "int"
+      }
+    }
+  },
+  "listenRepeatNeedsSync": "تكرار الآية والمقطع يحتاج توقيت الآيات لهذا القارئ.",
   "listenPrev": "الآية السابقة",
   "listenPlay": "تشغيل",
   "listenPause": "إيقاف مؤقت",

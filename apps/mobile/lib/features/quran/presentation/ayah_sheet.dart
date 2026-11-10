@@ -15,6 +15,7 @@ import '../../../core/widgets/yq_layout.dart';
 import '../../../core/widgets/share_card.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
+import '../../recite/presentation/recite_available.dart';
 import '../data/reading_repository.dart';
 import '../data/tafsir_repository.dart';
 import '../domain/annotations.dart';
@@ -45,6 +46,8 @@ class _AyahSheetState extends ConsumerState<_AyahSheet> {
   TafsirText? _tafsir;
   List<TafsirInfo> _tafsirs = const [];
   String? _tafsirId;
+  bool _tafsirLoading = false;
+  int _tafsirSeq = 0;
   MarkColor? _highlight;
   bool _hasNote = false;
 
@@ -95,35 +98,46 @@ class _AyahSheetState extends ConsumerState<_AyahSheet> {
     if (mounted) setState(() => _saved = saved);
   }
 
+  /// The panel opens at once with a skeleton while the text loads (a network fetch can take
+  /// seconds, spec §2.5); a later open or chip switch drops an earlier lookup's late answer.
   Future<void> _openTafsir() async {
+    _tafsirSeq++;
     if (_tafsirOpen) {
       setState(() => _tafsirOpen = false);
       return;
     }
-    final repo = ref.read(tafsirRepositoryProvider);
-    final text = await repo.lookup(widget.ayah);
-    final id = await repo.selected();
-    if (!mounted) return;
     setState(() {
       _tafsirOpen = true;
-      _tafsir = text;
-      _tafsirId = id;
+      _tafsirLoading = true;
     });
+    final repo = ref.read(tafsirRepositoryProvider);
+    final id = await repo.selected();
+    if (mounted) setState(() => _tafsirId = id);
+    await _loadTafsir(repo);
     final list = await repo.list();
     if (mounted) setState(() => _tafsirs = list);
   }
 
   /// Picker in the panel: switching re-reads this ayah from the chosen tafsir.
   Future<void> _pickTafsir(String id) async {
+    _tafsirSeq++;
+    setState(() {
+      _tafsirId = id;
+      _tafsirLoading = true;
+    });
     final repo = ref.read(tafsirRepositoryProvider);
     await repo.select(id);
+    await _loadTafsir(repo);
+  }
+
+  Future<void> _loadTafsir(TafsirRepository repo) async {
+    final seq = _tafsirSeq;
     final text = await repo.lookup(widget.ayah);
-    if (mounted) {
-      setState(() {
-        _tafsirId = id;
-        _tafsir = text;
-      });
-    }
+    if (!mounted || seq != _tafsirSeq) return;
+    setState(() {
+      _tafsir = text;
+      _tafsirLoading = false;
+    });
   }
 
   Future<void> _copy() async {
@@ -237,12 +251,15 @@ class _AyahSheetState extends ConsumerState<_AyahSheet> {
                         const SizedBox(height: YqSpace.s),
                         // Licensed text only (installed pack or Quran Foundation); offline with nothing cached
                         // the placeholder stays bracketed (rule 9).
-                        Text(
-                          _tafsir?.text ?? t.tafsirPlaceholder,
-                          style: theme.bodyLarge?.copyWith(color: _tafsir == null ? YqColors.muted : YqColors.ink),
-                        ),
+                        if (_tafsirLoading)
+                          const YqSkeleton(child: YqSkeletonText(lines: 3))
+                        else
+                          Text(
+                            _tafsir?.text ?? t.tafsirPlaceholder,
+                            style: theme.bodyLarge?.copyWith(color: _tafsir == null ? YqColors.muted : YqColors.ink),
+                          ),
                         // Credit every time the licensed text is shown (QuranEnc / Quran Foundation terms).
-                        if (_tafsir != null) ...[
+                        if (_tafsir != null && !_tafsirLoading) ...[
                           const SizedBox(height: YqSpace.s),
                           Text(
                             _tafsir!.source == TafsirSource.qf ? t.tafsirSourceQf : t.tafsirAttribution,
@@ -394,7 +411,7 @@ class _ReaderSettings extends ConsumerWidget {
     final t = AppLocalizations.of(context);
     final s = ref.watch(settingsProvider);
     final ctl = ref.read(settingsProvider.notifier);
-    final reciteOn = ref.watch(remoteConfigProvider).isOn(Flags.recite);
+    final reciteOn = ref.watch(reciteEntryProvider);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -449,7 +466,11 @@ class _ReaderSettings extends ConsumerWidget {
           onTap: () {
             Navigator.of(context).pop();
             final page = int.tryParse(GoRouterState.of(context).pathParameters['page'] ?? '') ?? 1;
-            ref.read(quranDataProvider).whenData((q) => context.push('/quran/listen/${q.firstOfPage(page).surah}'));
+            // From the page on screen, not the surah's start.
+            ref.read(quranDataProvider).whenData((q) {
+              final first = q.firstOfPage(page);
+              context.push('/quran/listen/${first.surah}?ayah=${first.ayah}');
+            });
           },
         ),
         if (reciteOn)

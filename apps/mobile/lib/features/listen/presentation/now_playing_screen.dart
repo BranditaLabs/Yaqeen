@@ -32,11 +32,21 @@ String mmss(Duration d) {
       : '${d.inMinutes}:${two(d.inSeconds.remainder(60))}';
 }
 
+/// Opens Now playing from a general «استماع» entry (Home, Quran index, challenge): back to what is
+/// already playing, else the saved resume point, else [fallbackSurah] (the last-read one).
+Future<void> pushListen(BuildContext context, WidgetRef ref, int fallbackSurah) async {
+  final surah = await ref.read(listenControllerProvider.notifier).entrySurah(fallbackSurah);
+  if (context.mounted) await context.push('/quran/listen/$surah');
+}
+
 /// `11 · Now playing` (spec §5.13).
 class NowPlayingScreen extends ConsumerStatefulWidget {
-  const NowPlayingScreen({super.key, required this.surah, this.ayah});
+  const NowPlayingScreen({super.key, required this.surah, this.ayah, this.to});
   final int surah;
   final int? ayah;
+
+  /// With [ayah]: loop the ayat [ayah]–[to] (a hifz portion).
+  final int? to;
 
   @override
   ConsumerState<NowPlayingScreen> createState() => _NowPlayingScreenState();
@@ -44,6 +54,8 @@ class NowPlayingScreen extends ConsumerStatefulWidget {
 
 class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
   bool _tafsir = false;
+  bool _tafsirLoading = false;
+  int _tafsirSeq = 0;
   String? _tafsirText;
   TafsirSource? _tafsirSource;
   bool? _downloaded;
@@ -55,7 +67,11 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
     super.initState();
     final s = ref.read(listenControllerProvider);
     if (s.status == ListenStatus.idle || s.surah != widget.surah || widget.ayah != null) {
-      Future.microtask(() => ref.read(listenControllerProvider.notifier).open(widget.surah, ayah: widget.ayah));
+      Future.microtask(() => ref.read(listenControllerProvider.notifier).open(widget.surah, ayah: widget.ayah, to: widget.to));
+    } else if (s.reciter != null) {
+      // Back to what is playing: nothing reopens, so check the download here.
+      final r = s.reciter!;
+      Future.microtask(() => _refreshDownloaded(r, s.surah));
     }
   }
 
@@ -101,16 +117,32 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
     }
   }
 
+  /// Opens at once with a skeleton while the text loads (spec §2.5); a late answer for an earlier
+  /// ayah or a closed panel is dropped.
   Future<void> _toggleTafsir(AyahRef ref0) async {
-    final found = _tafsir ? null : await ref.read(tafsirRepositoryProvider).lookup(ref0);
-    final text = _tafsir ? _tafsirText : found?.text;
-    if (mounted) {
+    final seq = ++_tafsirSeq;
+    if (_tafsir) {
       setState(() {
-        _tafsir = !_tafsir;
-        _tafsirText = text;
-        if (found != null) _tafsirSource = found.source;
+        _tafsir = false;
+        _tafsirLoading = false;
       });
+      return;
     }
+    setState(() {
+      _tafsir = true;
+      _tafsirLoading = true;
+    });
+    final found = await ref.read(tafsirRepositoryProvider).lookup(ref0);
+    if (!mounted || seq != _tafsirSeq) return;
+    setState(() {
+      _tafsirLoading = false;
+      _tafsirText = found?.text;
+      _tafsirSource = found?.source;
+    });
+  }
+
+  void _repeatSheet(Surah surah) {
+    showYqSheet<void>(context, builder: (_) => _RepeatSheet(ayahCount: surah.ayahCount));
   }
 
   void _sleepSheet() {
@@ -166,7 +198,13 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
       if (r != null && prev != next) _refreshDownloaded(r, next.$2);
     });
     ref.listen(listenControllerProvider.select((s) => s.ref), (prev, next) {
-      if (_tafsir && prev != next) setState(() => _tafsir = false);
+      if (_tafsir && prev != next) {
+        _tafsirSeq++;
+        setState(() {
+          _tafsir = false;
+          _tafsirLoading = false;
+        });
+      }
     });
 
     final r = st.reciter;
@@ -211,7 +249,7 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
               caption: Column(
                 children: [
                   Text(t.listenSurahMeta(surah.number, surahTypeLabel(t, surah), surah.ayahCount)),
-                  Text(r!.name(locale), style: text.bodyMedium?.copyWith(color: YqColors.ink, fontWeight: FontWeight.w500)),
+                  if (r != null) Text(r.name(locale), style: text.bodyMedium?.copyWith(color: YqColors.ink, fontWeight: FontWeight.w500)),
                 ],
               ),
             ),
@@ -268,12 +306,14 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
                   label: Text(t.tafsirTitle),
                 ),
               ),
-              if (_tafsir)
+              if (_tafsir && _tafsirLoading)
+                const YqSkeleton(child: YqSkeletonText(lines: 3))
+              else if (_tafsir)
                 Text(
                   _tafsirText ?? t.tafsirPlaceholder,
                   style: text.bodyMedium?.copyWith(color: _tafsirText == null ? YqColors.muted : YqColors.ink),
                 ),
-              if (_tafsir && _tafsirText != null)
+              if (_tafsir && !_tafsirLoading && _tafsirText != null)
                 Padding(
                   padding: const EdgeInsets.only(top: YqSpace.xs),
                   child: Text(
@@ -332,10 +372,10 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _RoundIcon(
-                tooltip: t.listenRepeat,
-                icon: Icons.repeat_one_rounded,
-                active: st.repeat == ListenRepeat.ayah,
-                onTap: st.synced ? c.toggleRepeatAyah : null,
+                tooltip: t.listenRepeatTitle,
+                icon: st.repeat == ListenRepeat.ayah ? Icons.repeat_one_rounded : Icons.repeat_rounded,
+                active: st.repeat != ListenRepeat.off,
+                onTap: () => _repeatSheet(quran.surah(st.surah)),
               ),
               // RTL: «previous ayah» sits on the right, matching reading direction.
               _RoundIcon(tooltip: t.listenPrev, icon: Icons.skip_next_rounded, onTap: st.synced ? c.previous : null),
@@ -370,6 +410,91 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
   }
 
   static String _speed(double v) => v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
+}
+
+/// Repeat modes (spec §5.13): off, the current ayah ×N, a range A–B ×N, or the surah. Ayah and
+/// range need the reciter's ayah timings. Every choice applies at once.
+class _RepeatSheet extends ConsumerStatefulWidget {
+  const _RepeatSheet({required this.ayahCount});
+  final int ayahCount;
+
+  @override
+  ConsumerState<_RepeatSheet> createState() => _RepeatSheetState();
+}
+
+class _RepeatSheetState extends ConsumerState<_RepeatSheet> {
+  RangeValues? _dragging;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
+    final st = ref.watch(listenControllerProvider);
+    final c = ref.read(listenControllerProvider.notifier);
+    final n = widget.ayahCount;
+    int clampAyah(int a) => a.clamp(1, n);
+    final from = clampAyah(st.rangeFrom ?? st.ayah);
+    final to = clampAyah(st.rangeTo ?? st.ayah);
+    final range = _dragging ?? RangeValues(from.toDouble(), to.toDouble());
+    Widget chip(String label, bool selected, VoidCallback onTap) => Padding(
+          padding: const EdgeInsetsDirectional.only(end: YqSpace.s, bottom: YqSpace.s),
+          child: YqChip(label: label, selected: selected, onTap: onTap),
+        );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(t.listenRepeatTitle, style: text.titleLarge),
+        const SizedBox(height: YqSpace.m),
+        Wrap(
+          children: [
+            chip(t.listenRepeatOff, st.repeat == ListenRepeat.off, () => c.setRepeat(ListenRepeat.off)),
+            if (st.synced) ...[
+              chip(t.listenRepeatAyah, st.repeat == ListenRepeat.ayah, () => c.setRepeat(ListenRepeat.ayah)),
+              chip(t.listenRepeatRange, st.repeat == ListenRepeat.range, () => c.setRepeat(ListenRepeat.range, from: from, to: to)),
+            ],
+            chip(t.listenRepeatSurah, st.repeat == ListenRepeat.surah, () => c.setRepeat(ListenRepeat.surah)),
+          ],
+        ),
+        if (!st.synced) Text(t.listenRepeatNeedsSync, style: text.bodySmall?.copyWith(color: YqColors.muted)),
+        if (st.repeat == ListenRepeat.range) ...[
+          const SizedBox(height: YqSpace.m),
+          Text(t.listenRepeatRangeLabel(range.start.round(), range.end.round()), style: text.bodyMedium),
+          if (n > 1)
+            RangeSlider(
+              min: 1,
+              max: n.toDouble(),
+              divisions: n - 1,
+              values: range,
+              labels: RangeLabels(YqFormat.number(range.start.round()), YqFormat.number(range.end.round())),
+              activeColor: YqColors.lapis,
+              inactiveColor: YqColors.line,
+              onChanged: (v) => setState(() => _dragging = v),
+              onChangeEnd: (v) {
+                setState(() => _dragging = null);
+                c.setRepeat(ListenRepeat.range, from: v.start.round(), to: v.end.round());
+              },
+            ),
+        ],
+        if (st.repeat == ListenRepeat.ayah || st.repeat == ListenRepeat.range) ...[
+          const SizedBox(height: YqSpace.m),
+          Text(t.listenRepeatTimesTitle, style: text.titleSmall),
+          const SizedBox(height: YqSpace.s),
+          Wrap(
+            children: [
+              for (final times in listenRepeatTimes)
+                chip(
+                  times == 0 ? t.listenRepeatForever : t.listenRepeatTimes(times),
+                  st.repeatTimes == times,
+                  () => c.setRepeat(st.repeat, times: times),
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
 }
 
 class _RoundIcon extends StatelessWidget {

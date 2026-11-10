@@ -19,6 +19,7 @@ import '../../../core/widgets/yq_button.dart';
 import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
+import '../../listen/presentation/now_playing_screen.dart';
 import '../../onboarding/presentation/session_controller.dart';
 import '../domain/challenge_models.dart';
 import 'challenge_controller.dart';
@@ -151,7 +152,7 @@ class _Enrolled extends ConsumerWidget {
         case TaskKey.eveningAzkar:
           context.push('/home/azkar?set=evening');
         case TaskKey.listen:
-          context.push('/quran/listen/${last?.surah ?? 1}');
+          await pushListen(context, ref, last?.surah ?? 1);
         default:
       }
       return;

@@ -36,6 +36,8 @@ class ReciterRepository {
   final _timings = <String, Map<String, dynamic>>{};
   final _audio = <String, SurahAudio>{};
 
+  /// The catalogue; the cached copy when the fetch fails. Rethrows when there is no cached copy
+  /// either (first run offline), so screens show an error with retry — not «no reciter yet».
   Future<List<Reciter>> list() async {
     try {
       final res = await api.get('/v1/content/reciters');
@@ -44,7 +46,9 @@ class ReciterRepository {
       await cache.write(_key, jsonEncode([for (final r in list) r.toJson()]));
       return list;
     } on Exception {
-      return cached();
+      final held = await cached();
+      if (held.isEmpty && await cache.read(_key) == null) rethrow;
+      return held;
     }
   }
 

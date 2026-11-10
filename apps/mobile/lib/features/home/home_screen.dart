@@ -27,6 +27,7 @@ import '../prayer/presentation/prayer_labels.dart';
 import '../quran/domain/quran_data.dart';
 import '../quran/presentation/quran_index_screen.dart';
 import '../quran/presentation/reader_screen.dart';
+import '../listen/presentation/now_playing_screen.dart';
 import '../ramadan/domain/ramadan.dart';
 import '../ramadan/presentation/ramadan_controller.dart';
 import '../routine/domain/routine.dart';
@@ -497,7 +498,7 @@ class _ContinueReading extends ConsumerWidget {
                   excludeSemantics: true,
                   child: InkWell(
                     customBorder: const CircleBorder(),
-                    onTap: () => context.push('/quran/listen/${surah.number}'),
+                    onTap: () => pushListen(context, ref, surah.number),
                     child: Container(
                       width: YqSpace.touch,
                       height: YqSpace.touch,

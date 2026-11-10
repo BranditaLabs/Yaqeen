@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -10,14 +11,18 @@ import 'package:yaqeen/core/di/providers.dart';
 import 'package:yaqeen/core/network/api_client.dart';
 import 'package:yaqeen/core/platform/audio_engine.dart';
 import 'package:yaqeen/core/storage/kv_store.dart';
+import 'package:yaqeen/core/storage/local_store.dart';
 import 'package:yaqeen/core/time/zoned.dart';
 import 'package:yaqeen/core/widgets/liquid_glass.dart';
+import 'package:yaqeen/core/widgets/yq_states.dart';
 import 'package:yaqeen/features/listen/data/audio_downloads.dart';
+import 'package:yaqeen/features/listen/data/listen_store.dart';
 import 'package:yaqeen/features/listen/data/reciter_repository.dart';
 import 'package:yaqeen/features/listen/domain/audio_models.dart';
 import 'package:yaqeen/features/listen/presentation/listen_controller.dart';
 import 'package:yaqeen/features/listen/presentation/now_playing_screen.dart';
 import 'package:yaqeen/features/listen/presentation/reciters_screen.dart';
+import 'package:yaqeen/features/quran/data/tafsir_repository.dart';
 import 'package:yaqeen/features/quran/domain/quran_data.dart';
 
 import '../../helpers/fonts.dart';
@@ -153,14 +158,14 @@ void main() {
     });
   });
 
-  List<Override> overrides(FakeAudioEngine engine, MemoryKvStore kv, {bool harnessed = false}) => [
+  List<Override> overrides(FakeAudioEngine engine, MemoryKvStore kv, {bool harnessed = false, http.Client? api}) => [
         if (!harnessed) ...[kvStoreProvider.overrideWithValue(kv), secureStoreProvider.overrideWithValue(MemoryKvStore())],
         audioEngineProvider.overrideWithValue(engine),
         filesDirProvider.overrideWithValue(() async => tmp),
         quranDataProvider.overrideWith((_) async => q),
         clockProvider.overrideWithValue(() => DateTime.utc(2026, 10, 20, 12)),
         apiClientProvider.overrideWithValue(
-          ApiClient(baseUrl: 'https://api.test', tokens: TokenStore(MemoryKvStore()), client: fakeServer()),
+          ApiClient(baseUrl: 'https://api.test', tokens: TokenStore(MemoryKvStore()), client: api ?? fakeServer()),
         ),
         reciterRepositoryProvider.overrideWith(
           (ref) => ReciterRepository(
@@ -218,6 +223,148 @@ void main() {
       expect(c.read(listenControllerProvider).status, ListenStatus.unavailable);
     });
 
+    test('repeat ayah ×3 plays it three times, then moves on', () async {
+      final engine = FakeAudioEngine();
+      final c = ProviderContainer(overrides: overrides(engine, MemoryKvStore()));
+      addTearDown(c.dispose);
+      final ctl = c.read(listenControllerProvider.notifier);
+      await ctl.open(18, ayah: 3); // 20 s
+      await Future<void>.delayed(Duration.zero);
+      ctl.setRepeat(ListenRepeat.ayah, times: 3);
+      for (var pass = 0; pass < 2; pass++) {
+        engine.advance(const Duration(seconds: 11));
+        await Future<void>.delayed(Duration.zero);
+        expect([c.read(listenControllerProvider).ayah, engine.current], [3, const Duration(seconds: 20)]);
+      }
+      engine.advance(const Duration(seconds: 11));
+      await Future<void>.delayed(Duration.zero);
+      expect([c.read(listenControllerProvider).ayah, engine.current], [4, const Duration(seconds: 31)]);
+    });
+
+    test('repeat ayah on the last ayah loops instead of moving to the next surah', () async {
+      final engine = FakeAudioEngine();
+      final c = ProviderContainer(overrides: overrides(engine, MemoryKvStore()));
+      addTearDown(c.dispose);
+      final ctl = c.read(listenControllerProvider.notifier);
+      await ctl.open(18, ayah: 110); // 1090 s; the file ends at 20 min
+      await Future<void>.delayed(Duration.zero);
+      ctl.toggleRepeatAyah();
+      engine.advance(const Duration(minutes: 5));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      final s = c.read(listenControllerProvider);
+      expect([s.surah, s.ayah, engine.current], [18, 110, const Duration(seconds: 1090)]);
+      expect(engine.opened, hasLength(1));
+    });
+
+    test('a range A–B (hifz `to`) loops, and stops after its count', () async {
+      final engine = FakeAudioEngine();
+      final kv = MemoryKvStore();
+      final c = ProviderContainer(overrides: overrides(engine, kv));
+      addTearDown(c.dispose);
+      final ctl = c.read(listenControllerProvider.notifier);
+      await ctl.open(18, ayah: 2, to: 4); // 10 s – 40 s
+      await Future<void>.delayed(Duration.zero);
+      var s = c.read(listenControllerProvider);
+      expect([s.repeat, s.rangeFrom, s.rangeTo, s.repeatTimes], [ListenRepeat.range, 2, 4, 0]);
+
+      ctl.setRepeat(ListenRepeat.range, times: 2);
+      engine.advance(const Duration(seconds: 31)); // crosses the end of ayah 4
+      await Future<void>.delayed(Duration.zero);
+      expect([c.read(listenControllerProvider).ayah, engine.current], [2, const Duration(seconds: 10)]);
+      engine.advance(const Duration(seconds: 31));
+      await Future<void>.delayed(Duration.zero);
+      expect(engine.isPlaying, isFalse);
+
+      // The range is saved with the resume point and comes back with it.
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      final snap = PlaybackSnapshot.tryParse((jsonDecode(kv.data.values.firstWhere((v) => v.contains('"rp":"range"'))) as Map)['snapshot']);
+      expect([snap?.repeat, snap?.rangeFrom, snap?.rangeTo, snap?.repeatTimes], [ListenRepeat.range, 2, 4, 2]);
+
+      // Another surah drops the range.
+      await ctl.open(19, ayah: 1);
+      s = c.read(listenControllerProvider);
+      expect(s.repeat, ListenRepeat.off);
+    });
+
+    test('a stopped sample puts the surah back, paused, and play works', () async {
+      final engine = FakeAudioEngine();
+      final c = ProviderContainer(overrides: overrides(engine, MemoryKvStore()));
+      addTearDown(c.dispose);
+      final ctl = c.read(listenControllerProvider.notifier);
+      await ctl.open(18, ayah: 3);
+      await Future<void>.delayed(Duration.zero);
+      expect(c.read(listenControllerProvider).playing, isTrue);
+
+      await ctl.playSample(reciter);
+      expect(engine.opened.last.toString(), 'https://cdn.test/afasy/sample.mp3');
+      await ctl.stopSample();
+      await Future<void>.delayed(Duration.zero);
+      var s = c.read(listenControllerProvider);
+      expect([s.sampleOf, s.playing, s.status], [null, false, ListenStatus.ready]);
+      expect(engine.opened.last.toString(), 'https://cdn.test/afasy/018.mp3');
+      expect(engine.isPlaying, isFalse);
+
+      await ctl.toggle();
+      await Future<void>.delayed(Duration.zero);
+      expect([engine.isPlaying, c.read(listenControllerProvider).playing], [true, true]);
+
+      // A sample that plays to its end also hands back the surah.
+      await ctl.playSample(reciter);
+      engine.advance(const Duration(minutes: 30));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      s = c.read(listenControllerProvider);
+      expect([s.sampleOf, s.playing, engine.isPlaying], [null, false, false]);
+      expect(engine.opened.last.toString(), 'https://cdn.test/afasy/018.mp3');
+    });
+
+    test('«استماع» entries attach to what is playing, else the resume point, else the fallback', () async {
+      final engine = FakeAudioEngine();
+      final kv = MemoryKvStore();
+      final c = ProviderContainer(overrides: overrides(engine, kv));
+      addTearDown(c.dispose);
+      final ctl = c.read(listenControllerProvider.notifier);
+      expect(await ctl.entrySurah(7), 7);
+      await ctl.open(18, ayah: 3);
+      expect(await ctl.entrySurah(7), 18);
+
+      final fresh = ProviderContainer(overrides: overrides(FakeAudioEngine(), kv));
+      addTearDown(fresh.dispose);
+      await c.read(listenStoreProvider).saveSnapshot(const PlaybackSnapshot(reciterId: 'afasy', surah: 36));
+      expect(await fresh.read(listenControllerProvider.notifier).entrySurah(7), 36);
+    });
+
+    test('no catalogue and no cached copy → unavailable (retry), not «no reciter»', () async {
+      final engine = FakeAudioEngine();
+      final kv = MemoryKvStore();
+      final c = ProviderContainer(
+        overrides: overrides(engine, kv, api: MockClient((_) async => throw const SocketException('offline'))),
+      );
+      addTearDown(c.dispose);
+      await expectLater(c.read(reciterRepositoryProvider).list(), throwsA(isA<Exception>()));
+      await c.read(listenControllerProvider.notifier).open(1);
+      expect(c.read(listenControllerProvider).status, ListenStatus.unavailable);
+
+      // An empty catalogue that was fetched before stays the honest «no reciter yet».
+      await kv.write('cache.reciters', '[]');
+      expect(await c.read(reciterRepositoryProvider).list(), isEmpty);
+      await c.read(listenControllerProvider.notifier).open(1);
+      expect(c.read(listenControllerProvider).status, ListenStatus.noReciter);
+    });
+
+    test('pause writes today\'s time and the resume point together without losing either', () async {
+      final store = ListenStore(LocalStore(MemoryKvStore()));
+      await Future.wait([
+        store.saveDay(const ListenDay(date: '2026-10-20', seconds: 90)),
+        store.saveSnapshot(const PlaybackSnapshot(reciterId: 'afasy', surah: 18, ayah: 4)),
+        store.setDownloading('afasy', true),
+        store.setReciter('afasy'),
+      ]);
+      expect((await store.day())?.seconds, 90);
+      expect((await store.snapshot())?.ayah, 4);
+      expect(await store.downloading(), {'afasy'});
+      expect(await store.reciterId(), 'afasy');
+    });
+
     test('5 minutes of play is recorded for the day', () async {
       final kv = MemoryKvStore();
       final c = ProviderContainer(overrides: overrides(FakeAudioEngine(), kv));
@@ -254,6 +401,117 @@ void main() {
     expect(find.byTooltip('تشغيل'), findsOneWidget);
   });
 
+  testWidgets('now playing: back to the playing surah shows it is downloaded', (tester) async {
+    phone(tester);
+    final engine = FakeAudioEngine();
+    final kv = MemoryKvStore();
+    final o = overrides(engine, kv, harnessed: true);
+    await tester.runAsync(() async {
+      await tester.pumpWidget(harness(const NowPlayingScreen(surah: 18, ayah: 2), kv: kv, overrides: o));
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      final file = await AudioDownloads(root: () async => tmp, isUnmetered: () async => true).fileFor('afasy', 18);
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes([1, 2, 3]);
+      await tester.pumpWidget(harness(const SizedBox(), kv: kv, overrides: o));
+      await tester.pumpWidget(harness(const NowPlayingScreen(surah: 18), kv: kv, overrides: o));
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    });
+    await tester.pump();
+    expect(engine.opened, hasLength(1)); // attached, not reopened
+    expect(find.byTooltip('محمّل · المس للحذف'), findsOneWidget);
+  });
+
+  testWidgets('now playing: tafsir opens at once with a skeleton while it loads', (tester) async {
+    phone(tester);
+    final engine = FakeAudioEngine();
+    final kv = MemoryKvStore();
+    final tafsir = _SlowTafsir();
+    await tester.runAsync(() async {
+      await tester.pumpWidget(
+        harness(
+          const NowPlayingScreen(surah: 18, ayah: 2),
+          kv: kv,
+          overrides: [...overrides(engine, kv, harnessed: true), tafsirRepositoryProvider.overrideWithValue(tafsir)],
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    });
+    await tester.pump();
+    await tester.tap(find.text('التفسير الميسر'));
+    await tester.pump();
+    expect(find.byType(YqSkeletonText), findsOneWidget);
+    tafsir.gate.complete(null);
+    await tester.pump();
+    expect(find.byType(YqSkeletonText), findsNothing);
+    expect(find.text('[نص التفسير الميسر لهذه الآية من مصدر المحتوى المرخّص]'), findsOneWidget);
+  });
+
+  testWidgets('now playing: the repeat sheet sets ayah ×N and a range', (tester) async {
+    phone(tester);
+    final engine = FakeAudioEngine();
+    final kv = MemoryKvStore();
+    late WidgetRef widgetRef;
+    await tester.runAsync(() async {
+      await tester.pumpWidget(
+        harness(
+          Consumer(
+            builder: (_, ref, __) {
+              widgetRef = ref;
+              return const NowPlayingScreen(surah: 18, ayah: 2);
+            },
+          ),
+          kv: kv,
+          overrides: overrides(engine, kv, harnessed: true),
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    });
+    await tester.pump();
+    await tester.tap(find.byTooltip('التكرار'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('الآية'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('5×'));
+    await tester.pumpAndSettle();
+    var s = widgetRef.read(listenControllerProvider);
+    expect([s.repeat, s.repeatTimes], [ListenRepeat.ayah, 5]);
+    await tester.tap(find.text('مقطع'));
+    await tester.pumpAndSettle();
+    s = widgetRef.read(listenControllerProvider);
+    expect([s.repeat, s.rangeFrom, s.rangeTo], [ListenRepeat.range, 2, 2]);
+    expect(find.text('من الآية 2 إلى الآية 2'), findsOneWidget);
+    expect(find.byType(RangeSlider), findsOneWidget);
+  });
+
+  testWidgets('reciters: the stored reciter shows as selected before the player opens', (tester) async {
+    phone(tester);
+    final kv = MemoryKvStore()..data['db.listen'] = jsonEncode({'reciter': 'afasy'});
+    await tester.runAsync(() async {
+      await tester.pumpWidget(harness(const RecitersScreen(), kv: kv, overrides: overrides(FakeAudioEngine(), kv, harnessed: true)));
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    });
+    await tester.pump();
+    expect(find.text('القارئ المختار'), findsOneWidget);
+  });
+
+  testWidgets('reciters: no catalogue offline → error with retry', (tester) async {
+    phone(tester);
+    final kv = MemoryKvStore();
+    await tester.runAsync(() async {
+      await tester.pumpWidget(
+        harness(
+          const RecitersScreen(),
+          kv: kv,
+          overrides: overrides(FakeAudioEngine(), kv, harnessed: true, api: MockClient((_) async => throw const SocketException('offline'))),
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    });
+    await tester.pump();
+    expect(find.text('لا يوجد قارئ متاح بعد'), findsNothing);
+    expect(find.text('إعادة المحاولة'), findsOneWidget);
+  });
+
   testWidgets('reciters: list, search empty state, filter downloaded', (tester) async {
     phone(tester);
     final kv = MemoryKvStore();
@@ -276,4 +534,11 @@ void main() {
     await tester.pump();
     expect(find.text('لا يوجد قارئ بهذا الاسم'), findsOneWidget);
   });
+}
+
+/// Tafsir whose answer arrives only when the test opens [gate].
+class _SlowTafsir extends TafsirRepository {
+  final gate = Completer<TafsirText?>();
+  @override
+  Future<TafsirText?> lookup(AyahRef r) => gate.future;
 }

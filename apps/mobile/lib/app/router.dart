@@ -125,6 +125,7 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
                       builder: (_, s) => NowPlayingScreen(
                         surah: (int.tryParse(s.pathParameters['surah'] ?? '') ?? 1).clamp(1, 114),
                         ayah: int.tryParse(s.uri.queryParameters['ayah'] ?? ''),
+                        to: int.tryParse(s.uri.queryParameters['to'] ?? ''),
                       ),
                     ),
                   ],

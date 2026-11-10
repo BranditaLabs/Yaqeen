@@ -175,7 +175,11 @@ class SurahAudio {
       };
 }
 
-enum ListenRepeat { off, ayah, surah }
+/// Repeat modes (spec §5.13): the current ayah ×N, a range of ayat A–B ×N, or the whole surah.
+enum ListenRepeat { off, ayah, range, surah }
+
+/// How many times an ayah or a range plays; 0 means without end.
+const listenRepeatTimes = [3, 5, 10, 0];
 
 /// Persisted player state so playback resumes after an app kill (spec §5.13 acceptance).
 class PlaybackSnapshot {
@@ -186,6 +190,9 @@ class PlaybackSnapshot {
     this.position = Duration.zero,
     this.speed = 1.0,
     this.repeat = ListenRepeat.off,
+    this.repeatTimes = 0,
+    this.rangeFrom,
+    this.rangeTo,
   });
 
   final String reciterId;
@@ -194,18 +201,38 @@ class PlaybackSnapshot {
   final Duration position;
   final double speed;
   final ListenRepeat repeat;
+  final int repeatTimes;
+  final int? rangeFrom;
+  final int? rangeTo;
 
-  Map<String, dynamic> toJson() => {'r': reciterId, 's': surah, 'a': ayah, 'p': position.inMilliseconds, 'v': speed, 'rp': repeat.name};
+  Map<String, dynamic> toJson() => {
+        'r': reciterId,
+        's': surah,
+        'a': ayah,
+        'p': position.inMilliseconds,
+        'v': speed,
+        'rp': repeat.name,
+        if (repeatTimes != 0) 'rn': repeatTimes,
+        if (rangeFrom != null) 'ra': rangeFrom,
+        if (rangeTo != null) 'rb': rangeTo,
+      };
 
   static PlaybackSnapshot? tryParse(Object? j) {
     if (j is! Map || j['r'] is! String || j['s'] is! int) return null;
+    final from = j['ra'] as int?;
+    final to = j['rb'] as int?;
+    var repeat = ListenRepeat.values.asNameMap()[j['rp']] ?? ListenRepeat.off;
+    if (repeat == ListenRepeat.range && (from == null || to == null)) repeat = ListenRepeat.off;
     return PlaybackSnapshot(
       reciterId: j['r'] as String,
       surah: j['s'] as int,
       ayah: (j['a'] as int?) ?? 1,
       position: Duration(milliseconds: (j['p'] as int?) ?? 0),
       speed: (j['v'] as num?)?.toDouble() ?? 1.0,
-      repeat: ListenRepeat.values.asNameMap()[j['rp']] ?? ListenRepeat.off,
+      repeat: repeat,
+      repeatTimes: (j['rn'] as int?) ?? 0,
+      rangeFrom: from,
+      rangeTo: to,
     );
   }
 }

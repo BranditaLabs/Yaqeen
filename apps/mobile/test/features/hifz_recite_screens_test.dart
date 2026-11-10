@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yaqeen/core/config/remote_config.dart';
 import 'package:yaqeen/core/di/providers.dart';
@@ -12,6 +13,7 @@ import 'package:yaqeen/core/widgets/yq_button.dart';
 import 'package:yaqeen/core/widgets/liquid_glass.dart';
 import 'package:yaqeen/features/hifz/presentation/hifz_screen.dart';
 import 'package:yaqeen/features/quran/domain/quran_data.dart';
+import 'package:yaqeen/features/recite/presentation/recite_available.dart';
 import 'package:yaqeen/features/recite/presentation/recite_screen.dart';
 
 import '../helpers/fonts.dart';
@@ -122,5 +124,26 @@ void main() {
     expect(find.text('آية واحدة صحيحة'), findsOneWidget);
     expect(find.textContaining('تنبيه:'), findsOneWidget);
     expect(find.textContaining('خطأ'), findsNothing);
+  });
+
+  test('recite entries show only with the flag on and a model on the device', () async {
+    Future<bool> entry({required bool flag, RecitationEngine? engine}) async {
+      final c = ProviderContainer(
+        overrides: [
+          kvStoreProvider.overrideWithValue(MemoryKvStore()),
+          secureStoreProvider.overrideWithValue(MemoryKvStore()),
+          initialConfigProvider.overrideWithValue(RemoteConfig(features: {...RemoteConfig.defaultFeatures, Flags.recite: flag})),
+          if (engine != null) recitationEngineProvider.overrideWithValue(engine),
+        ],
+      );
+      addTearDown(c.dispose);
+      c.listen(reciteEntryProvider, (_, __) {});
+      await Future<void>.delayed(Duration.zero);
+      return c.read(reciteEntryProvider);
+    }
+
+    expect(await entry(flag: false, engine: ScriptedRecitationEngine()), isFalse);
+    expect(await entry(flag: true), isFalse); // no model yet: no entry that leads to «not available»
+    expect(await entry(flag: true, engine: ScriptedRecitationEngine()), isTrue);
   });
 }
