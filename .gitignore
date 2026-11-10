@@ -36,3 +36,6 @@ graphify-out/
 
 # agent worktrees
 .claude/worktrees/
+
+# Redis dumps from local runs
+*.rdb

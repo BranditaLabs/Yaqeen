@@ -140,6 +140,49 @@ Each environment rollout (`tools/deploy/deploy.sh <env> <tag>`, also runnable fr
 Namespaces: `yaqeen-staging` (1 replica, HPA 1–4, campaigns suspended, 20 % traces) and `yaqeen`
 (production, base manifests). Dependabot opens grouped weekly PRs for npm, pub, Actions and base images.
 
+## Azure (Container Apps)
+
+The hosted environments run on Azure Container Apps; `deploy/k8s` stays as the Kubernetes option.
+Everything is in `deploy/azure/main.bicep`, driven by `tools/deploy/azure.sh <env> <command>`
+(`az` signed in + Docker; Git Bash on Windows works).
+
+| Resource group `rg-yaqeen-<env>` (UAE North) | What |
+| --- | --- |
+| `cae-yaqeen-<env>` in `vnet-yaqeen-<env>` | Container Apps environment (workload profiles, Consumption). **Staging instead runs in the existing `cae-mizan-staging`** (`AZURE_SHARED_ENVIRONMENT_ID`): the subscription is a Free Trial, which allows one environment in total. Yaqeen keeps its own group, Postgres, registry, vault and identities; that environment has no VNet, so staging has no Redis and runs one API replica (in-memory cache and rate limits). After upgrading to Pay-As-You-Go, set the variable empty and Yaqeen gets its own environment |
+| `yaqeen-api` | public HTTPS, port 4000; probes `/health` + `/ready`; 1–3 replicas (prod 2–10) |
+| `yaqeen-admin` | public HTTPS, port 3000; calls the API in-environment at `http://yaqeen-api`; optional IP allow-list (`ADMIN_ALLOWED_CIDRS`) |
+| `yaqeen-redis` | Redis 7, **VNet-internal TCP only** (`yaqeen-redis:6379`), password, no persistence (own environment only) |
+| `yaqeen-migrate` (manual), `yaqeen-purge` (01:17 UTC), `yaqeen-campaigns` (prod only, every 10 min) | jobs on the API image |
+| `psql-yaqeen-<env>-*` | Postgres 16 Flexible Server (staging B1ms, prod D2ds_v5), TLS enforced, 7/35-day backups |
+| `kv-yaqeen-*` | Key Vault (RBAC): every secret; apps read it through managed identities |
+| `cryaqeen<env>*` | Container registry (images `yaqeen-api:<commit>`, `yaqeen-admin:<commit>`, `redis:7-alpine`) |
+| `id-yaqeen-<env>` / `-edge` | identities: API + jobs read the vault; admin + redis can only pull and read the Redis password |
+
+**Commands**: `all` (infra → images → apps → migrate → smoke → dns), or one of `infra`, `images`, `apps`
+(`TAG=<commit>` to roll back), `migrate`, `smoke`, `seed`, `dns`, `domains`.
+
+**Secrets** are generated on the first run (Postgres + Redis passwords, `JWT_SECRET`, `ADMIN_JWT_SECRET`,
+`ADMIN_SECRETS_KEY`, `BACKUP_SECRETS_KEY`) and live only in the vault; later runs read them back and
+never regenerate one that exists. **Export `admin-secrets-key` and `backup-secrets-key` to the company
+password manager** — the vault is the only copy. Optional integrations are vault secrets named
+`env-<var>` (lowercase, dashes): `az keyvault secret set --vault-name <kv> -n env-shopify-admin-token
+--value …`, then `azure.sh <env> apps` (→ `SHOPIFY_ADMIN_TOKEN`). Plain settings (`SUPPORT_EMAIL`,
+`SHOPIFY_SHOP_DOMAIN`, `APP_STORE_URL`, …) go in `deploy/azure/<env>.env.json`.
+
+**First super admin**: `SEED_ADMIN_EMAIL=you@… tools/deploy/azure.sh <env> seed` runs the seed from your
+machine (Postgres opened to your IP only while it runs) and stores the password and the authenticator
+link in the vault (`seed-admin-password`, `seed-admin-totp`) — add the link to an authenticator app,
+sign in, then delete both secrets.
+
+**Custom domains**: `azure.sh <env> dns` prints a CNAME + an `asuid` TXT record per host
+(`api-staging` / `admin-staging`, or `api` / `admin` in production). Create them at the DNS provider,
+then `azure.sh <env> domains` binds the hostnames with free managed certificates.
+
+**Known limits (staging)**: Postgres accepts connections from Azure-hosted clients (firewall rule
+`AllowAzureServices`) behind TLS + a 50-character password, and the API uses the server admin role.
+Before production: private access (delegated subnet + private DNS) or a NAT gateway with one allowed IP,
+and a least-privilege `yaqeen_app` role for the API (the admin role only for migrations).
+
 ## Runbooks
 
 | Symptom | Do |
