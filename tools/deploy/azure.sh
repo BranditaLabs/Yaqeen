@@ -203,6 +203,14 @@ images() {
 
 apps() {
   log "apps :$TAG"
+  # Never point the apps at a tag that isn't in the registry (a failed or skipped `images` step):
+  # the new revision would fail to pull and the jobs would break.
+  local acr image
+  acr=$(q acr list -g "$RG" --query '[0].name')
+  for image in yaqeen-api yaqeen-admin; do
+    q acr repository show -n "$acr" --image "$image:$TAG" --query name >/dev/null 2>&1 ||
+      die "$image:$TAG is not in $acr — run: $0 $ENVIRONMENT images (or set TAG to a pushed commit)"
+  done
   deploy true "$(domain_mode)"
 }
 
