@@ -20,6 +20,10 @@ class _Push implements PushService {
   Stream<String> get onTokenRefresh => refresh.stream;
   @override
   Stream<PushOpened> get onOpened => const Stream.empty();
+  @override
+  Stream<PushMessage> get onReceived => const Stream.empty();
+  @override
+  Future<List<PushMessage>> takeArrived() async => const [];
 }
 
 void main() {

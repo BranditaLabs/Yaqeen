@@ -43,6 +43,7 @@
   },
   "joinChallenge": "Start the challenge",
   "joinChallengeHint": "Small daily tasks that bring you closer — and points you redeem at the Yaqeen store",
+  "joinChallengeOffline": "Joining the challenge needs an internet connection",
   "accountRequired": "Sign in to keep your points",
   "redeemTitle": "Redeem your points",
   "redeemCta": "Redeem",

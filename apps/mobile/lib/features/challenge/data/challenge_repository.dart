@@ -27,24 +27,28 @@ class ChallengeRepository {
   static const _cacheKey = 'cache.challenge.summary';
   static final _taskPath = RegExp(r'^/v1/challenge/tasks/(\w+)/complete$');
 
-  Future<ChallengeSummary> summary() async {
+  /// The server's summary; offline, the cached one moved on to [today] (the place's date).
+  Future<ChallengeSummary> summary({String? today}) async {
     await sync.flush();
     try {
       final json = (await api.get('/v1/challenge/summary') as Map).cast<String, dynamic>();
       await cache.write(_cacheKey, jsonEncode(json));
       return await _withPending(ChallengeSummary.fromJson(json));
     } on OfflineException {
-      final cached = await cachedSummary();
+      final cached = await cachedSummary(today: today);
       if (cached == null) rethrow;
       return cached;
     }
   }
 
-  /// Last known summary (+ ticks still in the outbox), for instant paint and offline use.
-  Future<ChallengeSummary?> cachedSummary() async {
+  /// Last known summary (+ ticks still in the outbox), for instant paint and offline use. With
+  /// [today], a summary cached on an earlier day starts that new day empty instead of showing
+  /// yesterday's ticks as today's.
+  Future<ChallengeSummary?> cachedSummary({String? today}) async {
     final raw = await cache.read(_cacheKey);
     if (raw == null) return null;
-    return _withPending(ChallengeSummary.fromJson((jsonDecode(raw) as Map).cast<String, dynamic>()));
+    final s = ChallengeSummary.fromJson((jsonDecode(raw) as Map).cast<String, dynamic>());
+    return _withPending(today == null ? s : s.rolledTo(today));
   }
 
   /// Re-applies completions still waiting in the outbox.

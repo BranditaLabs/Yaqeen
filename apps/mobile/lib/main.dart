@@ -100,7 +100,7 @@ Future<void> _start() async {
     adhanVoice: () => current().adhanVoice.name,
   );
 
-  final push = FirebasePushService();
+  final push = FirebasePushService(showInForeground: notifier.showPush);
   container = ProviderContainer(
     overrides: [
       kvStoreProvider.overrideWithValue(kv),

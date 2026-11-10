@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/config/config_controller.dart';
 import '../../../core/di/providers.dart';
+import '../../../core/network/api_client.dart' show OfflineException;
 import '../../../core/format.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
@@ -20,6 +21,7 @@ import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../onboarding/presentation/session_controller.dart';
+import '../../onboarding/presentation/sign_in_sheet.dart';
 import '../domain/challenge_models.dart';
 import 'challenge_controller.dart';
 
@@ -58,7 +60,8 @@ class ChallengeScreen extends ConsumerWidget {
       }
     });
 
-    if (!session.canEarnPoints) return _JoinView(guest: true, onJoin: () => context.push('/onboarding/welcome'));
+    // A guest links Google/Apple to the account they already have (keeps consents and settings).
+    if (!session.canEarnPoints) return _JoinView(guest: true, onJoin: () => showSignInSheet(context));
     return state.when(
       loading: () => const _Skeleton(),
       error: (_, __) => YqCanvas(
@@ -352,14 +355,37 @@ class _Enrolled extends ConsumerWidget {
   }
 }
 
-class _JoinView extends StatelessWidget {
+class _JoinView extends StatefulWidget {
   const _JoinView({required this.onJoin, required this.guest});
-  final VoidCallback onJoin;
+  final Future<void> Function() onJoin;
   final bool guest;
+
+  @override
+  State<_JoinView> createState() => _JoinViewState();
+}
+
+class _JoinViewState extends State<_JoinView> {
+  bool _busy = false;
+
+  /// Busy while it runs; offline or a server error says so instead of failing silently.
+  Future<void> _join() async {
+    final t = AppLocalizations.of(context);
+    setState(() => _busy = true);
+    try {
+      await widget.onJoin();
+    } on OfflineException {
+      if (mounted) YqToast.show(context, t.joinChallengeOffline);
+    } catch (_) {
+      if (mounted) YqToast.show(context, t.errorGeneric);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
+    final guest = widget.guest;
     return YqCanvas(
       lights: AmbientBackground.goldLights,
       stage: YqStage(
@@ -381,7 +407,7 @@ class _JoinView extends StatelessWidget {
           ],
         ),
       ),
-      children: [YqButton(label: guest ? t.signIn : t.joinChallenge, onPressed: onJoin)],
+      children: [YqButton(label: guest ? t.signIn : t.joinChallenge, loading: _busy, onPressed: _join)],
     );
   }
 }

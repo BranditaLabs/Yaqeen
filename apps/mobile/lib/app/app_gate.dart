@@ -9,7 +9,9 @@ import '../core/config/config_controller.dart';
 import '../core/notifications/push_service.dart';
 import '../features/backup/presentation/backup_sync.dart';
 import '../features/backup/presentation/backup_widgets.dart';
+import '../features/challenge/presentation/challenge_controller.dart';
 import '../features/listen/presentation/downloads_controller.dart';
+import '../features/notifications/presentation/inbox_screen.dart' show inboxProvider;
 import '../features/notifications/presentation/reminders_controller.dart';
 import '../features/onboarding/presentation/session_controller.dart';
 import 'router.dart';
@@ -36,6 +38,7 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
   String? _appVersion;
   Timer? _flushTimer;
   StreamSubscription<PushOpened>? _pushTaps;
+  StreamSubscription<PushMessage>? _pushArrivals;
 
   @override
   void initState() {
@@ -54,8 +57,24 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
       final nav = rootNavigatorKey.currentContext;
       if (nav != null && nav.mounted) GoRouter.of(nav).go(routeForDeepLink(o.link));
       ref.read(pushRegistrarProvider).opened(o).catchError((Object _) {}).ignore();
+      _filePushes().ignore();
     });
+    // Campaign and challenge pushes land in the notification centre (spec §5.18).
+    _pushArrivals = ref.read(pushServiceProvider).onReceived.listen((m) => _filePushes([m]).ignore());
     WidgetsBinding.instance.addPostFrameCallback((_) => _warmUp());
+  }
+
+  /// Files pushes in the notification centre: [received] now, plus any that arrived while the app
+  /// was away. Never throws.
+  Future<void> _filePushes([List<PushMessage> received = const []]) async {
+    try {
+      final pushes = [...received, ...await ref.read(pushServiceProvider).takeArrived()];
+      if (pushes.isEmpty) return;
+      await ref.read(inboxRepositoryProvider).addPushes(pushes);
+      if (mounted) ref.invalidate(inboxProvider);
+    } catch (_) {
+      // The OS showed them anyway; the next resume tries the spool again.
+    }
   }
 
   /// Keeps this install's push token on the server for the signed-in account.
@@ -76,6 +95,7 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
       // Full-reciter downloads cut short by a kill or restart pick up where they stopped.
       () => ref.read(downloadsControllerProvider.notifier).resumeInterrupted(),
       _syncPush,
+      _filePushes,
       // Opt-in cloud backup: pull + merge + push (time-boxed), or offer a restore after sign-in.
       () => ref.read(backupSyncProvider.notifier).start(),
     ];
@@ -92,6 +112,9 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
       ref.read(remindersControllerProvider.notifier).replan().ignore();
       _syncPush().catchError((Object _) {}).ignore();
       ref.read(backupSyncProvider.notifier).start().catchError((Object _) {}).ignore();
+      _filePushes().ignore();
+      // Past midnight while away: today's challenge ticks start fresh (timers don't run then).
+      if (ref.exists(challengeControllerProvider)) ref.read(challengeControllerProvider.notifier).refreshIfNewDay();
     }
   }
 
@@ -114,6 +137,7 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _flushTimer?.cancel();
     _pushTaps?.cancel();
+    _pushArrivals?.cancel();
     super.dispose();
   }
 

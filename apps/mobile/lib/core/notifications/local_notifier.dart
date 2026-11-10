@@ -6,6 +6,7 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../time/zoned.dart';
 import 'notification_planner.dart';
+import 'push_service.dart';
 
 /// Title/body for a planned notification (localised by the caller — see NotificationCopy).
 typedef NotificationCopyFn = (String title, String body) Function(PlannedNotification n);
@@ -130,6 +131,22 @@ class PluginLocalNotifier implements LocalNotificationScheduler {
         payload: n.link,
       );
     }
+  }
+
+  /// A campaign push that arrived while the app was open (Android doesn't show those itself), on
+  /// the offers channel like the ones FCM posts. Ids sit above the planner's range.
+  Future<void> showPush(PushMessage m) async {
+    await init();
+    const offers = NotificationChannel.offers;
+    await _plugin.show(
+      id: 0x40000000 | (m.id.hashCode & 0x3fffffff),
+      title: m.title,
+      body: m.body,
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(offers.name, channelNames()[offers] ?? offers.name),
+      ),
+      payload: m.link,
+    );
   }
 
   /// Checks without prompting (prompting happens from the settings screen).
