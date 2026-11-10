@@ -137,6 +137,7 @@ void main() {
 
     late List<http.Request> requests;
     late List<Map<String, Object?>> tags;
+    var journeyFailures = 0; // the next N journey requests fail like a dropped connection
     http.Client server({bool published = false, bool moderated = false}) => MockClient((req) async {
           requests.add(req);
           final p = req.url.path;
@@ -173,7 +174,13 @@ void main() {
             tags.removeWhere((t) => t['code'] == p.split('/').last);
             return http.Response('', 204, headers: h);
           }
-          if (p == '/v1/me/journey') return http.Response(jsonEncode(journeyJson()), 200, headers: h);
+          if (p == '/v1/me/journey') {
+            if (journeyFailures > 0) {
+              journeyFailures--;
+              throw http.ClientException('offline');
+            }
+            return http.Response(jsonEncode(journeyJson()), 200, headers: h);
+          }
           if (p == '/v1/me/ledger') return http.Response('[]', 200, headers: h);
           return http.Response('{}', 404, headers: h);
         });
@@ -181,6 +188,7 @@ void main() {
     Future<List<Override>> overrides({bool published = false, bool guest = false, RemoteConfig? config, bool moderated = false}) async {
       requests = [];
       tags = [];
+      journeyFailures = 0;
       final secure = MemoryKvStore();
       await secure.write('auth.access', 'token');
       return [
@@ -280,6 +288,21 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
       expect(find.text('وسام المواظبة · 3 أيام'), findsOneWidget);
       expect(find.bySemanticsLabel(RegExp('الانضمام إلى يقين، 31 أغسطس 2026')), findsOneWidget);
+    });
+
+    testWidgets('Profile journey: a failed load offers a retry instead of vanishing', (tester) async {
+      tall(tester);
+      final o = await overrides();
+      journeyFailures = 1;
+      await tester.pumpWidget(harness(const Scaffold(body: SingleChildScrollView(child: JourneySection())), overrides: o));
+      await settle(tester);
+      expect(find.text('رحلتك في يقين'), findsOneWidget);
+      expect(find.text('إعادة المحاولة'), findsOneWidget);
+      await tester.tap(find.text('إعادة المحاولة'));
+      await settle(tester);
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.text('على الطريق'), findsOneWidget);
+      expect(find.text('إعادة المحاولة'), findsNothing);
     });
 
     testWidgets('a bad handle blocks saving and says why', (tester) async {

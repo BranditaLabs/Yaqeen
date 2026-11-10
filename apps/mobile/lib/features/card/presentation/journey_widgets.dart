@@ -13,7 +13,8 @@ import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../domain/public_card.dart';
 
-/// The owner's private journey (GET /v1/me/journey). Online; the section hides itself offline.
+/// The owner's private journey (GET /v1/me/journey). Online; offline the section offers a retry.
+/// Invalidated after a synced challenge tick and on Profile's pull-to-refresh.
 final myJourneyProvider = FutureProvider.autoDispose((ref) => ref.watch(cardRepositoryProvider).journey());
 
 /// One milestone as a neutral phrase — the same wording the public page uses (no worship detail).
@@ -318,15 +319,17 @@ class _JourneySectionState extends ConsumerState<JourneySection> {
     final t = AppLocalizations.of(context);
     final locale = Localizations.localeOf(context).languageCode;
     final journey = ref.watch(myJourneyProvider);
-    final Widget body;
-    switch (journey) {
-      case AsyncData(:final value):
-        body = _content(context, t, locale, value);
-      case AsyncError():
-        return const SizedBox.shrink();
-      default:
-        body = const LiquidGlass(radius: YqRadii.hero, child: YqSkeletonRows(rows: 3, leading: 28));
-    }
+    final last = journey.valueOrNull;
+    // A failed refresh keeps the last journey on screen; a first load that failed offers a retry.
+    final Widget body = last != null
+        ? _content(context, t, locale, last)
+        : journey.hasError && !journey.isLoading
+            ? LiquidGlass(
+                key: const ValueKey('journey-error'),
+                radius: YqRadii.hero,
+                child: YqErrorState(onRetry: () => ref.invalidate(myJourneyProvider)),
+              )
+            : const LiquidGlass(radius: YqRadii.hero, child: YqSkeletonRows(rows: 3, leading: 28));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

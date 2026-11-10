@@ -214,4 +214,71 @@ void main() {
     expect(find.text('حذف الحساب'), findsNothing);
     expect(find.text('الخصوصية والموافقات'), findsOneWidget);
   });
+
+  testWidgets('profile: «عن يقين» opens the Yaqeen website in the app language', (tester) async {
+    tester.view.physicalSize = const Size(390 * 3, 2400 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    final device = FakeDeviceServices();
+    await tester.pumpWidget(
+      harness(
+        const Scaffold(body: ProfileScreen()),
+        overrides: [
+          initialSessionProvider.overrideWithValue(const Session(provider: SignInProvider.guest, pendingServer: true)),
+          deviceServicesProvider.overrideWithValue(device),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('عن يقين'));
+    await tester.pump();
+    expect(device.opened.single.toString(), 'https://yaqeenarabia.com/?lang=ar');
+  });
+
+  testWidgets('privacy: the worship switch asks for notifications and re-plans the reminders at once', (tester) async {
+    tester.view.physicalSize = const Size(390 * 3, 1600 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    final notifier = _CountingScheduler();
+    await tester.pumpWidget(
+      harness(
+        const PrivacyScreen(),
+        overrides: [
+          localNotificationsProvider.overrideWithValue(notifier),
+          clockProvider.overrideWithValue(() => DateTime.utc(2026, 10, 20, 12)),
+          initialSettingsProvider.overrideWithValue(const AppSettings(place: Place.cairo)),
+          apiClientProvider
+              .overrideWith((ref) => ApiClient(baseUrl: 'https://api.test', tokens: ref.watch(tokenStoreProvider), client: offline())),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+    Future<void> toggle(String label) async {
+      await tester.tap(find.bySemanticsLabel(label));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
+      await tester.pump();
+    }
+
+    // Off by default here (nothing decided yet): turning it on prompts and schedules the adhans.
+    await toggle('تذكيرات العبادة');
+    expect(notifier.permissionRequests, 1);
+    expect(notifier.scheduled, isNotEmpty);
+    // Off: what was planned is cancelled now, not at the next resume.
+    await toggle('تذكيرات العبادة');
+    expect(notifier.scheduled, isEmpty);
+    expect(notifier.permissionRequests, 1);
+    // Store offers on: the OS permission is needed for those pushes too.
+    await toggle('عروض متجر يقين');
+    expect(notifier.permissionRequests, 2);
+  });
+}
+
+class _CountingScheduler extends NoopLocalNotificationScheduler {
+  int permissionRequests = 0;
+
+  @override
+  Future<bool> requestPermission() async {
+    permissionRequests++;
+    return true;
+  }
 }

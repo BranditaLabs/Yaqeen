@@ -29,6 +29,7 @@ import '../../backup/presentation/backup_widgets.dart';
 import '../../card/presentation/journey_widgets.dart';
 import '../../challenge/presentation/challenge_controller.dart';
 import '../../content/presentation/pack_row.dart';
+import '../../notifications/presentation/reminders_controller.dart';
 import '../../onboarding/data/auth_repository.dart';
 import '../../onboarding/data/consent_repository.dart';
 import '../../onboarding/presentation/session_controller.dart';
@@ -36,10 +37,20 @@ import '../../onboarding/presentation/sign_in_sheet.dart';
 import '../../prayer/presentation/prayer_labels.dart';
 import '../../rewards/domain/reward.dart';
 
-final pendingSyncProvider = FutureProvider.autoDispose((ref) => ref.watch(outboxProvider).length);
-final downloadsBytesProvider = FutureProvider.autoDispose(
-  (ref) async => await ref.watch(audioDownloadsProvider).bytesOnDisk() + await ref.watch(packRepositoryProvider).bytesOnDisk(),
-);
+/// Queued writes; re-read whenever the outbox changes (a tick queued, a flush sent them).
+final pendingSyncProvider = FutureProvider.autoDispose((ref) {
+  final outbox = ref.watch(outboxProvider);
+  final sub = outbox.changes.listen((_) => ref.invalidateSelf());
+  ref.onDispose(sub.cancel);
+  return outbox.length;
+});
+
+/// Bytes of audio and packs on disk; re-measured when the download queue drains.
+final downloadsBytesProvider = FutureProvider.autoDispose((ref) async {
+  final sub = ref.watch(downloadQueueProvider).idle.listen((_) => ref.invalidateSelf());
+  ref.onDispose(sub.cancel);
+  return await ref.watch(audioDownloadsProvider).bytesOnDisk() + await ref.watch(packRepositoryProvider).bytesOnDisk();
+});
 final ledgerProvider = FutureProvider.autoDispose((ref) => ref.watch(rewardsRepositoryProvider).ledger());
 
 /// `21 · Profile & settings` (spec §5.24).
@@ -82,6 +93,19 @@ class ProfileScreen extends ConsumerWidget {
     final mb = megabytes(t, bytes);
 
     return YqCanvas(
+      onRefresh: () async {
+        ref
+          ..invalidate(pendingSyncProvider)
+          ..invalidate(downloadsBytesProvider)
+          ..invalidate(myJourneyProvider);
+        if (!session.canEarnPoints) return;
+        ref.invalidate(challengeControllerProvider);
+        try {
+          await ref.read(challengeControllerProvider.future);
+        } on Exception {
+          // Offline: the cached summary stays.
+        }
+      },
       stage: YqStage(
         child: Column(
           children: [
@@ -217,7 +241,7 @@ class ProfileScreen extends ConsumerWidget {
         const SizedBox(height: YqSpace.l),
         YqGroup(
           children: [
-            row(t.profileAbout, onTap: () => ref.read(deviceServicesProvider).openUrl(Uri.parse('${Env.storeUrl}/pages/about'))),
+            row(t.profileAbout, onTap: () => ref.read(deviceServicesProvider).openUrl(Env.site('', s.locale))),
             row(t.terms, onTap: () => ref.read(deviceServicesProvider).openUrl(Env.site('terms', s.locale))),
             row(t.privacyPolicy, onTap: () => ref.read(deviceServicesProvider).openUrl(Env.site('privacy', s.locale))),
             row(t.profileContact, onTap: () => ref.read(deviceServicesProvider).openUrl(Env.site('support', s.locale))),
@@ -331,6 +355,8 @@ class PrivacyScreen extends ConsumerStatefulWidget {
 }
 
 class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
+  static const _notificationKinds = {ConsentKind.worshipReminders, ConsentKind.challengeRewards, ConsentKind.storeOffers};
+
   Future<void> _set(ConsentKind k, bool v) async {
     await ref.read(consentRepositoryProvider).set(k, v, ConsentSource.settings);
     if (k == ConsentKind.adsMeasurement) {
@@ -339,6 +365,10 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
       await ref.read(analyticsProvider).onConsentChanged(v);
     }
     if (k == ConsentKind.productAnalytics) await ref.read(productAnalyticsProvider).onConsentChanged(v);
+    // Same OS prompt as onboarding: a notification switch turned on needs the permission to deliver.
+    if (v && _notificationKinds.contains(k)) await ref.read(localNotificationsProvider).requestPermission();
+    // Worship reminders are local: schedule them now, or cancel the ones already planned.
+    if (k == ConsentKind.worshipReminders) ref.read(remindersControllerProvider.notifier).replan().ignore();
     if (mounted) setState(() {});
   }
 

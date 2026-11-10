@@ -106,4 +106,23 @@ void main() {
     expect(seen, [10, 100]);
     expect(joined, [10, 100]);
   });
+
+  test('idle fires once when the last running or queued job finishes', () async {
+    final q = DownloadQueue(maxConcurrent: 1);
+    var idle = 0;
+    final sub = q.idle.listen((_) => idle++);
+    final gates = [Completer<void>(), Completer<void>()];
+    final done = [
+      for (var i = 0; i < 2; i++) q.add('k$i', group: 'g', run: (_, __) => gates[i].future),
+    ];
+    gates[0].complete();
+    await done[0];
+    await Future<void>.delayed(Duration.zero);
+    expect(idle, 0); // the second job is still running
+    gates[1].complete();
+    await done[1];
+    await Future<void>.delayed(Duration.zero);
+    expect(idle, 1);
+    await sub.cancel();
+  });
 }
