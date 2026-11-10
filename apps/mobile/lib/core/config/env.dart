@@ -13,6 +13,17 @@ abstract final class Env {
   /// A website page in the user's language, e.g. `site('privacy', 'ar')`.
   static Uri site(String page, String locale) => Uri.parse('$siteUrl/$page?lang=$locale');
 
+  /// Numeric App Store id of the listing (`apps.apple.com/app/id<id>`); empty until the listing exists.
+  static const appStoreId = String.fromEnvironment('APP_STORE_ID');
+
+  /// Where the forced-update sheet sends the user. Without an App Store id (no listing yet) iOS goes
+  /// to the website's `/get-app` smart link, which redirects to the API's configured App Store URL.
+  static Uri updateUri({required bool ios, String storeId = appStoreId, String site = siteUrl}) {
+    if (!ios) return Uri.parse('https://play.google.com/store/apps/details?id=com.yaqinbrand.yaqeen');
+    final id = storeId.trim();
+    return RegExp(r'^[1-9]\d*$').hasMatch(id) ? Uri.parse('https://apps.apple.com/app/id$id') : Uri.parse('$site/get-app');
+  }
+
   /// OAuth client id of the API (Google "server client id"); the ID token's audience. Default: the
   /// Web client of Firebase project `yaqeen-eg` (public, ships in every build).
   static const googleServerClientId = String.fromEnvironment(
