@@ -68,7 +68,8 @@ class _QiblaOrbState extends ConsumerState<QiblaOrb> with WidgetsBindingObserver
   void _sync() {
     final visible = TickerMode.valuesOf(context).enabled && _foreground;
     if (visible && _sub == null && !_noCompass) {
-      final stream = ref.read(compassServiceProvider).headings;
+      final place = ref.read(settingsProvider).placeOrDefault;
+      final stream = ref.read(compassServiceProvider).headingsAt(place.lat, place.lng);
       if (stream == null) {
         setState(() => _noCompass = true);
         return;

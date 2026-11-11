@@ -140,7 +140,7 @@ class RemindersController extends Notifier<DateTime?> {
         prayers: ref.read(prayerRepositoryProvider),
         now: now,
         t: lookupAppLocalizations(Locale(s.locale)),
-        hijri: h == null ? null : '${h.hijriDay} ${h.monthNameAr} ${h.hijriYear}',
+        hijri: h?.label(s.locale),
         wirdPages: inputs.wirdPages,
         ramadanDay: inputs.ramadanDates.contains(todayDate) && h != null && h.hijriMonth == ramadanMonth ? h.hijriDay : null,
         ramadanDates: inputs.ramadanDates,

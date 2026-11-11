@@ -24,6 +24,7 @@ import '../../../l10n/gen/app_localizations.dart';
 import '../domain/prayer_calculator.dart';
 import '../domain/prayer_clock.dart';
 import '../domain/qibla.dart';
+import '../../ramadan/domain/ramadan.dart';
 import '../../ramadan/presentation/ramadan_controller.dart';
 import '../../home/widgets/orbs.dart';
 import 'city_picker_sheet.dart';
@@ -70,7 +71,7 @@ class _PrayerScreenState extends ConsumerState<PrayerScreen> {
 
   Future<void> _changePlace() async {
     final place = await showCityPicker(context);
-    if (place != null) await ref.read(settingsProvider.notifier).update((s) => s.copyWith(place: place));
+    if (place != null && mounted) await savePlace(context, ref, place);
   }
 
   @override
@@ -104,8 +105,8 @@ class _PrayerScreenState extends ConsumerState<PrayerScreen> {
           _TravelBanner(
             city: moved.name(s.locale),
             onUpdate: () async {
-              await ref.read(settingsProvider.notifier).update((x) => x.copyWith(place: moved));
               setState(() => _moved = null);
+              await savePlace(context, ref, moved);
             },
           ),
           const SizedBox(height: YqSpace.l),
@@ -151,6 +152,11 @@ class _PrayerScreenState extends ConsumerState<PrayerScreen> {
               leading: const YqIconTile(YqIcons.adhan),
               title: t.prayerNotificationsLink,
               onTap: () => context.push('/prayer/notifications'),
+            ),
+            YqListRow(
+              leading: const YqIconTile(YqIcons.settings),
+              title: t.prayerSettingsTitle,
+              onTap: () => context.push('/prayer/settings'),
             ),
           ],
         ),
@@ -351,6 +357,10 @@ class _TravelBanner extends StatelessWidget {
   }
 }
 
+/// Whether the local calendar [date] is one of the imsakiyya's Ramadan [days].
+bool isRamadanDate(DateTime date, Iterable<RamadanDay> days) =>
+    days.any((d) => d.date.year == date.year && d.date.month == date.month && d.date.day == date.day);
+
 /// One day as a journey of six stops; today's passed prayers recede and the next one carries a
 /// live countdown. [page] is days from today.
 class _DayTimes extends ConsumerWidget {
@@ -366,11 +376,14 @@ class _DayTimes extends ConsumerWidget {
     final s = ref.watch(settingsProvider);
     final repo = ref.watch(prayerRepositoryProvider);
     final clock = ref.watch(clockProvider);
-    final times = repo.forDate(s, date);
+    // Ramadan days use Ramadan timings (Umm al-Qura's later Isha), as the stage above does.
+    final ramadan = ref.watch(ramadanStatusProvider);
+    final ramadanDays = ramadan.visible ? ref.watch(ramadanDaysProvider).valueOrNull ?? const <RamadanDay>[] : const <RamadanDay>[];
+    final times = repo.forDate(s, date, ramadan: (page == 0 && ramadan.active) || isRamadanDate(date, ramadanDays));
     final friday = date.weekday == DateTime.friday;
     Widget day(DateTime now) {
       final instant = now.toUtc();
-      final moment = page == 0 ? repo.moment(s, now) : null;
+      final moment = page == 0 ? repo.moment(s, now, ramadan: ramadan.active) : null;
       final passed = page < 0 ? displayOrder.length : (page == 0 ? displayOrder.where((p) => !times.of(p).isAfter(instant)).length : 0);
       return YqTimeline(
         pastIndex: passed,

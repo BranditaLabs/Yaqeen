@@ -32,6 +32,9 @@ class HijriDay {
 
   String monthName(String locale) => hijriMonthNameFor(hijriMonth, monthNameAr, locale);
 
+  /// «12 Rajab 1448» in English, the API's Arabic label otherwise.
+  String label(String locale) => locale == 'ar' ? labelAr : '$hijriDay ${monthName(locale)} $hijriYear';
+
   factory HijriDay.fromJson(Map<String, dynamic> j) => HijriDay(
         gregorian: j['gregorian'] as String,
         hijriDay: j['hijriDay'] as int,

@@ -1,7 +1,7 @@
 import 'dart:io' show Platform;
-import 'dart:typed_data';
 
 import 'package:app_tracking_transparency/app_tracking_transparency.dart';
+import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -15,6 +15,10 @@ abstract interface class DeviceServices {
   Future<void> shareText(String text);
   Future<void> sharePng(Uint8List png, {required String fileName, String? text});
   Future<bool> openUrl(Uri url);
+
+  /// The OS page for this app's notifications (after the permission was denied): Android's app
+  /// notification settings, iOS's app settings (`app-settings:` exists only on iOS).
+  Future<void> openNotificationSettings();
 
   /// iOS App Tracking Transparency prompt (only after `ads_measurement` is granted, spec §5.6).
   /// Denied keeps ad SDKs in limited mode; the consent itself stays as the user chose.
@@ -45,6 +49,24 @@ class PluginDeviceServices implements DeviceServices {
 
   @override
   Future<bool> openUrl(Uri url) => launchUrl(url, mode: LaunchMode.externalApplication);
+
+  /// MainActivity.kt answers `openNotificationSettings` (ACTION_APP_NOTIFICATION_SETTINGS).
+  static const _android = MethodChannel('com.yaqinbrand.yaqeen/device');
+
+  @override
+  Future<void> openNotificationSettings() async {
+    if (Platform.isAndroid) {
+      try {
+        await _android.invokeMethod<void>('openNotificationSettings');
+      } on PlatformException {
+        // No settings activity on this device: nothing else to open.
+      } on MissingPluginException {
+        // Not attached to MainActivity (e.g. a background engine).
+      }
+      return;
+    }
+    await openUrl(Uri.parse('app-settings:'));
+  }
 
   @override
   Future<void> requestTracking() async {
@@ -83,6 +105,10 @@ class FakeDeviceServices implements DeviceServices {
     opened.add(url);
     return true;
   }
+
+  int notificationSettingsOpened = 0;
+  @override
+  Future<void> openNotificationSettings() async => notificationSettingsOpened++;
 
   int trackingRequests = 0;
   bool tracking = false;
