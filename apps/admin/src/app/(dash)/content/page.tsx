@@ -1,14 +1,14 @@
 import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { CONTENT_CATEGORY_LABELS, DUA_CATEGORIES, ZIKR_CATEGORIES } from '@yaqeen/contracts';
-import type { AdminMe, AdminRole, ContentAdminRow, ContentStatus } from '@yaqeen/contracts';
+import type { AdminMe, AdminRole, ContentAdminRow, ContentStatus, DailyTaskAdminRow } from '@yaqeen/contracts';
 import { ActionForm } from '@/components/action-form';
 import { Badge, Button, Card, CardTitle, Notice, PageHeader } from '@/components/ui';
 import { api } from '@/lib/api';
 import { date, dateTime } from '@/lib/format';
 import { ROLE_LABEL } from '@/lib/session';
 import { CONTENT_STATUS } from '@/lib/labels';
-import { createContent, review, setPreviewRole, submitForReview, upsertDailyTask } from './actions';
+import { createContent, review, reviewDailyTask, setPreviewRole, submitForReview, upsertDailyTask } from './actions';
 
 const TYPE_LABEL = { dua: 'دعاء', zikr: 'ذِكر', splash_verse: 'آية البداية' } as const;
 /** «تعرض كـ» — dev only: previews the page as another role. The API still enforces the real role. */
@@ -26,7 +26,7 @@ export default async function ContentPage({ searchParams }: { searchParams: Prom
   const { status } = await searchParams;
   const me = await api<AdminMe>('/admin/auth/me');
   const items = await api<ContentAdminRow[]>(`/admin/content${status ? `?status=${status}` : ''}`);
-  const tasks = await api<{ date: string; taskAr: string }[]>('/admin/content/daily-tasks');
+  const tasks = await api<DailyTaskAdminRow[]>('/admin/content/daily-tasks');
   const preview = PREVIEW_ENABLED ? ((await cookies()).get('yq_preview_role')?.value as AdminRole | undefined) : undefined;
   const role: AdminRole = preview && preview in ROLE_LABEL ? preview : me.role;
   const canEdit = role === 'content_editor' || role === 'super_admin';
@@ -184,9 +184,22 @@ export default async function ContentPage({ searchParams }: { searchParams: Prom
             <ul className="mb-4 space-y-2 text-sm">
               {tasks.length === 0 && <li className="text-muted">لا توجد مهام مجدولة</li>}
               {tasks.map((t) => (
-                <li key={t.date} className="flex gap-3">
-                  <span className="num w-24 shrink-0 text-muted">{t.date}</span>
-                  <span>{t.taskAr}</span>
+                <li key={t.date} className="space-y-2 border-b border-line pb-2 last:border-0">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="num w-24 shrink-0 text-muted">{t.date}</span>
+                    <span className="flex-1">{t.taskAr}</span>
+                    <Badge tone={CONTENT_STATUS[t.status].tone}>{CONTENT_STATUS[t.status].label}</Badge>
+                    {t.status !== 'published' && t.live && <Badge tone="green">التطبيق يعرض النسخة المعتمدة</Badge>}
+                  </div>
+                  {t.reviewNote && <Notice tone="red">ملاحظة المراجع: {t.reviewNote}</Notice>}
+                  {/* Rule 4: shown in the app only after a reviewer who didn't write it approves it. */}
+                  {canReview && t.status === 'pending_review' && (
+                    <ActionForm action={reviewDailyTask.bind(null, t.date)} className="flex w-full flex-wrap items-center gap-2" success="تم تسجيل القرار">
+                      <input name="note" placeholder="ملاحظة (إلزامية عند طلب التعديل)" className="field min-w-0 flex-1" />
+                      <Button name="decision" value="approve">اعتماد ونشر</Button>
+                      <Button name="decision" value="request_changes" variant="danger">طلب تعديل</Button>
+                    </ActionForm>
+                  )}
                 </li>
               ))}
             </ul>
@@ -195,7 +208,7 @@ export default async function ContentPage({ searchParams }: { searchParams: Prom
                 <input name="date" type="date" required className="field num" />
                 <input name="taskAr" required placeholder="المهمة بالعربية" className="field" />
                 <input name="taskEn" required placeholder="Task in English" dir="ltr" className="field text-left" />
-                <Button variant="ghost">جدولة</Button>
+                <Button variant="ghost">جدولة وإرسال للمراجعة</Button>
               </ActionForm>
             )}
           </Card>

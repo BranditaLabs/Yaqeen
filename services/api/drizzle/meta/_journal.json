@@ -113,6 +113,13 @@
       "when": 1793443393379,
       "tag": "0015_quran_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1794329179335,
+      "tag": "0016_daily_task_review",
+      "breakpoints": true
     }
   ]
 }

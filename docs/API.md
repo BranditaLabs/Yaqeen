@@ -86,7 +86,8 @@ Roles: `super_admin` (always allowed), `content_editor`, `religious_reviewer`, `
 | POST · PUT | `/admin/content` · `/admin/content/:id` | content_editor — edits return the item to draft |
 | POST | `/admin/content/:id/submit` | content_editor |
 | POST | `/admin/content/:id/review` | religious_reviewer — not on your own edit |
-| GET · PUT | `/admin/content/daily-tasks` | read: editor/reviewer · write: content_editor |
+| GET · PUT | `/admin/content/daily-tasks` | read: editor/reviewer · write: content_editor (every write goes to `pending_review`) |
+| POST | `/admin/content/daily-tasks/:date/review` | religious_reviewer, never the task's author; approve → served by `GET /v1/daily-task` |
 | GET | `/admin/campaigns` · `/admin/campaigns/stats` | marketing |
 | POST | `/admin/campaigns/preview` | marketing — reach estimate + copy lint |
 | POST | `/admin/campaigns` | marketing — copy lint must pass |

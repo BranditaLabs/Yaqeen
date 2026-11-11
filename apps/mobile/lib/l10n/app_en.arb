@@ -724,7 +724,7 @@
   "hifzReciteNow": "Recite now to fix it in memory",
   "hifzMarkDone": "I memorised today's portion",
   "hifzReview": "Today's review",
-  "hifzMemorisedAgo": "Memorised {days} days ago · last review {last} days ago",
+  "hifzMemorisedAgo": "{days, plural, =0{Memorised today} =1{Memorised 1 day ago} other{Memorised {days} days ago}} · {last, plural, =0{last review today} =1{last review 1 day ago} other{last review {last} days ago}}",
   "@hifzMemorisedAgo": {
     "placeholders": {
       "days": {
@@ -737,8 +737,7 @@
   },
   "hifzDueToday": "Due today",
   "hifzNeedsWork": "Needs work",
-  "hifzTomorrow": "Tomorrow",
-  "hifzInDays": "In {days} days",
+  "hifzInDays": "{days, plural, =0{Today} =1{Tomorrow} other{In {days} days}}",
   "@hifzInDays": {
     "placeholders": {
       "days": {
@@ -746,9 +745,17 @@
       }
     }
   },
+  "hifzNextUp": "Tomorrow: {range}",
+  "@hifzNextUp": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
   "hifzHowWasIt": "How was the review?",
   "hifzHard": "Hard · tomorrow",
-  "hifzGood": "Good · {days} days",
+  "hifzGood": "{days, plural, =1{Good · 1 day} other{Good · {days} days}}",
   "@hifzGood": {
     "placeholders": {
       "days": {
@@ -756,7 +763,7 @@
       }
     }
   },
-  "hifzEasy": "Solid · {days} days",
+  "hifzEasy": "{days, plural, =1{Solid · 1 day} other{Solid · {days} days}}",
   "@hifzEasy": {
     "placeholders": {
       "days": {
@@ -765,7 +772,7 @@
     }
   },
   "hifzReviewDone": "Today's review is done",
-  "hifzStrip": "Last 14 days · {days} days of hifz",
+  "hifzStrip": "Last 14 days · {days, plural, =1{1 day of hifz} other{{days} days of hifz}}",
   "@hifzStrip": {
     "placeholders": {
       "days": {
@@ -790,7 +797,7 @@
     }
   },
   "hifzPerDay": "New ayat per day",
-  "hifzPerDayValue": "{n} ayat a day",
+  "hifzPerDayValue": "{n, plural, =1{1 ayah a day} other{{n} ayat a day}}",
   "@hifzPerDayValue": {
     "placeholders": {
       "n": {
@@ -889,6 +896,7 @@
   },
   "azkarEmpty": "Azkar appear here once reviewed and published",
   "contentOfflineHint": "Connect once to download the reviewed content",
+  "contentPendingHint": "Nothing has been approved by a religious reviewer yet — it appears here as soon as it is published",
   "azkarHaptics": "Vibrate on each count",
   "azkarSound": "Soft click sound",
   "duasTitle": "Duas",
@@ -1011,6 +1019,7 @@
   },
   "taskPrivate": "Private to you",
   "taskAuto": "Counts automatically",
+  "taskNoDailyTask": "No task published today",
   "tickDayClosed": "That day has closed; the task wasn't counted",
   "tickQadaPassed": "The make-up window for that day has passed",
   "tickFailed": "Couldn't count it now — we'll retry",

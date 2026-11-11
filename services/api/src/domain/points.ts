@@ -115,6 +115,14 @@ export function dayStatus(args: {
   return doneSet.size > 0 ? 'partial' : 'missed';
 }
 
+/**
+ * The tasks that count on a date: «مهمة اليوم» only exists on days with a published task, so on
+ * other days it can't be ticked and a day is complete without it.
+ */
+export function rulesForDate<R extends { key: TaskKey }>(rules: R[], dailyTaskPublished: boolean): R[] {
+  return dailyTaskPublished ? rules : rules.filter((r) => r.key !== 'daily_task');
+}
+
 /* -------------------------------------------------------------- task award */
 
 export type AwardDecision =

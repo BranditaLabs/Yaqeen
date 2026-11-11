@@ -171,10 +171,14 @@ class _Enrolled extends ConsumerWidget {
     final text = Theme.of(context).textTheme;
     final config = ref.watch(remoteConfigProvider);
     final done = summary.today?.completed ?? const <TaskKey>{};
-    final total = summary.tasks.fold<int>(0, (n, x) => n + x.points);
-    final earned = summary.today?.points ?? 0;
     final isAr = Localizations.localeOf(context).languageCode == 'ar';
-    final dailyTask = summary.today == null ? null : ref.watch(dailyTaskProvider(summary.today!.date)).valueOrNull;
+    final dailyTaskAsync = summary.today == null ? null : ref.watch(dailyTaskProvider(summary.today!.date));
+    final dailyTask = dailyTaskAsync?.valueOrNull;
+    // No published «مهمة اليوم» today: nothing to tick, and it isn't part of today's total.
+    final noDailyTask = dailyTaskAsync != null && dailyTaskAsync.hasValue && dailyTask == null;
+    bool open(ChallengeTask x) => !(noDailyTask && x.key == TaskKey.dailyTask);
+    final total = summary.tasks.where(open).fold<int>(0, (n, x) => n + x.points);
+    final earned = summary.today?.points ?? 0;
 
     final m = summary.nextMilestone;
     return YqCanvas(
@@ -305,17 +309,20 @@ class _Enrolled extends ConsumerWidget {
                 style: StopStyle.pill,
                 subtitle: switch (task.key) {
                   TaskKey.fivePrayers => t.taskPrivate,
-                  TaskKey.dailyTask => dailyTask == null ? null : (isAr ? dailyTask.ar : dailyTask.en),
+                  TaskKey.dailyTask when noDailyTask => t.taskNoDailyTask,
+                  TaskKey.dailyTask => dailyTask == null ? null : (isAr || dailyTask.en.isEmpty ? dailyTask.ar : dailyTask.en),
                   _ when isAutoTask(task.key) => t.taskAuto,
                   _ => null,
                 },
                 done: done.contains(task.key),
-                highlight: !done.contains(task.key) && task == summary.tasks.firstWhere((x) => !done.contains(x.key), orElse: () => task),
+                highlight: !done.contains(task.key) &&
+                    open(task) &&
+                    task == summary.tasks.firstWhere((x) => !done.contains(x.key) && open(x), orElse: () => task),
                 trailing: Text(
                   t.pointsPlus(YqFormat.number(task.points)),
-                  style: YqText.numberSmall.copyWith(color: done.contains(task.key) ? YqColors.muted : YqColors.goldText),
+                  style: YqText.numberSmall.copyWith(color: done.contains(task.key) || !open(task) ? YqColors.muted : YqColors.goldText),
                 ),
-                onTap: done.contains(task.key) ? null : () => _onTask(context, ref, task, false),
+                onTap: done.contains(task.key) || !open(task) ? null : () => _onTask(context, ref, task, false),
               ),
           ],
         ),

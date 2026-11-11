@@ -3,10 +3,10 @@
  * All point awards go through `points_ledger` with a unique (user, ref_key), so a retried
  * request from the offline queue can never double-credit.
  */
-import { and, between, eq, sql } from 'drizzle-orm';
+import { and, between, eq, isNotNull, sql } from 'drizzle-orm';
 import type { BonusKind, ChallengeDay, ChallengeSummary, TaskKey } from '@yaqeen/contracts';
 import type { AppContext } from '../context.js';
-import { bonusRules, challengeEnrollments, pointsLedger, taskCompletions, users } from '../db/schema.js';
+import { bonusRules, challengeEnrollments, dailyTasks, pointsLedger, taskCompletions, users } from '../db/schema.js';
 import {
   type Completion,
   addDays,
@@ -17,6 +17,7 @@ import {
   eligibleBonuses,
   localToday,
   nextMilestone,
+  rulesForDate,
 } from '../domain/points.js';
 import { badRequest, conflict, notFound } from '../lib/errors.js';
 import { hijriFor } from './calendar.service.js';
@@ -43,6 +44,15 @@ async function userToday(ctx: AppContext, userId: string): Promise<string> {
   return localToday(ctx.now(), u?.tz ?? 'Africa/Cairo');
 }
 
+/** Dates in [from, to] with a reviewer-approved «مهمة اليوم». */
+async function publishedDailyTaskDates(ctx: AppContext, from: string, to: string): Promise<Set<string>> {
+  const rows = await ctx.db
+    .select({ date: dailyTasks.date })
+    .from(dailyTasks)
+    .where(and(between(dailyTasks.date, from, to), isNotNull(dailyTasks.live)));
+  return new Set(rows.map((r) => r.date));
+}
+
 async function enrollment(ctx: AppContext, userId: string) {
   const [e] = await ctx.db.select().from(challengeEnrollments).where(eq(challengeEnrollments.userId, userId));
   return e ?? null;
@@ -58,8 +68,7 @@ export async function days(ctx: AppContext, userId: string, from: string, to: st
   const enr = await enrollment(ctx, userId);
   if (!enr) return [];
   const today = await userToday(ctx, userId);
-  const [rules, settings] = await Promise.all([getRules(ctx), getPointsSettings(ctx)]);
-  const allTasks = rules.map((r) => r.key);
+  const [rules, settings, published] = await Promise.all([getRules(ctx), getPointsSettings(ctx), publishedDailyTaskDates(ctx, from, to)]);
 
   const rows = await ctx.db
     .select({ date: taskCompletions.date, task: taskCompletions.task, isQada: taskCompletions.isQada })
@@ -82,7 +91,7 @@ export async function days(ctx: AppContext, userId: string, from: string, to: st
     out.push({
       date: d,
       dayNumber: n,
-      status: dayStatus({ date: d, today, completions, allTasks }),
+      status: dayStatus({ date: d, today, completions, allTasks: rulesForDate(rules, published.has(d)).map((r) => r.key) }),
       points,
       completedTasks: completions.map((c) => c.task),
       bonuses: ledger
@@ -148,8 +157,11 @@ export async function completeTask(
   const enr = await enrollment(ctx, userId);
   if (!enr) throw conflict('not_enrolled');
   const today = await userToday(ctx, userId);
-  const [rules, settings] = await Promise.all([getRules(ctx), getPointsSettings(ctx)]);
-  if (!rules.some((r) => r.key === task)) throw badRequest('task_inactive');
+  const [allRules, settings, published] = await Promise.all([getRules(ctx), getPointsSettings(ctx), publishedDailyTaskDates(ctx, date, date)]);
+  if (!allRules.some((r) => r.key === task)) throw badRequest('task_inactive');
+  // No published «مهمة اليوم» that day: nothing to tick, and the day completes without it.
+  const rules = rulesForDate(allRules, published.has(date));
+  if (!rules.some((r) => r.key === task)) throw badRequest('no_daily_task');
 
   // Idempotency: the same clientEventId returns the existing result.
   const [dup] = await ctx.db

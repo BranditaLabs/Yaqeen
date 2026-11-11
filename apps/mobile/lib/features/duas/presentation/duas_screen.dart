@@ -81,7 +81,7 @@ class DuasScreen extends ConsumerWidget {
                   child: YqEmptyState(
                     icon: YqIcons.dua,
                     title: t.duasEmpty,
-                    hint: t.contentOfflineHint,
+                    hint: lib.synced ? t.contentPendingHint : t.contentOfflineHint,
                     actionLabel: t.retry,
                     onAction: () => ref.read(contentProvider.notifier).refresh(),
                   ),

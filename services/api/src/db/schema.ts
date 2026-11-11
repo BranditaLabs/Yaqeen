@@ -458,11 +458,21 @@ export const pointsLedger = pgTable(
   ],
 );
 
+/**
+ * «مهمة اليوم». Religious content (CLAUDE rule 4): every write goes to review, a religious reviewer
+ * who is not its author (`updated_by`) approves it, and the app is served only the approved `live`
+ * text.
+ */
 export const dailyTasks = pgTable('daily_tasks', {
   date: date('date', { mode: 'string' }).primaryKey(),
   taskAr: text('task_ar').notNull(),
   taskEn: text('task_en').notNull(),
   updatedBy: uuid('updated_by'),
+  status: contentStatus('status').notNull().default('pending_review'),
+  reviewedBy: uuid('reviewed_by'),
+  reviewNote: text('review_note'),
+  live: jsonb('live').$type<{ taskAr: string; taskEn: string }>(),
+  liveAt: ts('live_at'),
   updatedAt: updatedAt(),
 });
 

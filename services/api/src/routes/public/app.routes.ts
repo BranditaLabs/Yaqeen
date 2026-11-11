@@ -144,8 +144,9 @@ export const appRoutes: FastifyPluginAsync = async (app) => {
   app.get('/daily-task', async (req, reply) => {
     const date = IsoDate.default(localToday(app.ctx.now())).parse((req.query as { date?: string }).date);
     const json = await app.ctx.cache.getJson('content', `daily:${date}`, 300, async () => {
-      const [t] = await db.select().from(dailyTasks).where(eq(dailyTasks.date, date));
-      return t ? { date: t.date, taskAr: t.taskAr, taskEn: t.taskEn } : null;
+      // Only the reviewer-approved text (CLAUDE rule 4); an edit in review keeps the approved one.
+      const [t] = await db.select({ date: dailyTasks.date, live: dailyTasks.live }).from(dailyTasks).where(eq(dailyTasks.date, date));
+      return t?.live ? { date: t.date, taskAr: t.live.taskAr, taskEn: t.live.taskEn } : null;
     });
     return sendCachedJson(req, reply, json, 300);
   });

@@ -317,13 +317,16 @@ class TasbeehOrb extends ConsumerWidget {
 
   void _count(WidgetRef ref) {
     final next = ref.read(tasbeehProvider) + 1;
-    next % TasbeehController.round == 0 ? HapticFeedback.mediumImpact() : HapticFeedback.selectionClick();
+    // The same «الاهتزاز» setting as the azkar counter.
+    if (ref.read(settingsProvider).haptics) {
+      next % TasbeehController.round == 0 ? HapticFeedback.mediumImpact() : HapticFeedback.selectionClick();
+    }
     ref.read(tasbeehProvider.notifier).increment();
   }
 
   void _reset(BuildContext context, WidgetRef ref) {
     if (ref.read(tasbeehProvider) == 0) return;
-    HapticFeedback.heavyImpact();
+    if (ref.read(settingsProvider).haptics) HapticFeedback.heavyImpact();
     ref.read(tasbeehProvider.notifier).reset();
     YqToast.show(context, AppLocalizations.of(context).tasbeehResetDone);
   }

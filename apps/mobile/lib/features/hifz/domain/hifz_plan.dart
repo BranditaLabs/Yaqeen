@@ -72,7 +72,14 @@ class HifzPortion {
 /// Whole hifz state — device first; optional encrypted cloud backup (consent `cloud_backup`). Spec
 /// §5.25: no analytics.
 class HifzPlan {
-  const HifzPlan({required this.goal, required this.perDay, this.portions = const [], this.activeDays = const {}});
+  const HifzPlan({
+    required this.goal,
+    required this.perDay,
+    this.portions = const [],
+    this.activeDays = const {},
+    this.stepsOn,
+    this.steps = const {},
+  });
 
   final HifzGoal goal;
 
@@ -83,10 +90,21 @@ class HifzPlan {
   /// Local dates (YYYY-MM-DD) with a memorisation or review — for the 14-day strip.
   final Set<String> activeDays;
 
+  /// Today's ticked «استمع · كرّر · اختبر نفسك» steps (indexes) and the date (YYYY-MM-DD) they belong to.
+  final String? stepsOn;
+  final Set<int> steps;
+
   static const minPerDay = 1;
   static const maxPerDay = 20;
 
   int memorisedAyat() => portions.fold(0, (n, p) => n + p.length);
+
+  /// Memorised ayat inside the current goal — portions kept from an earlier goal still get reviewed
+  /// but don't count towards this one.
+  int memorisedAyatIn() {
+    final surahs = goal.surahs.toSet();
+    return portions.where((p) => surahs.contains(p.surah)).fold(0, (n, p) => n + p.length);
+  }
 
   /// Next ayah to memorise, or null when the goal is complete.
   AyahRef? cursor(QuranData q) {
@@ -110,6 +128,18 @@ class HifzPlan {
   }
 
   bool memorisedToday(DateTime today) => portions.any((p) => _sameDay(p.memorisedOn, today));
+
+  /// The passage memorised today, if any — what the «حفظ اليوم» card shows once it is done.
+  HifzPortion? todaysPortion(DateTime today) => portions.where((p) => _sameDay(p.memorisedOn, today)).lastOrNull;
+
+  /// Steps ticked today; yesterday's ticks don't carry over.
+  Set<int> stepsFor(DateTime today) => stepsOn == _iso(today) ? steps : const {};
+
+  HifzPlan toggleStep(int step, DateTime today) {
+    final current = {...stepsFor(today)};
+    if (!current.remove(step)) current.add(step);
+    return HifzPlan(goal: goal, perDay: perDay, portions: portions, activeDays: activeDays, stepsOn: _iso(today), steps: current);
+  }
 
   HifzPlan memorise(QuranData q, DateTime today) {
     final t = this.today(q);
@@ -138,11 +168,11 @@ class HifzPlan {
         activeDays: {...activeDays, _iso(today)},
       );
 
-  double progress(QuranData q) => (memorisedAyat() / goal.ayat(q)).clamp(0, 1);
+  double progress(QuranData q) => (memorisedAyatIn() / goal.ayat(q)).clamp(0, 1);
 
   /// Finish date at the current rate (remaining ÷ perDay), or null when complete.
   DateTime? finishEstimate(QuranData q, DateTime today) {
-    final remaining = goal.ayat(q) - memorisedAyat();
+    final remaining = goal.ayat(q) - memorisedAyatIn();
     if (remaining <= 0) return null;
     return Zoned.addDays(DateTime(today.year, today.month, today.day), (remaining / perDay).ceil());
   }
@@ -163,6 +193,8 @@ class HifzPlan {
         perDay: (perDay ?? this.perDay).clamp(minPerDay, maxPerDay),
         portions: portions ?? this.portions,
         activeDays: activeDays ?? this.activeDays,
+        stepsOn: stepsOn,
+        steps: steps,
       );
 
   Map<String, dynamic> toJson() => {
@@ -170,6 +202,7 @@ class HifzPlan {
         'perDay': perDay,
         'portions': [for (final p in portions) p.toJson()],
         'days': (activeDays.toList()..sort()).reversed.take(60).toList(),
+        if (stepsOn != null) 'steps': {'d': stepsOn, 'i': (steps.toList()..sort())},
       };
 
   static HifzPlan? tryParse(Object? j) {
@@ -181,6 +214,8 @@ class HifzPlan {
       perDay: ((j['perDay'] as int?) ?? 5).clamp(minPerDay, maxPerDay),
       portions: [for (final p in (j['portions'] as List?) ?? const []) HifzPortion.fromJson((p as Map).cast<String, dynamic>())],
       activeDays: {...((j['days'] as List?) ?? const []).cast<String>()},
+      stepsOn: j['steps'] is Map ? (j['steps'] as Map)['d'] as String? : null,
+      steps: j['steps'] is Map ? {...(((j['steps'] as Map)['i'] as List?) ?? const []).cast<int>()} : const {},
     );
   }
 

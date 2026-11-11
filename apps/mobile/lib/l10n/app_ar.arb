@@ -751,7 +751,7 @@
   "hifzReciteNow": "سمّع الآن لتثبيت الحفظ",
   "hifzMarkDone": "حفظت مقطع اليوم",
   "hifzReview": "مراجعة اليوم",
-  "hifzMemorisedAgo": "حُفظت قبل {days} أيام · آخر مراجعة قبل {last} أيام",
+  "hifzMemorisedAgo": "{days, plural, =0{حُفظت اليوم} =1{حُفظت قبل يوم} =2{حُفظت قبل يومين} few{حُفظت قبل {days} أيام} many{حُفظت قبل {days} يوماً} other{حُفظت قبل {days} يوم}} · {last, plural, =0{آخر مراجعة اليوم} =1{آخر مراجعة قبل يوم} =2{آخر مراجعة قبل يومين} few{آخر مراجعة قبل {last} أيام} many{آخر مراجعة قبل {last} يوماً} other{آخر مراجعة قبل {last} يوم}}",
   "@hifzMemorisedAgo": {
     "placeholders": {
       "days": {
@@ -764,8 +764,7 @@
   },
   "hifzDueToday": "مستحقة اليوم",
   "hifzNeedsWork": "تحتاج تثبيت",
-  "hifzTomorrow": "غداً",
-  "hifzInDays": "بعد {days} أيام",
+  "hifzInDays": "{days, plural, =0{اليوم} =1{غداً} =2{بعد يومين} few{بعد {days} أيام} many{بعد {days} يوماً} other{بعد {days} يوم}}",
   "@hifzInDays": {
     "placeholders": {
       "days": {
@@ -773,9 +772,17 @@
       }
     }
   },
+  "hifzNextUp": "غداً: {range}",
+  "@hifzNextUp": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
   "hifzHowWasIt": "كيف كانت المراجعة؟",
   "hifzHard": "صعبة · غداً",
-  "hifzGood": "جيدة · {days} أيام",
+  "hifzGood": "{days, plural, =1{جيدة · يوم} =2{جيدة · يومان} few{جيدة · {days} أيام} many{جيدة · {days} يوماً} other{جيدة · {days} يوم}}",
   "@hifzGood": {
     "placeholders": {
       "days": {
@@ -783,7 +790,7 @@
       }
     }
   },
-  "hifzEasy": "متقنة · {days} يوماً",
+  "hifzEasy": "{days, plural, =1{متقنة · يوم} =2{متقنة · يومان} few{متقنة · {days} أيام} many{متقنة · {days} يوماً} other{متقنة · {days} يوم}}",
   "@hifzEasy": {
     "placeholders": {
       "days": {
@@ -792,7 +799,7 @@
     }
   },
   "hifzReviewDone": "اكتملت مراجعة اليوم",
-  "hifzStrip": "آخر 14 يوماً · {days} يوم حفظ ومراجعة",
+  "hifzStrip": "آخر 14 يوماً · {days, plural, =0{لا حفظ ولا مراجعة بعد} =1{يوم واحد للحفظ والمراجعة} =2{يومان للحفظ والمراجعة} few{{days} أيام للحفظ والمراجعة} many{{days} يوماً للحفظ والمراجعة} other{{days} يوم للحفظ والمراجعة}}",
   "@hifzStrip": {
     "placeholders": {
       "days": {
@@ -817,7 +824,7 @@
     }
   },
   "hifzPerDay": "مقدار الحفظ الجديد يومياً",
-  "hifzPerDayValue": "{n} آيات يومياً",
+  "hifzPerDayValue": "{n, plural, =1{آية واحدة يومياً} =2{آيتان يومياً} few{{n} آيات يومياً} many{{n} آية يومياً} other{{n} آية يومياً}}",
   "@hifzPerDayValue": {
     "placeholders": {
       "n": {
@@ -916,6 +923,7 @@
   },
   "azkarEmpty": "ستظهر الأذكار هنا بعد مراجعتها ونشرها",
   "contentOfflineHint": "اتصل بالإنترنت مرة واحدة لتنزيل المحتوى المراجَع",
+  "contentPendingHint": "لم يعتمد مراجع شرعي محتوى بعد، وسيظهر هنا تلقائياً فور نشره",
   "azkarHaptics": "الاهتزاز مع كل عدّة",
   "azkarSound": "صوت نقرة خفيف",
   "duasTitle": "الأدعية",
@@ -1038,6 +1046,7 @@
   },
   "taskPrivate": "خاص بك",
   "taskAuto": "يُحتسب تلقائياً",
+  "taskNoDailyTask": "لا مهمة منشورة اليوم",
   "tickDayClosed": "انتهى هذا اليوم، ولم تُحتسب المهمة",
   "tickQadaPassed": "انتهت مهلة القضاء لهذا اليوم",
   "tickFailed": "تعذّر احتساب المهمة الآن، سنحاول لاحقاً",

@@ -6,8 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yaqeen/core/di/providers.dart';
 import 'package:yaqeen/core/settings/app_settings.dart';
+import 'package:yaqeen/core/storage/kv_store.dart';
 import 'package:yaqeen/core/time/zoned.dart';
 import 'package:yaqeen/core/widgets/liquid_glass.dart';
+import 'package:yaqeen/core/widgets/yq_timeline.dart';
+import 'package:yaqeen/features/hifz/domain/hifz_plan.dart';
+import 'package:yaqeen/features/hifz/domain/review_scheduler.dart';
 import 'package:yaqeen/features/calendar/data/hijri_today.dart';
 import 'package:yaqeen/features/calendar/domain/hijri_day.dart';
 import 'package:yaqeen/features/home/home_screen.dart';
@@ -60,6 +64,46 @@ void main() {
     await tester.scrollUntilVisible(find.text('ابدأ رحلة 365 يوماً'), 300, scrollable: find.byType(Scrollable).first);
     expect(find.text('ابدأ رحلة 365 يوماً'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('«Your day» hifz stop: quiet without a plan, due with a review, «تم» once done', (tester) async {
+    final now = DateTime.utc(2026, 10, 20, 12); // 15:00 Cairo; the hifz slot is 14:00
+    Future<String?> tagWith(HifzPlan? plan) async {
+      final kv = MemoryKvStore();
+      if (plan != null) await kv.write('db.hifz', jsonEncode(plan.toJson()));
+      tester.view.physicalSize = const Size(390 * 3, 1300 * 3);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        harness(
+          const Scaffold(body: HomeScreen()),
+          kv: kv,
+          skyClock: () => now,
+          overrides: [
+            clockProvider.overrideWithValue(() => now),
+            initialSettingsProvider.overrideWithValue(const AppSettings(place: Place.cairo, hifzSlot: RoutineSlot.at(14 * 60))),
+            quranDataProvider.overrideWith((_) async => q),
+          ],
+        ),
+      );
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      final stop = tester
+          .widgetList<YqTimeline>(find.byType(YqTimeline))
+          .expand((t) => t.stops)
+          .firstWhere((s) => s.title == 'مراجعة الحفظ');
+      await tester.pumpWidget(const SizedBox());
+      return stop.tag;
+    }
+
+    final day = DateTime(2026, 10, 20);
+    expect(await tagWith(null), isNull);
+    final memorised = const HifzPlan(goal: HifzGoal.amma, perDay: 5).memorise(q, Zoned.addDays(day, -2));
+    expect(memorised.due(day), hasLength(1)); // due yesterday, still due
+    expect(await tagWith(memorised), 'حان وقته');
+    final reviewed = memorised.rate(memorised.portions.single.id, ReviewGrade.good, day).memorise(q, day);
+    expect(await tagWith(reviewed), 'تم');
   });
 
   testWidgets('morning before Dhuhr; at adhan time the hero says «حان وقت صلاة»', (tester) async {

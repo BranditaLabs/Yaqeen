@@ -38,8 +38,6 @@ class HifzScreen extends ConsumerStatefulWidget {
 }
 
 class _HifzScreenState extends ConsumerState<HifzScreen> {
-  final _steps = <int>{};
-
   DateTime get _today {
     final n = ref.read(clockProvider)().toLocal();
     return DateTime(n.year, n.month, n.day);
@@ -133,14 +131,19 @@ class _HifzScreenState extends ConsumerState<HifzScreen> {
     }
 
     final today = _today;
-    final portion = plan.today(q);
+    // Once today's passage is memorised the cursor has moved on: keep showing what was memorised
+    // today, with the next passage as a preview.
+    final memorised = plan.todaysPortion(today);
+    final next = plan.today(q);
+    final portion = memorised == null ? next : (surah: memorised.surah, from: memorised.from, to: memorised.to);
     final due = plan.due(today);
     final upcoming = plan.upcoming(today).take(3).toList();
-    final doneToday = plan.memorisedToday(today);
+    final doneToday = memorised != null;
     final ctl = ref.read(hifzControllerProvider.notifier);
     final reciteOn = ref.watch(reciteEntryProvider);
     final steps = [t.hifzStepListen, t.hifzStepRepeat, t.hifzStepTest];
-    final firstOpen = [for (var i = 0; i < 3; i++) i].where((i) => !_steps.contains(i) && !doneToday).firstOrNull;
+    final ticked = plan.stepsFor(today);
+    final firstOpen = [for (var i = 0; i < 3; i++) i].where((i) => !ticked.contains(i) && !doneToday).firstOrNull;
 
     return [
       if (portion != null) ...[
@@ -176,9 +179,9 @@ class _HifzScreenState extends ConsumerState<HifzScreen> {
             for (final (i, label) in steps.indexed)
               YqStop(
                 title: label,
-                done: _steps.contains(i) || doneToday,
+                done: ticked.contains(i) || doneToday,
                 highlight: i == firstOpen,
-                onTap: doneToday ? null : () => setState(() => _steps.contains(i) ? _steps.remove(i) : _steps.add(i)),
+                onTap: doneToday ? null : () => ctl.toggleStep(i),
               ),
           ],
         ),
@@ -195,6 +198,14 @@ class _HifzScreenState extends ConsumerState<HifzScreen> {
           ),
         const SizedBox(height: YqSpace.s),
         YqButton.secondary(label: t.hifzMarkDone, onPressed: doneToday ? null : ctl.memoriseToday),
+        if (doneToday && next != null) ...[
+          const SizedBox(height: YqSpace.s),
+          Text(
+            t.hifzNextUp(t.hifzRange(q.surah(next.surah).nameAr, next.from, next.to)),
+            textAlign: TextAlign.center,
+            style: text.bodySmall,
+          ),
+        ],
       ] else
         LiquidGlass(child: YqEmptyState(icon: YqIcons.streak, title: t.hifzComplete)),
       const SizedBox(height: YqSpace.xxl),
@@ -218,9 +229,7 @@ class _HifzScreenState extends ConsumerState<HifzScreen> {
             for (final p in upcoming)
               YqStop(
                 title: t.hifzRange(q.surah(p.surah).nameAr, p.from, p.to),
-                trailing: _Tag(
-                  p.review.due.difference(today).inDays == 1 ? t.hifzTomorrow : t.hifzInDays(p.review.due.difference(today).inDays),
-                ),
+                trailing: _Tag(t.hifzInDays(Zoned.daysBetween(today, p.review.due))),
               ),
           ],
         ),
@@ -254,8 +263,8 @@ class _ReviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
-    final ago = today.difference(portion.memorisedOn).inDays;
-    final last = today.difference(portion.lastReview ?? portion.memorisedOn).inDays;
+    final ago = Zoned.daysBetween(portion.memorisedOn, today);
+    final last = Zoned.daysBetween(portion.lastReview ?? portion.memorisedOn, today);
     // A passage rated «صعبة» comes back with a 1-day interval — it needs work.
     final needsWork = portion.review.reps > 0 && portion.review.intervalDays == 1;
     final prev = portion.review.intervalDays;

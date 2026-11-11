@@ -146,15 +146,59 @@ export const adminContentRoutes: FastifyPluginAsync = async (app) => {
     db.select().from(dailyTasks).where(gte(dailyTasks.date, localToday(app.ctx.now()))).orderBy(asc(dailyTasks.date)).limit(60),
   );
 
+  /** Every write goes to review; the approved text (`live`) keeps being served meanwhile. */
   app.put('/daily-tasks', { preHandler: editor }, async (req) => {
     const body = DailyTaskUpsert.parse(req.body);
+    const author = adminOf(req).sub;
     await db.transaction(async (tx) => {
+      const [before] = await tx.select().from(dailyTasks).where(eq(dailyTasks.date, body.date));
       await tx
         .insert(dailyTasks)
-        .values({ ...body, updatedBy: adminOf(req).sub })
-        .onConflictDoUpdate({ target: dailyTasks.date, set: { taskAr: body.taskAr, taskEn: body.taskEn, updatedBy: adminOf(req).sub, updatedAt: app.ctx.now() } });
-      await audit(tx, req, { action: 'daily_task.upsert', targetType: 'daily_task', targetId: body.date, after: body });
+        .values({ ...body, updatedBy: author, status: 'pending_review' })
+        .onConflictDoUpdate({
+          target: dailyTasks.date,
+          set: { taskAr: body.taskAr, taskEn: body.taskEn, updatedBy: author, status: 'pending_review', reviewedBy: null, reviewNote: null, updatedAt: app.ctx.now() },
+        });
+      await audit(tx, req, { action: 'daily_task.upsert', targetType: 'daily_task', targetId: body.date, before, after: body });
     });
     return { ok: true };
+  });
+
+  /** A religious reviewer who didn't write it approves (it goes live) or asks for changes. */
+  app.post('/daily-tasks/:date/review', { preHandler: reviewer }, async (req) => {
+    const { date } = z.object({ date: DailyTaskUpsert.shape.date }).parse(req.params);
+    const body = ReviewDecision.parse(req.body);
+    return db.transaction(async (tx) => {
+      const [before] = await tx.select().from(dailyTasks).where(eq(dailyTasks.date, date));
+      if (!before) throw notFound('daily_task');
+      if (before.status !== 'pending_review') throw conflict('not_pending_review');
+      if (before.updatedBy === adminOf(req).sub) throw forbidden('cannot_review_own_edit');
+      const now = app.ctx.now();
+      const [row] = await tx
+        .update(dailyTasks)
+        .set(
+          body.decision === 'approve'
+            ? {
+                status: 'published',
+                reviewedBy: adminOf(req).sub,
+                reviewNote: body.note ?? null,
+                live: { taskAr: before.taskAr, taskEn: before.taskEn },
+                liveAt: now,
+                updatedAt: now,
+              }
+            : { status: 'changes_requested', reviewedBy: adminOf(req).sub, reviewNote: body.note ?? null, updatedAt: now },
+        )
+        .where(eq(dailyTasks.date, date))
+        .returning();
+      await audit(tx, req, {
+        action: `daily_task.review.${body.decision}`,
+        targetType: 'daily_task',
+        targetId: date,
+        reason: body.note,
+        before: { status: before.status },
+        after: { status: row!.status },
+      });
+      return row;
+    });
   });
 };

@@ -461,6 +461,23 @@ export const DailyTaskUpsert = z.object({
 });
 export type DailyTaskUpsert = z.infer<typeof DailyTaskUpsert>;
 
+/**
+ * «مهمة اليوم» in the admin schedule. Like duas and azkar (CLAUDE rule 4) it reaches the app only
+ * after a religious reviewer who didn't write it approves it; `live` is the approved text the app
+ * is served (an edit in review keeps the previous approval live).
+ */
+export const DailyTaskAdminRow = z.object({
+  date: IsoDate,
+  taskAr: z.string(),
+  taskEn: z.string(),
+  status: ContentStatus,
+  reviewNote: z.string().nullable(),
+  updatedBy: z.string().nullable(),
+  reviewedBy: z.string().nullable(),
+  live: z.object({ taskAr: z.string(), taskEn: z.string() }).nullable(),
+});
+export type DailyTaskAdminRow = z.infer<typeof DailyTaskAdminRow>;
+
 /** "Send a test to my device" — same copy validation, admin's own test devices only. */
 export const CampaignTest = z.object({
   titleAr: z.string().min(2).max(60),

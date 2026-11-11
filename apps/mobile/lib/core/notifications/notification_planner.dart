@@ -90,7 +90,8 @@ class ReminderPrefs {
   final bool wirdMissing;
   final int wirdMissingBeforeIshaMinutes;
 
-  /// Dates (local midnight) on which a hifz review is due.
+  /// Dates (local midnight) on which a hifz review falls due; it reminds on that day and every day
+  /// after until it is rated.
   final Set<DateTime> hifzDueDates;
 
   /// When a due hifz review reminds (the routine's hifz time, else the morning).
@@ -262,7 +263,9 @@ abstract final class NotificationPlanner {
           );
         }
       }
-      if (prefs.hifzDueDates.any((h) => h.year == d.year && h.month == d.month && h.day == d.day)) {
+      // A review stays due until it is rated (ReviewScheduler.isDue), so a missed one keeps
+      // reminding every day rather than only on its original date.
+      if (prefs.hifzDueDates.any((h) => !DateTime(d.year, d.month, d.day).isBefore(DateTime(h.year, h.month, h.day)))) {
         final hifzAt = prefs.hifz.on(day);
         if (hifzAt != null) reminder(d, ReminderKind.hifzDue, hifzAt);
       }

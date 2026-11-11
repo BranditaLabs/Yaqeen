@@ -112,8 +112,9 @@ export const adminOverviewRoutes: FastifyPluginAsync = async (app) => {
     const pending = await count(db.select({ n }).from(contentItems).where(eq(contentItems.status, 'pending_review')));
     if (pending > 0) alerts.push({ kind: 'pending_reviews', severity: 'warning', messageAr: `${pending} عناصر بانتظار المراجعة الشرعية`, href: '/content?status=pending_review' });
 
-    const [task] = await db.select({ d: dailyTasks.date }).from(dailyTasks).where(eq(dailyTasks.date, tomorrow));
+    const [task] = await db.select({ live: dailyTasks.live }).from(dailyTasks).where(eq(dailyTasks.date, tomorrow));
     if (!task) alerts.push({ kind: 'daily_task_missing', severity: 'warning', messageAr: 'مهمة الغد غير محددة بعد', href: '/content?tab=daily' });
+    else if (!task.live) alerts.push({ kind: 'daily_task_missing', severity: 'warning', messageAr: 'مهمة الغد لم تُعتمد شرعياً بعد', href: '/content?tab=daily' });
 
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     const capped = await db

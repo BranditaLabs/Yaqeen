@@ -15,7 +15,7 @@ class ContentController extends AsyncNotifier<ContentLibrary> {
 
   Future<void> refresh() async {
     final fresh = await ref.read(contentRepositoryProvider).sync();
-    if (fresh != null) state = AsyncData(ContentLibrary(fresh));
+    if (fresh != null) state = AsyncData(ContentLibrary(fresh, synced: true));
   }
 }
 
