@@ -21,4 +21,12 @@ void main() {
     expect(Zoned.daysBetween(DateTime(2026, 4, 23), DateTime(2026, 4, 24, 23)), 1);
     expect(Zoned.daysBetween(DateTime(2026, 2, 28), DateTime(2026, 3, 1)), 1);
   });
+
+  test('nextMidnight is the instant the place\'s date changes', () {
+    Zoned.ensureInitialized();
+    // Cairo is UTC+2 in November: 21:59Z is 23:59 local, so the day turns at 22:00Z.
+    expect(Zoned.nextMidnight('Africa/Cairo', DateTime.utc(2026, 11, 10, 21, 59)), DateTime.utc(2026, 11, 10, 22));
+    expect(Zoned.nextMidnight('Africa/Cairo', DateTime.utc(2026, 11, 10, 22, 30)), DateTime.utc(2026, 11, 11, 22));
+    expect(Zoned.nextMidnight('Asia/Riyadh', DateTime.utc(2026, 11, 10, 12)), DateTime.utc(2026, 11, 10, 21));
+  });
 }

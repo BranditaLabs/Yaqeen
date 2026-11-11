@@ -101,7 +101,7 @@ Future<void> _start() async {
     adhanVoice: () => current().adhanVoice.name,
   );
 
-  final push = FirebasePushService();
+  final push = FirebasePushService(showInForeground: notifier.showPush);
   final audio = JustAudioEngine(
     channelName: () => lookupAppLocalizations(Locale(current().locale)).channelRecitation,
     filesDir: getApplicationSupportDirectory,

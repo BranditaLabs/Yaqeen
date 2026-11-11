@@ -30,6 +30,12 @@ abstract final class Zoned {
     return DateTime(l.year, l.month, l.day);
   }
 
+  /// The instant (UTC) of the next local midnight in [zone] after [now] — when "today" changes.
+  static DateTime nextMidnight(String zone, DateTime now) {
+    final d = addDays(today(zone, now), 1);
+    return tz.TZDateTime(location(zone), d.year, d.month, d.day).toUtc();
+  }
+
   /// [d] moved by [n] calendar days. Calendar arithmetic, not `Duration(days: n)`: a local midnight
   /// plus 24 h lands on 23:00 the day before when a DST switch (Egypt, late October) falls in between.
   static DateTime addDays(DateTime d, int n) => d.isUtc ? DateTime.utc(d.year, d.month, d.day + n) : DateTime(d.year, d.month, d.day + n);

@@ -175,10 +175,10 @@ class _Journey extends StatelessWidget {
           orbs: [
             YqOrb(
               title: t.calendarJourney,
-              status: t.dayOfTotal(cal.dayNumber, 365),
+              status: t.dayOfTotal(cal.dayNumber, cal.lengthDays),
               statusColor: YqColors.goldText,
               disc: YqRing(
-                value: cal.dayNumber / 365,
+                value: cal.dayNumber / cal.lengthDays,
                 gold: true,
                 size: YqOrb.defaultSize - 12,
                 stroke: 5,

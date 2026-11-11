@@ -70,6 +70,7 @@
   },
   "joinChallenge": "ابدأ التحدي",
   "joinChallengeHint": "مهام يومية بسيطة تُقرّبك، ونقاط تستبدلها هدايا من متجر يقين",
+  "joinChallengeOffline": "الانضمام إلى التحدي يحتاج اتصالاً بالإنترنت",
   "accountRequired": "سجّل الدخول لتحفظ نقاطك",
   "redeemTitle": "استبدل نقاطك",
   "redeemCta": "استبدال",
