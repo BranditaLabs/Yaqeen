@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/config/config_controller.dart';
+import '../core/config/env.dart';
 import '../core/notifications/push_service.dart';
 import '../features/backup/presentation/backup_sync.dart';
 import '../features/backup/presentation/backup_widgets.dart';
@@ -205,9 +206,7 @@ class _UpdateRequired extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
     final device = ref.watch(deviceServicesProvider);
-    final store = device.isIOS
-        ? Uri.parse('https://apps.apple.com/app/id${const String.fromEnvironment('APP_STORE_ID', defaultValue: '0')}')
-        : Uri.parse('https://play.google.com/store/apps/details?id=com.yaqinbrand.yaqeen');
+    final store = Env.updateUri(ios: device.isIOS);
     return Positioned.fill(
       child: ColoredBox(
         color: const Color(0x8C0A1530),

@@ -38,13 +38,42 @@ import '../../prayer/presentation/prayer_labels.dart';
 import '../../quran/domain/quran_data.dart';
 import '../../content/domain/content_pack.dart';
 import '../../content/presentation/pack_row.dart';
+import '../../listen/presentation/downloads_controller.dart';
+import '../../listen/presentation/listen_controller.dart';
 import '../data/auth_repository.dart';
 import '../data/consent_repository.dart';
 import 'session_controller.dart';
 import 'sign_in_sheet.dart';
+import 'splash_gate.dart';
 
 /// Each step saves as it goes (kill-safe, spec §6.2); `onboardingStep` lets a restart resume.
 void _saveStep(WidgetRef ref, int step) => ref.read(settingsProvider.notifier).update((s) => s.copyWith(onboardingStep: step), sync: false);
+
+/// Back from the step at [index] of [onboardingRoutes] goes to the step before it (spec §5.4
+/// «Back returns to 02»), never to Home. Steps move on with `context.go`, so there is no stack to pop.
+void _backFrom(BuildContext context, WidgetRef ref, int index) {
+  final prev = (index - 1).clamp(0, onboardingRoutes.length - 1);
+  _saveStep(ref, prev);
+  context.go(onboardingRoutes[prev]);
+}
+
+/// The chevron and the system back (Android, iOS edge swipe) both step back through onboarding.
+class _StepBack extends ConsumerWidget {
+  const _StepBack({required this.index, required this.child});
+
+  /// This step's index in [onboardingRoutes].
+  final int index;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _backFrom(context, ref, index);
+        },
+        child: child,
+      );
+}
 
 /* ------------------------------------------------------------------- 02 */
 
@@ -255,45 +284,49 @@ class _Step extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
-    return Scaffold(
-      backgroundColor: YqColors.porcelain,
-      body: YqCanvas(
-        bottom: YqSpace.l,
-        stage: YqStage(
-          compact: true,
-          child: Column(
+    // The stepper's step is also the step's index in [onboardingRoutes] (03 = 1 … 05·ب = 5).
+    return _StepBack(
+      index: step,
+      child: Scaffold(
+        backgroundColor: YqColors.porcelain,
+        body: YqCanvas(
+          bottom: YqSpace.l,
+          stage: YqStage(
+            compact: true,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    // Equal sides, so the stepper sits on the stage's centre line.
+                    SizedBox(width: 64, child: Align(alignment: AlignmentDirectional.centerStart, child: YqBackButton(label: t.back, onPressed: () => _backFrom(context, ref, step)))),
+                    Expanded(child: Center(child: YqStepper(step: step, semanticLabel: t.stepOf(step)))),
+                    SizedBox(width: 64, child: onSkip == null ? null : TextButton(onPressed: onSkip, child: Text(t.skip))),
+                  ],
+                ),
+                const SizedBox(height: YqSpace.xl),
+                Text(t.stepEyebrow(step), style: YqText.numberSmall.copyWith(color: YqColors.goldText)),
+                const SizedBox(height: YqSpace.xs),
+                Semantics(
+                  header: true,
+                  child: Text(title, style: YqMoment.display(context, size: 30).copyWith(height: 1.35)),
+                ),
+                const SizedBox(height: YqSpace.s),
+                Text(sub, style: text.bodyMedium?.copyWith(color: YqColors.muted)),
+                if (visual != null) ...[const SizedBox(height: YqSpace.l), visual!],
+              ],
+            ),
+          ),
+          footer: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  // Equal sides, so the stepper sits on the stage's centre line.
-                  SizedBox(width: 64, child: Align(alignment: AlignmentDirectional.centerStart, child: YqBackButton(label: t.back))),
-                  Expanded(child: Center(child: YqStepper(step: step, semanticLabel: t.stepOf(step)))),
-                  SizedBox(width: 64, child: onSkip == null ? null : TextButton(onPressed: onSkip, child: Text(t.skip))),
-                ],
-              ),
-              const SizedBox(height: YqSpace.xl),
-              Text(t.stepEyebrow(step), style: YqText.numberSmall.copyWith(color: YqColors.goldText)),
-              const SizedBox(height: YqSpace.xs),
-              Semantics(
-                header: true,
-                child: Text(title, style: YqMoment.display(context, size: 30).copyWith(height: 1.35)),
-              ),
-              const SizedBox(height: YqSpace.s),
-              Text(sub, style: text.bodyMedium?.copyWith(color: YqColors.muted)),
-              if (visual != null) ...[const SizedBox(height: YqSpace.l), visual!],
+              YqButton(label: cta, loading: ctaLoading, onPressed: onCta),
+              if (footer != null) ...[const SizedBox(height: YqSpace.s), footer!],
             ],
           ),
+          children: children,
         ),
-        footer: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            YqButton(label: cta, loading: ctaLoading, onPressed: onCta),
-            if (footer != null) ...[const SizedBox(height: YqSpace.s), footer!],
-          ],
-        ),
-        children: children,
       ),
     );
   }
@@ -935,87 +968,141 @@ class DownloadStep extends ConsumerWidget {
     // Tafsir appears only once a licensed pack is in the catalogue; until then it says so.
     final tafsir =
         (ref.watch(packsCatalogueProvider).valueOrNull ?? const <ContentPack>[]).where((p) => p.kind == PackKind.tafsir).toList();
-    return Scaffold(
-      backgroundColor: YqColors.porcelain,
-      body: YqCanvas(
-        bottom: YqSpace.l,
-        stage: YqStage(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: YqSpace.l),
-              Text(t.downloadEyebrow, style: text.labelMedium?.copyWith(color: YqColors.goldText)),
-              const SizedBox(height: YqSpace.xs),
-              Text(t.downloadTitle, style: YqMoment.display(context, size: 30).copyWith(height: 1.35)),
-              const SizedBox(height: YqSpace.s),
-              Text(t.downloadSub, style: text.bodyMedium?.copyWith(color: YqColors.muted)),
-              const SizedBox(height: YqSpace.xl),
-              // The mushaf filling the device: liquid that rises to full once the text is ready.
-              Center(
-                child: LiquidOrb(
-                  level: quran != null ? 1 : (failed ? 0 : 0.35),
-                  size: 132,
-                  complete: quran != null,
-                  child: failed
-                      ? const Icon(Icons.error_outline_rounded, color: YqColors.slate400, size: 36)
-                      : Text(
-                          quran == null ? '…' : '100%',
-                          textDirection: TextDirection.ltr,
-                          style: YqText.numeral.copyWith(fontSize: 26, color: YqColors.ink),
-                        ),
+    return _StepBack(
+      index: onboardingRoutes.length - 1,
+      child: Scaffold(
+        backgroundColor: YqColors.porcelain,
+        body: YqCanvas(
+          bottom: YqSpace.l,
+          stage: YqStage(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: YqBackButton(label: t.back, onPressed: () => _backFrom(context, ref, onboardingRoutes.length - 1)),
                 ),
-              ),
-            ],
-          ),
-        ),
-        footer: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            YqButton(label: t.downloadStart, onPressed: quran == null && !failed ? null : () => _finish(context, ref)),
-            const SizedBox(height: YqSpace.xs),
-            Text(t.downloadBackground, textAlign: TextAlign.center, style: text.bodySmall),
-          ],
-        ),
-        children: [
-          YqGroup(
-            children: [
-              for (final (label, status, ready) in items)
-                YqListRow(
-                  dense: true,
-                  title: label,
-                  subtitle: status,
-                  trailing: Icon(
-                    ready ? Icons.check_circle_rounded : Icons.schedule_rounded,
-                    color: ready ? YqColors.success : YqColors.slate400,
+                const SizedBox(height: YqSpace.s),
+                Text(t.downloadEyebrow, style: text.labelMedium?.copyWith(color: YqColors.goldText)),
+                const SizedBox(height: YqSpace.xs),
+                Text(t.downloadTitle, style: YqMoment.display(context, size: 30).copyWith(height: 1.35)),
+                const SizedBox(height: YqSpace.s),
+                Text(t.downloadSub, style: text.bodyMedium?.copyWith(color: YqColors.muted)),
+                const SizedBox(height: YqSpace.xl),
+                // The mushaf filling the device: liquid that rises to full once the text is ready.
+                Center(
+                  child: LiquidOrb(
+                    level: quran != null ? 1 : (failed ? 0 : 0.35),
+                    size: 132,
+                    complete: quran != null,
+                    child: failed
+                        ? const Icon(Icons.error_outline_rounded, color: YqColors.slate400, size: 36)
+                        : Text(
+                            quran == null ? '…' : '100%',
+                            textDirection: TextDirection.ltr,
+                            style: YqText.numeral.copyWith(fontSize: 26, color: YqColors.ink),
+                          ),
                   ),
                 ),
-              if (tafsir.isEmpty)
-                YqListRow(
-                  dense: true,
-                  title: t.downloadTafsir,
-                  subtitle: t.downloadPending,
-                  trailing: const Icon(Icons.schedule_rounded, color: YqColors.slate400),
-                )
-              else
-                for (final p in tafsir) PackRow(pack: p),
+              ],
+            ),
+          ),
+          footer: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              YqButton(label: t.downloadStart, onPressed: quran == null && !failed ? null : () => _finish(context, ref)),
+              const SizedBox(height: YqSpace.xs),
+              Text(t.downloadBackground, textAlign: TextAlign.center, style: text.bodySmall),
             ],
           ),
-          if (failed) ...[
-            const SizedBox(height: YqSpace.l),
-            Text(t.errorGeneric, textAlign: TextAlign.center, style: text.bodyMedium?.copyWith(color: YqColors.muted)),
-            TextButton(onPressed: () => ref.invalidate(quranDataProvider), child: Text(t.retry)),
-          ],
-          if (quran != null) ...[
-            const SizedBox(height: YqSpace.xl),
-            Text(
-              quran.text(const AyahRef(73, 4)),
-              textAlign: TextAlign.center,
-              textDirection: TextDirection.rtl,
-              style: YqText.quran(size: 18, height: 2, color: YqColors.ink),
+          children: [
+            YqGroup(
+              children: [
+                for (final (label, status, ready) in items)
+                  YqListRow(
+                    dense: true,
+                    title: label,
+                    subtitle: status,
+                    trailing: Icon(
+                      ready ? Icons.check_circle_rounded : Icons.schedule_rounded,
+                      color: ready ? YqColors.success : YqColors.slate400,
+                    ),
+                  ),
+                if (tafsir.isEmpty)
+                  YqListRow(
+                    dense: true,
+                    title: t.downloadTafsir,
+                    subtitle: t.downloadPending,
+                    trailing: const Icon(Icons.schedule_rounded, color: YqColors.slate400),
+                  )
+                else
+                  for (final p in tafsir) PackRow(pack: p),
+                const _RecitationRow(),
+              ],
             ),
+            if (failed) ...[
+              const SizedBox(height: YqSpace.l),
+              Text(t.errorGeneric, textAlign: TextAlign.center, style: text.bodyMedium?.copyWith(color: YqColors.muted)),
+              TextButton(onPressed: () => ref.invalidate(quranDataProvider), child: Text(t.retry)),
+            ],
+            if (quran != null) ...[
+              const SizedBox(height: YqSpace.xl),
+              Text(
+                quran.text(const AyahRef(73, 4)),
+                textAlign: TextAlign.center,
+                textDirection: TextDirection.rtl,
+                style: YqText.quran(size: 18, height: 2, color: YqColors.ink),
+              ),
+            ],
           ],
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Optional «تلاوة … · اختياري · عبر Wi-Fi فقط» switch (spec §5.8): queues the default reciter's
+/// full mushaf on the app-wide [DownloadQueue], Wi-Fi only. Hidden until the reciter catalogue
+/// resolves (it needs the licensed recitations on the API), so it never promises audio that isn't there.
+class _RecitationRow extends ConsumerWidget {
+  const _RecitationRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(context);
+    final locale = ref.watch(settingsProvider.select((s) => s.locale));
+    ref.listen(recitersProvider, (_, next) {
+      final list = next.valueOrNull;
+      if (list != null) ref.read(downloadsControllerProvider.notifier).refresh(list);
+    });
+    // The catalogue's first reciter is the app's default (as in the listen player).
+    final reciter = ref.watch(recitersProvider).valueOrNull?.firstOrNull;
+    if (reciter == null) return const SizedBox.shrink();
+    final d = ref.watch(downloadsControllerProvider)[reciter.id] ?? const ReciterDownload();
+    final label = t.downloadAudio(reciter.name(locale));
+    return YqListRow(
+      dense: true,
+      title: label,
+      subtitle: d.complete
+          ? t.downloadReady
+          : d.running
+              ? '${YqFormat.number((d.fraction * 100).floor())}%'
+              : null,
+      trailing: YqSwitch(
+        label: label,
+        value: d.running || d.complete,
+        onChanged: (on) async {
+          final c = ref.read(downloadsControllerProvider.notifier);
+          if (!on) {
+            // Off only stops a running download; finished files stay (delete lives in Profile › التنزيلات).
+            if (d.running) c.cancel(reciter.id);
+            return;
+          }
+          await c.downloadAll(reciter);
+          final after = ref.read(downloadsControllerProvider)[reciter.id];
+          if (context.mounted && after?.error != null) YqToast.show(context, t.reciterWifiOnly);
+        },
       ),
     );
   }

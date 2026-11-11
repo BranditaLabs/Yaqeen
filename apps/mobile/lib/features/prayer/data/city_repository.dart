@@ -29,18 +29,21 @@ class CityRepository {
 
   List<City>? _cities;
   Map<String, String> _countriesAr = const {};
+  Map<String, String> _countriesEn = const {};
   late List<(City, String, String)> _index; // city, normalized Arabic, normalized English
 
   Future<List<City>> all() async {
     if (_cities != null) return _cities!;
     final j = jsonDecode(await _bundle.loadString('assets/geo/cities.json')) as Map<String, dynamic>;
     _countriesAr = (j['countriesAr'] as Map).cast<String, String>();
+    _countriesEn = ((j['countriesEn'] as Map?) ?? const {}).cast<String, String>();
     _cities = [
       for (final r in (j['cities'] as List).cast<List<dynamic>>())
         City(
           nameEn: r[0] as String,
           nameAr: r[1] as String?,
-          country: r[2] as String,
+          // '' for a place with no country in the source (older lists carried -99 there).
+          country: r[2] is String ? r[2] as String : '',
           lat: (r[3] as num).toDouble(),
           lng: (r[4] as num).toDouble(),
           timezone: r[5] as String,
@@ -50,7 +53,9 @@ class CityRepository {
     return _cities!;
   }
 
-  String countryName(String iso2, String locale) => locale == 'ar' ? (_countriesAr[iso2] ?? iso2) : iso2;
+  /// The country's display name; an Arabic name falls back to English, then to the code.
+  String countryName(String iso2, String locale) =>
+      (locale == 'ar' ? _countriesAr[iso2] : null) ?? _countriesEn[iso2] ?? iso2;
 
   /// Prefix matches first (Arabic or English), then contains; list order is MENA-first by population.
   Future<List<City>> search(String query, {int limit = 30}) async {

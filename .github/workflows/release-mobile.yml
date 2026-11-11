@@ -30,6 +30,8 @@ env:
   STORE_URL: ${{ vars.STORE_URL }}
   # The website (privacy, terms, help) — the cards host, e.g. the vanity domain.
   SITE_URL: ${{ vars.SITE_URL }}
+  # Numeric App Store id for the iOS forced-update sheet (until set, the sheet opens SITE_URL/get-app).
+  APP_STORE_ID: ${{ vars.APP_STORE_ID }}
   # Crash/error reporting (empty = off). Symbols for the obfuscated build go up with SENTRY_AUTH_TOKEN.
   SENTRY_DSN: ${{ vars.APP_SENTRY_DSN }}
   SENTRY_ORG: ${{ vars.SENTRY_ORG }}
@@ -227,6 +229,7 @@ jobs:
             --dart-define=API_BASE_URL="$API_BASE_URL" \
             ${STORE_URL:+--dart-define=STORE_URL="$STORE_URL"} \
             ${SITE_URL:+--dart-define=SITE_URL="$SITE_URL"} \
+            ${APP_STORE_ID:+--dart-define=APP_STORE_ID="$APP_STORE_ID"} \
             ${SENTRY_DSN:+--dart-define=SENTRY_DSN="$SENTRY_DSN"} \
             --dart-define=GOOGLE_SERVER_CLIENT_ID="$GOOGLE_SERVER_CLIENT_ID" \
             ${APPLE_SERVICE_ID:+--dart-define=APPLE_SERVICE_ID="$APPLE_SERVICE_ID"} \

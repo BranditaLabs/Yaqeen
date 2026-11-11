@@ -20,7 +20,12 @@ import 'package:yaqeen/core/time/zoned.dart';
 import 'package:yaqeen/core/widgets/liquid_glass.dart';
 import 'package:yaqeen/features/onboarding/data/auth_repository.dart';
 import 'package:yaqeen/features/onboarding/presentation/onboarding_screens.dart';
+import 'package:yaqeen/core/config/remote_config.dart';
+import 'package:yaqeen/features/listen/domain/audio_models.dart';
+import 'package:yaqeen/features/listen/presentation/downloads_controller.dart';
+import 'package:yaqeen/features/listen/presentation/listen_controller.dart';
 import 'package:yaqeen/features/onboarding/presentation/splash_gate.dart';
+import 'package:yaqeen/features/onboarding/presentation/splash_screen.dart';
 import 'package:yaqeen/features/profile/presentation/profile_screen.dart';
 import 'package:yaqeen/features/quran/domain/quran_data.dart';
 import 'package:yaqeen/l10n/gen/app_localizations.dart';
@@ -35,6 +40,27 @@ http.Response json(Object body, [int status = 200]) =>
     http.Response.bytes(utf8.encode(jsonEncode(body)), status, headers: {'content-type': 'application/json; charset=utf-8'});
 
 /// Offline server: every request fails like airplane mode.
+/// Records what the onboarding recitation switch asks for, without touching the network or disk.
+class FakeDownloads extends DownloadsController {
+  final started = <String>[];
+  final cancelled = <String>[];
+
+  @override
+  Future<void> refresh(Iterable<Reciter> reciters) async {}
+
+  @override
+  Future<void> downloadAll(Reciter r) async {
+    started.add(r.id);
+    state = {...state, r.id: const ReciterDownload(surahs: 3, running: true)};
+  }
+
+  @override
+  void cancel(String id) {
+    cancelled.add(id);
+    state = {...state, id: const ReciterDownload(surahs: 3)};
+  }
+}
+
 http.Client offline() => MockClient((req) async {
       calls.add('${req.method} ${req.url.path}');
       throw http.ClientException('offline');
@@ -65,6 +91,16 @@ void main() {
       expect(routeForDeepLink(Uri.parse('https://yaqeenarabia.com/app/hifz')), '/quran/hifz');
       expect(routeForDeepLink(Uri.parse('https://yaqeenarabia.com/app/card')), '/profile/card');
       expect(routeForDeepLink(Uri(path: '/app/unknown')), '/home');
+    });
+
+    test('splash verse: the reviewed remote-config verse, else the bundled one with its caption', () {
+      expect(splashVerseOf(const RemoteConfig()), (SplashScreen.bundledVerse, SplashScreen.bundledCaption));
+      expect(splashVerseOf(const RemoteConfig(splashVerseAr: '  ', splashVerseRef: 'x')), (SplashScreen.bundledVerse, SplashScreen.bundledCaption));
+      const other = 'فَٱصْبِرْ إِنَّ وَعْدَ ٱللَّهِ حَقٌّ';
+      expect(splashVerseOf(const RemoteConfig(splashVerseAr: other, splashVerseRef: 'الروم: 60')), (other, 'الروم: 60'));
+      // Gold only on «ٱلْيَقِينُ», and only when the verse has it.
+      expect(SplashScreen.splitVerse(SplashScreen.bundledVerse), ('وَٱعْبُدْ رَبَّكَ حَتَّىٰ يَأْتِيَكَ ', 'ٱلْيَقِينُ', ''));
+      expect(SplashScreen.splitVerse(other), (other, '', ''));
     });
 
     test('full choreography once a day, 1.2 s afterwards', () {
@@ -253,6 +289,94 @@ void main() {
       await tapGuest(tester);
       expect(find.text('HOME'), findsOneWidget);
     });
+  });
+
+  List<Override> offlineOverrides(MemoryKvStore kv) => [
+        kvStoreProvider.overrideWithValue(kv),
+        secureStoreProvider.overrideWithValue(MemoryKvStore()),
+        quranDataProvider.overrideWith((_) async => q),
+        localNotificationsProvider.overrideWithValue(NoopLocalNotificationScheduler()),
+        deviceServicesProvider.overrideWithValue(FakeDeviceServices(isIOS: true)),
+        apiClientProvider
+            .overrideWith((ref) => ApiClient(baseUrl: 'https://api.test', tokens: ref.watch(tokenStoreProvider), client: offline())),
+      ];
+
+  testWidgets('back (chevron and system back) steps back through onboarding, never to Home', (tester) async {
+    tester.view.physicalSize = const Size(390 * 3, 1400 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    final kv = MemoryKvStore();
+    await tester.pumpWidget(app(offlineOverrides(kv), initial: '/onboarding/download'));
+    await tester.pumpAndSettle();
+    expect(find.text('القرآن معك\nحتى دون اتصال'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('رجوع'));
+    await tester.pumpAndSettle();
+    expect(find.text('متى يناسبك؟'), findsOneWidget); // 06 → 05·ب
+    expect(kv.data['settings.v1'], contains('"onboardingStep":5'));
+
+    // Android back / iOS edge swipe: the same step back, the app stays open.
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('وِردك اليومي'), findsOneWidget); // 05·ب → 05
+    expect(kv.data['settings.v1'], contains('"onboardingStep":4'));
+
+    await tester.tap(find.byTooltip('رجوع'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('رجوع'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('رجوع'));
+    await tester.pumpAndSettle();
+    expect(find.text('لغتك ومصحفك'), findsOneWidget); // … → 03
+    await tester.tap(find.byTooltip('رجوع'));
+    await tester.pumpAndSettle();
+    expect(find.text('المتابعة كضيف'), findsOneWidget); // 03 → 02
+    expect(find.text('HOME'), findsNothing);
+    expect(kv.data['settings.v1'], contains('"onboardingStep":0'));
+  });
+
+  testWidgets('06: the optional recitation switch queues the default reciter (Wi-Fi only) and stops it', (tester) async {
+    tester.view.physicalSize = const Size(390 * 3, 1600 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    final fake = FakeDownloads();
+    const alafasy = Reciter(id: 'alafasy', nameAr: 'مشاري العفاسي', nameEn: 'Mishary Alafasy', style: RecitationStyle.murattal, riwaya: 'hafs');
+    await tester.pumpWidget(
+      app(
+        [
+          ...offlineOverrides(MemoryKvStore()),
+          recitersProvider.overrideWith((_) async => const [alafasy]),
+          downloadsControllerProvider.overrideWith(() => fake),
+        ],
+        initial: '/onboarding/download',
+      ),
+    );
+    await tester.pumpAndSettle();
+    const label = 'تلاوة مشاري العفاسي · اختياري · عبر Wi-Fi فقط';
+    expect(find.text(label), findsOneWidget);
+    final toggle = find.byWidgetPredicate((w) => w is Semantics && w.properties.label == label && w.properties.toggled != null);
+    expect(tester.widget<Semantics>(toggle).properties.toggled, isFalse);
+
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(fake.started, ['alafasy']);
+    expect(tester.widget<Semantics>(toggle).properties.toggled, isTrue);
+
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(fake.cancelled, ['alafasy']);
+    expect(tester.widget<Semantics>(toggle).properties.toggled, isFalse);
+  });
+
+  testWidgets('06: no recitation switch until the reciter catalogue resolves', (tester) async {
+    tester.view.physicalSize = const Size(390 * 3, 1600 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      app([...offlineOverrides(MemoryKvStore()), recitersProvider.overrideWith((_) async => const <Reciter>[])], initial: '/onboarding/download'),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('اختياري · عبر Wi-Fi فقط'), findsNothing);
   });
 
   testWidgets('profile: guest sees the sign-in CTA and no destructive rows', (tester) async {
