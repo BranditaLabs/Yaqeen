@@ -387,9 +387,13 @@ void main() {
     await tester.runAsync(() async {
       await tester
           .pumpWidget(harness(const NowPlayingScreen(surah: 18, ayah: 2), kv: kv, overrides: overrides(engine, kv, harnessed: true)));
-      await Future<void>.delayed(const Duration(milliseconds: 200));
     });
-    await tester.pump();
+    // The player loads on real async work: wait for it (up to 5 s) instead of a fixed delay, which
+    // flaked on a busy machine.
+    for (var i = 0; i < 50 && find.text('يُشغَّل الآن').evaluate().isEmpty; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.pump();
+    }
     expect(find.text('يُشغَّل الآن'), findsOneWidget);
     expect(find.text('الكهف'), findsOneWidget);
     expect(find.text('مشاري راشد العفاسي'), findsOneWidget);

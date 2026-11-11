@@ -48,7 +48,6 @@ class _AyahSheetState extends ConsumerState<_AyahSheet> {
   TafsirText? _tafsir;
   List<TafsirInfo> _tafsirs = const [];
   String? _tafsirId;
-  bool _tafsirLoading = false;
   int _tafsirSeq = 0;
   MarkColor? _highlight;
   bool _hasNote = false;
@@ -134,8 +133,8 @@ class _AyahSheetState extends ConsumerState<_AyahSheet> {
 
   /// Reads this ayah from the chosen tafsir; null (offline, nothing cached) leaves the placeholder
   /// and a retry. Only the latest lookup may answer.
-  Future<void> _loadTafsir([TafsirRepository? repo]) async {
-    repo ??= ref.read(tafsirRepositoryProvider);
+  Future<void> _loadTafsir([TafsirRepository? from]) async {
+    final TafsirRepository repo = from ?? ref.read(tafsirRepositoryProvider);
     if (!_tafsirLoading) setState(() => _tafsirLoading = true);
     final seq = _tafsirSeq;
     final text = await repo.lookup(widget.ayah);

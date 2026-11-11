@@ -70,12 +70,16 @@ describe.skipIf(!url)('integration (Postgres)', () => {
     return { id: u!.id, token: await signUserToken({ sub: u!.id, guest: false }, env.JWT_SECRET) };
   }
 
+  // Each test admin logs in from its own address: /admin/auth/login allows 5 per 5 minutes per IP,
+  // and this file signs in more admins than that.
+  let adminIp = 0;
   async function makeAdmin(role: 'super_admin' | 'religious_reviewer' | 'content_editor' | 'support', email: string) {
     const secret = generateTotpSecret();
     await db.insert(s.adminUsers).values({ name: role, email, role, passwordHash: await hashPassword('a-strong-password'), totpSecret: secret });
     const res = await app.inject({
       method: 'POST',
       url: '/admin/auth/login',
+      remoteAddress: `10.9.0.${++adminIp}`,
       payload: { email, password: 'a-strong-password', totp: totp(base32Decode(secret), NOW.getTime()) },
     });
     expect(res.statusCode).toBe(200);
