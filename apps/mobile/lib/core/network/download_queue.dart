@@ -25,6 +25,11 @@ class DownloadQueue {
   int get running => _running.length;
   int get waiting => _waiting.length;
 
+  final _idle = StreamController<void>.broadcast();
+
+  /// Fires each time the last queued or running job finishes (files on disk may have changed).
+  Stream<void> get idle => _idle.stream;
+
   /// Queues [run] under [key]. The future completes when the job finishes, or fails with its
   /// error (a cancelled job fails with [DownloadCancelled]).
   Future<T> add<T>(String key, {required String group, required Future<T> Function(CancelToken cancel, ProgressFn progress) run, ProgressFn? onProgress}) {
@@ -75,6 +80,7 @@ class DownloadQueue {
       job.done.complete(value);
     }
     _pump();
+    if (_running.isEmpty && _waiting.isEmpty) _idle.add(null);
   }
 }
 

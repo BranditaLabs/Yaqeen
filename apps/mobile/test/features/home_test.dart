@@ -2,13 +2,18 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yaqeen/core/di/providers.dart';
 import 'package:yaqeen/core/settings/app_settings.dart';
 import 'package:yaqeen/core/time/zoned.dart';
 import 'package:yaqeen/core/widgets/liquid_glass.dart';
+import 'package:yaqeen/features/calendar/data/hijri_today.dart';
+import 'package:yaqeen/features/calendar/domain/hijri_day.dart';
 import 'package:yaqeen/features/home/home_screen.dart';
 import 'package:yaqeen/features/quran/domain/quran_data.dart';
+import 'package:yaqeen/features/quran/domain/wird.dart';
+import 'package:yaqeen/features/quran/presentation/reader_screen.dart';
 
 import '../helpers/fonts.dart';
 import '../helpers/harness.dart';
@@ -21,17 +26,19 @@ void main() {
   });
   setUp(() => YqGlassConfig.enableBlur = false);
 
-  Future<void> pump(WidgetTester tester, DateTime now) async {
+  Future<void> pump(WidgetTester tester, DateTime now, {DateTime Function()? clock, String locale = 'ar', List<Override> extra = const []}) async {
     tester.view.physicalSize = const Size(390 * 3, 1300 * 3);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       harness(
         const Scaffold(body: HomeScreen()),
-        skyClock: () => now,
+        skyClock: clock ?? () => now,
+        locale: locale,
         overrides: [
-          clockProvider.overrideWithValue(() => now),
-          initialSettingsProvider.overrideWithValue(const AppSettings(place: Place.cairo)),
+          clockProvider.overrideWithValue(clock ?? () => now),
+          ...extra,
+          initialSettingsProvider.overrideWithValue(AppSettings(place: Place.cairo, locale: locale)),
           quranDataProvider.overrideWith((_) async => q),
         ],
       ),
@@ -61,6 +68,42 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await pump(tester, DateTime.utc(2026, 10, 20, 5));
     expect(find.text('صباح الخير'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('left open across Dhuhr, the greeting turns to evening', (tester) async {
+    var now = DateTime.utc(2026, 10, 20, 9, 30); // 12:30 Cairo, Dhuhr ≈ 12:40
+    await pump(tester, now, clock: () => now);
+    expect(find.text('صباح الخير'), findsOneWidget);
+    now = DateTime.utc(2026, 10, 20, 10);
+    await tester.pump(const Duration(seconds: 16));
+    expect(find.text('مساء الخير'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('left open past midnight, the wird orb drops the day before', (tester) async {
+    var now = DateTime.utc(2026, 10, 20, 20, 50); // 23:50 Cairo
+    await pump(
+      tester,
+      now,
+      clock: () => now,
+      extra: [todayWirdProvider.overrideWith((_) async => const WirdDay(date: '2026-10-20', pages: {1, 2}))],
+    );
+    await tester.pump();
+    expect(find.text('اكتمل وردك'), findsOneWidget);
+    now = DateTime.utc(2026, 10, 20, 21, 5); // 00:05 the next day
+    await tester.pump(const Duration(seconds: 31));
+    expect(find.text('اكتمل وردك'), findsNothing);
+    expect(find.text('0 / 2 صفحات'), findsWidgets);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('in English the Hijri month is named in English', (tester) async {
+    const h = HijriDay(gregorian: '2026-10-20', hijriDay: 8, hijriMonth: 5, hijriYear: 1448, monthNameAr: 'جمادى الأولى', weekday: 2);
+    await pump(tester, DateTime.utc(2026, 10, 20, 12), locale: 'en', extra: [hijriTodayProvider.overrideWith((_) async => h)]);
+    await tester.pump();
+    expect(find.textContaining('8 Jumada al-Ula 1448'), findsOneWidget);
+    expect(find.textContaining('جمادى'), findsNothing);
     await tester.pumpWidget(const SizedBox());
   });
 

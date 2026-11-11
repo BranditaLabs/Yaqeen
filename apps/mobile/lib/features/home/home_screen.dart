@@ -107,7 +107,10 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _Header extends ConsumerWidget {
-  const _Header();
+  const _Header({required this.now});
+
+  /// From the stage's ticker, so the greeting turns at Dhuhr while Home stays open.
+  final DateTime now;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -115,7 +118,6 @@ class _Header extends ConsumerWidget {
     final text = Theme.of(context).textTheme;
     final s = ref.watch(settingsProvider);
     final session = ref.watch(sessionProvider);
-    final now = ref.watch(clockProvider)();
     final repo = ref.watch(prayerRepositoryProvider);
     // «صباح الخير» before Dhuhr, «مساء الخير» after (spec §5.9).
     final dhuhr = repo.forDate(s, repo.today(s, now)).dhuhr;
@@ -139,7 +141,7 @@ class _Header extends ConsumerWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               switch (hijri) {
-                AsyncData(value: final h?) => Text('${h.hijriDay} ${h.monthNameAr} ${h.hijriYear} · $place', style: text.bodySmall),
+                AsyncData(value: final h?) => Text('${h.hijriDay} ${h.monthName(s.locale)} ${h.hijriYear} · $place', style: text.bodySmall),
                 AsyncLoading() => const YqSkeleton(child: YqSkeletonBox(width: 160, height: 12)),
                 _ => Text('${YqFormat.weekdayDayMonth(repo.local(s, now.toUtc()), s.locale)} · $place', style: text.bodySmall),
               },
@@ -211,7 +213,7 @@ class _Sky extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const _Header(),
+              _Header(now: now),
               const SizedBox(height: YqSpace.xxl),
               Semantics(
                 button: true,
@@ -272,7 +274,8 @@ class _Sky extends ConsumerWidget {
   }
 }
 
-/// The three living orbs, evenly spaced.
+/// The three living orbs, evenly spaced. The wird orb re-reads the day on a slow tick (and on
+/// resume), so yesterday's pages drop to zero after midnight while the app stays in memory.
 class _Complications extends ConsumerWidget {
   const _Complications();
 
@@ -280,16 +283,22 @@ class _Complications extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(settingsProvider);
     final wird = ref.watch(todayWirdProvider).valueOrNull;
-    final today = ref.watch(prayerRepositoryProvider).today(s, ref.watch(clockProvider)());
-    final done = wird != null && wird.date == Zoned.isoDate(today) ? wird.count : 0;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Expanded(child: QiblaOrb()),
-        const Expanded(child: TasbeehOrb()),
-        Expanded(child: WirdOrb(done: done, goal: s.wirdGoalPages)),
-      ],
+    final repo = ref.watch(prayerRepositoryProvider);
+    return YqTicker(
+      now: ref.watch(clockProvider),
+      interval: const Duration(seconds: 30),
+      builder: (context, now) {
+        final done = wird != null && wird.date == Zoned.isoDate(repo.today(s, now)) ? wird.count : 0;
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Expanded(child: QiblaOrb()),
+            const Expanded(child: TasbeehOrb()),
+            Expanded(child: WirdOrb(done: done, goal: s.wirdGoalPages)),
+          ],
+        );
+      },
     );
   }
 }

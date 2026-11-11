@@ -47,7 +47,15 @@ class Outbox {
     return (jsonDecode(raw) as List).map((e) => OutboxItem.fromJson((e as Map).cast<String, dynamic>())).toList();
   }
 
-  Future<void> _save(List<OutboxItem> items) => _store.write(_key, jsonEncode(items.map((e) => e.toJson()).toList()));
+  final _changes = StreamController<void>.broadcast();
+
+  /// Fires after every write to the queue (an item added, sent or dropped).
+  Stream<void> get changes => _changes.stream;
+
+  Future<void> _save(List<OutboxItem> items) async {
+    await _store.write(_key, jsonEncode(items.map((e) => e.toJson()).toList()));
+    _changes.add(null);
+  }
 
   Future<void> add(OutboxItem item) async => _save([...await items(), item]);
 

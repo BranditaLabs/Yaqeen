@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/analytics/analytics.dart';
 import '../../../core/di/providers.dart';
+import '../../card/presentation/journey_widgets.dart';
 import '../../onboarding/presentation/session_controller.dart';
 import '../data/challenge_repository.dart';
 import '../domain/challenge_models.dart';
@@ -41,6 +42,8 @@ class ChallengeController extends AsyncNotifier<ChallengeSummary> {
       state = AsyncData(current);
       return result.code ?? 'rejected';
     }
+    // The server counted the points: the level and lifetime points on Profile move with them.
+    if (result.outcome == TickOutcome.synced) ref.invalidate(myJourneyProvider);
 
     final after = state.valueOrNull;
     if (after != null && after.today?.status == DayStatus.done) {
