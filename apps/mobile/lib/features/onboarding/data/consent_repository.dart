@@ -80,6 +80,13 @@ class ConsentRepository {
       };
 
   Future<void> set(ConsentKind kind, bool value, ConsentSource source) async {
+    await record(kind, value, source);
+    await syncAll();
+  }
+
+  /// Applies the choice on this phone and queues its event, without waiting for the network —
+  /// a switch flips at once; [syncAll] delivers the event.
+  Future<void> record(ConsentKind kind, bool value, ConsentSource source) async {
     _cache = {..._cache, kind: value};
     await store.write(_key, jsonEncode({for (final e in _cache.entries) e.key.wire: e.value}));
     final pending = await _pending();
@@ -90,7 +97,6 @@ class ConsentRepository {
         {'kind': kind.wire, 'granted': value, 'source': _sourceWire(source)},
       ]),
     );
-    await syncAll();
   }
 
   /// Takes the server's answer without recording a new event — the decision was already recorded
@@ -119,8 +125,19 @@ class ConsentRepository {
     return raw == null ? [] : (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
   }
 
-  /// Sends queued consent events in order; stops (keeping the rest) when offline or signed out.
-  Future<void> syncAll() async {
+  Future<void>? _syncing;
+
+  /// Sends queued consent events in order; stops (keeping the rest) when offline, signed out or
+  /// the server is failing. Calls run one after another, so quick taps never send an event twice.
+  Future<void> syncAll() {
+    final run = (_syncing ?? Future<void>.value()).catchError((Object _) {}).then((_) => _syncOnce());
+    _syncing = run;
+    return run.whenComplete(() {
+      if (identical(_syncing, run)) _syncing = null;
+    });
+  }
+
+  Future<void> _syncOnce() async {
     final pending = await _pending();
     var sent = 0;
     for (final e in pending) {
@@ -130,10 +147,14 @@ class ConsentRepository {
       } on OfflineException {
         break;
       } on ApiException catch (err) {
-        if (err.status == 401) break; // no server account yet — retried after sign-in
+        // 401: no server account yet — retried after sign-in. 5xx/429: retried later.
+        if (err.status == 401 || !err.isPermanent) break;
         sent++; // invalid payloads won't succeed later
       }
     }
-    if (sent > 0) await store.write(_pendingKey, jsonEncode(pending.sublist(sent)));
+    // Events recorded while this ran were appended: drop only the ones sent.
+    if (sent == 0) return;
+    final now = await _pending();
+    await store.write(_pendingKey, jsonEncode(now.length > sent ? now.sublist(sent) : const []));
   }
 }

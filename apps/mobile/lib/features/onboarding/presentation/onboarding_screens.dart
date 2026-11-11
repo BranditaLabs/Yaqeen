@@ -64,8 +64,14 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
     setState(() => _busy = p);
     final session = ref.read(sessionProvider.notifier);
     if (p == SignInProvider.guest) {
-      await session.continueAsGuest();
-      if (mounted) _next();
+      try {
+        await session.continueAsGuest();
+        if (mounted) _next();
+      } on Exception {
+        if (mounted) YqToast.show(context, t.welcomeError);
+      } finally {
+        if (mounted) setState(() => _busy = null);
+      }
       return;
     }
     final outcome = await session.signInWith(p);
@@ -85,9 +91,13 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
 
   void _next() {
     _saveStep(ref, 1);
-    // From inside the app (challenge, profile) the flow returns; first launch continues the steps.
-    if (ref.read(settingsProvider).onboarded && context.canPop()) {
+    // From inside the app (challenge, profile) the flow returns; after a sign-out or an ended
+    // session it goes home (everything is already set); first launch continues the steps.
+    final onboarded = ref.read(settingsProvider).onboarded;
+    if (onboarded && context.canPop()) {
       context.pop();
+    } else if (onboarded) {
+      context.go('/home');
     } else {
       context.go('/onboarding/language');
     }

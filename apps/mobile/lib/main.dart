@@ -40,6 +40,7 @@ import 'core/theme/scroll.dart';
 import 'core/theme/theme.dart';
 import 'core/time/zoned.dart';
 import 'features/onboarding/data/auth_repository.dart';
+import 'features/onboarding/presentation/session_controller.dart';
 import 'l10n/gen/app_localizations.dart';
 import 'core/platform/home_widget_publisher.dart';
 import 'core/platform/nfc_service.dart';
@@ -133,7 +134,16 @@ Future<void> _start() async {
     ],
   );
   await Boot.step('consents', container.read(consentRepositoryProvider).load, null);
-  container.read(apiClientProvider).onSessionExpired = () => container.read(authRepositoryProvider).signOut();
+  // The server refused the refresh token: the UI follows (session ends) and asks to sign in again.
+  container.read(apiClientProvider).onSessionExpired = () => container
+      .read(sessionProvider.notifier)
+      .expire()
+      .then((ended) {
+        final nav = rootNavigatorKey.currentContext;
+        if (ended && nav != null && nav.mounted) GoRouter.of(nav).go('/onboarding/welcome');
+      })
+      .catchError((Object _) {})
+      .ignore();
 
   // Plugin set-up the first frame doesn't need, in parallel. Both are idempotent and awaited again
   // by their first real use (scheduling a reminder, playing audio).

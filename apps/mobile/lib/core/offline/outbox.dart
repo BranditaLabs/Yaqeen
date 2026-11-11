@@ -55,8 +55,8 @@ class Outbox {
 
   Future<int> get length async => (await items()).length;
 
-  /// Sends items in order. Stops at the first offline error (keeps the rest);
-  /// drops items the server rejects permanently (e.g. already completed).
+  /// Sends items in order. Stops at the first offline error or 401 (keeps the rest for the next
+  /// session); drops items the server rejects permanently (e.g. already completed).
   /// Returns the number of items removed from the queue.
   Future<int> flush(OutboxSender send, {void Function(OutboxItem item, ApiException error)? onRejected}) async {
     final queue = await items();
@@ -66,7 +66,8 @@ class Outbox {
         await send(item);
         removed++;
       } on ApiException catch (e) {
-        if (!e.isPermanent) break;
+        // A 401 is about the session, not the write: the tick is still owed once signed in again.
+        if (!e.isPermanent || e.status == 401) break;
         onRejected?.call(item, e);
         removed++;
       } on OfflineException {

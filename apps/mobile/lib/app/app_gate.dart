@@ -65,6 +65,8 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
   /// task (offline, a plugin error) never delays or cancels the others.
   void _warmUp() {
     final tasks = <Future<void> Function()>[
+      // A guest chosen offline gets its server account (then consents, settings and the outbox follow).
+      () => ref.read(sessionProvider.notifier).ensureServerAccount(),
       // Parse the mushaf on a background isolate now, so Home and the reader open instantly.
       () => ref.read(quranDataProvider.future),
       // Keep the local adhan/reminder schedule fresh (spec §6.5: re-plan on start).
@@ -87,6 +89,7 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      ref.read(sessionProvider.notifier).ensureServerAccount().ignore();
       ref.read(outboxSyncProvider).flush().ignore();
       ref.read(remoteConfigProvider.notifier).refresh().ignore();
       ref.read(remindersControllerProvider.notifier).replan().ignore();
@@ -134,7 +137,10 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
       if (next && prev != true && nav != null && nav.mounted) showRestoreBackupSheet(nav, ref).ignore();
     });
     ref.listen(onlineProvider, (prev, next) {
-      if (next.valueOrNull == true && prev?.valueOrNull == false) ref.read(outboxSyncProvider).flush(force: true).ignore();
+      if (next.valueOrNull == true && prev?.valueOrNull == false) {
+        ref.read(sessionProvider.notifier).ensureServerAccount().ignore();
+        ref.read(outboxSyncProvider).flush(force: true).ignore();
+      }
     });
     final config = ref.watch(remoteConfigProvider);
     final device = ref.watch(deviceServicesProvider);
