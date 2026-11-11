@@ -48,13 +48,17 @@ class TafsirText {
 /// Null only when neither is available (offline with nothing cached) — the UI then shows the
 /// bracketed placeholder.
 class TafsirRepository {
-  TafsirRepository({this.packFile, this.api, this.store, this.root, DateTime Function()? now}) : _now = now ?? DateTime.now;
+  TafsirRepository({this.packFile, this.api, this.store, this.root, this.language, DateTime Function()? now})
+      : _now = now ?? DateTime.now;
 
   /// `tafsir_<id>.json` downloaded by the pack manager: {"<surah>:<ayah>": "<text>"}.
   final Future<File?> Function()? packFile;
   final ApiClient? api;
   final KvStore? store;
   final Future<Directory> Function()? root;
+
+  /// The app's language: until the user picks a tafsir, one in this language is preferred.
+  final String Function()? language;
   final DateTime Function() _now;
 
   static const defaultTafsir = 'muyassar';
@@ -64,8 +68,22 @@ class TafsirRepository {
 
   Map<String, String>? _pack;
   final _surahs = <String, Map<String, String>>{};
+  final _byLanguage = <String, String>{};
 
-  Future<String> selected() async => (await store?.read(_selectedKey)) ?? defaultTafsir;
+  /// The user's pick, else the first curated tafsir in the app's language, else [defaultTafsir].
+  Future<String> selected() async {
+    final chosen = await store?.read(_selectedKey);
+    if (chosen != null) return chosen;
+    final lang = language?.call();
+    if (lang == null || lang == 'ar') return defaultTafsir;
+    final known = _byLanguage[lang];
+    if (known != null) return known;
+    final match = (await list()).where((x) => x.language == lang).firstOrNull;
+    // Remember only a real answer, so an offline first try asks again later.
+    if (match != null) _byLanguage[lang] = match.id;
+    return match?.id ?? defaultTafsir;
+  }
+
   Future<void> select(String id) async {
     await store?.write(_selectedKey, id);
     _surahs.clear();

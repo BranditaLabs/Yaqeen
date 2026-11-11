@@ -35,7 +35,9 @@ class MushafBulk {
 ///
 /// Downloaded on demand into app storage, kept forever (the mushaf works offline once a page has been
 /// seen), loaded into the engine once per session, and shared by every screen. Downloads go through the
-/// app-wide [DownloadQueue] (group `mushaf`), so they share bandwidth fairly with recitation audio.
+/// app-wide [DownloadQueue], so they share bandwidth fairly with recitation audio: pages on screen
+/// jump the line (group `mushaf`), the whole-mushaf download waits behind them (group `mushaf-bulk`,
+/// so cancelling it leaves the reader's own fetches alone).
 /// The base URL is build configuration (`Env.mushafFontBaseUrl`) so the files can move to our CDN.
 class MushafFonts extends ChangeNotifier {
   MushafFonts({
@@ -99,18 +101,28 @@ class MushafFonts extends ChangeNotifier {
   /// Pages whose font is on the device.
   Future<int> downloadedCount() async => (await _disk()).length;
 
+  static const _group = 'mushaf';
+  static const _bulkGroup = 'mushaf-bulk';
+  static String _key(int page) => 'mushaf:p$page';
+
   /// Makes [page] drawable: from disk, else downloaded. True when ready; never throws.
-  Future<bool> ensure(int page) {
+  /// [urgent] (a page on screen) puts its download ahead of prefetches and the bulk download.
+  Future<bool> ensure(int page, {bool urgent = true}) {
     if (_loaded.contains(page)) return SynchronousFuture(true);
+    final pending = _loading[page];
+    if (pending != null) {
+      if (urgent) queue?.promote(_key(page), group: _group);
+      return pending;
+    }
     // (Block body: returning the removed future from whenComplete would make it wait on itself.)
-    return _loading[page] ??= _ensure(page).whenComplete(() {
+    return _loading[page] = _ensure(page, urgent: urgent).whenComplete(() {
       _loading.remove(page);
     });
   }
 
-  Future<bool> _ensure(int page) async {
+  Future<bool> _ensure(int page, {required bool urgent}) async {
     try {
-      final file = await _fetch(page);
+      final file = await _fetch(page, urgent: urgent);
       final bytes = await file.readAsBytes();
       if (!_isFont(bytes)) {
         await file.delete();
@@ -130,13 +142,17 @@ class MushafFonts extends ChangeNotifier {
   }
 
   /// The font file on disk, downloading it first if needed.
-  Future<File> _fetch(int page, {CancelToken? cancel}) async {
+  /// A [bulk] fetch is cancelled with its queue group (not a token baked into the job), so a page the
+  /// reader adopts from the bulk download keeps going when the bulk download is cancelled.
+  Future<File> _fetch(int page, {CancelToken? cancel, bool bulk = false, bool urgent = false}) async {
     final file = await _file(page);
     if (await file.exists()) return file;
-    Future<File> run(CancelToken c, ProgressFn p) =>
-        downloadResumable(_http, urlFor(page), file, cancel: LinkedCancelToken(cancel, c), onProgress: p);
     final q = queue;
-    final f = q == null ? await run(CancelToken(), (_, __) {}) : await q.add<File>('mushaf:p$page', group: 'mushaf', run: run);
+    Future<File> run(CancelToken c, ProgressFn p) =>
+        downloadResumable(_http, urlFor(page), file, cancel: q == null ? LinkedCancelToken(cancel, c) : c, onProgress: p);
+    final f = q == null
+        ? await run(CancelToken(), (_, __) {})
+        : await q.add<File>(_key(page), group: bulk ? _bulkGroup : _group, run: run, urgent: urgent && !bulk);
     (await _disk()).add(page);
     return f;
   }
@@ -150,7 +166,7 @@ class MushafFonts extends ChangeNotifier {
   /// Warms [pages] (neighbours of the open page) without blocking anything.
   void prefetch(Iterable<int> pages) {
     for (final p in pages) {
-      if (p >= 1 && p <= pageCount && !_loaded.contains(p)) ensure(p).ignore();
+      if (p >= 1 && p <= pageCount && !_loaded.contains(p)) ensure(p, urgent: false).ignore();
     }
   }
 
@@ -168,7 +184,7 @@ class MushafFonts extends ChangeNotifier {
     // The queue runs a few at a time; adding all keeps its slots busy.
     Future<void> one(int p) async {
       try {
-        await _fetch(p, cancel: cancel);
+        await _fetch(p, cancel: cancel, bulk: true);
         if (!cancel.isCancelled) bulk.value = MushafBulk(done: disk.length, total: pageCount, running: true);
       } on Object {
         failed = true;
@@ -182,7 +198,7 @@ class MushafFonts extends ChangeNotifier {
 
   void cancelDownloadAll() {
     _bulkCancel?.cancel();
-    queue?.cancelGroup('mushaf');
+    queue?.cancelGroup(_bulkGroup);
   }
 
   /// Bytes the page fonts take on the device.

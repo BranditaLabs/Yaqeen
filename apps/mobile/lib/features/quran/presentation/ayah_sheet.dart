@@ -10,6 +10,7 @@ import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/controls.dart';
+import '../../../core/widgets/yq_button.dart';
 import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_layout.dart';
 import '../../../core/widgets/share_card.dart';
@@ -41,6 +42,7 @@ class _AyahSheetState extends ConsumerState<_AyahSheet> {
   bool? _saved;
   MarkColor _bookmarkColor = MarkColor.gold;
   bool _tafsirOpen = false;
+  bool _tafsirLoading = false;
   bool _highlightOpen = false;
   TafsirText? _tafsir;
   List<TafsirInfo> _tafsirs = const [];
@@ -95,35 +97,38 @@ class _AyahSheetState extends ConsumerState<_AyahSheet> {
     if (mounted) setState(() => _saved = saved);
   }
 
+  /// The panel opens at once with a skeleton while the text loads (it may come from the network).
   Future<void> _openTafsir() async {
     if (_tafsirOpen) {
       setState(() => _tafsirOpen = false);
       return;
     }
+    setState(() => _tafsirOpen = true);
+    await _loadTafsir();
+    final list = await ref.read(tafsirRepositoryProvider).list();
+    if (mounted) setState(() => _tafsirs = list);
+  }
+
+  /// Reads this ayah from the chosen tafsir; null (offline, nothing cached) leaves the placeholder
+  /// and a retry.
+  Future<void> _loadTafsir() async {
+    setState(() => _tafsirLoading = true);
     final repo = ref.read(tafsirRepositoryProvider);
     final text = await repo.lookup(widget.ayah);
     final id = await repo.selected();
     if (!mounted) return;
     setState(() {
-      _tafsirOpen = true;
+      _tafsirLoading = false;
       _tafsir = text;
       _tafsirId = id;
     });
-    final list = await repo.list();
-    if (mounted) setState(() => _tafsirs = list);
   }
 
   /// Picker in the panel: switching re-reads this ayah from the chosen tafsir.
   Future<void> _pickTafsir(String id) async {
-    final repo = ref.read(tafsirRepositoryProvider);
-    await repo.select(id);
-    final text = await repo.lookup(widget.ayah);
-    if (mounted) {
-      setState(() {
-        _tafsirId = id;
-        _tafsir = text;
-      });
-    }
+    setState(() => _tafsirId = id);
+    await ref.read(tafsirRepositoryProvider).select(id);
+    if (mounted) await _loadTafsir();
   }
 
   Future<void> _copy() async {
@@ -237,12 +242,35 @@ class _AyahSheetState extends ConsumerState<_AyahSheet> {
                         const SizedBox(height: YqSpace.s),
                         // Licensed text only (installed pack or Quran Foundation); offline with nothing cached
                         // the placeholder stays bracketed (rule 9).
-                        Text(
-                          _tafsir?.text ?? t.tafsirPlaceholder,
-                          style: theme.bodyLarge?.copyWith(color: _tafsir == null ? YqColors.muted : YqColors.ink),
-                        ),
+                        if (_tafsirLoading)
+                          const YqSkeleton(
+                            child: Column(
+                              children: [
+                                YqSkeletonLine(height: 14),
+                                SizedBox(height: 10),
+                                YqSkeletonLine(widthFactor: 0.92, height: 14),
+                                SizedBox(height: 10),
+                                YqSkeletonLine(widthFactor: 0.55, height: 14),
+                              ],
+                            ),
+                          )
+                        else ...[
+                          Text(
+                            _tafsir?.text ?? t.tafsirPlaceholder,
+                            style: theme.bodyLarge?.copyWith(color: _tafsir == null ? YqColors.muted : YqColors.ink),
+                          ),
+                          if (_tafsir == null) ...[
+                            const SizedBox(height: YqSpace.s),
+                            Row(
+                              children: [
+                                Expanded(child: Text(t.errorGeneric, style: theme.bodySmall?.copyWith(color: YqColors.muted))),
+                                YqButton.text(label: t.retry, onPressed: _loadTafsir),
+                              ],
+                            ),
+                          ],
+                        ],
                         // Credit every time the licensed text is shown (QuranEnc / Quran Foundation terms).
-                        if (_tafsir != null) ...[
+                        if (_tafsir != null && !_tafsirLoading) ...[
                           const SizedBox(height: YqSpace.s),
                           Text(
                             _tafsir!.source == TafsirSource.qf ? t.tafsirSourceQf : t.tafsirAttribution,
@@ -382,19 +410,30 @@ Future<void> showShareCard(BuildContext context, WidgetRef ref, {required QuranD
   );
 }
 
-/// «إعدادات القراءة».
-Future<void> showReaderSettings(BuildContext context) =>
-    showYqSheet<void>(context, scrollable: true, builder: (_) => const _ReaderSettings());
+/// «إعدادات القراءة». [page] is the page on screen: the listen / recite shortcuts open its surah.
+Future<void> showReaderSettings(BuildContext context, {required int page}) =>
+    showYqSheet<void>(context, scrollable: true, builder: (_) => _ReaderSettings(page: page));
 
 class _ReaderSettings extends ConsumerWidget {
-  const _ReaderSettings();
+  const _ReaderSettings({required this.page});
+  final int page;
+
+  /// Closes the sheet and opens [mode] (`listen` / `recite`) on the surah of the page on screen.
+  /// (The sheet sits on the root navigator, outside any GoRoute: read the router before popping.)
+  void _open(BuildContext context, WidgetRef ref, String mode) {
+    final router = GoRouter.of(context);
+    Navigator.of(context).pop();
+    ref.read(quranDataProvider).whenData((q) => router.push('/quran/$mode/${q.firstOfPage(page).surah}'));
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
     final s = ref.watch(settingsProvider);
     final ctl = ref.read(settingsProvider.notifier);
-    final reciteOn = ref.watch(remoteConfigProvider).isOn(Flags.recite);
+    final config = ref.watch(remoteConfigProvider);
+    final listenOn = config.isOn(Flags.listen);
+    final reciteOn = config.isOn(Flags.recite);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -442,26 +481,21 @@ class _ReaderSettings extends ConsumerWidget {
             label: t.readerKeepAwake,
           ),
         ),
-        const YqDivider(),
-        YqListRow(
-          leading: const YqIconTile(YqIcons.listen),
-          title: t.readerListenMode,
-          onTap: () {
-            Navigator.of(context).pop();
-            final page = int.tryParse(GoRouterState.of(context).pathParameters['page'] ?? '') ?? 1;
-            ref.read(quranDataProvider).whenData((q) => context.push('/quran/listen/${q.firstOfPage(page).surah}'));
-          },
-        ),
-        if (reciteOn)
-          YqListRow(
-            leading: const YqIconTile(YqIcons.azkar),
-            title: t.readerReciteMode,
-            onTap: () {
-              Navigator.of(context).pop();
-              final page = int.tryParse(GoRouterState.of(context).pathParameters['page'] ?? '') ?? 1;
-              ref.read(quranDataProvider).whenData((q) => context.push('/quran/recite/${q.firstOfPage(page).surah}'));
-            },
-          ),
+        if (listenOn || reciteOn) ...[
+          const YqDivider(),
+          if (listenOn)
+            YqListRow(
+              leading: const YqIconTile(YqIcons.listen),
+              title: t.readerListenMode,
+              onTap: () => _open(context, ref, 'listen'),
+            ),
+          if (reciteOn)
+            YqListRow(
+              leading: const YqIconTile(YqIcons.azkar),
+              title: t.readerReciteMode,
+              onTap: () => _open(context, ref, 'recite'),
+            ),
+        ],
         const YqDivider(),
         const SizedBox(height: YqSpace.s),
         const MushafDownloadSection(),
