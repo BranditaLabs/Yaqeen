@@ -102,6 +102,10 @@ Future<void> _start() async {
   );
 
   final push = FirebasePushService();
+  final audio = JustAudioEngine(
+    channelName: () => lookupAppLocalizations(Locale(current().locale)).channelRecitation,
+    filesDir: getApplicationSupportDirectory,
+  );
   container = ProviderContainer(
     overrides: [
       kvStoreProvider.overrideWithValue(kv),
@@ -116,7 +120,7 @@ Future<void> _start() async {
       connectivityProvider.overrideWithValue(PluginConnectivityMonitor()),
       localNotificationsProvider.overrideWithValue(notifier),
       notificationTapsProvider.overrideWith((_) => notifier.taps),
-      audioEngineProvider.overrideWithValue(JustAudioEngine()),
+      audioEngineProvider.overrideWithValue(audio),
       homeWidgetPublisherProvider.overrideWithValue(PluginHomeWidgetPublisher()),
       // Constructing it touches no platform channel; a session opens only on a user's tap.
       nfcServiceProvider.overrideWithValue(PluginNfcService()),
@@ -154,7 +158,7 @@ Future<void> _start() async {
   AppLifecycleListener(onPause: () => unawaited(product.flush()));
   Boot.afterFirstFrame({
     'notifications': notifier.init,
-    'audio': JustAudioEngine.init,
+    'audio': audio.init,
     'push': push.start,
     'analytics': () async {
       product.start();

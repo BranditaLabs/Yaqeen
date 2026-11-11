@@ -16,6 +16,7 @@ import '../../../core/widgets/yq_layout.dart';
 import '../../../core/widgets/share_card.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
+import '../../recite/presentation/recite_available.dart';
 import '../data/reading_repository.dart';
 import '../data/tafsir_repository.dart';
 import '../domain/annotations.dart';
@@ -47,6 +48,8 @@ class _AyahSheetState extends ConsumerState<_AyahSheet> {
   TafsirText? _tafsir;
   List<TafsirInfo> _tafsirs = const [];
   String? _tafsirId;
+  bool _tafsirLoading = false;
+  int _tafsirSeq = 0;
   MarkColor? _highlight;
   bool _hasNote = false;
 
@@ -97,38 +100,50 @@ class _AyahSheetState extends ConsumerState<_AyahSheet> {
     if (mounted) setState(() => _saved = saved);
   }
 
-  /// The panel opens at once with a skeleton while the text loads (it may come from the network).
+  /// The panel opens at once with a skeleton while the text loads (a network fetch can take
+  /// seconds, spec §2.5); a later open or chip switch drops an earlier lookup's late answer.
   Future<void> _openTafsir() async {
+    _tafsirSeq++;
     if (_tafsirOpen) {
       setState(() => _tafsirOpen = false);
       return;
     }
-    setState(() => _tafsirOpen = true);
-    await _loadTafsir();
-    final list = await ref.read(tafsirRepositoryProvider).list();
-    if (mounted) setState(() => _tafsirs = list);
-  }
-
-  /// Reads this ayah from the chosen tafsir; null (offline, nothing cached) leaves the placeholder
-  /// and a retry.
-  Future<void> _loadTafsir() async {
-    setState(() => _tafsirLoading = true);
-    final repo = ref.read(tafsirRepositoryProvider);
-    final text = await repo.lookup(widget.ayah);
-    final id = await repo.selected();
-    if (!mounted) return;
     setState(() {
-      _tafsirLoading = false;
-      _tafsir = text;
-      _tafsirId = id;
+      _tafsirOpen = true;
+      _tafsirLoading = true;
     });
+    final repo = ref.read(tafsirRepositoryProvider);
+    final id = await repo.selected();
+    if (mounted) setState(() => _tafsirId = id);
+    await _loadTafsir(repo);
+    final list = await repo.list();
+    if (mounted) setState(() => _tafsirs = list);
   }
 
   /// Picker in the panel: switching re-reads this ayah from the chosen tafsir.
   Future<void> _pickTafsir(String id) async {
-    setState(() => _tafsirId = id);
-    await ref.read(tafsirRepositoryProvider).select(id);
-    if (mounted) await _loadTafsir();
+    _tafsirSeq++;
+    setState(() {
+      _tafsirId = id;
+      _tafsirLoading = true;
+    });
+    final repo = ref.read(tafsirRepositoryProvider);
+    await repo.select(id);
+    await _loadTafsir(repo);
+  }
+
+  /// Reads this ayah from the chosen tafsir; null (offline, nothing cached) leaves the placeholder
+  /// and a retry. Only the latest lookup may answer.
+  Future<void> _loadTafsir([TafsirRepository? repo]) async {
+    repo ??= ref.read(tafsirRepositoryProvider);
+    if (!_tafsirLoading) setState(() => _tafsirLoading = true);
+    final seq = _tafsirSeq;
+    final text = await repo.lookup(widget.ayah);
+    if (!mounted || seq != _tafsirSeq) return;
+    setState(() {
+      _tafsir = text;
+      _tafsirLoading = false;
+    });
   }
 
   Future<void> _copy() async {
@@ -243,17 +258,7 @@ class _AyahSheetState extends ConsumerState<_AyahSheet> {
                         // Licensed text only (installed pack or Quran Foundation); offline with nothing cached
                         // the placeholder stays bracketed (rule 9).
                         if (_tafsirLoading)
-                          const YqSkeleton(
-                            child: Column(
-                              children: [
-                                YqSkeletonLine(height: 14),
-                                SizedBox(height: 10),
-                                YqSkeletonLine(widthFactor: 0.92, height: 14),
-                                SizedBox(height: 10),
-                                YqSkeletonLine(widthFactor: 0.55, height: 14),
-                              ],
-                            ),
-                          )
+                          const YqSkeleton(child: YqSkeletonText(lines: 3))
                         else ...[
                           Text(
                             _tafsir?.text ?? t.tafsirPlaceholder,
@@ -423,7 +428,10 @@ class _ReaderSettings extends ConsumerWidget {
   void _open(BuildContext context, WidgetRef ref, String mode) {
     final router = GoRouter.of(context);
     Navigator.of(context).pop();
-    ref.read(quranDataProvider).whenData((q) => router.push('/quran/$mode/${q.firstOfPage(page).surah}'));
+    ref.read(quranDataProvider).whenData((q) {
+      final first = q.firstOfPage(page);
+      router.push(mode == 'listen' ? '/quran/listen/${first.surah}?ayah=${first.ayah}' : '/quran/recite/${first.surah}');
+    });
   }
 
   @override
@@ -431,9 +439,8 @@ class _ReaderSettings extends ConsumerWidget {
     final t = AppLocalizations.of(context);
     final s = ref.watch(settingsProvider);
     final ctl = ref.read(settingsProvider.notifier);
-    final config = ref.watch(remoteConfigProvider);
-    final listenOn = config.isOn(Flags.listen);
-    final reciteOn = config.isOn(Flags.recite);
+    final listenOn = ref.watch(remoteConfigProvider).isOn(Flags.listen);
+    final reciteOn = ref.watch(reciteEntryProvider);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,

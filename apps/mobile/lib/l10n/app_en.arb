@@ -162,6 +162,7 @@
   "channelReminders": "Reminders",
   "channelChallenge": "Challenge & rewards",
   "channelOffers": "Yaqeen store offers",
+  "channelRecitation": "Recitation",
   "prayerTitle": "Prayer times",
   "prayerToday": "Today's times",
   "prayerIn": "in {time}",
@@ -539,6 +540,33 @@
   },
   "listenControls": "Playback controls",
   "listenRepeat": "Repeat ayah",
+  "listenRepeatTitle": "Repeat",
+  "listenRepeatOff": "Off",
+  "listenRepeatAyah": "Ayah",
+  "listenRepeatRange": "Range",
+  "listenRepeatSurah": "Surah",
+  "listenRepeatTimesTitle": "Times",
+  "listenRepeatTimes": "{n}×",
+  "@listenRepeatTimes": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "listenRepeatForever": "Without end",
+  "listenRepeatRangeLabel": "From ayah {from} to ayah {to}",
+  "@listenRepeatRangeLabel": {
+    "placeholders": {
+      "from": {
+        "type": "int"
+      },
+      "to": {
+        "type": "int"
+      }
+    }
+  },
+  "listenRepeatNeedsSync": "Repeating an ayah or a range needs this reciter's ayah timings.",
   "listenPrev": "Previous ayah",
   "listenPlay": "Play",
   "listenPause": "Pause",

@@ -25,6 +25,7 @@ import '../../../l10n/gen/app_localizations.dart';
 import '../../challenge/domain/challenge_models.dart';
 import '../../challenge/presentation/challenge_controller.dart';
 import '../../listen/presentation/listen_controller.dart';
+import '../../recite/presentation/recite_available.dart';
 import '../../notifications/presentation/reminders_controller.dart';
 import '../../onboarding/presentation/session_controller.dart';
 import '../data/reading_repository.dart';
@@ -973,7 +974,8 @@ class _BottomChrome extends ConsumerWidget {
     final today = Zoned.isoDate(Zoned.today(s.placeOrDefault.timezone, ref.watch(clockProvider)()));
     final read = wird?.date == today ? wird!.count : 0;
     final khatma = ref.watch(khatmaProvider).valueOrNull;
-    final surah = quran.firstOfPage(page).surah;
+    final first = quran.firstOfPage(page);
+    final surah = first.surah;
     return AnimatedPositioned(
       duration: YqMotion.base,
       curve: YqMotion.ease,
@@ -1022,9 +1024,10 @@ class _BottomChrome extends ConsumerWidget {
                           YqButton.text(
                             label: t.readerListen,
                             icon: const YqIcon(YqIcons.listen, size: 18),
-                            onPressed: () => context.push('/quran/listen/$surah'),
+                            // From the page on screen, not the surah's start.
+                            onPressed: () => context.push('/quran/listen/$surah?ayah=${first.ayah}'),
                           ),
-                        if (config.isOn(Flags.recite))
+                        if (ref.watch(reciteEntryProvider))
                           YqButton.text(
                             label: t.readerRecite,
                             icon: const YqIcon(YqIcons.azkar, size: 18),

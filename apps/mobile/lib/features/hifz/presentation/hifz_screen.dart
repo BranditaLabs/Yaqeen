@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/config/config_controller.dart';
-import '../../../core/config/remote_config.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/format.dart';
 import '../../../core/settings/settings_controller.dart';
@@ -18,6 +16,7 @@ import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/yq_timeline.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
+import '../../recite/presentation/recite_available.dart';
 import '../../quran/domain/quran_data.dart';
 import '../domain/hifz_plan.dart';
 import '../domain/review_scheduler.dart';
@@ -139,7 +138,7 @@ class _HifzScreenState extends ConsumerState<HifzScreen> {
     final upcoming = plan.upcoming(today).take(3).toList();
     final doneToday = plan.memorisedToday(today);
     final ctl = ref.read(hifzControllerProvider.notifier);
-    final reciteOn = ref.watch(remoteConfigProvider).isOn(Flags.recite);
+    final reciteOn = ref.watch(reciteEntryProvider);
     final steps = [t.hifzStepListen, t.hifzStepRepeat, t.hifzStepTest];
     final firstOpen = [for (var i = 0; i < 3; i++) i].where((i) => !_steps.contains(i) && !doneToday).firstOrNull;
 
@@ -192,7 +191,7 @@ class _HifzScreenState extends ConsumerState<HifzScreen> {
           YqButton.secondary(
             label: t.ayahListen,
             icon: const YqIcon(YqIcons.listen, size: 18),
-            onPressed: () => context.push('/quran/listen/${portion.surah}?ayah=${portion.from}'),
+            onPressed: () => context.push('/quran/listen/${portion.surah}?ayah=${portion.from}&to=${portion.to}'),
           ),
         const SizedBox(height: YqSpace.s),
         YqButton.secondary(label: t.hifzMarkDone, onPressed: doneToday ? null : ctl.memoriseToday),

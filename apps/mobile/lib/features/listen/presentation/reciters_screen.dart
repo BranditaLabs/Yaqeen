@@ -16,6 +16,7 @@ import '../../../core/widgets/yq_ring.dart';
 import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
+import '../data/audio_downloads.dart';
 import '../domain/audio_models.dart';
 import 'downloads_controller.dart';
 import 'listen_controller.dart';
@@ -101,7 +102,9 @@ class _RecitersScreenState extends ConsumerState<RecitersScreen> {
     });
 
     final all = reciters.valueOrNull;
-    final selected = all?.where((r) => r.id == listen.reciter?.id).firstOrNull;
+    // Before the player opened this launch, the reciter chosen earlier (stored on the device).
+    final selectedId = listen.reciter?.id ?? ref.watch(storedReciterIdProvider).valueOrNull;
+    final selected = all?.where((r) => r.id == selectedId).firstOrNull;
     final text = Theme.of(context).textTheme;
     final border =
         OutlineInputBorder(borderRadius: BorderRadius.circular(YqRadii.pill), borderSide: const BorderSide(color: Color(0xF2FFFFFF)));
@@ -169,7 +172,6 @@ class _RecitersScreenState extends ConsumerState<RecitersScreen> {
           error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(recitersProvider))],
           data: (all) {
             final shown = _filter(all, dl);
-            final selectedId = listen.reciter?.id;
             return [
               // One scrolling row: long English labels never orphan a chip on a second line.
               SingleChildScrollView(
@@ -226,7 +228,10 @@ class _RecitersScreenState extends ConsumerState<RecitersScreen> {
                           } else {
                             await c.downloadAll(r);
                             final after = ref.read(downloadsControllerProvider)[r.id];
-                            if (context.mounted && after?.error != null) YqToast.show(context, t.reciterWifiOnly);
+                            final error = after?.error;
+                            if (context.mounted && error != null) {
+                              YqToast.show(context, error is WifiRequired ? t.reciterWifiOnly : t.listenUnavailable);
+                            }
                           }
                         },
                       ),
