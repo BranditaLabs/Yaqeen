@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <clipPath id="c"><circle cx="256" cy="256" r="256"/></clipPath>
+    <radialGradient id="bg" cx="38%" cy="30%" r="80%">
+      <stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E3EBF7"/>
+    </radialGradient>
+    <radialGradient id="skin" cx="42%" cy="36%" r="70%">
+      <stop offset="0" stop-color="#E9C5A6"/><stop offset=".65" stop-color="#E6BE9A"/><stop offset="1" stop-color="#D1A27C"/>
+    </radialGradient>
+    <linearGradient id="garment" x1="0" y1="0" x2=".35" y2="1">
+      <stop offset="0" stop-color="#A0BCE4"/><stop offset="1" stop-color="#7590B7"/>
+    </linearGradient>
+    <linearGradient id="cover" x1=".1" y1="0" x2=".6" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E0E0E0"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity=".35"/><stop offset=".5" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs><g clip-path="url(#c)"><rect width="512" height="512" fill="url(#bg)"/><g transform="translate(256 292) scale(1.12) translate(-256 -270)"><path d="M40 520 C52 448 140 408 256 404 C372 408 460 448 472 520 Z" fill="url(#garment)"/><path d="M222 406 Q256 438 290 406" fill="none" stroke="#647B9C" stroke-width="4" stroke-linecap="round" opacity=".55"/><path d="M256 434 L256 520" stroke="#667EA1" stroke-width="3" opacity=".35"/><path d="M226 318 L226 398 Q256 416 286 398 L286 318 Z" fill="#D1A27C"/><path d="M226 350 Q256 372 286 350 L286 330 L226 330 Z" fill="#BC916F" opacity=".45"/><ellipse cx="183" cy="262" rx="12" ry="20" fill="#D1A27C"/><ellipse cx="329" cy="262" rx="12" ry="20" fill="#D1A27C"/><ellipse cx="256" cy="252" rx="74" ry="80" fill="url(#skin)"/><path d="M181 258 C172 176 214 150 256 150 C298 150 340 176 331 258 C322 214 300 196 256 196 C212 196 190 214 181 258 Z" fill="#1E1A18"/><path d="M178 230 C176 166 216 142 256 142 C296 142 336 166 334 230 C306 216 284 212 256 212 C228 212 206 216 178 230 Z" fill="url(#cover)"/><path d="M178 230 C206 216 228 212 256 212 C284 212 306 216 334 230" fill="none" stroke="#C6C6C6" stroke-width="5" stroke-linecap="round"/><path d="M206 170 C226 152 286 152 306 170" fill="none" stroke="#E0E0E0" stroke-width="3" opacity=".6"/><path d="M192 196 C220 182 292 182 320 196" fill="none" stroke="#E0E0E0" stroke-width="3" opacity=".6"/></g></g></svg>

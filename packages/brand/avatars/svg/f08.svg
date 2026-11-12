@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <clipPath id="c"><circle cx="256" cy="256" r="256"/></clipPath>
+    <radialGradient id="bg" cx="38%" cy="30%" r="80%">
+      <stop offset="0" stop-color="#FFFBF1"/><stop offset="1" stop-color="#F1E9D9"/>
+    </radialGradient>
+    <radialGradient id="skin" cx="42%" cy="36%" r="70%">
+      <stop offset="0" stop-color="#F4DDC9"/><stop offset=".65" stop-color="#F3D9C2"/><stop offset="1" stop-color="#E2BFA2"/>
+    </radialGradient>
+    <linearGradient id="garment" x1="0" y1="0" x2=".35" y2="1">
+      <stop offset="0" stop-color="#9BA1B4"/><stop offset="1" stop-color="#6F7688"/>
+    </linearGradient>
+    <linearGradient id="cover" x1=".1" y1="0" x2=".6" y2="1">
+      <stop offset="0" stop-color="#F4F7FB"/><stop offset="1" stop-color="#D5D8DC"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity=".35"/><stop offset=".5" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs><g clip-path="url(#c)"><rect width="512" height="512" fill="url(#bg)"/><g transform="translate(256 292) scale(1.12) translate(-256 -270)"><path d="M40 520 C52 436 140 396 256 392 C372 396 460 436 472 520 Z" fill="url(#garment)"/><path d="M226 318 L226 398 Q256 416 286 398 L286 318 Z" fill="#E2BFA2"/><path d="M226 350 Q256 372 286 350 L286 330 L226 330 Z" fill="#CBAB91" opacity=".45"/><path d="M256 150 C184 150 160 204 160 266 C160 334 168 376 182 404 C130 422 78 458 58 520 L454 520 C434 458 382 422 330 404 C344 376 352 334 352 266 C352 204 328 150 256 150 Z M256 178 C214 178 194 214 194 258 C194 310 222 344 256 344 C290 344 318 310 318 258 C318 214 298 178 256 178 Z" fill="url(#cover)" fill-rule="evenodd" stroke="#A5A7AA" stroke-width="2.5" stroke-opacity=".45"/><path d="M256 178 C214 178 194 214 194 258 C194 310 222 344 256 344 C290 344 318 310 318 258 C318 214 298 178 256 178 Z" fill="url(#skin)"/><path d="M196 236 C204 198 230 186 256 186 C282 186 308 198 316 236 C298 214 280 206 256 206 C232 206 214 214 196 236 Z" fill="#C8D5EC"/><path d="M256 178 C214 178 194 214 194 258 C194 310 222 344 256 344 C290 344 318 310 318 258 C318 214 298 178 256 178 Z" fill="none" stroke="#AEB1B4" stroke-width="5" opacity=".35"/><path d="M184 386 C214 410 298 410 328 386" fill="none" stroke="#BDBFC3" stroke-width="4" opacity=".45"/><path d="M256 150 C184 150 160 204 160 266 C160 334 168 376 182 404 C130 422 78 458 58 520 L454 520 C434 458 382 422 330 404 C344 376 352 334 352 266 C352 204 328 150 256 150 Z" fill="url(#sheen)" opacity=".5"/><g fill="none" stroke="#4C597A" stroke-width="4" opacity=".9"><rect x="206" y="240" width="40" height="26" rx="10"/><rect x="266" y="240" width="40" height="26" rx="10"/><path d="M246 252 L266 252"/></g></g></g></svg>
