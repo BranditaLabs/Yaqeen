@@ -22,25 +22,30 @@
 - Admin: login with 2FA, overview, users, content review, campaigns with lock-screen preview, points & rewards, settings (Hijri, flags, team, audit).
 - Mobile: design system, shell + router, network/outbox/analytics/notification planning, challenge + redeem screens, repositories for challenge/rewards/calendar/auth/consents.
 
-## Phase 2 — app features
+## Phase 2 — app features ✅
 
-- [ ] Onboarding flow (7 screens) + Google/Apple sign-in + consent screen
-- [ ] Prayer times on-device (`adhan`), Qibla, notification settings → `flutter_local_notifications`
-- [ ] Quran reader (offline Uthmani text, paper/white/night, lock, swipe), index & search, bookmarks
-- [ ] Listening + reciters (audio streaming & downloads)
-- [ ] Azkar & duas with counters, synced from `/v1/content?since`
-- [ ] Merged Hijri × 365 calendar screen with qada
-- [ ] Hifz (Juz Amma plan, review card using `ReviewScheduler`)
-- [ ] FCM push + inbox; ad SDK sinks with ATT
-- [ ] Profile, settings, data export & delete
+- [x] Onboarding (incl. routine step) + Google/Apple sign-in + consent screen
+- [x] Prayer times on-device, Qibla, notification settings → local notifications; Ramadan mode
+- [x] Quran reader (offline Uthmani text, themes, spread, page turn, markers), ayah search, khatma, notes/highlights, memorise
+- [x] Listening + reciters (streaming & downloads)
+- [x] Azkar & duas with counters, synced from `/v1/content?since`
+- [x] Merged Hijri × 365 calendar with qada
+- [x] Hifz (Juz Amma plan, review scheduler)
+- [x] FCM push + inbox; ad SDK sinks (Firebase Analytics, Meta) behind consent + ATT — active only in builds with their ids
+- [x] Profile, settings, data export & delete; public card + medals; home-screen widgets
 
 ## Phase 3 — hardening before launch
 
-- [ ] Hard-delete job for `deletion_requested` users after 14 days
-- [ ] Encrypt admin TOTP secrets with KMS
-- [ ] Keep the previous published content version live while an edit is in review
-- [ ] Shopify webhook (`orders/paid`) → mark redemption `used`, server-side `purchase` event
-- [ ] Expire unused codes (`expired`) job
-- [ ] Per-user prayer coordinates for the dispatcher (city lookup) instead of Cairo default
-- [ ] Load test redeem + complete endpoints; Sentry/OpenTelemetry
-- [ ] App Store privacy labels & Play data-safety form from SECURITY_PRIVACY.md
+- [x] Erasure job for `deletion_requested` users (30-day grace, `job:purge`)
+- [x] Admin TOTP secrets sealed at rest (`ADMIN_SECRETS_KEY`, AES-256-GCM)
+- [x] The approved content version stays live while an edit is in review (`content_items.live`)
+- [x] Shopify webhook (`orders/paid`) → redemption `used` (signed, idempotent), and a consented server-side `purchase` to Meta CAPI / GA4 / TikTok Events (flag `serverConversions`, off until credentials are set)
+- [x] Unused codes → `expired` (daily, in `job:purge`)
+- [x] Dispatcher uses each user's picked city (coarse coordinates) + prayer method, else their zone's largest city, else Cairo
+- [x] Load test (`pnpm --filter @yaqeen/api load`); Sentry + Prometheus
+- [x] App Store privacy labels & Play data-safety answers (docs/STORE_LISTING.md)
+- [x] Browser E2E (admin, website, cards; axe a11y) in CI — `pnpm --filter @yaqeen/e2e e2e`
+- [x] Sign in with Apple on Android (web callback) and Google server client id in release builds
+- [x] Opt-in encrypted cloud backup of personal progress (`cloud_backup`)
+- [x] NFC: scan a medal in the app; staff encode medal batches from an admin session
+- [x] Design polish pass over every screen (AR/EN, 1.3× text, 44-pt targets, tokens only)

@@ -3,13 +3,14 @@ import { and, desc, eq, ilike, lt, or, sql } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { AdjustPointsRequest, type AdminUserRow, UserStatus } from '@yaqeen/contracts';
-import { authIdentities, challengeEnrollments, pointsLedger, redemptions, users } from '../../db/schema.js';
+import { authIdentities, challengeEnrollments, pointsLedger, profileTags, publicProfiles, redemptions, users } from '../../db/schema.js';
 import { challengeDayNumber, localToday } from '../../domain/points.js';
 import { audit } from '../../lib/audit.js';
 import { maskEmail } from '../../lib/crypto.js';
 import { badRequest, notFound } from '../../lib/errors.js';
 import { DELETION_GRACE_DAYS, exportUser } from '../public/me.routes.js';
 import { adminOf } from '../../plugins/auth.js';
+import { moderateCard } from './cards.routes.js';
 
 export const adminUsersRoutes: FastifyPluginAsync = async (app) => {
   const { db } = app.ctx;
@@ -78,6 +79,20 @@ export const adminUsersRoutes: FastifyPluginAsync = async (app) => {
       .orderBy(desc(pointsLedger.createdAt))
       .limit(50);
     const reds = await db.select().from(redemptions).where(eq(redemptions.userId, id)).orderBy(desc(redemptions.createdAt));
+    const [card] = await db
+      .select({
+        handle: publicProfiles.handle,
+        published: publicProfiles.published,
+        views: publicProfiles.views,
+        moderated: sql<boolean>`${publicProfiles.moderatedAt} is not null`,
+        moderationReason: publicProfiles.moderationReason,
+      })
+      .from(publicProfiles)
+      .where(eq(publicProfiles.userId, id));
+    const tagRows = await db
+      .select({ code: profileTags.code, kind: profileTags.kind, scans: profileTags.scans, linkedAt: profileTags.linkedAt, disabledAt: profileTags.disabledAt })
+      .from(profileTags)
+      .where(eq(profileTags.userId, id));
     return {
       id: u.id,
       displayName: u.displayName,
@@ -91,6 +106,9 @@ export const adminUsersRoutes: FastifyPluginAsync = async (app) => {
       balance: ledger.length ? Number((await db.select({ s: sql<string>`sum(${pointsLedger.delta})` }).from(pointsLedger).where(eq(pointsLedger.userId, id)))[0]?.s ?? 0) : 0,
       ledger: ledger.map((l) => ({ id: l.id, delta: l.delta, reason: l.reason, note: l.note, createdAt: l.createdAt })),
       redemptions: reds,
+      // The public card's identity only (what anyone scanning it already sees) — for moderation.
+      publicProfile: card ? { ...card, url: `${app.ctx.env.PUBLIC_PROFILE_BASE_URL.replace(/\/$/, '')}/u/${card.handle}` } : null,
+      tags: tagRows.map((t) => ({ code: t.code, kind: t.kind, scans: t.scans, linkedAt: t.linkedAt, active: !t.disabledAt })),
     };
   });
 
@@ -127,6 +145,16 @@ export const adminUsersRoutes: FastifyPluginAsync = async (app) => {
       });
       await audit(tx, req, { action: 'user.points.adjust', targetType: 'user', targetId: id, reason: body.reason, after: body });
     });
+    return { ok: true };
+  });
+
+  /** Moderation: hide a public card (abusive name, bio or links). The owner can edit and republish. */
+  app.post('/:id/public-profile/unpublish', { preHandler: write }, async (req) => {
+    const { id } = z.object({ id: z.uuid() }).parse(req.params);
+    const body = z.object({ reason: z.string().min(3).max(200) }).parse(req.body);
+    // Same as /admin/cards/:userId/moderate: hidden until support restores it.
+    await db.transaction((tx) => moderateCard(tx, req, id, body.reason, app.ctx.now()));
+    await app.ctx.cache.bumpNamespace('profile');
     return { ok: true };
   });
 

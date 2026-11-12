@@ -1,0 +1,3 @@
+# Vendored agent skills — kept byte-for-byte as published
+.claude/skills/
+.claude/agents/

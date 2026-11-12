@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GENERATED from packages/design-tokens/tokens.json by scripts/build.mjs — do not edit by hand. -->
+<resources>
+    <color name="yq_lapis">#FF1F3F94</color>
+    <color name="yq_royal">#FF2A52B8</color>
+    <color name="yq_midnight">#FF0A1530</color>
+    <color name="yq_ink">#FF0A1530</color>
+    <color name="yq_muted">#FF56637F</color>
+    <color name="yq_porcelain">#FFF3F6FB</color>
+    <color name="yq_ice">#FFE9EFF9</color>
+    <color name="yq_mist">#FFC8D5EC</color>
+    <color name="yq_sky">#FF8FB0E0</color>
+    <color name="yq_line">#FFDCE4F2</color>
+    <color name="yq_gold">#FFC6A867</color>
+    <color name="yq_gold_text">#FF7C6127</color>
+    <color name="yq_gold_deep">#FF4A3C17</color>
+    <color name="yq_gold_light">#FFE9D49E</color>
+    <color name="yq_cream">#FFFFFBF1</color>
+    <color name="yq_sand">#FFF4E8C8</color>
+    <color name="yq_success">#FF2E7A55</color>
+    <color name="yq_error">#FFB23A48</color>
+    <color name="yq_white">#FFFFFFFF</color>
+    <color name="yq_paper_page">#FFFFFDF7</color>
+    <color name="yq_paper_ink">#FF1A1712</color>
+    <color name="yq_night_page">#FF15161A</color>
+    <color name="yq_night_ink">#FFE9E2D0</color>
+    <color name="yq_navy">#FF10214D</color>
+    <color name="yq_slate_700">#FF475064</color>
+    <color name="yq_slate_400">#FF858A98</color>
+    <color name="yq_slate_200">#FFC2C5CB</color>
+    <color name="yq_navy_600">#FF4C597A</color>
+    <color name="yq_navy_400">#FF8890A6</color>
+    <color name="yq_navy_200">#FFC3C8D3</color>
+    <color name="yq_lapis_500">#FF576FAF</color>
+    <color name="yq_lapis_300">#FF8F9FCA</color>
+    <color name="yq_lapis_100">#FFC7CFE4</color>
+    <color name="yq_sky_400">#FFABC4E8</color>
+    <color name="yq_sky_200">#FFC7D8F0</color>
+    <color name="yq_sky_100">#FFE3EBF7</color>
+    <color name="yq_gold_300">#FFD4BE8D</color>
+    <color name="yq_gold_200">#FFE3D4B3</color>
+    <color name="yq_gold_100">#FFF1E9D9</color>
+</resources>

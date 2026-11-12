@@ -6,7 +6,8 @@ import 'kv_store.dart';
 /// hifz plan and reviews, inbox, content cache. Each collection is one JSON document in [KvStore]
 /// under `db.<name>`, with a schema version and ordered migrations (ADR 0006).
 ///
-/// Never synced to the server (spec §6.13) — sign-out wipes only the synced caches, not this.
+/// Device first (spec §6.13): only the opt-in, encrypted cloud backup (consent `cloud_backup`,
+/// features/backup) copies parts of it to the server. Sign-out wipes only the synced caches, not this.
 class LocalStore {
   LocalStore(this._kv);
 

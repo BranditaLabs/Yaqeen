@@ -39,6 +39,15 @@ class AyahRef implements Comparable<AyahRef> {
   String toString() => '$surah:$ayah';
 }
 
+/// `"18:10"` → AyahRef(18, 10); null when malformed or out of range.
+AyahRef? parseAyahRef(String? raw) {
+  final m = RegExp(r'^(\d{1,3}):(\d{1,3})$').firstMatch(raw ?? '');
+  if (m == null) return null;
+  final s = int.parse(m.group(1)!);
+  final a = int.parse(m.group(2)!);
+  return s >= 1 && s <= 114 && a >= 1 && a <= 286 ? AyahRef(s, a) : null;
+}
+
 /// One verse on a page.
 class PageAyah {
   const PageAyah(this.ref, this.text);
@@ -73,8 +82,12 @@ class AyahHit extends QuranHit {
 
 /// The bundled Madani mushaf (assets/quran/quran.json, built by tools/quran/build_quran.py).
 /// Read-only, fully offline from first launch. Text is never altered.
+///
+/// [pageStarts] replaces the bundled (Tanzil) page boundaries with those of the printed page layout
+/// (`MushafLayout.starts`, KFGQPC 1421 print) so the drawn pages, page numbers, bookmarks and khatma
+/// all agree. 25 pages start one or two ayat apart between the two editions.
 class QuranData {
-  QuranData.fromJson(Map<String, dynamic> j)
+  QuranData.fromJson(Map<String, dynamic> j, {List<AyahRef>? pageStarts})
       : surahs = [
           for (final (i, r) in (j['surahs'] as List).cast<List<dynamic>>().indexed)
             Surah(
@@ -86,7 +99,7 @@ class QuranData {
               startPage: r[4] as int,
             ),
         ],
-        _pageStarts = _refs(j['pages']),
+        _pageStarts = pageStarts != null && pageStarts.length == pageCount ? pageStarts : _refs(j['pages']),
         _juzStarts = _refs(j['juz']),
         _quarterStarts = _refs(j['quarters']),
         sajdas = _refs(j['sajdas']).toSet(),
@@ -138,6 +151,11 @@ class QuranData {
 
   /// 1–60.
   int hizbOf(AyahRef r) => (quarterOf(r) - 1) ~/ 4 + 1;
+
+  late final Map<AyahRef, int> _quarterIndex = {for (final (i, r) in _quarterStarts.indexed) r: i + 1};
+
+  /// The hizb quarter (1–240) that starts at [r], or null.
+  int? quarterStartingAt(AyahRef r) => _quarterIndex[r];
 
   AyahRef firstOfPage(int page) => _pageStarts[page - 1];
   AyahRef firstOfJuz(int juz) => _juzStarts[juz - 1];

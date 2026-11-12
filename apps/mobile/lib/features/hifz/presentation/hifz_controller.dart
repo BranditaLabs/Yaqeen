@@ -5,7 +5,8 @@ import '../../notifications/presentation/reminders_controller.dart';
 import '../domain/hifz_plan.dart';
 import '../domain/review_scheduler.dart';
 
-/// Device-only hifz state (spec §5.25). Every change re-plans the «مراجعة مستحقة» local reminders.
+/// Hifz state, device first; optional encrypted cloud backup (consent `cloud_backup`, spec §5.25).
+/// Every change re-plans the «مراجعة مستحقة» local reminders.
 class HifzController extends AsyncNotifier<HifzPlan?> {
   @override
   Future<HifzPlan?> build() => ref.read(hifzRepositoryProvider).load();
@@ -33,6 +34,16 @@ class HifzController extends AsyncNotifier<HifzPlan?> {
     if (plan == null) return;
     final q = await ref.read(quranDataProvider.future);
     await _commit(plan.memorise(q, _today));
+  }
+
+  /// Ticks or unticks a «استمع · كرّر · اختبر نفسك» step for today; kept so leaving the screen (e.g.
+  /// to listen) doesn't reset it. Reminders don't depend on it, so no re-plan.
+  Future<void> toggleStep(int step) async {
+    final plan = state.valueOrNull;
+    if (plan == null) return;
+    final next = plan.toggleStep(step, _today);
+    state = AsyncData(next);
+    await ref.read(hifzRepositoryProvider).save(next);
   }
 
   Future<void> rate(String portionId, ReviewGrade grade) async {

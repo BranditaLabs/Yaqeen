@@ -1,0 +1,194 @@
+# Continuous delivery for the API, admin dashboard and jobs (Kubernetes).
+#
+#   push to main      → build + scan + push images → deploy to staging (automatic)
+#   push tag v*       → deploy the same images to production (needs the `production` environment's
+#                       required reviewers to approve — set them in Settings › Environments)
+#   Run workflow      → deploy a commit to an environment, or roll an environment back
+#
+# Per-environment secrets (Settings › Environments › staging / production): KUBE_CONFIG (base64
+# kubeconfig for a deployer service account limited to the namespace). Repository secrets:
+# SENTRY_AUTH_TOKEN (optional). Variables: DEPLOY_ENABLED=true (turns deploys on), SENTRY_ORG, ADMIN_SENTRY_DSN, STAGING_API_URL,
+# STAGING_ADMIN_URL, PROD_API_URL, PROD_ADMIN_URL. Details: docs/OPERATIONS.md › Delivery pipeline.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Where
+        type: choice
+        options: [staging, production]
+        default: staging
+      action:
+        description: What
+        type: choice
+        options: [deploy, rollback]
+        default: deploy
+      sha:
+        description: "Commit to deploy (default: the selected ref)"
+        required: false
+
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+
+concurrency:
+  # One rollout per environment at a time; never cancel one halfway.
+  group: deploy-${{ inputs.environment || (startsWith(github.ref, 'refs/tags/v') && 'production' || 'staging') }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io/branditalabs
+  SHA: ${{ inputs.sha || github.sha }}
+
+jobs:
+  images:
+    name: Build, scan, push images
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.action == 'deploy' }}
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.SHA }}" }
+      - id: tag
+        run: echo "tag=sha-${SHA::12}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: "${{ github.actor }}", password: "${{ secrets.GITHUB_TOKEN }}" }
+      - name: Already built? (a tag promotes the image main already built)
+        id: exists
+        run: |
+          if docker buildx imagetools inspect "$REGISTRY/yaqeen-api:${{ steps.tag.outputs.tag }}" >/dev/null 2>&1 &&
+             docker buildx imagetools inspect "$REGISTRY/yaqeen-admin:${{ steps.tag.outputs.tag }}" >/dev/null 2>&1; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: API image
+        if: steps.exists.outputs.skip != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: services/api/Dockerfile
+          push: true
+          build-args: GIT_SHA=${{ env.SHA }}
+          tags: ${{ env.REGISTRY }}/yaqeen-api:${{ steps.tag.outputs.tag }}
+          labels: org.opencontainers.image.revision=${{ env.SHA }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+      - name: Admin image
+        if: steps.exists.outputs.skip != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/admin/Dockerfile
+          push: true
+          build-args: |
+            GIT_SHA=${{ env.SHA }}
+            NEXT_PUBLIC_SENTRY_DSN=${{ vars.ADMIN_SENTRY_DSN }}
+            SENTRY_ORG=${{ vars.SENTRY_ORG }}
+          secrets: |
+            sentry_auth_token=${{ secrets.SENTRY_AUTH_TOKEN }}
+          tags: ${{ env.REGISTRY }}/yaqeen-admin:${{ steps.tag.outputs.tag }}
+          labels: org.opencontainers.image.revision=${{ env.SHA }}
+          cache-from: type=gha,scope=admin
+          cache-to: type=gha,scope=admin,mode=max
+      # Fail on critical vulnerabilities that have a fix; everything is reported to Security › Code scanning.
+      - name: Scan API image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/yaqeen-api:${{ steps.tag.outputs.tag }}
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: sarif
+          output: trivy-api.sarif
+      - name: Scan admin image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/yaqeen-admin:${{ steps.tag.outputs.tag }}
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: sarif
+          output: trivy-admin.sarif
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with: { sarif_file: ".", category: trivy }
+
+  staging:
+    name: Staging
+    needs: images
+    # Off until a cluster exists: set the repository variable DEPLOY_ENABLED=true.
+    if: ${{ vars.DEPLOY_ENABLED == 'true' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.environment == 'staging' && inputs.action == 'deploy')) }}
+    runs-on: ubuntu-latest
+    environment: { name: staging, url: "${{ vars.STAGING_ADMIN_URL }}" }
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.SHA }}" }
+      - uses: azure/setup-kubectl@v4
+      - name: Kubeconfig
+        run: |
+          mkdir -p ~/.kube && echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config && chmod 600 ~/.kube/config
+      - name: Deploy
+        env: { API_URL: "${{ vars.STAGING_API_URL }}", ADMIN_URL: "${{ vars.STAGING_ADMIN_URL }}" }
+        run: bash tools/deploy/deploy.sh staging "${{ needs.images.outputs.tag }}"
+      - name: Sentry release + deploy marker
+        if: ${{ vars.SENTRY_ORG != '' }}
+        env: { SENTRY_AUTH_TOKEN: "${{ secrets.SENTRY_AUTH_TOKEN }}", SENTRY_ORG: "${{ vars.SENTRY_ORG }}" }
+        run: |
+          [ -n "$SENTRY_AUTH_TOKEN" ] || { echo "No SENTRY_AUTH_TOKEN — skipping release markers"; exit 0; }
+          for p in api admin; do
+            npx -y @sentry/cli@2 releases --project "yaqeen-$p" new "yaqeen-$p@$SHA"
+            npx -y @sentry/cli@2 releases --project "yaqeen-$p" set-commits "yaqeen-$p@$SHA" --auto --ignore-missing || true
+            npx -y @sentry/cli@2 releases --project "yaqeen-$p" deploys "yaqeen-$p@$SHA" new -e staging
+          done
+      - run: rm -f ~/.kube/config
+        if: always()
+
+  production:
+    name: Production
+    needs: images
+    if: ${{ vars.DEPLOY_ENABLED == 'true' && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.environment == 'production' && inputs.action == 'deploy')) }}
+    runs-on: ubuntu-latest
+    environment: { name: production, url: "${{ vars.PROD_ADMIN_URL }}" }
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.SHA }}" }
+      - uses: azure/setup-kubectl@v4
+      - name: Kubeconfig
+        run: |
+          mkdir -p ~/.kube && echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config && chmod 600 ~/.kube/config
+      - name: Deploy
+        env: { API_URL: "${{ vars.PROD_API_URL }}", ADMIN_URL: "${{ vars.PROD_ADMIN_URL }}" }
+        run: bash tools/deploy/deploy.sh production "${{ needs.images.outputs.tag }}"
+      - name: Sentry release + deploy marker
+        if: ${{ vars.SENTRY_ORG != '' }}
+        env: { SENTRY_AUTH_TOKEN: "${{ secrets.SENTRY_AUTH_TOKEN }}", SENTRY_ORG: "${{ vars.SENTRY_ORG }}" }
+        run: |
+          [ -n "$SENTRY_AUTH_TOKEN" ] || { echo "No SENTRY_AUTH_TOKEN — skipping release markers"; exit 0; }
+          for p in api admin; do
+            npx -y @sentry/cli@2 releases --project "yaqeen-$p" new "yaqeen-$p@$SHA"
+            npx -y @sentry/cli@2 releases --project "yaqeen-$p" finalize "yaqeen-$p@$SHA"
+            npx -y @sentry/cli@2 releases --project "yaqeen-$p" deploys "yaqeen-$p@$SHA" new -e production
+          done
+      - run: rm -f ~/.kube/config
+        if: always()
+
+  rollback:
+    name: Roll back ${{ inputs.environment }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.action == 'rollback' }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-kubectl@v4
+      - name: Kubeconfig
+        run: |
+          mkdir -p ~/.kube && echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config && chmod 600 ~/.kube/config
+      - run: bash tools/deploy/deploy.sh "${{ inputs.environment }}" --rollback
+      - run: rm -f ~/.kube/config
+        if: always()

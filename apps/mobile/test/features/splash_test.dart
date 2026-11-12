@@ -32,6 +32,17 @@ void main() {
     expect(find.text('next'), findsOneWidget);
   });
 
+  testWidgets('shows the verse and caption it is given (the reviewed remote-config splash verse)', (tester) async {
+    const verse = 'فَٱصْبِرْ إِنَّ وَعْدَ ٱللَّهِ حَقٌّ';
+    await tester.pumpWidget(
+      const MaterialApp(home: SplashScreen(next: '/next', hold: Duration(hours: 1), verse: verse, verseCaption: 'الروم: 60')),
+    );
+    await tester.pump(const Duration(seconds: 5));
+    expect(find.text(verse, findRichText: true), findsOneWidget);
+    expect(find.text('الروم: 60'), findsOneWidget);
+    expect(find.text('الحِجر · 99'), findsNothing);
+  });
+
   test('logo picks the right file per variant and tone', () {
     expect(const YqLogo(variant: YqLogoVariant.mark).asset, 'assets/brand/mark-navy.png');
     expect(const YqLogo(variant: YqLogoVariant.mark, tone: YqLogoTone.onDark).asset, 'assets/brand/mark-white.png');

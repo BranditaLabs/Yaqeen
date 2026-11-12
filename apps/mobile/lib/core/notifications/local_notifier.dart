@@ -6,6 +6,7 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../time/zoned.dart';
 import 'notification_planner.dart';
+import 'push_service.dart';
 
 /// Title/body for a planned notification (localised by the caller — see NotificationCopy).
 typedef NotificationCopyFn = (String title, String body) Function(PlannedNotification n);
@@ -31,6 +32,12 @@ class PluginLocalNotifier implements LocalNotificationScheduler {
   final String Function() adhanVoice;
 
   static const bundledAdhan = bool.fromEnvironment('ADHAN_SOUNDS');
+
+  /// The bundled recording for an adhan (`res/raw/<name>`, `<name>.caf`), also its Android channel
+  /// id: Android 8+ fixes a channel's sound when the channel is created, so Fajr's own recording
+  /// needs its own channel. null until the licensed recordings are bundled (default sound).
+  static String? adhanSoundFor(String voice, Prayer? prayer, {bool bundled = bundledAdhan}) =>
+      bundled ? 'adhan_$voice${prayer == Prayer.fajr ? '_fajr' : ''}' : null;
 
   final _plugin = FlutterLocalNotificationsPlugin();
   final _taps = StreamController<Uri>.broadcast();
@@ -58,6 +65,11 @@ class PluginLocalNotifier implements LocalNotificationScheduler {
         if (link != null && link.isNotEmpty) _taps.add(Uri.parse(link));
       },
     );
+    // Campaign pushes (FCM) post to the offers channel; create it now so the first one, which can
+    // arrive before any local offer is scheduled, lands there with its localized name.
+    final android = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    const offers = NotificationChannel.offers;
+    await android?.createNotificationChannel(AndroidNotificationChannel(offers.name, channelNames()[offers] ?? offers.name));
     final launch = await _plugin.getNotificationAppLaunchDetails();
     final link = launch?.notificationResponse?.payload;
     if (launch?.didNotificationLaunchApp == true && link != null) _taps.add(Uri.parse(link));
@@ -87,10 +99,10 @@ class PluginLocalNotifier implements LocalNotificationScheduler {
     final channel = n.channel;
     final adhan = channel == NotificationChannel.adhan;
     final voice = adhanVoice();
-    final sound = adhan && bundledAdhan ? 'adhan_$voice${n.prayer == Prayer.fajr ? '_fajr' : ''}' : null;
+    final sound = adhan ? adhanSoundFor(voice, n.prayer) : null;
     return NotificationDetails(
       android: AndroidNotificationDetails(
-        sound == null ? channel.name : 'adhan_$voice',
+        sound ?? channel.name,
         names[channel] ?? channel.name,
         importance: adhan ? Importance.max : Importance.defaultImportance,
         priority: adhan ? Priority.high : Priority.defaultPriority,
@@ -125,6 +137,22 @@ class PluginLocalNotifier implements LocalNotificationScheduler {
         payload: n.link,
       );
     }
+  }
+
+  /// A campaign push that arrived while the app was open (Android doesn't show those itself), on
+  /// the offers channel like the ones FCM posts. Ids sit above the planner's range.
+  Future<void> showPush(PushMessage m) async {
+    await init();
+    const offers = NotificationChannel.offers;
+    await _plugin.show(
+      id: 0x40000000 | (m.id.hashCode & 0x3fffffff),
+      title: m.title,
+      body: m.body,
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(offers.name, channelNames()[offers] ?? offers.name),
+      ),
+      payload: m.link,
+    );
   }
 
   /// Checks without prompting (prompting happens from the settings screen).

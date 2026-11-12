@@ -22,6 +22,7 @@ const LINKS = {
   azkar: 'الأذكار',
   hifz: 'الحفظ',
   prayer: 'الصلاة',
+  ramadan: 'رمضان (الإمساكية)',
 };
 
 export default function NewCampaignPage() {

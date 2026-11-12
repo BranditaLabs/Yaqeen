@@ -45,4 +45,17 @@ void main() {
     expect(ids.toSet().length, 100);
     expect(ids.every((id) => RegExp(r'^[0-9a-f]{32}$').hasMatch(id)), isTrue);
   });
+
+  test('changes fires after each add and after a flush that sent items', () async {
+    final box = Outbox(MemoryKvStore());
+    var n = 0;
+    final sub = box.changes.listen((_) => n++);
+    await box.add(item('a'));
+    await box.add(item('b'));
+    await box.flush((_) async {});
+    await Future<void>.delayed(Duration.zero);
+    expect(n, 3);
+    expect(await box.length, 0);
+    await sub.cancel();
+  });
 }

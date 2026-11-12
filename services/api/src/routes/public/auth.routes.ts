@@ -129,6 +129,25 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     return issueSession(target);
   });
 
+  /**
+   * Sign in with Apple on Android runs Apple's web flow (Services ID). Apple form-posts the result
+   * here; we bounce it straight back into the app through the sign_in_with_apple plugin's intent
+   * (`signinwithapple://callback`), which hands the id_token to the app — the app then calls
+   * /sign-in like on iOS. Nothing is stored or verified here, and only Apple's known fields pass.
+   */
+  await app.register(async (cb) => {
+    cb.addContentTypeParser('application/x-www-form-urlencoded', { parseAs: 'string' }, (_req, body, done) => done(null, body));
+    cb.post('/apple/callback', { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (req, reply) => {
+      const form = new URLSearchParams(typeof req.body === 'string' ? req.body : '');
+      const out = new URLSearchParams();
+      for (const k of ['code', 'id_token', 'state', 'user', 'error']) {
+        const v = form.get(k);
+        if (v) out.set(k, v);
+      }
+      return reply.redirect(`intent://callback?${out}#Intent;package=${env.ANDROID_APP_ID};scheme=signinwithapple;end`, 307);
+    });
+  });
+
   /** Rotate refresh token (old one is revoked; reuse of a revoked token is rejected). */
   app.post('/refresh', async (req) => {
     const { refreshToken } = z.object({ refreshToken: z.string().min(20) }).parse(req.body);

@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Yaqeen</string>
+    <!-- Home-screen widget (the app fills it with localised data; these show before its first run). -->
+    <string name="widget_next_prayer">Next prayer</string>
+    <string name="widget_open_app">Open Yaqeen to set up prayer times</string>
+    <string name="widget_description">Next prayer with a live countdown, and today\'s wird</string>
 </resources>

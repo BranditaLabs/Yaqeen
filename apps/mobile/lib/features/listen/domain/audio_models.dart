@@ -1,9 +1,14 @@
 import '../../quran/domain/quran_data.dart';
 
-enum RecitationStyle { murattal, mujawwad }
+enum RecitationStyle { murattal, mujawwad, muallim }
 
-/// A licensed recitation from `GET /v1/content/reciters` (spec §5.14). Surah files live at
-/// `<baseUrl>/<sss>.mp3` (zero-padded surah number); `timingUrl` is a JSON map of per-ayah timings.
+/// `qf` = Quran.com / Quran Foundation (each surah's URL + timings resolved through our API);
+/// `own` = files on our CDN at `<baseUrl>/<sss>.mp3`.
+enum ReciterSource { qf, own }
+
+/// A curated recitation from `GET /v1/content/reciters` (spec §5.14, §10). `own` surah files live at
+/// `<baseUrl>/<sss>.mp3` (zero-padded) with `timingUrl` a JSON map of per-ayah timings; `qf`
+/// surahs are resolved by `ReciterRepository.surahAudio`.
 class Reciter {
   const Reciter({
     required this.id,
@@ -11,21 +16,32 @@ class Reciter {
     required this.nameEn,
     required this.style,
     required this.riwaya,
-    required this.baseUrl,
+    this.source = ReciterSource.own,
+    this.qfId,
+    bool? hasTimings,
+    this.baseUrl,
     this.timingUrl,
     this.sampleUrl,
     this.sizeBytes = 0,
-  });
+  }) : hasTimings = hasTimings ?? (source == ReciterSource.qf || timingUrl != null);
 
   final String id;
   final String nameAr;
   final String nameEn;
   final RecitationStyle style;
   final String riwaya;
-  final String baseUrl;
+  final ReciterSource source;
+  final int? qfId;
+  final bool hasTimings;
+  final String? baseUrl;
   final String? timingUrl;
   final String? sampleUrl;
   final int sizeBytes;
+
+  bool get isQf => source == ReciterSource.qf;
+
+  /// A sample can play: an explicit file, or Al-Fatiha through the resolver.
+  bool get hasSample => sampleUrl != null || isQf;
 
   String name(String locale) => locale == 'ar' ? nameAr : nameEn;
 
@@ -35,7 +51,12 @@ class Reciter {
     return n.isEmpty ? '' : String.fromCharCode(n.runes.first);
   }
 
-  Uri surahUrl(int surah) => Uri.parse('${baseUrl.replaceAll(RegExp(r'/+$'), '')}/${surah.toString().padLeft(3, '0')}.mp3');
+  /// `own` reciters only (null for `qf` — resolve through the API).
+  Uri? surahUrl(int surah) {
+    final base = baseUrl;
+    if (base == null || base.isEmpty) return null;
+    return Uri.parse('${base.replaceAll(RegExp(r'/+$'), '')}/${surah.toString().padLeft(3, '0')}.mp3');
+  }
 
   /// Rough per-surah share of the full download (by ayah count) — for progress before headers arrive.
   int estimatedSurahBytes(Surah s) => (sizeBytes * s.ayahCount / QuranData.totalAyat).round();
@@ -47,9 +68,13 @@ class Reciter {
         id: j['id'] as String,
         nameAr: j['nameAr'] as String,
         nameEn: j['nameEn'] as String,
-        style: j['style'] == 'mujawwad' ? RecitationStyle.mujawwad : RecitationStyle.murattal,
+        style: RecitationStyle.values.asNameMap()[j['style']] ?? RecitationStyle.murattal,
         riwaya: (j['riwaya'] as String?) ?? 'hafs',
-        baseUrl: j['baseUrl'] as String,
+        // Older cached catalogues have no `source` (they were all own-CDN).
+        source: j['source'] == 'qf' && j['qfId'] is num ? ReciterSource.qf : ReciterSource.own,
+        qfId: (j['qfId'] as num?)?.toInt(),
+        hasTimings: j['hasTimings'] as bool?,
+        baseUrl: j['baseUrl'] as String?,
         timingUrl: j['timingUrl'] as String?,
         sampleUrl: j['sampleUrl'] as String?,
         sizeBytes: (j['sizeBytes'] as num?)?.toInt() ?? 0,
@@ -65,6 +90,9 @@ class Reciter {
         'nameEn': nameEn,
         'style': style.name,
         'riwaya': riwaya,
+        'source': source.name,
+        'qfId': qfId,
+        'hasTimings': hasTimings,
         'baseUrl': baseUrl,
         'timingUrl': timingUrl,
         'sampleUrl': sampleUrl,
@@ -110,7 +138,48 @@ class AyahTimings {
   }
 }
 
-enum ListenRepeat { off, ayah, surah }
+/// One surah's audio from `GET /v1/content/reciters/:id/surahs/:n`, kept on the device with the time
+/// it was fetched (Quran Foundation content is refreshed at least weekly — spec §10).
+class SurahAudio {
+  const SurahAudio({required this.url, required this.fetchedAt, this.timings, this.sizeBytes, this.durationMs});
+
+  final Uri url;
+  final AyahTimings? timings;
+  final int? sizeBytes;
+  final int? durationMs;
+  final DateTime fetchedAt;
+
+  static SurahAudio? tryParse(Object? j, {DateTime? fetchedAt}) {
+    if (j is! Map || j['url'] is! String) return null;
+    final url = Uri.tryParse(j['url'] as String);
+    if (url == null || !url.hasScheme) return null;
+    return SurahAudio(
+      url: url,
+      timings: AyahTimings.fromJson(j['timings']),
+      sizeBytes: (j['sizeBytes'] as num?)?.toInt(),
+      durationMs: (j['durationMs'] as num?)?.toInt(),
+      fetchedAt: fetchedAt ?? DateTime.tryParse('${j['fetchedAt']}') ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'url': url.toString(),
+        'timings': timings == null
+            ? null
+            : [
+                for (final s in timings!.spans) [s.$1, s.$2],
+              ],
+        'sizeBytes': sizeBytes,
+        'durationMs': durationMs,
+        'fetchedAt': fetchedAt.toUtc().toIso8601String(),
+      };
+}
+
+/// Repeat modes (spec §5.13): the current ayah ×N, a range of ayat A–B ×N, or the whole surah.
+enum ListenRepeat { off, ayah, range, surah }
+
+/// How many times an ayah or a range plays; 0 means without end.
+const listenRepeatTimes = [3, 5, 10, 0];
 
 /// Persisted player state so playback resumes after an app kill (spec §5.13 acceptance).
 class PlaybackSnapshot {
@@ -121,6 +190,9 @@ class PlaybackSnapshot {
     this.position = Duration.zero,
     this.speed = 1.0,
     this.repeat = ListenRepeat.off,
+    this.repeatTimes = 0,
+    this.rangeFrom,
+    this.rangeTo,
   });
 
   final String reciterId;
@@ -129,18 +201,38 @@ class PlaybackSnapshot {
   final Duration position;
   final double speed;
   final ListenRepeat repeat;
+  final int repeatTimes;
+  final int? rangeFrom;
+  final int? rangeTo;
 
-  Map<String, dynamic> toJson() => {'r': reciterId, 's': surah, 'a': ayah, 'p': position.inMilliseconds, 'v': speed, 'rp': repeat.name};
+  Map<String, dynamic> toJson() => {
+        'r': reciterId,
+        's': surah,
+        'a': ayah,
+        'p': position.inMilliseconds,
+        'v': speed,
+        'rp': repeat.name,
+        if (repeatTimes != 0) 'rn': repeatTimes,
+        if (rangeFrom != null) 'ra': rangeFrom,
+        if (rangeTo != null) 'rb': rangeTo,
+      };
 
   static PlaybackSnapshot? tryParse(Object? j) {
     if (j is! Map || j['r'] is! String || j['s'] is! int) return null;
+    final from = j['ra'] as int?;
+    final to = j['rb'] as int?;
+    var repeat = ListenRepeat.values.asNameMap()[j['rp']] ?? ListenRepeat.off;
+    if (repeat == ListenRepeat.range && (from == null || to == null)) repeat = ListenRepeat.off;
     return PlaybackSnapshot(
       reciterId: j['r'] as String,
       surah: j['s'] as int,
       ayah: (j['a'] as int?) ?? 1,
       position: Duration(milliseconds: (j['p'] as int?) ?? 0),
       speed: (j['v'] as num?)?.toDouble() ?? 1.0,
-      repeat: ListenRepeat.values.asNameMap()[j['rp']] ?? ListenRepeat.off,
+      repeat: repeat,
+      repeatTimes: (j['rn'] as int?) ?? 0,
+      rangeFrom: from,
+      rangeTo: to,
     );
   }
 }

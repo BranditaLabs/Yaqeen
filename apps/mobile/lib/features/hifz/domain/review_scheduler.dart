@@ -1,3 +1,5 @@
+import 'package:yaqeen/core/time/zoned.dart';
+
 /// Spaced review for Hifz (memorisation) — pure logic.
 ///
 /// The three buttons on the review card map to first intervals of 1 / 3 / 14 days
@@ -32,7 +34,7 @@ abstract final class ReviewScheduler {
   static ReviewState review(ReviewState? current, ReviewGrade grade, DateTime today) {
     final day = DateTime(today.year, today.month, today.day);
     final interval = nextInterval(grade, current?.intervalDays ?? 0);
-    return ReviewState(intervalDays: interval, due: day.add(Duration(days: interval)), reps: (current?.reps ?? 0) + 1);
+    return ReviewState(intervalDays: interval, due: Zoned.addDays(day, interval), reps: (current?.reps ?? 0) + 1);
   }
 
   static bool isDue(ReviewState s, DateTime today) => !DateTime(today.year, today.month, today.day).isBefore(s.due);

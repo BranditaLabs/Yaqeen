@@ -1,6 +1,7 @@
-import { and, eq, gte, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 import type { Redemption } from '@yaqeen/contracts';
 import type { AppContext } from '../context.js';
+import type { Db } from '../db/client.js';
 import { pointsLedger, redemptions, rewards } from '../db/schema.js';
 import { canAfford } from '../domain/points.js';
 import { buildDiscountRequest, generateCode } from '../domain/shopify.js';
@@ -125,4 +126,32 @@ export async function redeem(ctx: AppContext, userId: string, rewardId: string, 
     expiresAt: expiresAt.toISOString(),
     balanceAfter: await balance(ctx, userId),
   };
+}
+
+/**
+ * Shopify orders/paid: our codes on a paid order become `used`. Idempotent (Shopify retries
+ * webhooks): only `issued` codes change, so a replay or an already-expired code is a no-op.
+ * Returns how many codes changed.
+ */
+export async function markUsed(ctx: AppContext, codes: string[], orderId: string): Promise<number> {
+  if (codes.length === 0) return 0;
+  const rows = await ctx.db
+    .update(redemptions)
+    .set({ status: 'used', usedAt: ctx.now(), shopifyOrderId: orderId })
+    .where(and(inArray(redemptions.code, codes), eq(redemptions.status, 'issued')))
+    .returning({ id: redemptions.id });
+  return rows.length;
+}
+
+/**
+ * Daily: issued codes past their date become `expired` (Shopify already rejects them at checkout).
+ * Points are not returned — the reward was delivered; the code simply wasn't used in time.
+ */
+export async function expireDue(db: Db, now: Date): Promise<number> {
+  const rows = await db
+    .update(redemptions)
+    .set({ status: 'expired' })
+    .where(and(eq(redemptions.status, 'issued'), lt(redemptions.expiresAt, now)))
+    .returning({ id: redemptions.id });
+  return rows.length;
 }

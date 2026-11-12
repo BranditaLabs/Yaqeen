@@ -12,16 +12,18 @@ export type UserStatus = z.infer<typeof UserStatus>;
 
 /**
  * Consent buckets, recorded separately (Egypt PDPL 151/2020 requires explicit,
- * specific, revocable consent with records).
+ * specific, revocable consent with records). `cloud_backup` is the opt-in encrypted copy of the
+ * user's personal progress (signed-in accounts only; withdrawing it deletes the server copy).
  */
-export const ConsentKind = z.enum(['worship_reminders', 'challenge_rewards', 'store_offers', 'ads_measurement']);
+export const ConsentKind = z.enum(['worship_reminders', 'challenge_rewards', 'store_offers', 'ads_measurement', 'product_analytics', 'cloud_backup']);
 export type ConsentKind = z.infer<typeof ConsentKind>;
 
 /** The six daily challenge tasks. Point values live in the database (admin-editable). */
 export const TaskKey = z.enum(['wird', 'morning_azkar', 'five_prayers', 'evening_azkar', 'listen', 'daily_task']);
 export type TaskKey = z.infer<typeof TaskKey>;
 
-export const BonusKind = z.enum(['white_days_fast', 'mon_thu_fast', 'friday_kahf']);
+/** Self-reported extras, each enabled by the admin. The Ramadan ones are eligible only in Ramadan. */
+export const BonusKind = z.enum(['white_days_fast', 'mon_thu_fast', 'friday_kahf', 'ramadan_fast', 'taraweeh', 'ramadan_juz']);
 export type BonusKind = z.infer<typeof BonusKind>;
 
 export const DayStatus = z.enum(['done', 'partial', 'qada', 'missed', 'today', 'future']);
@@ -68,7 +70,7 @@ export type CampaignSegment = z.infer<typeof CampaignSegment>;
 export const CampaignSchedule = z.enum(['now', 'smart', 'scheduled']);
 export type CampaignSchedule = z.infer<typeof CampaignSchedule>;
 
-export const DeepLink = z.enum(['home', 'challenge', 'calendar', 'redeem', 'store', 'quran', 'prayer', 'azkar', 'hifz']);
+export const DeepLink = z.enum(['home', 'challenge', 'calendar', 'redeem', 'store', 'quran', 'prayer', 'azkar', 'hifz', 'ramadan']);
 export type DeepLink = z.infer<typeof DeepLink>;
 
 export const Platform = z.enum(['ios', 'android']);
@@ -86,3 +88,11 @@ export type PackKind = z.infer<typeof PackKind>;
 /** Feature flags the app reads from /v1/config. Unknown keys are ignored by the app. */
 export const FEATURE_FLAGS = ['challenge', 'rewards', 'hifz', 'listen', 'bonuses', 'recite', 'ramadan', 'tafsirFull'] as const;
 export type FeatureFlag = (typeof FEATURE_FLAGS)[number];
+
+/**
+ * What the opt-in cloud backup (consent `cloud_backup`) may hold — one sealed JSON document per kind.
+ * Closed list: the API refuses anything else. Downloads, caches, consents and push tokens are never in it.
+ */
+export const BACKUP_KINDS = ['quran_reading', 'quran_notes', 'khatma', 'hifz', 'azkar', 'listen', 'routine', 'ramadan', 'tasbeeh'] as const;
+export const BackupKind = z.enum(BACKUP_KINDS);
+export type BackupKind = z.infer<typeof BackupKind>;

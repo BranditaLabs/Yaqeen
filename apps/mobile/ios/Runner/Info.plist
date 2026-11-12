@@ -32,7 +32,7 @@
 				<string>yaqeen</string>
 			</array>
 		</dict>
-		<!-- Google Sign-In callback: set GOOGLE_REVERSED_CLIENT_ID in Flutter/Release.xcconfig. -->
+		<!-- Google Sign-In callback: GOOGLE_REVERSED_CLIENT_ID from Flutter/{Debug,Release}.xcconfig. -->
 		<dict>
 			<key>CFBundleURLSchemes</key>
 			<array>
@@ -40,6 +40,38 @@
 			</array>
 		</dict>
 	</array>
+	<!-- Ad measurement SDKs: everything off until `ads_measurement` is granted in the app
+	     (lib/core/analytics/sinks). Firebase Analytics (Google Ads): no collection, no automatic
+	     screen views, consent mode denied, no ad personalisation, no IDFV. -->
+	<key>FIREBASE_ANALYTICS_COLLECTION_ENABLED</key>
+	<false/>
+	<key>FirebaseAutomaticScreenReportingEnabled</key>
+	<false/>
+	<key>GOOGLE_ANALYTICS_DEFAULT_ALLOW_ANALYTICS_STORAGE</key>
+	<false/>
+	<key>GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_STORAGE</key>
+	<false/>
+	<key>GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_USER_DATA</key>
+	<false/>
+	<key>GOOGLE_ANALYTICS_DEFAULT_ALLOW_AD_PERSONALIZATION_SIGNALS</key>
+	<false/>
+	<key>GOOGLE_ANALYTICS_IDFV_COLLECTION_ENABLED</key>
+	<false/>
+	<!-- Meta App Events: no automatic start (no contact with Meta before consent), no automatic
+	     events, no IDFA. Ids from Flutter/Secrets.xcconfig (FACEBOOK_APP_ID, FACEBOOK_CLIENT_TOKEN);
+	     empty = Meta stays off. -->
+	<key>FacebookAppID</key>
+	<string>$(FACEBOOK_APP_ID)</string>
+	<key>FacebookClientToken</key>
+	<string>$(FACEBOOK_CLIENT_TOKEN)</string>
+	<key>FacebookDisplayName</key>
+	<string>Yaqeen</string>
+	<key>FacebookAutoInitEnabled</key>
+	<false/>
+	<key>FacebookAutoLogAppEventsEnabled</key>
+	<false/>
+	<key>FacebookAdvertiserIDCollectionEnabled</key>
+	<false/>
 	<key>FlutterDeepLinkingEnabled</key>
 	<true/>
 	<key>GIDClientID</key>
@@ -48,6 +80,8 @@
 	<false/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>نستخدم موقعك لحساب مواقيت الصلاة واتجاه القبلة فقط، ويبقى على جهازك. We use your location only for prayer times and the qibla; it stays on your device.</string>
+	<key>NFCReaderUsageDescription</key>
+	<string>نقرأ رابط ميدالية أو بطاقة يقين حين تقرّبها من الهاتف لتفعيلها. We read your Yaqeen medal or card's link when you hold it to the phone, to activate it.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>نستمع لتلاوتك على جهازك فقط للتسميع، ولا يُرفع أي صوت. We listen to your recitation on this device only; no audio is uploaded.</string>
 	<key>NSUserTrackingUsageDescription</key>
@@ -56,6 +90,8 @@
 	<array>
 		<!-- Recitation keeps playing with the screen off (spec §5.13). -->
 		<string>audio</string>
+		<!-- FCM delivers campaign pushes through APNs. -->
+		<string>remote-notification</string>
 	</array>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>

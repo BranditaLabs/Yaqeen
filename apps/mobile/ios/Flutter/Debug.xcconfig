@@ -1,2 +1,5 @@
 #include "Generated.xcconfig"
+// Google Sign-In iOS client of Firebase project yaqeen-eg (public ids; Secrets.xcconfig may override).
+GOOGLE_IOS_CLIENT_ID = 215304787392-25qvm0s481ebaeoa7213qkk9b1l2bqm5.apps.googleusercontent.com
+GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.215304787392-25qvm0s481ebaeoa7213qkk9b1l2bqm5
 #include? "Secrets.xcconfig"

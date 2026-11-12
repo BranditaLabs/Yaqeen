@@ -22,7 +22,9 @@ class ContentRepository {
     final raw = await cache.read(_key);
     if (raw != null) {
       try {
-        return _parse(jsonDecode(raw));
+        // An empty cache never hides the reviewed seed.
+        final cached = _parse(jsonDecode(raw));
+        if (cached.isNotEmpty) return cached;
       } on FormatException {
         // fall through to the seed
       }
@@ -35,11 +37,19 @@ class ContentRepository {
     }
   }
 
-  /// Returns the fresh list, or null when offline (the cached copy stays).
+  /// Returns the server's list, or null when offline or the body isn't a list (empty, an error page):
+  /// the cached copy stays. An empty list never wipes a library the device already has (a fresh or
+  /// wrong environment) — the local list is returned unchanged; a non-empty list replaces it in full,
+  /// which drops items that were unpublished.
   Future<List<ContentItem>?> sync() async {
     try {
       final res = await api.get('/v1/content');
+      if (res is! List) return null;
       final list = _parse(res);
+      if (list.isEmpty) {
+        final here = await local();
+        if (here.isNotEmpty) return here;
+      }
       await cache.write(_key, jsonEncode([for (final i in list) i.toJson()]));
       return list;
     } on OfflineException {

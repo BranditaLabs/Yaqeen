@@ -2,11 +2,17 @@ import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { FastifyPluginAsync } from 'fastify';
 import {
+  BackupKind,
+  BackupPutRequest,
   type ConsentKind,
   ConsentKind as ConsentKindSchema,
+  ClaimTagRequest,
   ConsentUpdate,
   type ConsentsResponse,
+  ProductEventsBatch,
+  PublicProfileUpdate,
   RegisterDeviceRequest,
+  TagCode,
   UpdateSettingsRequest,
 } from '@yaqeen/contracts';
 import {
@@ -16,14 +22,20 @@ import {
   consents,
   devices,
   pointsLedger,
+  profileTags,
+  publicProfiles,
   redemptions,
   refreshTokens,
   taskCompletions,
   users,
 } from '../../db/schema.js';
 import type { Db } from '../../db/client.js';
-import { notFound } from '../../lib/errors.js';
+import { forbidden, notFound } from '../../lib/errors.js';
 import { userId } from '../../plugins/auth.js';
+import * as profile from '../../services/profile.service.js';
+import * as tags from '../../services/tags.service.js';
+import * as analytics from '../../services/product-analytics.service.js';
+import * as backup from '../../services/backup.service.js';
 
 /** Bump when the privacy policy text changes; stored with every consent event. */
 export const POLICY_VERSION = '2026-10-01';
@@ -53,6 +65,11 @@ export async function exportUser(db: Db, uid: string, opts: { includeWorship: bo
           .from(pointsLedger)
           .where(eq(pointsLedger.userId, uid)),
     redemptions: await db.select().from(redemptions).where(eq(redemptions.userId, uid)),
+    publicProfile: (await db.select().from(publicProfiles).where(eq(publicProfiles.userId, uid)))[0] ?? null,
+    tags: await db
+      .select({ code: profileTags.code, kind: profileTags.kind, linkedAt: profileTags.linkedAt, disabledAt: profileTags.disabledAt, scans: profileTags.scans })
+      .from(profileTags)
+      .where(eq(profileTags.userId, uid)),
   };
 }
 
@@ -94,10 +111,17 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
     return out;
   });
 
-  /** Each change is stored as current state + an immutable event (PDPL evidence). */
+  /**
+   * Each change is stored as current state + an immutable event (PDPL evidence). Withdrawing
+   * `cloud_backup` deletes the server copy in the same transaction; a guest can't grant it.
+   */
   app.put('/consents', async (req) => {
     const body = ConsentUpdate.parse(req.body);
     const uid = userId(req);
+    if (body.kind === 'cloud_backup' && body.granted) {
+      const [u] = await db.select({ isGuest: users.isGuest }).from(users).where(eq(users.id, uid));
+      if (!u || u.isGuest) throw forbidden('account_required', 'Sign in with Google or Apple to use cloud backup');
+    }
     await db.transaction(async (tx) => {
       await tx
         .insert(consents)
@@ -113,8 +137,24 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
         source: body.source,
         policyVersion: POLICY_VERSION,
       });
+      if (body.kind === 'cloud_backup' && !body.granted) await backup.wipe(tx, [uid]);
     });
     return { ok: true };
+  });
+
+  /* -------------------------------------------- opt-in cloud backup (consent cloud_backup) */
+
+  /** Which kinds the server holds, with their versions — never the content. */
+  app.get('/backup', async (req) => backup.manifest(app.ctx, userId(req)));
+
+  app.get('/backup/:kind', async (req) => {
+    const { kind } = z.object({ kind: BackupKind }).parse(req.params);
+    return backup.get(app.ctx, userId(req), kind);
+  });
+
+  app.put('/backup/:kind', { bodyLimit: 512 * 1024, config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (req) => {
+    const { kind } = z.object({ kind: BackupKind }).parse(req.params);
+    return backup.put(app.ctx, userId(req), kind, BackupPutRequest.parse(req.body));
   });
 
   app.post('/devices', async (req) => {
@@ -158,9 +198,53 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
       .limit(200),
   );
 
+  /* ------------------------------------------------- public profile card (NFC / QR) */
+
+  /** The owner's card settings (a suggested draft before the first save), its URL and scan count. */
+  app.get('/public-profile', async (req) => profile.settings(app.ctx, userId(req)));
+
+  app.put('/public-profile', async (req) =>
+    profile.update(app.ctx, userId(req), req.user?.guest ?? true, PublicProfileUpdate.parse(req.body)),
+  );
+
+  /** The owner's journey for the Profile tab: level, streak, challenge day and dated milestones. */
+  app.get('/journey', async (req) => profile.myJourney(app.ctx, userId(req)));
+
+  /** Consented product analytics (closed list, no worship, no account link). 202 even when dropped. */
+  app.post('/events', { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (req, reply) => {
+    const batch = ProductEventsBatch.parse(req.body);
+    const accepted = await analytics.ingest(app.ctx, userId(req), batch);
+    return reply.status(202).send({ accepted });
+  });
+
+  /** Physical tags (key medals, cards): list, activate by code, switch off a lost one. */
+  app.get('/tags', async (req) => tags.mine(app.ctx, userId(req)));
+
+  app.post('/tags', { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } }, async (req) => {
+    const { code } = ClaimTagRequest.parse(req.body);
+    return tags.claim(app.ctx, userId(req), req.user?.guest ?? true, code);
+  });
+
+  app.delete('/tags/:code', async (req, reply) => {
+    const { code } = z.object({ code: TagCode }).parse(req.params);
+    await tags.disable(app.ctx, userId(req), code);
+    return reply.status(204).send();
+  });
+
+  app.get('/public-profile/available', async (req) => {
+    const { handle } = z.object({ handle: z.string().max(40) }).parse(req.query);
+    return { available: await profile.handleAvailable(app.ctx, handle, userId(req)) };
+  });
+
   /** PDPL right of access: everything we hold about the user, as JSON. */
   app.get('/export', async (req) => {
-    return { exportedAt: app.ctx.now().toISOString(), ...(await exportUser(db, userId(req), { includeWorship: true })) };
+    const uid = userId(req);
+    return {
+      exportedAt: app.ctx.now().toISOString(),
+      ...(await exportUser(db, uid, { includeWorship: true })),
+      // The opt-in cloud backup, opened — only here, never in the admin export.
+      backups: await backup.exportFor(app.ctx, uid),
+    };
   });
 
   /**
@@ -174,7 +258,10 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
       await tx.update(users).set({ status: 'deletion_requested', deletionRequestedAt: now, updatedAt: now }).where(eq(users.id, uid));
       await tx.update(refreshTokens).set({ revokedAt: now }).where(and(eq(refreshTokens.userId, uid), isNull(refreshTokens.revokedAt)));
       await tx.update(devices).set({ invalidatedAt: now }).where(and(eq(devices.userId, uid), isNull(devices.invalidatedAt)));
+      await tx.update(publicProfiles).set({ published: false, updatedAt: now }).where(eq(publicProfiles.userId, uid));
+      await tags.disableAllFor(tx, uid, now);
     });
+    await app.ctx.cache.bumpNamespace('profile'); // the public card disappears at once
     return reply.status(202).send({ status: 'deletion_requested', graceDays: DELETION_GRACE_DAYS });
   });
 };

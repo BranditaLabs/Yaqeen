@@ -6,9 +6,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/config/config_controller.dart';
+import '../core/config/env.dart';
 import '../core/notifications/push_service.dart';
+import '../features/backup/presentation/backup_sync.dart';
+import '../features/backup/presentation/backup_widgets.dart';
+import '../features/challenge/presentation/challenge_controller.dart';
 import '../features/listen/presentation/downloads_controller.dart';
+import '../features/notifications/presentation/inbox_screen.dart' show inboxProvider;
 import '../features/notifications/presentation/reminders_controller.dart';
+import '../features/onboarding/presentation/session_controller.dart';
 import 'router.dart';
 import '../core/di/providers.dart';
 import '../core/theme/tokens.dart';
@@ -32,6 +38,8 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
   bool _offlineBypass = false;
   String? _appVersion;
   Timer? _flushTimer;
+  StreamSubscription<PushOpened>? _pushTaps;
+  StreamSubscription<PushMessage>? _pushArrivals;
 
   @override
   void initState() {
@@ -45,13 +53,40 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
     );
     // Every 15 minutes while in the foreground.
     _flushTimer = Timer.periodic(const Duration(minutes: 15), (_) => ref.read(outboxSyncProvider).flush().ignore());
+    // A tapped campaign push opens its screen and counts the open.
+    _pushTaps = ref.read(pushServiceProvider).onOpened.listen((o) {
+      final nav = rootNavigatorKey.currentContext;
+      if (nav != null && nav.mounted) GoRouter.of(nav).go(routeForDeepLink(o.link));
+      ref.read(pushRegistrarProvider).opened(o).catchError((Object _) {}).ignore();
+      _filePushes().ignore();
+    });
+    // Campaign and challenge pushes land in the notification centre (spec §5.18).
+    _pushArrivals = ref.read(pushServiceProvider).onReceived.listen((m) => _filePushes([m]).ignore());
     WidgetsBinding.instance.addPostFrameCallback((_) => _warmUp());
   }
+
+  /// Files pushes in the notification centre: [received] now, plus any that arrived while the app
+  /// was away. Never throws.
+  Future<void> _filePushes([List<PushMessage> received = const []]) async {
+    try {
+      final pushes = [...received, ...await ref.read(pushServiceProvider).takeArrived()];
+      if (pushes.isEmpty) return;
+      await ref.read(inboxRepositoryProvider).addPushes(pushes);
+      if (mounted) ref.invalidate(inboxProvider);
+    } catch (_) {
+      // The OS showed them anyway; the next resume tries the spool again.
+    }
+  }
+
+  /// Keeps this install's push token on the server for the signed-in account.
+  Future<void> _syncPush() => ref.read(pushRegistrarProvider).sync(ref.read(sessionProvider).userId);
 
   /// Start-up work after the first frame, all at once and each isolated: one slow or failing
   /// task (offline, a plugin error) never delays or cancels the others.
   void _warmUp() {
     final tasks = <Future<void> Function()>[
+      // A guest chosen offline gets its server account (then consents, settings and the outbox follow).
+      () => ref.read(sessionProvider.notifier).ensureServerAccount(),
       // Parse the mushaf on a background isolate now, so Home and the reader open instantly.
       () => ref.read(quranDataProvider.future),
       // Keep the local adhan/reminder schedule fresh (spec §6.5: re-plan on start).
@@ -62,6 +97,10 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
       _updatePacks,
       // Full-reciter downloads cut short by a kill or restart pick up where they stopped.
       () => ref.read(downloadsControllerProvider.notifier).resumeInterrupted(),
+      _syncPush,
+      _filePushes,
+      // Opt-in cloud backup: pull + merge + push (time-boxed), or offer a restore after sign-in.
+      () => ref.read(backupSyncProvider.notifier).start(),
     ];
     for (final task in tasks) {
       Future(task).catchError((Object _) {}).ignore();
@@ -71,9 +110,15 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      ref.read(sessionProvider.notifier).ensureServerAccount().ignore();
       ref.read(outboxSyncProvider).flush().ignore();
       ref.read(remoteConfigProvider.notifier).refresh().ignore();
       ref.read(remindersControllerProvider.notifier).replan().ignore();
+      _syncPush().catchError((Object _) {}).ignore();
+      ref.read(backupSyncProvider.notifier).start().catchError((Object _) {}).ignore();
+      _filePushes().ignore();
+      // Past midnight while away: today's challenge ticks start fresh (timers don't run then).
+      if (ref.exists(challengeControllerProvider)) ref.read(challengeControllerProvider.notifier).refreshIfNewDay();
     }
   }
 
@@ -95,6 +140,8 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _flushTimer?.cancel();
+    _pushTaps?.cancel();
+    _pushArrivals?.cancel();
     super.dispose();
   }
 
@@ -106,8 +153,19 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
       final nav = rootNavigatorKey.currentContext;
       if (link != null && nav != null) GoRouter.of(nav).go(routeForDeepLink(link));
     });
+    ref.listen(sessionProvider.select((s) => s.userId), (prev, next) {
+      if (next != prev) _syncPush().catchError((Object _) {}).ignore();
+    });
+    // An account with a backup signed in on this phone: offer to restore it (once per account).
+    ref.listen(backupSyncProvider.select((s) => s.restoreOffer != null), (prev, next) {
+      final nav = rootNavigatorKey.currentContext;
+      if (next && prev != true && nav != null && nav.mounted) showRestoreBackupSheet(nav, ref).ignore();
+    });
     ref.listen(onlineProvider, (prev, next) {
-      if (next.valueOrNull == true && prev?.valueOrNull == false) ref.read(outboxSyncProvider).flush(force: true).ignore();
+      if (next.valueOrNull == true && prev?.valueOrNull == false) {
+        ref.read(sessionProvider.notifier).ensureServerAccount().ignore();
+        ref.read(outboxSyncProvider).flush(force: true).ignore();
+      }
     });
     final config = ref.watch(remoteConfigProvider);
     final device = ref.watch(deviceServicesProvider);
@@ -172,9 +230,7 @@ class _UpdateRequired extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
     final device = ref.watch(deviceServicesProvider);
-    final store = device.isIOS
-        ? Uri.parse('https://apps.apple.com/app/id${const String.fromEnvironment('APP_STORE_ID', defaultValue: '0')}')
-        : Uri.parse('https://play.google.com/store/apps/details?id=com.yaqinbrand.yaqeen');
+    final store = Env.updateUri(ios: device.isIOS);
     return Positioned.fill(
       child: ColoredBox(
         color: const Color(0x8C0A1530),

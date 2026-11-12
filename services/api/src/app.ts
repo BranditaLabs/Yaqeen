@@ -9,6 +9,8 @@ import { sql } from 'drizzle-orm';
 import type { AppContext } from './context.js';
 import { type CacheNamespace, ResponseCache } from './lib/cache.js';
 import { errorHandler } from './lib/errors.js';
+import { type QuranFoundationClient, quranFoundationFromEnv } from './integrations/quran-foundation.js';
+import { httpDuration } from './lib/metrics.js';
 import { authPlugin } from './plugins/auth.js';
 import { adminAuthRoutes } from './routes/admin/auth.routes.js';
 import { adminCampaignRoutes } from './routes/admin/campaigns.routes.js';
@@ -16,10 +18,19 @@ import { adminContentRoutes } from './routes/admin/content.routes.js';
 import { adminOverviewRoutes } from './routes/admin/overview.routes.js';
 import { adminRewardsRoutes } from './routes/admin/rewards.routes.js';
 import { adminSettingsRoutes } from './routes/admin/settings.routes.js';
+import { adminTagsRoutes } from './routes/admin/tags.routes.js';
+import { adminCardsRoutes } from './routes/admin/cards.routes.js';
+import { adminAnalyticsRoutes } from './routes/admin/analytics.routes.js';
 import { adminUsersRoutes } from './routes/admin/users.routes.js';
 import { appRoutes } from './routes/public/app.routes.js';
+import { quranContentRoutes } from './routes/public/quran-content.routes.js';
 import { authRoutes } from './routes/public/auth.routes.js';
+import { encodeRoutes } from './routes/public/encode.routes.js';
+import { redactEncodeToken } from './services/tag-encoding.service.js';
 import { meRoutes } from './routes/public/me.routes.js';
+import { profileRoutes } from './routes/public/profile.routes.js';
+import { siteRoutes } from './routes/public/site.routes.js';
+import { shopifyWebhookRoutes } from './routes/webhooks/shopify.routes.js';
 
 /** Which public caches an admin write under each prefix can change. */
 const INVALIDATES: [string, CacheNamespace[]][] = [
@@ -28,8 +39,10 @@ const INVALIDATES: [string, CacheNamespace[]][] = [
   ['/admin/rewards', ['config', 'catalogue']], // points program, cheapest reward
 ];
 
-export async function buildApp(input: Omit<AppContext, 'cache'> & { cache?: ResponseCache }): Promise<FastifyInstance> {
-  const ctx: AppContext = { ...input, cache: input.cache ?? new ResponseCache(input.redis) };
+export async function buildApp(
+  input: Omit<AppContext, 'cache' | 'qf'> & { cache?: ResponseCache; qf?: QuranFoundationClient },
+): Promise<FastifyInstance> {
+  const ctx: AppContext = { ...input, cache: input.cache ?? new ResponseCache(input.redis), qf: input.qf ?? quranFoundationFromEnv(input.env) };
   const app = Fastify({
     // Correlate logs across the load balancer, API and jobs.
     requestIdHeader: 'x-request-id',
@@ -45,6 +58,15 @@ export async function buildApp(input: Omit<AppContext, 'cache'> & { cache?: Resp
             level: ctx.env.LOG_LEVEL,
             // Never log tokens or personal data.
             redact: ['req.headers.authorization', 'req.headers["x-admin-session"]', 'req.body.idToken', 'req.body.password', 'req.body.totp'],
+            // Staff encoding tokens travel in the path (`/v1/encode/<token>`): keep them out of logs.
+            serializers: {
+              req: (req: { method: string; url: string; hostname?: string; ip?: string }) => ({
+                method: req.method,
+                url: redactEncodeToken(req.url),
+                host: req.hostname,
+                remoteAddress: req.ip,
+              }),
+            },
           },
     trustProxy: true,
     bodyLimit: 256 * 1024,
@@ -54,6 +76,13 @@ export async function buildApp(input: Omit<AppContext, 'cache'> & { cache?: Resp
   app.setErrorHandler(errorHandler);
   app.addHook('onSend', async (req, reply) => {
     reply.header('x-request-id', req.id);
+  });
+  // RED metrics by route template (never the raw URL: no handles, codes or ids in labels).
+  app.addHook('onResponse', async (req, reply) => {
+    httpDuration.observe(
+      { method: req.method, route: req.routeOptions.url ?? 'unmatched', status: String(reply.statusCode) },
+      reply.elapsedTime / 1000,
+    );
   });
   app.addHook('onResponse', async (req, reply) => {
     if (req.method === 'GET' || reply.statusCode >= 400) return;
@@ -104,7 +133,12 @@ export async function buildApp(input: Omit<AppContext, 'cache'> & { cache?: Resp
   // Public app API
   await app.register(authRoutes, { prefix: '/v1/auth' });
   await app.register(meRoutes, { prefix: '/v1/me' });
+  await app.register(encodeRoutes, { prefix: '/v1/encode' });
   await app.register(appRoutes, { prefix: '/v1' });
+  await app.register(quranContentRoutes, { prefix: '/v1/content' });
+  await app.register(profileRoutes);
+  await app.register(siteRoutes);
+  await app.register(shopifyWebhookRoutes, { prefix: '/webhooks/shopify' });
 
   // Admin API (separate token audience + RBAC on every route)
   await app.register(adminAuthRoutes, { prefix: '/admin/auth' });
@@ -114,6 +148,9 @@ export async function buildApp(input: Omit<AppContext, 'cache'> & { cache?: Resp
   await app.register(adminCampaignRoutes, { prefix: '/admin/campaigns' });
   await app.register(adminRewardsRoutes, { prefix: '/admin/rewards' });
   await app.register(adminSettingsRoutes, { prefix: '/admin/settings' });
+  await app.register(adminTagsRoutes, { prefix: '/admin/tags' });
+  await app.register(adminCardsRoutes, { prefix: '/admin/cards' });
+  await app.register(adminAnalyticsRoutes, { prefix: '/admin/analytics' });
 
   return app;
 }

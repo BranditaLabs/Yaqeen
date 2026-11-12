@@ -14,12 +14,14 @@ import type { AppContext } from '../context.js';
 import { createDb } from '../db/client.js';
 import { campaignDeliveries, campaigns, devices, users } from '../db/schema.js';
 import { CONSENT_FOR_KIND, QUIET_START_MIN, checkSend, localClock } from '../domain/guardrails.js';
-import { prayerMinutes } from '../domain/prayer-times.js';
+import { coordsFor, prayerMinutes } from '../domain/prayer-times.js';
 import { AlAdhanClient } from '../integrations/aladhan.js';
 import { FcmSender } from '../integrations/fcm.js';
+import { quranFoundationFromEnv } from '../integrations/quran-foundation.js';
 import { ShopifyClient } from '../integrations/shopify.js';
 import { ResponseCache } from '../lib/cache.js';
 import { segmentQuery } from '../routes/admin/campaigns.routes.js';
+import { runJob } from '../lib/observability.js';
 import { withJobLock } from './lock.js';
 
 const DEEP_LINK_PREFIX = 'yaqeen://';
@@ -48,7 +50,10 @@ export async function dispatchDue(ctx: AppContext): Promise<void> {
 
     for (let i = 0; i < pending.length; i += 500) {
       const chunk = pending.slice(i, i + 500);
-      const people = await db.select({ id: users.id, tz: users.timezone, locale: users.locale }).from(users).where(inArray(users.id, chunk));
+      const people = await db
+        .select({ id: users.id, tz: users.timezone, locale: users.locale, city: users.city, method: users.prayerMethod })
+        .from(users)
+        .where(inArray(users.id, chunk));
       const dayAgo = new Date(now.getTime() - 24 * 3600_000);
       const counts = await db
         .select({ u: campaignDeliveries.userId, n: sql<string>`count(*)` })
@@ -62,7 +67,7 @@ export async function dispatchDue(ctx: AppContext): Promise<void> {
         const res = checkSend({
           kind,
           clock: localClock(now, p.tz),
-          prayerMinutes: prayerMinutes(now, p.tz),
+          prayerMinutes: prayerMinutes(now, p.tz, coordsFor(p.city, p.tz), p.method),
           consents: { [consentKind]: true }, // segmentQuery already filtered on consent
           sentTodayOfKind: sentToday.get(p.id) ?? 0,
         });
@@ -110,7 +115,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const env = loadEnv();
   const { db, pool } = createDb(env.DATABASE_URL);
   const redis = new Redis(env.REDIS_URL);
-  const res = await withJobLock(pool, 'campaign-dispatcher', () => dispatchDue({
+  const res = await runJob(env, 'yaqeen-campaigns', '*/10 * * * *', () => withJobLock(pool, 'campaign-dispatcher', () => dispatchDue({
     env,
     db,
     redis,
@@ -118,8 +123,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     aladhan: new AlAdhanClient(env.ALADHAN_BASE_URL, redis),
     shopify: new ShopifyClient({ shopDomain: env.SHOPIFY_SHOP_DOMAIN, adminToken: env.SHOPIFY_ADMIN_TOKEN, apiVersion: env.SHOPIFY_API_VERSION }),
     fcm: new FcmSender(env.FIREBASE_SERVICE_ACCOUNT_JSON),
+    qf: quranFoundationFromEnv(env),
     now: () => new Date(),
-  }));
+  })));
   if (!res.ran) console.log('[campaigns] another dispatcher is running — skipped');
   await pool.end();
   redis.disconnect();

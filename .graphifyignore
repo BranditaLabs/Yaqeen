@@ -1,0 +1,14 @@
+# graphify: index source, not build output, generated code or vendored assets
+**/node_modules/
+**/build/
+**/.dart_tool/
+**/.next/
+**/dist/
+**/Pods/
+apps/mobile/lib/l10n/app_localizations*.dart
+apps/mobile/assets/
+packages/brand/
+**/*.g.dart
+**/*.freezed.dart
+.claude/
+.impeccable/

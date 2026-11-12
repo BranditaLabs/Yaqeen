@@ -1,7 +1,8 @@
 import '../../../core/storage/local_store.dart';
 import '../domain/azkar_progress.dart';
 
-/// Azkar counts and dua favourites — device only, never synced (they are worship data).
+/// Azkar counts and dua favourites — device first, with an optional encrypted cloud backup (consent
+/// `cloud_backup`); never in analytics or admin views.
 class AzkarStore {
   AzkarStore(this.store);
   final LocalStore store;

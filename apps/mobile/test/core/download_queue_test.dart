@@ -106,4 +106,52 @@ void main() {
     expect(seen, [10, 100]);
     expect(joined, [10, 100]);
   });
+
+  test('idle fires once when the last running or queued job finishes', () async {
+    final q = DownloadQueue(maxConcurrent: 1);
+    var idle = 0;
+    final sub = q.idle.listen((_) => idle++);
+    final gates = [Completer<void>(), Completer<void>()];
+    final done = [
+      for (var i = 0; i < 2; i++) q.add('k$i', group: 'g', run: (_, __) => gates[i].future),
+    ];
+    gates[0].complete();
+    await done[0];
+    await Future<void>.delayed(Duration.zero);
+    expect(idle, 0); // the second job is still running
+    gates[1].complete();
+    await done[1];
+    await Future<void>.delayed(Duration.zero);
+    expect(idle, 1);
+    await sub.cancel();
+  });
+
+  test('an urgent job jumps the line; joining a queued job urgently moves it out of the cancelled group', () async {
+    final q = DownloadQueue(maxConcurrent: 1);
+    final order = <String>[];
+    final gate = Completer<void>();
+    Future<String> job(String k) async {
+      order.add(k);
+      if (k == 'busy') await gate.future;
+      return k;
+    }
+
+    final busy = q.add('busy', group: 'bulk', run: (_, __) => job('busy'));
+    final b1 = q.add('b1', group: 'bulk', run: (_, __) => job('b1'));
+    final b2 = q.add('b2', group: 'bulk', run: (_, __) => job('b2'));
+    final b3 = q.add('b3', group: 'bulk', run: (_, __) => job('b3'));
+    final now = q.add('now', group: 'screen', urgent: true, run: (_, __) => job('now'));
+    // The reader needs b3 now: it moves ahead and leaves the bulk group.
+    final adopted = q.add('b3', group: 'screen', urgent: true, run: (_, __) => job('never'));
+    await Future<void>.delayed(Duration.zero);
+    final cancelled = Future.wait([
+      expectLater(b1, throwsA(isA<DownloadCancelled>())),
+      expectLater(b2, throwsA(isA<DownloadCancelled>())),
+    ]);
+    q.cancelGroup('bulk');
+    await cancelled;
+    gate.complete();
+    expect(await Future.wait([busy, now, b3, adopted]), ['busy', 'now', 'b3', 'b3']);
+    expect(order, ['busy', 'b3', 'now']);
+  });
 }

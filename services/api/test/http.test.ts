@@ -36,6 +36,17 @@ describe('http', () => {
     expect(res.json()).toEqual({ ok: true });
   });
 
+  it('Apple web callback bounces Apple fields back into the Android app, nothing else', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/apple/callback',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: 'code=c1&id_token=a.b.c&state=s1&evil=%3Cscript%3E',
+    });
+    expect(res.statusCode).toBe(307);
+    expect(res.headers.location).toBe('intent://callback?code=c1&id_token=a.b.c&state=s1#Intent;package=com.yaqinbrand.yaqeen;scheme=signinwithapple;end');
+  });
+
   it('rejects /v1/me without a token', async () => {
     const res = await app.inject({ method: 'GET', url: '/v1/me' });
     expect(res.statusCode).toBe(401);

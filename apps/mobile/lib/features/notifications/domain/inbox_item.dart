@@ -1,3 +1,5 @@
+import '../../../core/notifications/push_service.dart';
+
 enum InboxCategory { worship, challenge, offers }
 
 /// One entry of the notification centre (spec §5.18). Stored on the device only.
@@ -46,6 +48,21 @@ class InboxItem {
         campaignId: j['cid'] as String?,
         read: (j['r'] as bool?) ?? false,
       );
+}
+
+/// A remote push in the notification centre. Remote pushes are campaigns and challenge/reward
+/// nudges — never worship (those reminders are local). The push's `category` decides; without
+/// one, a link into the challenge files it there and anything else is an offer.
+InboxItem inboxItemForPush(PushMessage m) {
+  final category = switch (m.category) {
+    'challenge' => InboxCategory.challenge,
+    'offers' => InboxCategory.offers,
+    _ => switch (m.link == null ? null : Uri.tryParse(m.link!)) {
+        final Uri uri when const {'/challenge', '/challenge/calendar'}.contains(routeForDeepLink(uri)) => InboxCategory.challenge,
+        _ => InboxCategory.offers,
+      },
+  };
+  return InboxItem(id: 'push:${m.id}', category: category, title: m.title, body: m.body, at: m.at, link: m.link, campaignId: m.campaignId);
 }
 
 /// Keeps the inbox bounded: last 30 days, at most 200 items, newest first (spec §5.18).

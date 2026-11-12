@@ -1,3 +1,4 @@
+import 'package:yaqeen/core/time/zoned.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -24,7 +25,7 @@ void main() {
       expect(p.today(q), (surah: 114, from: 1, to: 5));
       p = p.memorise(q, day);
       expect(p.today(q), (surah: 114, from: 6, to: 6));
-      p = p.memorise(q, day.add(const Duration(days: 1)));
+      p = p.memorise(q, Zoned.addDays(day, 1));
       expect(p.today(q), (surah: 113, from: 1, to: 5));
       expect(p.memorisedAyat(), 6);
       expect(p.memorisedToday(day), isTrue);
@@ -33,15 +34,49 @@ void main() {
     test('first review is tomorrow; ratings follow the scheduler; estimate and strip', () {
       var p = const HifzPlan(goal: HifzGoal.kahf, perDay: 10).memorise(q, day);
       expect(p.due(day), isEmpty);
-      final tomorrow = day.add(const Duration(days: 1));
+      final tomorrow = Zoned.addDays(day, 1);
       expect(p.due(tomorrow), hasLength(1));
       p = p.rate(p.portions.single.id, ReviewGrade.good, tomorrow);
       expect(p.portions.single.review.intervalDays, 3);
       expect(p.due(tomorrow), isEmpty);
       expect(p.upcoming(tomorrow), hasLength(1));
-      expect(p.finishEstimate(q, tomorrow), tomorrow.add(const Duration(days: 10)));
+      expect(p.finishEstimate(q, tomorrow), Zoned.addDays(tomorrow, 10));
       expect(p.activeInLast(14, tomorrow), 2);
       expect(p.progress(q), closeTo(10 / 110, 1e-9));
+    });
+
+    test('progress and finish count only the current goal after «تعديل الخطة»', () {
+      var p = const HifzPlan(goal: HifzGoal.all, perDay: 20);
+      for (var i = 0; i < 10; i++) {
+        p = p.memorise(q, Zoned.addDays(day, i)); // al-Fātiḥa and most of al-Baqarah
+      }
+      expect(p.memorisedAyatIn(), 187);
+      final kahf = p.copyWith(goal: HifzGoal.kahf);
+      expect(kahf.memorisedAyat(), 187); // still reviewed
+      expect(kahf.memorisedAyatIn(), 0);
+      expect(kahf.progress(q), 0);
+      expect(kahf.finishEstimate(q, day), Zoned.addDays(day, (110 / 20).ceil()));
+      expect(kahf.today(q), (surah: 18, from: 1, to: 20));
+    });
+
+    test("today's card keeps the passage memorised today once the cursor moves on", () {
+      final p = const HifzPlan(goal: HifzGoal.amma, perDay: 5).memorise(q, day);
+      expect(p.todaysPortion(day)?.id, '114:1-5');
+      expect(p.today(q), (surah: 114, from: 6, to: 6));
+      expect(p.todaysPortion(Zoned.addDays(day, 1)), isNull);
+    });
+
+    test('steps ticked today are kept (and saved), and reset the next day', () {
+      var p = const HifzPlan(goal: HifzGoal.amma, perDay: 5).toggleStep(0, day).toggleStep(1, day);
+      expect(p.stepsFor(day), {0, 1});
+      p = p.toggleStep(1, day);
+      expect(p.stepsFor(day), {0});
+      final back = HifzPlan.tryParse(jsonDecode(jsonEncode(p.toJson())))!;
+      expect(back.stepsFor(day), {0});
+      expect(back.copyWith(perDay: 7).stepsFor(day), {0});
+      final tomorrow = Zoned.addDays(day, 1);
+      expect(back.stepsFor(tomorrow), isEmpty);
+      expect(back.toggleStep(2, tomorrow).stepsFor(tomorrow), {2});
     });
 
     test('round-trips through JSON', () {

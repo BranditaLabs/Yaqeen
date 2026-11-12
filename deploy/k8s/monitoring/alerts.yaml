@@ -1,0 +1,83 @@
+# Alert rules matching docs/OPERATIONS.md › Observability (SLO: 99.9 % availability, p99 < 300 ms
+# cached / < 800 ms personal). Route `severity: page` to on-call, `ticket` to the team channel.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: yaqeen-api
+  labels: { release: kube-prometheus-stack }
+spec:
+  groups:
+    - name: yaqeen-api.slo
+      rules:
+        - record: yaqeen:http_requests:rate5m
+          expr: sum(rate(yaqeen_http_request_duration_seconds_count[5m]))
+        - record: yaqeen:http_5xx:ratio5m
+          expr: sum(rate(yaqeen_http_request_duration_seconds_count{status=~"5.."}[5m])) / clamp_min(sum(rate(yaqeen_http_request_duration_seconds_count[5m])), 1e-9)
+        - record: yaqeen:http_p99:5m
+          expr: histogram_quantile(0.99, sum by (le) (rate(yaqeen_http_request_duration_seconds_bucket{route!~"/health|/ready"}[5m])))
+        - alert: YaqeenHigh5xxRate
+          expr: yaqeen:http_5xx:ratio5m > 0.01 and yaqeen:http_requests:rate5m > 1
+          for: 5m
+          labels: { severity: page }
+          annotations:
+            summary: "API 5xx above 1 % for 5 min ({{ $value | humanizePercentage }})"
+            runbook: "docs/OPERATIONS.md#runbooks — check Sentry for the top error, then recent deploys (rollback: deploy workflow › rollback)."
+        - alert: YaqeenLatencyHigh
+          expr: yaqeen:http_p99:5m > 1
+          for: 10m
+          labels: { severity: page }
+          annotations:
+            summary: "API p99 above 1 s for 10 min ({{ $value | humanizeDuration }})"
+            runbook: "HPA at max? Slow query in pg_stat_statements? Postgres pool waiting?"
+        - alert: YaqeenLoadShedding
+          expr: sum(rate(yaqeen_http_request_duration_seconds_count{status="503"}[5m])) > 0.5
+          for: 5m
+          labels: { severity: ticket }
+          annotations:
+            summary: "API is shedding load (503) — scale up or find the hot path"
+        - alert: YaqeenPgPoolSaturated
+          expr: max(yaqeen_pg_pool_waiting) > 5
+          for: 5m
+          labels: { severity: page }
+          annotations:
+            summary: "Requests waiting for Postgres connections — PgBouncer / PG_POOL_MAX / long transactions"
+        - alert: YaqeenCacheMissStorm
+          expr: sum(rate(yaqeen_cache_lookups_total{result="miss"}[5m])) / clamp_min(sum(rate(yaqeen_cache_lookups_total[5m])), 1e-9) > 0.5 and sum(rate(yaqeen_cache_lookups_total[5m])) > 5
+          for: 10m
+          labels: { severity: ticket }
+          annotations:
+            summary: "Response cache mostly missing — Redis down or namespaces bumped in a loop"
+        - alert: YaqeenShopifyFailing
+          expr: sum(increase(yaqeen_external_calls_total{service="shopify",outcome="error"}[10m])) > 5
+          labels: { severity: ticket }
+          annotations:
+            summary: "Shopify discount creation failing — redemptions are refunded; check the token and scopes"
+    - name: yaqeen-api.runtime
+      rules:
+        - alert: YaqeenPodRestarting
+          expr: increase(kube_pod_container_status_restarts_total{namespace="yaqeen"}[15m]) > 2
+          labels: { severity: ticket }
+          annotations:
+            summary: "{{ $labels.pod }} restarted {{ $value }} times in 15 min"
+        - alert: YaqeenHpaAtMax
+          expr: kube_horizontalpodautoscaler_status_current_replicas{namespace="yaqeen"} >= kube_horizontalpodautoscaler_spec_max_replicas{namespace="yaqeen"}
+          for: 15m
+          labels: { severity: page }
+          annotations:
+            summary: "{{ $labels.horizontalpodautoscaler }} at max replicas for 15 min — raise maxReplicas"
+        - alert: YaqeenJobFailed
+          expr: increase(kube_job_status_failed{namespace="yaqeen"}[1h]) > 0
+          labels: { severity: ticket }
+          annotations:
+            summary: "Job {{ $labels.job_name }} failed (campaign dispatcher / purge / migrate)"
+        - alert: YaqeenProbeDown
+          expr: probe_success{service="yaqeen"} == 0
+          for: 3m
+          labels: { severity: page }
+          annotations:
+            summary: "{{ $labels.instance }} is down from inside the cluster"
+        - alert: YaqeenCertExpiring
+          expr: (probe_ssl_earliest_cert_expiry{service="yaqeen"} - time()) / 86400 < 14
+          labels: { severity: ticket }
+          annotations:
+            summary: "TLS certificate for {{ $labels.instance }} expires in {{ $value | humanize }} days"

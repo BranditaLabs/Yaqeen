@@ -23,7 +23,7 @@ void main() {
   test('never exceeds the iOS budget and keeps the earliest reminders', () {
     final plan = NotificationPlanner.plan(
       days: days(14),
-      prefs: const ReminderPrefs(prePrayerMinutes: 10, wirdAt: 21 * 60),
+      prefs: const ReminderPrefs(prePrayerMinutes: 10, wird: SlotTime.at(21 * 60)),
       now: now,
     );
     expect(plan.items.length, NotificationPlanner.iosLimit);
@@ -47,5 +47,23 @@ void main() {
       now: now,
     );
     expect(plan.items.map((e) => e.prayer).toSet(), {Prayer.fajr});
+  });
+  test('a missed hifz review keeps reminding every day until it is rated', () {
+    final plan = NotificationPlanner.plan(
+      days: days(3),
+      prefs: ReminderPrefs(hifzDueDates: {DateTime(2026, 10, 18)}, hifz: const SlotTime.at(13 * 60)),
+      now: now,
+    );
+    final hifz = plan.items.where((n) => n.kind == ReminderKind.hifzDue).map((n) => n.at).toList();
+    expect(hifz, [DateTime(2026, 10, 20, 13), DateTime(2026, 10, 21, 13), DateTime(2026, 10, 22, 13)]);
+  });
+
+  test('a hifz review due later reminds from its due day on', () {
+    final plan = NotificationPlanner.plan(
+      days: days(3),
+      prefs: ReminderPrefs(hifzDueDates: {DateTime(2026, 10, 22)}, hifz: const SlotTime.at(13 * 60)),
+      now: now,
+    );
+    expect(plan.items.where((n) => n.kind == ReminderKind.hifzDue).map((n) => n.at).toList(), [DateTime(2026, 10, 22, 13)]);
   });
 }

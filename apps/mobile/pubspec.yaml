@@ -37,8 +37,21 @@ dependencies:
   path_provider: ^2.1.6
   crypto: ^3.0.7
   app_tracking_transparency: ^2.0.7
-  # Phase 2 (need accounts/keys — see README "Native integrations"):
-  # firebase_core, firebase_messaging → PushService · facebook_app_events, TikTok SDK → AdSink
+  qr_flutter: ^4.1.0
+  sentry_flutter: ^9.0.0
+  home_widget: ^0.10.0
+  # Firebase: push (FCM → PushService) and Analytics as the Google Ads sink (off until consent).
+  # Stay on firebase_core 4.x (Firebase iOS SDK 12): SDK 13 needs gtm-session-fetcher ≥4, which
+  # GoogleSignIn 9 (google_sign_in_ios) can't take — Swift packages then fail to resolve on iOS.
+  # Every firebase_* package must be the release matching firebase_core 4.15.x (iOS SDK 12.19.x):
+  # firebase_analytics 13 needs firebase_core 5.
+  firebase_core: ^4.15.2
+  firebase_messaging: ^16.7.1
+  firebase_analytics: ^12.6.1
+  # Ad measurement sinks (lib/core/analytics/sinks): Meta App Events, deferred init, Swift Package.
+  # TikTok has no SDK in the app — server-side Events API (docs/ANALYTICS_EVENTS.md).
+  facebook_app_events: ^0.31.0
+  nfc_manager: 4.2.1
 
 dev_dependencies:
   flutter_test:
@@ -47,6 +60,7 @@ dev_dependencies:
   # `dart run flutter_launcher_icons` and `dart run flutter_native_splash:create`
   flutter_launcher_icons: ^0.14.1
   flutter_native_splash: ^2.4.1
+  sentry_dart_plugin: ^3.4.0
 
 # App icon — generated from packages/brand (see packages/brand/README.md)
 flutter_launcher_icons:
@@ -123,3 +137,15 @@ flutter:
     #       weight: 500
     #     - asset: assets/fonts/CanelaText-Bold.otf
     #       weight: 700
+
+# Debug symbols for Sentry (obfuscated release builds). Run in CI after `flutter build … --split-debug-info=build/symbols`:
+#   SENTRY_AUTH_TOKEN=… SENTRY_ORG=… dart run sentry_dart_plugin
+sentry:
+  project: yaqeen-app
+  upload_debug_symbols: true
+  upload_source_maps: false
+  upload_sources: false
+  symbols_path: build/symbols
+  wait_for_processing: false
+  log_level: error
+  ignore_missing: true

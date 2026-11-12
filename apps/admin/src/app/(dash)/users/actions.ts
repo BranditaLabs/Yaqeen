@@ -28,3 +28,13 @@ export async function setStatus(userId: string, _prev: FormState, form: FormData
   revalidatePath(`/users/${userId}`);
   return { error: null, ok: true };
 }
+
+/** Moderation: hide a user's public card (audited server-side). */
+export async function unpublishCard(userId: string, _prev: FormState, form: FormData): Promise<FormState> {
+  const reason = String(form.get('reason') ?? '').trim();
+  if (reason.length < 3) return { error: 'اكتب سبب الإخفاء' };
+  const { error } = await tryApi(`/admin/users/${userId}/public-profile/unpublish`, { method: 'POST', body: { reason } });
+  if (error) return { error };
+  revalidatePath(`/users/${userId}`);
+  return { error: null, ok: true };
+}

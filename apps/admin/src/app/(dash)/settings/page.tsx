@@ -17,6 +17,9 @@ const FEATURE_LABEL: Record<string, string> = {
   recite: 'التسميع (تجريبي)',
   ramadan: 'وضع رمضان',
   tafsirFull: 'التفسير الكامل',
+  publicCards: 'البطاقات العامة (بطاقة يقين)',
+  medalActivation: 'تفعيل الميداليات من التطبيق',
+  serverConversions: 'إرسال المشتريات للمنصات الإعلانية (بالموافقة فقط)',
 };
 const ROLLOUT_FLAGS = ['recite'];
 

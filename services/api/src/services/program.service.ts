@@ -4,12 +4,31 @@
  * next request with no deploy.
  */
 import { asc, eq, sql } from 'drizzle-orm';
-import { PointsSettings } from '@yaqeen/contracts';
+import { type BonusKind, PointsSettings } from '@yaqeen/contracts';
 import type { AppContext } from '../context.js';
-import { appConfig, pointsLedger, streakMilestones, taskRules } from '../db/schema.js';
+import type { Db } from '../db/client.js';
+import { appConfig, bonusRules, pointsLedger, streakMilestones, taskRules } from '../db/schema.js';
 import { DEFAULT_SETTINGS, type Milestone, reachedMilestones } from '../domain/points.js';
 
 export const POINTS_CONFIG_KEY = 'points';
+
+/** Proposed bonus values — every one starts disabled until the product owner turns it on. */
+export const DEFAULT_BONUS_RULES: { kind: BonusKind; labelAr: string; points: number; enabled: false }[] = [
+  { kind: 'white_days_fast', labelAr: 'صيام الأيام البيض', points: 30, enabled: false },
+  { kind: 'mon_thu_fast', labelAr: 'صيام الاثنين والخميس', points: 30, enabled: false },
+  { kind: 'friday_kahf', labelAr: 'سورة الكهف يوم الجمعة', points: 20, enabled: false },
+  { kind: 'ramadan_fast', labelAr: 'رمضان · صيام اليوم', points: 30, enabled: false },
+  { kind: 'taraweeh', labelAr: 'رمضان · صلاة التراويح', points: 20, enabled: false },
+  { kind: 'ramadan_juz', labelAr: 'رمضان · جزء من الختمة', points: 20, enabled: false },
+];
+
+/**
+ * Adds any missing bonus rule (disabled). Runs from the seed and the dashboard's program read: a
+ * migration can't insert a just-added enum value, and existing rows are never touched.
+ */
+export async function ensureBonusRules(db: Db): Promise<void> {
+  await db.insert(bonusRules).values(DEFAULT_BONUS_RULES).onConflictDoNothing();
+}
 
 export async function getPointsSettings(ctx: AppContext): Promise<PointsSettings> {
   const [row] = await ctx.db.select().from(appConfig).where(eq(appConfig.key, POINTS_CONFIG_KEY));

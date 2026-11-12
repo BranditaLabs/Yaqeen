@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">يقين</string>
+    <string name="widget_next_prayer">الصلاة القادمة</string>
+    <string name="widget_open_app">افتح يقين لضبط المواقيت</string>
+    <string name="widget_description">الصلاة القادمة مع عدّ تنازلي، وورد اليوم</string>
 </resources>

@@ -3,6 +3,7 @@ import type { Env } from './config/env.js';
 import type { Db } from './db/client.js';
 import type { AlAdhanClient } from './integrations/aladhan.js';
 import type { FcmSender } from './integrations/fcm.js';
+import type { QuranFoundationClient } from './integrations/quran-foundation.js';
 import type { ShopifyClient } from './integrations/shopify.js';
 import type { ResponseCache } from './lib/cache.js';
 
@@ -14,6 +15,8 @@ export interface AppContext {
   aladhan: AlAdhanClient;
   shopify: ShopifyClient;
   fcm: FcmSender;
+  /** Quran.com / Quran Foundation content (audio, timings, tafsir). Created from env by buildApp when not given. */
+  qf: QuranFoundationClient;
   /** Hot public responses (L1 memory + L2 Redis). Created by buildApp when not given. */
   cache: ResponseCache;
   /** Injectable clock for tests. */

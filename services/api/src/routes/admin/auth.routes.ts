@@ -2,7 +2,7 @@ import { eq, sql } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { AdminLoginRequest, TestDevicesUpdate } from '@yaqeen/contracts';
 import { adminUsers } from '../../db/schema.js';
-import { verifyPassword, verifyTotp } from '../../lib/crypto.js';
+import { isSealed, openSecret, sealSecret, secretsKey, verifyPassword, verifyTotp } from '../../lib/crypto.js';
 import { audit } from '../../lib/audit.js';
 import { notFound, unauthorized } from '../../lib/errors.js';
 import { ADMIN_TTL_SEC, signAdminToken } from '../../lib/tokens.js';
@@ -10,6 +10,7 @@ import { adminOf } from '../../plugins/auth.js';
 
 export const adminAuthRoutes: FastifyPluginAsync = async (app) => {
   const { db, env } = app.ctx;
+  const key = secretsKey(env.ADMIN_SECRETS_KEY);
 
   /** Email + password + TOTP. Same error for every failure to avoid account enumeration. */
   app.post('/login', { config: { rateLimit: { max: 5, timeWindow: '5 minutes' } } }, async (req) => {
@@ -22,9 +23,11 @@ export const adminAuthRoutes: FastifyPluginAsync = async (app) => {
       a !== undefined &&
       a.active &&
       (await verifyPassword(body.password, a.passwordHash)) &&
-      verifyTotp(a.totpSecret, body.totp, app.ctx.now().getTime());
+      verifyTotp(openSecret(a.totpSecret, key), body.totp, app.ctx.now().getTime());
     if (!ok || !a) throw unauthorized('invalid_credentials');
-    await db.update(adminUsers).set({ lastLoginAt: app.ctx.now() }).where(eq(adminUsers.id, a.id));
+    // Secrets written before the key existed are sealed on the next good login.
+    const reseal = key && !isSealed(a.totpSecret) ? { totpSecret: sealSecret(a.totpSecret, key) } : {};
+    await db.update(adminUsers).set({ lastLoginAt: app.ctx.now(), ...reseal }).where(eq(adminUsers.id, a.id));
     return {
       token: await signAdminToken({ sub: a.id, role: a.role }, env.ADMIN_JWT_SECRET),
       expiresIn: ADMIN_TTL_SEC,

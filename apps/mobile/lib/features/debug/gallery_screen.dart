@@ -99,9 +99,9 @@ class GalleryScreen extends StatelessWidget {
               const YqSkeleton(
                 child: Column(
                   children: [
-                    YqSkeletonBox(height: 24, width: 160),
-                    SizedBox(height: 8),
-                    YqSkeletonBox(height: 90, radius: YqRadii.card),
+                    YqSkeletonOrbs(),
+                    SizedBox(height: YqSpace.l),
+                    YqSkeletonRows(rows: 2),
                   ],
                 ),
               ),

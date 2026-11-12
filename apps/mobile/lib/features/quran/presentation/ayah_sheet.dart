@@ -6,20 +6,25 @@ import 'package:go_router/go_router.dart';
 import '../../../core/config/config_controller.dart';
 import '../../../core/config/remote_config.dart';
 import '../../../core/di/providers.dart';
-import '../../../core/format.dart';
 import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
-import '../../../core/theme/typography.dart';
 import '../../../core/widgets/controls.dart';
+import '../../../core/widgets/yq_button.dart';
 import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_layout.dart';
 import '../../../core/widgets/share_card.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
+import '../../recite/presentation/recite_available.dart';
 import '../data/reading_repository.dart';
+import '../data/tafsir_repository.dart';
+import '../domain/annotations.dart';
 import '../domain/quran_data.dart';
+import 'mushaf_download.dart';
+import 'note_sheet.dart';
 import 'quran_index_screen.dart';
+import 'quran_providers.dart';
 
 /// «خيارات الآية» (spec §5.11): bookmark · listen · tafsir · share · copy.
 Future<void> showAyahSheet(BuildContext context, {required QuranData quran, required AyahRef ref}) =>
@@ -36,15 +41,51 @@ class _AyahSheet extends ConsumerStatefulWidget {
 
 class _AyahSheetState extends ConsumerState<_AyahSheet> {
   bool? _saved;
+  MarkColor _bookmarkColor = MarkColor.gold;
   bool _tafsirOpen = false;
-  String? _tafsir;
+  bool _tafsirLoading = false;
+  bool _highlightOpen = false;
+  TafsirText? _tafsir;
+  List<TafsirInfo> _tafsirs = const [];
+  String? _tafsirId;
+  int _tafsirSeq = 0;
+  MarkColor? _highlight;
+  bool _hasNote = false;
 
   @override
   void initState() {
     super.initState();
-    ref.read(readingRepositoryProvider).bookmarks().then((all) {
-      if (mounted) setState(() => _saved = all.any((b) => b.ref == widget.ayah));
+    final reading = ref.read(readingRepositoryProvider);
+    reading.bookmarks().then((all) {
+      final b = all.where((b) => b.ref == widget.ayah).firstOrNull;
+      if (mounted) {
+        setState(() {
+          _saved = b != null;
+          _bookmarkColor = b?.color ?? MarkColor.gold;
+        });
+      }
     });
+    reading.annotations().then((a) {
+      if (mounted) {
+        setState(() {
+          _highlight = a.highlights[widget.ayah];
+          _hasNote = a.notes.containsKey(widget.ayah);
+        });
+      }
+    });
+  }
+
+  Future<void> _setHighlight(MarkColor? c) async {
+    await ref.read(readingRepositoryProvider).setHighlight(widget.ayah, c);
+    ref.invalidate(annotationsProvider);
+    HapticFeedback.selectionClick();
+    if (mounted) setState(() => _highlight = c);
+  }
+
+  Future<void> _setBookmarkColor(MarkColor c) async {
+    await ref.read(readingRepositoryProvider).recolor('a${widget.ayah}', c);
+    ref.invalidate(bookmarksProvider);
+    if (mounted) setState(() => _bookmarkColor = c);
   }
 
   String get _surahName => widget.quran.surah(widget.ayah.surah).nameAr;
@@ -58,12 +99,49 @@ class _AyahSheetState extends ConsumerState<_AyahSheet> {
     if (mounted) setState(() => _saved = saved);
   }
 
+  /// The panel opens at once with a skeleton while the text loads (a network fetch can take
+  /// seconds, spec §2.5); a later open or chip switch drops an earlier lookup's late answer.
   Future<void> _openTafsir() async {
-    final text = await ref.read(tafsirRepositoryProvider).forAyah(widget.ayah);
-    if (!mounted) return;
+    _tafsirSeq++;
+    if (_tafsirOpen) {
+      setState(() => _tafsirOpen = false);
+      return;
+    }
     setState(() {
-      _tafsirOpen = !_tafsirOpen;
+      _tafsirOpen = true;
+      _tafsirLoading = true;
+    });
+    final repo = ref.read(tafsirRepositoryProvider);
+    final id = await repo.selected();
+    if (mounted) setState(() => _tafsirId = id);
+    await _loadTafsir(repo);
+    final list = await repo.list();
+    if (mounted) setState(() => _tafsirs = list);
+  }
+
+  /// Picker in the panel: switching re-reads this ayah from the chosen tafsir.
+  Future<void> _pickTafsir(String id) async {
+    _tafsirSeq++;
+    setState(() {
+      _tafsirId = id;
+      _tafsirLoading = true;
+    });
+    final repo = ref.read(tafsirRepositoryProvider);
+    await repo.select(id);
+    await _loadTafsir(repo);
+  }
+
+  /// Reads this ayah from the chosen tafsir; null (offline, nothing cached) leaves the placeholder
+  /// and a retry. Only the latest lookup may answer.
+  Future<void> _loadTafsir([TafsirRepository? from]) async {
+    final TafsirRepository repo = from ?? ref.read(tafsirRepositoryProvider);
+    if (!_tafsirLoading) setState(() => _tafsirLoading = true);
+    final seq = _tafsirSeq;
+    final text = await repo.lookup(widget.ayah);
+    if (!mounted || seq != _tafsirSeq) return;
+    setState(() {
       _tafsir = text;
+      _tafsirLoading = false;
     });
   }
 
@@ -108,8 +186,33 @@ class _AyahSheetState extends ConsumerState<_AyahSheet> {
               onTap: () => showShareCard(context, ref, quran: widget.quran, ayah: widget.ayah),
             ),
             _Action(icon: YqIcons.dua, material: Icons.content_copy_rounded, label: t.ayahCopy, onTap: _copy),
+            _Action(
+              icon: YqIcons.dua,
+              material: Icons.format_color_fill_rounded,
+              label: t.ayahHighlight,
+              active: _highlight != null || _highlightOpen,
+              onTap: () => setState(() => _highlightOpen = !_highlightOpen),
+            ),
+            _Action(
+              icon: YqIcons.dua,
+              material: Icons.sticky_note_2_outlined,
+              label: _hasNote ? t.ayahNoteEdit : t.ayahNote,
+              active: _hasNote,
+              onTap: () {
+                Navigator.of(context).pop();
+                showNoteSheet(context, quran: widget.quran, ref: widget.ayah);
+              },
+            ),
           ],
         ),
+        if (saved) ...[
+          const SizedBox(height: YqSpace.m),
+          _ColorRow(label: t.ayahBookmarkColor, selected: _bookmarkColor, onPick: (c) => _setBookmarkColor(c ?? MarkColor.gold)),
+        ],
+        if (_highlightOpen) ...[
+          const SizedBox(height: YqSpace.m),
+          _ColorRow(label: t.ayahHighlight, selected: _highlight, onPick: _setHighlight, allowNone: true),
+        ],
         AnimatedSize(
           duration: YqMotion.base,
           curve: YqMotion.ease,
@@ -122,17 +225,61 @@ class _AyahSheetState extends ConsumerState<_AyahSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(t.tafsirTitle, style: theme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                        const SizedBox(height: YqSpace.s),
-                        // Licensed text only; until a pack is installed the placeholder stays bracketed (rule 9).
                         Text(
-                          _tafsir ?? t.tafsirPlaceholder,
-                          style: theme.bodyLarge?.copyWith(color: _tafsir == null ? YqColors.muted : YqColors.ink),
+                          _tafsir?.source == TafsirSource.qf
+                              ? (_tafsirs.where((x) => x.id == _tafsirId).firstOrNull?.name(Localizations.localeOf(context).languageCode) ??
+                                  t.tafsirTitle)
+                              : t.tafsirTitle,
+                          style: theme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
                         ),
-                        // Credit every time the licensed text is shown (QuranEnc republishing terms).
-                        if (_tafsir != null) ...[
+                        if (_tafsirs.length > 1 && _tafsir?.source != TafsirSource.pack) ...[
                           const SizedBox(height: YqSpace.s),
-                          Text(t.tafsirAttribution, style: theme.bodySmall?.copyWith(color: YqColors.goldText)),
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            clipBehavior: Clip.none,
+                            child: Row(
+                              children: [
+                                for (final x in _tafsirs)
+                                  Padding(
+                                    padding: const EdgeInsetsDirectional.only(end: YqSpace.s),
+                                    child: YqChip(
+                                      label: x.name(Localizations.localeOf(context).languageCode),
+                                      semanticLabel: '${t.tafsirChoose}: ${x.name(Localizations.localeOf(context).languageCode)}',
+                                      selected: x.id == _tafsirId,
+                                      onTap: () => _pickTafsir(x.id),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: YqSpace.s),
+                        // Licensed text only (installed pack or Quran Foundation); offline with nothing cached
+                        // the placeholder stays bracketed (rule 9).
+                        if (_tafsirLoading)
+                          const YqSkeleton(child: YqSkeletonText(lines: 3))
+                        else ...[
+                          Text(
+                            _tafsir?.text ?? t.tafsirPlaceholder,
+                            style: theme.bodyLarge?.copyWith(color: _tafsir == null ? YqColors.muted : YqColors.ink),
+                          ),
+                          if (_tafsir == null) ...[
+                            const SizedBox(height: YqSpace.s),
+                            Row(
+                              children: [
+                                Expanded(child: Text(t.errorGeneric, style: theme.bodySmall?.copyWith(color: YqColors.muted))),
+                                YqButton.text(label: t.retry, onPressed: _loadTafsir),
+                              ],
+                            ),
+                          ],
+                        ],
+                        // Credit every time the licensed text is shown (QuranEnc / Quran Foundation terms).
+                        if (_tafsir != null && !_tafsirLoading) ...[
+                          const SizedBox(height: YqSpace.s),
+                          Text(
+                            _tafsir!.source == TafsirSource.qf ? t.tafsirSourceQf : t.tafsirAttribution,
+                            style: theme.bodySmall?.copyWith(color: YqColors.goldText),
+                          ),
                         ],
                       ],
                     ),
@@ -140,6 +287,74 @@ class _AyahSheetState extends ConsumerState<_AyahSheet> {
                 )
               : const SizedBox(width: double.infinity),
         ),
+      ],
+    );
+  }
+}
+
+/// Four token colours (+ «بلا تظليل» for highlights).
+class _ColorRow extends StatelessWidget {
+  const _ColorRow({required this.label, required this.selected, required this.onPick, this.allowNone = false});
+  final String label;
+  final MarkColor? selected;
+  final ValueChanged<MarkColor?> onPick;
+  final bool allowNone;
+
+  static Color swatch(MarkColor c) => switch (c) {
+        MarkColor.gold => YqColors.gold,
+        MarkColor.lapis => YqColors.lapis,
+        MarkColor.sky => YqColors.sky,
+        MarkColor.green => YqColors.success,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    String name(MarkColor c) => switch (c) {
+          MarkColor.gold => t.markColorGold,
+          MarkColor.lapis => t.markColorLapis,
+          MarkColor.sky => t.markColorSky,
+          MarkColor.green => t.markColorGreen,
+        };
+    Widget dot(MarkColor? c) {
+      final on = c == selected;
+      return Semantics(
+        button: true,
+        selected: on,
+        label: c == null ? t.ayahHighlightRemove : name(c),
+        excludeSemantics: true,
+        child: InkResponse(
+          onTap: () => onPick(c),
+          radius: 26,
+          child: AnimatedContainer(
+            duration: YqMotion.fast,
+            width: YqSpace.touch,
+            height: YqSpace.touch,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: on ? YqColors.ink : const Color(0x00000000), width: 2),
+            ),
+            child: Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: c == null ? YqColors.white : swatch(c),
+                border: c == null ? Border.all(color: YqColors.line) : null,
+              ),
+              child: c == null ? const Icon(Icons.block_rounded, size: 16, color: YqColors.muted) : null,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(child: Text(label, style: Theme.of(context).textTheme.titleSmall)),
+        if (allowNone) dot(null),
+        for (final c in MarkColor.values) dot(c),
       ],
     );
   }
@@ -199,19 +414,32 @@ Future<void> showShareCard(BuildContext context, WidgetRef ref, {required QuranD
   );
 }
 
-/// «إعدادات القراءة».
-Future<void> showReaderSettings(BuildContext context) =>
-    showYqSheet<void>(context, scrollable: true, builder: (_) => const _ReaderSettings());
+/// «إعدادات القراءة». [page] is the page on screen: the listen / recite shortcuts open its surah.
+Future<void> showReaderSettings(BuildContext context, {required int page}) =>
+    showYqSheet<void>(context, scrollable: true, builder: (_) => _ReaderSettings(page: page));
 
 class _ReaderSettings extends ConsumerWidget {
-  const _ReaderSettings();
+  const _ReaderSettings({required this.page});
+  final int page;
+
+  /// Closes the sheet and opens [mode] (`listen` / `recite`) on the surah of the page on screen.
+  /// (The sheet sits on the root navigator, outside any GoRoute: read the router before popping.)
+  void _open(BuildContext context, WidgetRef ref, String mode) {
+    final router = GoRouter.of(context);
+    Navigator.of(context).pop();
+    ref.read(quranDataProvider).whenData((q) {
+      final first = q.firstOfPage(page);
+      router.push(mode == 'listen' ? '/quran/listen/${first.surah}?ayah=${first.ayah}' : '/quran/recite/${first.surah}');
+    });
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
     final s = ref.watch(settingsProvider);
     final ctl = ref.read(settingsProvider.notifier);
-    final reciteOn = ref.watch(remoteConfigProvider).isOn(Flags.recite);
+    final listenOn = ref.watch(remoteConfigProvider).isOn(Flags.listen);
+    final reciteOn = ref.watch(reciteEntryProvider);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -225,23 +453,30 @@ class _ReaderSettings extends ConsumerWidget {
           selected: s.mushafTheme,
           onChanged: (v) => ctl.update((x) => x.copyWith(mushafTheme: v), sync: false),
         ),
+        // The printed page sets the text size (no font-size control: a page always fits, like print).
         const SizedBox(height: YqSpace.l),
-        Text(t.readerFontSize, style: Theme.of(context).textTheme.titleSmall),
+        Text(t.readerPageTurn, style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: YqSpace.s),
-        YqSegmented<double>(
-          segments: [
-            for (final (i, size) in AppSettings.fontSizes.indexed) (size, const ['S', 'M', 'L', 'XL'][i]),
-          ],
-          selected: AppSettings.fontSizes.reduce((a, b) => (a - s.quranFontSize).abs() <= (b - s.quranFontSize).abs() ? a : b),
-          onChanged: (v) => ctl.update((x) => x.copyWith(quranFontSize: v), sync: false),
+        YqSegmented<PageTurn>(
+          segments: [(PageTurn.book, t.pageTurnBook), (PageTurn.slide, t.pageTurnSlide)],
+          selected: s.pageTurn,
+          onChanged: (v) => ctl.update((x) => x.copyWith(pageTurn: v), sync: false),
         ),
-        const SizedBox(height: YqSpace.m),
+        const SizedBox(height: YqSpace.s),
         YqListRow(
-          title: t.readerSpacing,
+          title: t.readerAutoNight,
           trailing: YqSwitch(
-            value: s.comfortableSpacing,
-            onChanged: (v) => ctl.update((x) => x.copyWith(comfortableSpacing: v), sync: false),
-            label: t.readerSpacing,
+            value: s.autoNight,
+            onChanged: (v) => ctl.update((x) => x.copyWith(autoNight: v), sync: false),
+            label: t.readerAutoNight,
+          ),
+        ),
+        YqListRow(
+          title: t.readerImmersive,
+          trailing: YqSwitch(
+            value: s.immersiveReading,
+            onChanged: (v) => ctl.update((x) => x.copyWith(immersiveReading: v), sync: false),
+            label: t.readerImmersive,
           ),
         ),
         YqListRow(
@@ -252,28 +487,24 @@ class _ReaderSettings extends ConsumerWidget {
             label: t.readerKeepAwake,
           ),
         ),
+        if (listenOn || reciteOn) ...[
+          const YqDivider(),
+          if (listenOn)
+            YqListRow(
+              leading: const YqIconTile(YqIcons.listen),
+              title: t.readerListenMode,
+              onTap: () => _open(context, ref, 'listen'),
+            ),
+          if (reciteOn)
+            YqListRow(
+              leading: const YqIconTile(YqIcons.azkar),
+              title: t.readerReciteMode,
+              onTap: () => _open(context, ref, 'recite'),
+            ),
+        ],
         const YqDivider(),
-        YqListRow(
-          leading: const YqIconTile(YqIcons.listen),
-          title: t.readerListenMode,
-          onTap: () {
-            Navigator.of(context).pop();
-            final page = int.tryParse(GoRouterState.of(context).pathParameters['page'] ?? '') ?? 1;
-            ref.read(quranDataProvider).whenData((q) => context.push('/quran/listen/${q.firstOfPage(page).surah}'));
-          },
-        ),
-        if (reciteOn)
-          YqListRow(
-            leading: const YqIconTile(YqIcons.azkar),
-            title: t.readerReciteMode,
-            onTap: () {
-              Navigator.of(context).pop();
-              final page = int.tryParse(GoRouterState.of(context).pathParameters['page'] ?? '') ?? 1;
-              ref.read(quranDataProvider).whenData((q) => context.push('/quran/recite/${q.firstOfPage(page).surah}'));
-            },
-          ),
         const SizedBox(height: YqSpace.s),
-        Text(YqFormat.number(s.quranFontSize.round()), textAlign: TextAlign.center, style: YqText.numberSmall),
+        const MushafDownloadSection(),
       ],
     );
   }

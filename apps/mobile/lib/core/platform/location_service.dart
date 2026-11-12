@@ -1,3 +1,6 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/services.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:geolocator/geolocator.dart';
@@ -73,19 +76,54 @@ class HeadingReading {
   bool get needsCalibration => accuracy != null && accuracy! > 25;
 }
 
-/// Device heading for the Qibla compass.
+/// Device heading for the Qibla compass, from TRUE north (the Qibla bearing is a true bearing).
 abstract interface class CompassService {
-  Stream<HeadingReading>? get headings;
+  /// Headings at the place [lat], [lng] (where the magnetic declination is taken when the platform
+  /// reports magnetic north); null when the device has no compass.
+  Stream<HeadingReading>? headingsAt(double lat, double lng);
 }
 
 class PluginCompassService implements CompassService {
+  PluginCompassService({Future<double?> Function(double lat, double lng)? declination})
+      : _declination = declination ?? _platformDeclination;
+
+  final Future<double?> Function(double lat, double lng) _declination;
+
+  /// MainActivity.kt answers `declination` from android.hardware.GeomagneticField (WMM).
+  static const _android = MethodChannel('com.yaqinbrand.yaqeen/device');
+
   @override
-  Stream<HeadingReading>? get headings =>
-      FlutterCompass.events?.where((e) => e.heading != null).map((e) => HeadingReading((e.heading! + 360) % 360, accuracy: e.accuracy));
+  Stream<HeadingReading>? headingsAt(double lat, double lng) {
+    final raw = FlutterCompass.events?.where((e) => e.heading != null).map((e) => HeadingReading(e.heading!, accuracy: e.accuracy));
+    return raw == null ? null : trueHeadings(raw, _declination(lat, lng));
+  }
+
+  /// flutter_compass on Android derives the heading from the rotation vector, i.e. magnetic north
+  /// with no declination applied; on iOS it already sends CLHeading.trueHeading (null → unchanged).
+  static Future<double?> _platformDeclination(double lat, double lng) async {
+    if (!Platform.isAndroid) return null;
+    try {
+      return await _android.invokeMethod<double>('declination', {'lat': lat, 'lng': lng});
+    } on PlatformException {
+      return null;
+    } on MissingPluginException {
+      return null;
+    }
+  }
+}
+
+/// Magnetic → true north: adds [declination] (degrees, east positive) to every heading. When it is
+/// unknown (iOS, no answer within 2 s) the headings pass through unchanged.
+Stream<HeadingReading> trueHeadings(Stream<HeadingReading> headings, Future<double?> declination) {
+  final offset = declination.timeout(const Duration(seconds: 2)).then((d) => d ?? 0.0, onError: (Object _) => 0.0);
+  return Stream.fromFuture(offset)
+      .asyncExpand((d) => headings.map((h) => HeadingReading((h.degrees + d) % 360, accuracy: h.accuracy)));
 }
 
 class FakeCompassService implements CompassService {
   FakeCompassService([this.headings]);
-  @override
   final Stream<HeadingReading>? headings;
+
+  @override
+  Stream<HeadingReading>? headingsAt(double lat, double lng) => headings;
 }

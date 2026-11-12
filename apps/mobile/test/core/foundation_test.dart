@@ -209,7 +209,7 @@ void main() {
     expect(routeForDeepLink(Uri.parse('yaqeen://calendar')), '/challenge/calendar');
     expect(routeForDeepLink(Uri.parse('yaqeen://azkar')), '/home/azkar');
     expect(routeForDeepLink(Uri.parse('yaqeen://hifz')), '/quran/hifz');
-    expect(routeForDeepLink(Uri.parse('https://yaqin-brand.com/app/redeem')), '/challenge/redeem');
-    expect(routeForDeepLink(Uri.parse('https://yaqin-brand.com/app/nope')), '/home');
+    expect(routeForDeepLink(Uri.parse('https://yaqeenarabia.com/app/redeem')), '/challenge/redeem');
+    expect(routeForDeepLink(Uri.parse('https://yaqeenarabia.com/app/nope')), '/home');
   });
 }

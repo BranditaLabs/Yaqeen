@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yaqeen/core/config/remote_config.dart';
 import 'package:yaqeen/core/di/providers.dart';
@@ -12,6 +13,7 @@ import 'package:yaqeen/core/widgets/yq_button.dart';
 import 'package:yaqeen/core/widgets/liquid_glass.dart';
 import 'package:yaqeen/features/hifz/presentation/hifz_screen.dart';
 import 'package:yaqeen/features/quran/domain/quran_data.dart';
+import 'package:yaqeen/features/recite/presentation/recite_available.dart';
 import 'package:yaqeen/features/recite/presentation/recite_screen.dart';
 
 import '../helpers/fonts.dart';
@@ -53,10 +55,17 @@ void main() {
 
     expect(find.text('سورة الناس · الآيات 1–5'), findsOneWidget);
     expect(find.text('اكتملت مراجعة اليوم'), findsOneWidget);
+    // A ticked step is saved with today's date, so leaving the screen (e.g. to listen) keeps it.
+    await tester.tap(find.text('استمع · 3 مرات'));
+    await tester.pumpAndSettle();
+    expect(kv.data['db.hifz'], contains('"steps"'));
     await tester.ensureVisible(find.text('حفظت مقطع اليوم'));
     await tester.tap(find.text('حفظت مقطع اليوم'));
     await tester.pumpAndSettle();
     expect(find.text('غداً'), findsOneWidget);
+    // The card keeps today's passage (also listed for review tomorrow); the next one is a preview.
+    expect(find.text('سورة الناس · الآيات 1–5'), findsNWidgets(2));
+    expect(find.text('غداً: سورة الناس · الآيات 6–6'), findsOneWidget);
     expect(kv.data['db.hifz'], contains('"s":114'));
 
     // Next day: the passage is due.
@@ -67,6 +76,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('مستحقة اليوم'), findsOneWidget);
+    expect(find.text('حُفظت قبل يوم · آخر مراجعة قبل يوم'), findsOneWidget);
     expect(find.text('سورة الناس · الآيات 6–6'), findsOneWidget);
     await tester.ensureVisible(find.text('جيدة · 3 أيام'));
     await tester.tap(find.text('جيدة · 3 أيام'));
@@ -122,5 +132,26 @@ void main() {
     expect(find.text('آية واحدة صحيحة'), findsOneWidget);
     expect(find.textContaining('تنبيه:'), findsOneWidget);
     expect(find.textContaining('خطأ'), findsNothing);
+  });
+
+  test('recite entries show only with the flag on and a model on the device', () async {
+    Future<bool> entry({required bool flag, RecitationEngine? engine}) async {
+      final c = ProviderContainer(
+        overrides: [
+          kvStoreProvider.overrideWithValue(MemoryKvStore()),
+          secureStoreProvider.overrideWithValue(MemoryKvStore()),
+          initialConfigProvider.overrideWithValue(RemoteConfig(features: {...RemoteConfig.defaultFeatures, Flags.recite: flag})),
+          if (engine != null) recitationEngineProvider.overrideWithValue(engine),
+        ],
+      );
+      addTearDown(c.dispose);
+      c.listen(reciteEntryProvider, (_, __) {});
+      await Future<void>.delayed(Duration.zero);
+      return c.read(reciteEntryProvider);
+    }
+
+    expect(await entry(flag: false, engine: ScriptedRecitationEngine()), isFalse);
+    expect(await entry(flag: true), isFalse); // no model yet: no entry that leads to «not available»
+    expect(await entry(flag: true, engine: ScriptedRecitationEngine()), isTrue);
   });
 }
