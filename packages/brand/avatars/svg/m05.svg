@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <clipPath id="c"><circle cx="256" cy="256" r="256"/></clipPath>
+    <radialGradient id="bg" cx="38%" cy="30%" r="80%">
+      <stop offset="0" stop-color="#1F3F94"/><stop offset="1" stop-color="#10214D"/>
+    </radialGradient>
+    <radialGradient id="skin" cx="42%" cy="36%" r="70%">
+      <stop offset="0" stop-color="#CFA079"/><stop offset=".65" stop-color="#C99467"/><stop offset="1" stop-color="#B07C52"/>
+    </radialGradient>
+    <linearGradient id="garment" x1="0" y1="0" x2=".35" y2="1">
+      <stop offset="0" stop-color="#313A51"/><stop offset="1" stop-color="#081127"/>
+    </linearGradient>
+    <linearGradient id="cover" x1=".1" y1="0" x2=".6" y2="1">
+      <stop offset="0" stop-color="#ECDAAB"/><stop offset="1" stop-color="#CDBA8B"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity=".35"/><stop offset=".5" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs><g clip-path="url(#c)"><rect width="512" height="512" fill="url(#bg)"/><g transform="translate(256 292) scale(1.12) translate(-256 -270)"><path d="M40 520 C52 436 140 396 256 392 C372 396 460 436 472 520 Z" fill="url(#garment)"/><path d="M222 394 Q256 426 290 394" fill="none" stroke="#070E21" stroke-width="4" stroke-linecap="round" opacity=".55"/><path d="M256 422 L256 520" stroke="#070F22" stroke-width="3" opacity=".35"/><path d="M226 318 L226 398 Q256 416 286 398 L286 318 Z" fill="#B07C52"/><path d="M226 350 Q256 372 286 350 L286 330 L226 330 Z" fill="#9E6F49" opacity=".45"/><ellipse cx="183" cy="262" rx="12" ry="20" fill="#B07C52"/><ellipse cx="329" cy="262" rx="12" ry="20" fill="#B07C52"/><ellipse cx="256" cy="252" rx="74" ry="86" fill="url(#skin)"/><path d="M181 258 C172 176 214 150 256 150 C298 150 340 176 331 258 C322 214 300 196 256 196 C212 196 190 214 181 258 Z" fill="#1E1A18"/><path d="M186 262 C190 324 220 362 256 364 C292 362 322 324 326 262 C312 302 290 314 256 314 C222 314 200 302 186 262 Z" fill="#1E1A18"/><path d="M222 316 C232 300 280 300 290 316 C276 312 236 312 222 316 Z" fill="#1E1A18"/><path d="M178 230 C176 166 216 142 256 142 C296 142 336 166 334 230 C306 216 284 212 256 212 C228 212 206 216 178 230 Z" fill="url(#cover)"/><path d="M178 230 C206 216 228 212 256 212 C284 212 306 216 334 230" fill="none" stroke="#B5A57B" stroke-width="5" stroke-linecap="round"/><path d="M206 170 C226 152 286 152 306 170" fill="none" stroke="#CDBA8B" stroke-width="3" opacity=".6"/><path d="M192 196 C220 182 292 182 320 196" fill="none" stroke="#CDBA8B" stroke-width="3" opacity=".6"/></g></g></svg>
