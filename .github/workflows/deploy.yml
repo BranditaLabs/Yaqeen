@@ -53,12 +53,12 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { ref: "${{ env.SHA }}" }
       - id: tag
         run: echo "tag=sha-${SHA::12}" >> "$GITHUB_OUTPUT"
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
         with: { registry: ghcr.io, username: "${{ github.actor }}", password: "${{ secrets.GITHUB_TOKEN }}" }
       - name: Already built? (a tag promotes the image main already built)
         id: exists
@@ -69,7 +69,7 @@ jobs:
           fi
       - name: API image
         if: steps.exists.outputs.skip != 'true'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: services/api/Dockerfile
@@ -81,7 +81,7 @@ jobs:
           cache-to: type=gha,scope=api,mode=max
       - name: Admin image
         if: steps.exists.outputs.skip != 'true'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: apps/admin/Dockerfile
@@ -98,7 +98,7 @@ jobs:
           cache-to: type=gha,scope=admin,mode=max
       # Fail on critical vulnerabilities that have a fix; everything is reported to Security › Code scanning.
       - name: Scan API image
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.REGISTRY }}/yaqeen-api:${{ steps.tag.outputs.tag }}
           severity: CRITICAL
@@ -107,7 +107,7 @@ jobs:
           format: sarif
           output: trivy-api.sarif
       - name: Scan admin image
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.REGISTRY }}/yaqeen-admin:${{ steps.tag.outputs.tag }}
           severity: CRITICAL
@@ -115,7 +115,7 @@ jobs:
           exit-code: "1"
           format: sarif
           output: trivy-admin.sarif
-      - uses: github/codeql-action/upload-sarif@v3
+      - uses: github/codeql-action/upload-sarif@v4
         if: always()
         with: { sarif_file: ".", category: trivy }
 
@@ -127,9 +127,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: { name: staging, url: "${{ vars.STAGING_ADMIN_URL }}" }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { ref: "${{ env.SHA }}" }
-      - uses: azure/setup-kubectl@v4
+      - uses: azure/setup-kubectl@v5
       - name: Kubeconfig
         run: |
           mkdir -p ~/.kube && echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config && chmod 600 ~/.kube/config
@@ -156,9 +156,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: { name: production, url: "${{ vars.PROD_ADMIN_URL }}" }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { ref: "${{ env.SHA }}" }
-      - uses: azure/setup-kubectl@v4
+      - uses: azure/setup-kubectl@v5
       - name: Kubeconfig
         run: |
           mkdir -p ~/.kube && echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config && chmod 600 ~/.kube/config
@@ -184,8 +184,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: azure/setup-kubectl@v4
+      - uses: actions/checkout@v7
+      - uses: azure/setup-kubectl@v5
       - name: Kubeconfig
         run: |
           mkdir -p ~/.kube && echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config && chmod 600 ~/.kube/config
