@@ -27,6 +27,7 @@ const STEP: Record<string, string> = {
   consent: 'الموافقات',
   goal: 'الهدف',
   routine: 'الروتين',
+  profile: 'الملف الشخصي',
   download: 'التنزيلات',
   complete: 'اكتمل',
 };
