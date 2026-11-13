@@ -123,7 +123,7 @@ test.describe('competitions «المسابقات»', () => {
     // Before: the card's photo is public (attested owner, published card).
     expect((await request.get(`${API_URL}/v1/public/avatars/${f.pictured.photoId}/256.webp`)).status()).toBe(200);
 
-    await page.goto(`/competitions?tab=moderation&q=${f.pictured.handle}`);
+    await page.goto(`/competitions?tab=moderation&q=${encodeURIComponent(f.pictured.name)}`); // by name: the API strips _ from searches
     const row = page.getByTestId(`competitor-${f.pictured.handle}`);
     await expect(row).toContainText('أكّد العمر: نعم');
     await row.getByText('إجراء', { exact: true }).click();
@@ -140,7 +140,7 @@ test.describe('competitions «المسابقات»', () => {
 
   test('a removed photo loads through the admin proxy for support, never cached', async ({ page }) => {
     const f = fixture();
-    await page.goto(`/competitions?tab=moderation&filter=hidden&q=${f.removed.handle}`);
+    await page.goto(`/competitions?tab=moderation&filter=hidden&q=${encodeURIComponent(f.removed.name)}`);
     const thumb = page.getByTestId(`competitor-${f.removed.handle}`).locator('img[data-photo-status="removed"]');
     await expect(thumb).toBeVisible();
     await expect.poll(() => thumb.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBeGreaterThan(0);
