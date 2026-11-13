@@ -6,6 +6,7 @@ import '../../../core/network/resumable_download.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/yq_layout.dart';
+import '../../../core/widgets/yq_ring.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../data/pack_repository.dart';
@@ -79,7 +80,7 @@ class _PackRowState extends ConsumerState<PackRow> {
       title: widget.pack.title(locale),
       subtitle: busy ? t.packInstalling : (installed ? t.packInstalled : t.packInstall(megabytes(t, widget.pack.sizeBytes))),
       trailing: busy
-          ? SizedBox.square(dimension: 22, child: CircularProgressIndicator(value: _progress, strokeWidth: 2.4, color: YqColors.lapis))
+          ? YqRing(value: _progress ?? 0, size: 22, stroke: 2.4)
           : installed
               ? (widget.onRemove == null
                   ? const Icon(Icons.check_circle_rounded, color: YqColors.success)
