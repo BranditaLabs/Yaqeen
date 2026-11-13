@@ -240,6 +240,18 @@ test.describe('competitions «المسابقات»', () => {
     await expect(row.getByRole('img', { name: /المستوى 2/ })).toBeVisible();
   });
 
+  test('support hides a name from the standings; the row shows «عضو يقين»', async ({ page }) => {
+    const f = fixture();
+    await page.goto(`/competitions/tournaments/${f.tournamentId}`);
+    const row = page.getByRole('row', { name: new RegExp(f.removed.name) });
+    await row.getByText('إجراء', { exact: true }).click();
+    await row.getByLabel('إخفاء الاسم').fill('اسم غير لائق — بلاغ');
+    await row.getByRole('button', { name: 'إخفاء الاسم' }).click();
+    // Hidden at read time (the handle rotates too: this member's card is not published).
+    await expect(page.getByRole('row', { name: /عضو يقين/ })).toContainText('120', { timeout: ACTION });
+    await expect(page.getByRole('row', { name: new RegExp(f.removed.name) })).toHaveCount(0);
+  });
+
   test('/competitions has no serious accessibility violations', async ({ page }) => {
     for (const tab of ['tournaments', 'leagues', 'moderation', 'badges']) {
       await page.goto(`/competitions?tab=${tab}`);

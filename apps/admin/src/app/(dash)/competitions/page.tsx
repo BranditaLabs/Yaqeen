@@ -70,13 +70,17 @@ export default async function CompetitionsPage({ searchParams }: { searchParams:
           </Link>
         ))}
       </nav>
-      <Suspense key={JSON.stringify(q)} fallback={<TabSkeleton />}>
-        {tab === 'tournaments' && <Tournaments />}
-        {tab === 'leagues' && <Leagues canManage={rights.canManage} canRollover={rights.canRollover} />}
-        {tab === 'leaderboard' && <Leaderboard q={q} />}
-        {tab === 'moderation' && <Moderation q={q} canModerate={rights.canModerate} />}
-        {tab === 'badges' && <Badges />}
-      </Suspense>
+      {/* Tabs with forms render outside Suspense: with Next 15.5.4 a server action whose form sits
+          inside a boundary that streams again in the action response never leaves `pending`. */}
+      {tab === 'leagues' && <Leagues canManage={rights.canManage} canRollover={rights.canRollover} />}
+      {tab === 'moderation' && <Moderation q={q} canModerate={rights.canModerate} />}
+      {(tab === 'tournaments' || tab === 'leaderboard' || tab === 'badges') && (
+        <Suspense key={JSON.stringify(q)} fallback={<TabSkeleton />}>
+          {tab === 'tournaments' && <Tournaments />}
+          {tab === 'leaderboard' && <Leaderboard q={q} />}
+          {tab === 'badges' && <Badges />}
+        </Suspense>
+      )}
     </div>
   );
 }

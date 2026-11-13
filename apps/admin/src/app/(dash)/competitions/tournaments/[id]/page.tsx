@@ -54,9 +54,14 @@ export default async function TournamentPage({ params }: { params: Promise<{ id:
           <Suspense fallback={<SkeletonKpis />}>
             <Stats id={id} closed={t.closed} />
           </Suspense>
-          <Suspense fallback={<SkeletonRows rows={8} />}>
-            <Standings id={id} podium={t.closed} canModerate={rights.canModerate} />
-          </Suspense>
+          {rights.canModerate ? (
+            // Support's per-row forms must not sit inside a streamed boundary (see competitions/page.tsx).
+            <Standings id={id} podium={t.closed} canModerate />
+          ) : (
+            <Suspense fallback={<SkeletonRows rows={8} />}>
+              <Standings id={id} podium={t.closed} canModerate={false} />
+            </Suspense>
+          )}
         </div>
 
         <div className="space-y-6">
