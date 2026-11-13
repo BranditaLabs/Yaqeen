@@ -613,10 +613,16 @@ class _PrivacyNote extends StatelessWidget {
                 Semantics(
                   link: true,
                   child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
                     onTap: onLink,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: YqSpace.xs),
-                      child: Text(link, style: text.bodySmall?.copyWith(color: YqColors.success, decoration: TextDecoration.underline)),
+                    // A 44-pt target, like every other control.
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 44),
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        widthFactor: 1,
+                        child: Text(link, style: text.bodySmall?.copyWith(color: YqColors.success, decoration: TextDecoration.underline)),
+                      ),
                     ),
                   ),
                 ),
