@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../core/theme/tokens.dart';
 import '../core/widgets/floating_tab_bar.dart';
 import '../core/widgets/yq_icon.dart';
+import '../features/listen/presentation/mini_player.dart';
 import '../features/onboarding/presentation/session_controller.dart';
 import '../features/profile/presentation/me_avatar.dart';
 import '../l10n/gen/app_localizations.dart';
@@ -29,7 +30,12 @@ class AppShell extends ConsumerWidget {
     final platform = Theme.of(context).platform;
     // The dock steps aside while the keyboard is up (search, notes), like the system tab bars.
     final keyboard = media.viewInsets.bottom > 0;
-    final clearance = keyboard ? media.padding.bottom : FloatingTabBar.clearanceFor(platform, media.padding.bottom);
+    // The mini player rides above the dock and counts as part of it: its height joins the bottom
+    // padding, so YqInsets.bottom clears it on every tab with no per-screen numbers.
+    final mini = ref.watch(miniPlayerVisibleProvider) && !keyboard;
+    final miniSpace = mini ? MiniPlayer.height + YqSpace.s : 0.0;
+    final clearance = (keyboard ? media.padding.bottom : FloatingTabBar.clearanceFor(platform, media.padding.bottom)) + miniSpace;
+    final dockBottom = FloatingTabBar.gapFor(platform, media.padding.bottom);
     final reduceMotion = media.disableAnimations;
 
     return Scaffold(
@@ -48,23 +54,33 @@ class AppShell extends ConsumerWidget {
             right: 0,
             bottom: 0,
             height: clearance + YqSpace.xl,
-            child: const IgnorePointer(
+            child: IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Color(0x00F3F6FB), Color(0xD9F3F6FB)],
-                    stops: [0, 0.75],
+                    colors: [YqColors.porcelain.withValues(alpha: 0), YqColors.porcelain.withValues(alpha: 0.85)],
+                    stops: const [0, 0.75],
                   ),
                 ),
               ),
             ),
           ),
+          if (mini)
+            PositionedDirectional(
+              start: YqSpace.gutter,
+              end: YqSpace.gutter,
+              bottom: dockBottom + FloatingTabBar.height + YqSpace.s,
+              child: Center(
+                heightFactor: 1,
+                child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: FloatingTabBar.maxWidth), child: const MiniPlayer()),
+              ),
+            ),
           PositionedDirectional(
             start: YqSpace.gutter,
             end: YqSpace.gutter,
-            bottom: FloatingTabBar.gapFor(platform, media.padding.bottom),
+            bottom: dockBottom,
             child: IgnorePointer(
               ignoring: keyboard,
               child: AnimatedSlide(

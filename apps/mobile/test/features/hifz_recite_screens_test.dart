@@ -85,16 +85,6 @@ void main() {
     expect(find.text('بعد 3 أيام'), findsOneWidget);
   });
 
-  testWidgets('recite: flag off falls back to the reader', (tester) async {
-    phone(tester);
-    await tester.pumpWidget(harness(const ReciteScreen(surah: 1), overrides: [...base()].cast()));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('ابدأ التسميع'), findsNothing);
-    await tester.pumpWidget(const SizedBox());
-    await tester.pump(const Duration(seconds: 1));
-  });
-
   testWidgets('recite: unavailable model shows the notice', (tester) async {
     phone(tester);
     await tester.pumpWidget(harness(const ReciteScreen(surah: 1), overrides: [...base(recite: true)].cast()));

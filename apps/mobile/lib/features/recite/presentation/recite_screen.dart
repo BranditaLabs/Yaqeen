@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/config/config_controller.dart';
-import '../../../core/config/remote_config.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/format.dart';
 import '../../../core/platform/recitation_engine.dart';
@@ -21,7 +19,6 @@ import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../hifz/presentation/hifz_controller.dart';
 import '../../quran/domain/quran_data.dart';
-import '../../quran/presentation/reader_screen.dart';
 import '../domain/recitation.dart';
 
 enum _Mode { read, listen, recite }
@@ -141,11 +138,6 @@ class _ReciteScreenState extends ConsumerState<ReciteScreen> {
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
     final quran = ref.watch(quranDataProvider);
-    if (!ref.watch(remoteConfigProvider).isOn(Flags.recite)) {
-      // Flag off: the tab doesn't exist — deep links land in the reader instead.
-      final q = quran.valueOrNull;
-      return ReaderScreen(initialPage: q == null ? 1 : q.surah(widget.surah).startPage);
-    }
     final q = quran.valueOrNull;
     final expected = q == null ? null : _expected(q);
     final first = expected?.first.$1;

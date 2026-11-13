@@ -277,9 +277,14 @@ class ListenController extends Notifier<ListenState> {
   /// The surah a general «استماع» entry (Home, Quran index, challenge) opens: the one already
   /// loaded, so Now playing attaches to it instead of replacing it; else the saved resume point;
   /// else [fallback] (the last-read surah).
-  Future<int> entrySurah(int fallback) async {
-    if (state.status == ListenStatus.ready || state.status == ListenStatus.loading) return state.surah;
-    return (await _store.snapshot())?.surah ?? fallback;
+  Future<int> entrySurah(int fallback) async => (await entryRef(fallback)).surah;
+
+  /// Where such an entry lands: the ayah playing, else the saved resume point, else [fallback]'s
+  /// first ayah.
+  Future<AyahRef> entryRef(int fallback) async {
+    if (state.status == ListenStatus.ready || state.status == ListenStatus.loading) return state.ref;
+    final snap = await _store.snapshot();
+    return snap == null ? AyahRef(fallback, 1) : AyahRef(snap.surah, snap.ayah);
   }
 
   Future<Reciter?> _currentReciter() async {

@@ -20,7 +20,7 @@ import 'package:yaqeen/features/listen/data/listen_store.dart';
 import 'package:yaqeen/features/listen/data/reciter_repository.dart';
 import 'package:yaqeen/features/listen/domain/audio_models.dart';
 import 'package:yaqeen/features/listen/presentation/listen_controller.dart';
-import 'package:yaqeen/features/listen/presentation/now_playing_screen.dart';
+import 'package:yaqeen/features/listen/presentation/player_sheet.dart';
 import 'package:yaqeen/features/listen/presentation/reciters_screen.dart';
 import 'package:yaqeen/features/quran/data/tafsir_repository.dart';
 import 'package:yaqeen/features/quran/domain/passage.dart';
@@ -449,20 +449,27 @@ void main() {
     addTearDown(tester.view.reset);
   }
 
-  testWidgets('now playing: surah card, reciter, current ayah and play/pause', (tester) async {
+  /// The player sheet's content on a page, with the recitation opened at [surah]:[ayah] first.
+  Widget playerAt(int surah, int ayah) => Scaffold(
+        body: SingleChildScrollView(child: _OpenThen(surah: surah, ayah: ayah, child: const PlayerSheet())),
+      );
+
+  Future<void> waitFor(WidgetTester tester, Finder f) async {
+    // The player loads on real async work: wait for it (up to 5 s) instead of a fixed delay.
+    for (var i = 0; i < 50 && f.evaluate().isEmpty; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.pump();
+    }
+  }
+
+  testWidgets('player sheet: surah, reciter, current ayah and play/pause', (tester) async {
     phone(tester);
     final engine = FakeAudioEngine();
     final kv = MemoryKvStore();
     await tester.runAsync(() async {
-      await tester
-          .pumpWidget(harness(const NowPlayingScreen(surah: 18, ayah: 2), kv: kv, overrides: overrides(engine, kv, harnessed: true)));
+      await tester.pumpWidget(harness(playerAt(18, 2), kv: kv, overrides: overrides(engine, kv, harnessed: true)));
     });
-    // The player loads on real async work: wait for it (up to 5 s) instead of a fixed delay, which
-    // flaked on a busy machine.
-    for (var i = 0; i < 50 && find.text('يُشغَّل الآن').evaluate().isEmpty; i++) {
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
-      await tester.pump();
-    }
+    await waitFor(tester, find.text('يُشغَّل الآن'));
     expect(find.text('يُشغَّل الآن'), findsOneWidget);
     expect(find.text('الكهف'), findsOneWidget);
     expect(find.text('مشاري راشد العفاسي'), findsOneWidget);
@@ -472,29 +479,61 @@ void main() {
     await tester.tap(find.byTooltip('إيقاف مؤقت'));
     await tester.pump();
     expect(find.byTooltip('تشغيل'), findsOneWidget);
+    expect(find.text('تغيير القارئ'), findsOneWidget);
+    expect(find.text('انتقل إلى'), findsOneWidget);
   });
 
-  testWidgets('now playing: back to the playing surah shows it is downloaded', (tester) async {
+  testWidgets('player sheet: a downloaded surah says so', (tester) async {
     phone(tester);
     final engine = FakeAudioEngine();
     final kv = MemoryKvStore();
-    final o = overrides(engine, kv, harnessed: true);
     await tester.runAsync(() async {
-      await tester.pumpWidget(harness(const NowPlayingScreen(surah: 18, ayah: 2), kv: kv, overrides: o));
-      await Future<void>.delayed(const Duration(milliseconds: 200));
       final file = await AudioDownloads(root: () async => tmp, isUnmetered: () async => true).fileFor('afasy', 18);
       await file.parent.create(recursive: true);
       await file.writeAsBytes([1, 2, 3]);
-      await tester.pumpWidget(harness(const SizedBox(), kv: kv, overrides: o));
-      await tester.pumpWidget(harness(const NowPlayingScreen(surah: 18), kv: kv, overrides: o));
-      await Future<void>.delayed(const Duration(milliseconds: 200));
+      await tester.pumpWidget(harness(playerAt(18, 2), kv: kv, overrides: overrides(engine, kv, harnessed: true)));
     });
-    await tester.pump();
-    expect(engine.opened, hasLength(1)); // attached, not reopened
+    await waitFor(tester, find.byTooltip('محمّل · المس للحذف'));
     expect(find.byTooltip('محمّل · المس للحذف'), findsOneWidget);
   });
 
-  testWidgets('now playing: tafsir opens at once with a skeleton while it loads', (tester) async {
+  testWidgets('player sheet: «تنزيل السورة» runs on the download queue with a ring', (tester) async {
+    phone(tester);
+    final engine = FakeAudioEngine();
+    final kv = MemoryKvStore();
+    final gate = Completer<void>();
+    await tester.runAsync(() async {
+      await tester.pumpWidget(
+        harness(
+          playerAt(18, 2),
+          kv: kv,
+          overrides: [
+            ...overrides(engine, kv, harnessed: true),
+            audioDownloadsProvider.overrideWithValue(
+              AudioDownloads(
+                root: () async => tmp,
+                isUnmetered: () async => true,
+                client: MockClient((_) async {
+                  await gate.future;
+                  return http.Response.bytes(List<int>.filled(100, 1), 200);
+                }),
+              ),
+            ),
+          ],
+        ),
+      );
+    });
+    await waitFor(tester, find.byTooltip('تنزيل السورة'));
+    await tester.tap(find.byTooltip('تنزيل السورة'));
+    await tester.pump();
+    expect(find.byTooltip('جارٍ التحميل · المس للإلغاء'), findsOneWidget);
+    gate.complete();
+    await waitFor(tester, find.byTooltip('محمّل · المس للحذف'));
+    expect(find.byTooltip('محمّل · المس للحذف'), findsOneWidget);
+    expect(await tester.runAsync(() => AudioDownloads(root: () async => tmp, isUnmetered: () async => true).has('afasy', 18)), isTrue);
+  });
+
+  testWidgets('player sheet: tafsir opens at once with a skeleton while it loads', (tester) async {
     phone(tester);
     final engine = FakeAudioEngine();
     final kv = MemoryKvStore();
@@ -502,14 +541,13 @@ void main() {
     await tester.runAsync(() async {
       await tester.pumpWidget(
         harness(
-          const NowPlayingScreen(surah: 18, ayah: 2),
+          playerAt(18, 2),
           kv: kv,
           overrides: [...overrides(engine, kv, harnessed: true), tafsirRepositoryProvider.overrideWithValue(tafsir)],
         ),
       );
-      await Future<void>.delayed(const Duration(milliseconds: 200));
     });
-    await tester.pump();
+    await waitFor(tester, find.text('التفسير الميسر'));
     await tester.tap(find.text('التفسير الميسر'));
     await tester.pump();
     expect(find.byType(YqSkeletonText), findsOneWidget);
@@ -519,7 +557,7 @@ void main() {
     expect(find.text('[نص التفسير الميسر لهذه الآية من مصدر المحتوى المرخّص]'), findsOneWidget);
   });
 
-  testWidgets('now playing: the repeat sheet sets ayah ×N and a range', (tester) async {
+  testWidgets('player sheet: the repeat sheet sets ayah ×N and a range', (tester) async {
     phone(tester);
     final engine = FakeAudioEngine();
     final kv = MemoryKvStore();
@@ -530,16 +568,15 @@ void main() {
           Consumer(
             builder: (_, ref, __) {
               widgetRef = ref;
-              return const NowPlayingScreen(surah: 18, ayah: 2);
+              return playerAt(18, 2);
             },
           ),
           kv: kv,
           overrides: overrides(engine, kv, harnessed: true),
         ),
       );
-      await Future<void>.delayed(const Duration(milliseconds: 200));
     });
-    await tester.pump();
+    await waitFor(tester, find.byTooltip('التكرار'));
     await tester.tap(find.byTooltip('التكرار'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('الآية'));
@@ -607,6 +644,28 @@ void main() {
     await tester.pump();
     expect(find.text('لا يوجد قارئ بهذا الاسم'), findsOneWidget);
   });
+}
+
+/// Opens the recitation at [surah]:[ayah] once, then shows [child].
+class _OpenThen extends ConsumerStatefulWidget {
+  const _OpenThen({required this.surah, required this.ayah, required this.child});
+  final int surah;
+  final int ayah;
+  final Widget child;
+
+  @override
+  ConsumerState<_OpenThen> createState() => _OpenThenState();
+}
+
+class _OpenThenState extends ConsumerState<_OpenThen> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() => ref.read(listenControllerProvider.notifier).open(widget.surah, ayah: widget.ayah));
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// Tafsir whose answer arrives only when the test opens [gate].

@@ -23,6 +23,8 @@ import '../../../l10n/gen/app_localizations.dart';
 import '../../challenge/domain/challenge_models.dart';
 import '../../challenge/presentation/challenge_controller.dart';
 import '../../listen/presentation/listen_controller.dart';
+import '../../listen/presentation/mini_player.dart';
+import '../../listen/presentation/player_sheet.dart';
 import '../../notifications/presentation/reminders_controller.dart';
 import '../../onboarding/presentation/session_controller.dart';
 import '../data/reading_repository.dart';
@@ -134,6 +136,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     // Providers can't change while the tree builds: the layers are set right after this frame.
     Future.microtask(() async {
       if (!mounted) return;
+      // The app-wide mini player steps aside while a reader is open.
+      ref.read(readerPresenceProvider.notifier).enter();
       _layers.init(passage: widget.passage);
       if (widget.mode != QuranMode.read) await _setMode(widget.mode, ask: false);
       if (widget.openPlayer && mounted) _openPlayer();
@@ -195,6 +199,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     _focusTimer?.cancel();
     _guard.clear();
     _pager.dispose();
+    final presence = _c.read(readerPresenceProvider.notifier);
+    Future.microtask(presence.leave);
     _c.read(deviceServicesProvider).keepAwake(false);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
@@ -296,6 +302,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     _warmFonts(page);
     _syncWirdClock();
     final q = await _c.read(quranDataProvider.future);
+    if (!mounted) return; // closed before the mushaf text arrived: nothing was read here
     final reading = _c.read(readingRepositoryProvider);
     await (_lastSave = reading.saveLastRead(page, q.firstOfPage(page).surah, _c.read(clockProvider)()));
     final marks = await reading.bookmarks();
@@ -385,6 +392,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
 
   /// Switches the layer over the page. [ask]: confirm before taking over another surah's audio.
   Future<void> _setMode(QuranMode mode, {bool ask = true}) async {
+    // A layer this build doesn't offer (recite without the flag or a model) opens as reading.
+    if (!ref.read(quranModesProvider).contains(mode)) mode = QuranMode.read;
     if (mode == QuranMode.listen && !await _startListening(ask: ask)) return;
     if (!mounted) return;
     _layers.setMode(mode);
@@ -406,7 +415,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     final ctl = ref.read(listenControllerProvider.notifier);
     final l = ref.read(listenControllerProvider);
     final passage = ref.read(quranSessionControllerProvider).passage;
-    final start = passage != null && _visible(_page).contains(q.pageOf(passage.first)) ? passage.first : q.firstOfPage(_page);
+    final focus = widget.focus;
+    final onScreen = _visible(_page);
+    // From the chosen passage, else the ayah the reader was opened at, else the page's first ayah.
+    final start = passage != null && onScreen.contains(q.pageOf(passage.first))
+        ? passage.first
+        : focus != null && onScreen.contains(q.pageOf(focus))
+            ? focus
+            : q.firstOfPage(_page);
     final busy = l.status == ListenStatus.ready && l.playing && l.sampleOf == null;
     if (busy && _visible(_page).contains(q.pageOf(l.ref))) return true; // already reciting this page
     if (busy && l.surah != start.surah && ask) {
@@ -415,7 +431,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
       // Keeping what plays: the layer still opens and the page follows that recitation.
       if (replace != true) return true;
     }
-    ctl.open(start.surah, ayah: start.ayah).ignore();
+    // A chosen passage loops (a hifz portion); otherwise the recitation runs on from here.
+    (passage != null && start == passage.first ? ctl.playPassage(passage) : ctl.open(start.surah, ayah: start.ayah)).ignore();
     return true;
   }
 
@@ -466,9 +483,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     _goTo(q.pageOf(ref.read(listenControllerProvider).ref));
   }
 
-  void _openPlayer() {
-    final l = ref.read(listenControllerProvider);
-    context.push('/quran/listen/${l.surah}');
+  Future<void> _openPlayer() async {
+    _hideTimer?.cancel();
+    await showPlayerSheet(context);
+    if (mounted && ref.read(quranSessionControllerProvider).mode == QuranMode.listen) _scheduleHide();
   }
 
   /// A tap on an ayah, per layer: reveal it (memorise), play from it (listen).
