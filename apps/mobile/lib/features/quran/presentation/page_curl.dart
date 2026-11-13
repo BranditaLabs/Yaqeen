@@ -8,6 +8,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/settings/app_settings.dart';
+import '../../../core/theme/tokens.dart';
 
 /// How a page turn is drawn: a real page curl, a slide, or (reduce motion) a quick cross-fade.
 enum TurnStyle { curl, slide, fade }
@@ -337,8 +338,8 @@ class TurnPainter extends CustomPainter {
           Offset(g.mid.dx + (edge.dx - g.mid.dx) * 1.0, g.mid.dy + (edge.dy - g.mid.dy) * 1.0),
           [
             shade.withAlpha(46),
-            const Color(0x00FFFFFF),
-            const Color(0x1FFFFFFF),
+            YqColors.white.withAlpha(0),
+            YqColors.white.withAlpha(0x1F),
             shade.withAlpha(18),
           ],
           [0, 0.18, 0.55, 1],
@@ -384,8 +385,8 @@ class MushafPager extends StatefulWidget {
     this.spread = false,
     this.style = TurnStyle.curl,
     this.enabled = true,
-    this.paper = const Color(0xFFFFFFFF),
-    this.shade = const Color(0xFF000000),
+    this.paper = YqColors.white,
+    this.shade = YqColors.ink,
     this.onTap,
     this.spineBuilder,
   });

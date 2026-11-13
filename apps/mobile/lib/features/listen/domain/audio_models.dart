@@ -193,6 +193,8 @@ class PlaybackSnapshot {
     this.repeatTimes = 0,
     this.rangeFrom,
     this.rangeTo,
+    this.roundsDone = 0,
+    this.loopEnded = false,
   });
 
   final String reciterId;
@@ -205,6 +207,11 @@ class PlaybackSnapshot {
   final int? rangeFrom;
   final int? rangeTo;
 
+  /// Passes of the repeated ayah/range already played, and whether a counted range has stopped
+  /// (a guided «استماع ×3» resumes where it was after a kill).
+  final int roundsDone;
+  final bool loopEnded;
+
   Map<String, dynamic> toJson() => {
         'r': reciterId,
         's': surah,
@@ -215,6 +222,8 @@ class PlaybackSnapshot {
         if (repeatTimes != 0) 'rn': repeatTimes,
         if (rangeFrom != null) 'ra': rangeFrom,
         if (rangeTo != null) 'rb': rangeTo,
+        if (roundsDone != 0) 'rd': roundsDone,
+        if (loopEnded) 'le': true,
       };
 
   static PlaybackSnapshot? tryParse(Object? j) {
@@ -233,6 +242,8 @@ class PlaybackSnapshot {
       repeatTimes: (j['rn'] as int?) ?? 0,
       rangeFrom: from,
       rangeTo: to,
+      roundsDone: (j['rd'] as int?) ?? 0,
+      loopEnded: (j['le'] as bool?) ?? false,
     );
   }
 }

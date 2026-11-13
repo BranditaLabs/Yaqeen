@@ -131,13 +131,12 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 
-  testWidgets('reader settings › «وضع الاستماع» opens the surah of the page on screen', (tester) async {
+  testWidgets('reader settings no longer repeat the layers: listening and reciting are on the dock', (tester) async {
     phone(tester);
     final router = GoRouter(
       initialLocation: '/quran/page/293',
       routes: [
         GoRoute(path: '/quran/page/:page', builder: (_, s) => ReaderScreen(initialPage: int.parse(s.pathParameters['page']!))),
-        GoRoute(path: '/quran/listen/:surah', builder: (_, s) => Scaffold(body: Text('listen:${s.pathParameters['surah']}'))),
       ],
     );
     addTearDown(router.dispose);
@@ -162,13 +161,12 @@ void main() {
     await tester.tap(find.byTooltip('إعدادات القراءة'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
-    await tester.ensureVisible(find.text('وضع الاستماع'));
-    await tester.pump();
-    await tester.tap(find.text('وضع الاستماع'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 600));
     expect(tester.takeException(), isNull);
-    expect(find.text('listen:17'), findsOneWidget); // page 293 opens with the end of Al-Isra
+    expect(find.text('وضع الاستماع'), findsNothing);
+    expect(find.text('وضع التسميع'), findsNothing);
+    expect(find.text('استماع'), findsWidgets, reason: 'the dock under the sheet offers it');
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
   });
 
   testWidgets('tafsir: the panel opens at once with a skeleton; offline shows the placeholder and a retry', (tester) async {

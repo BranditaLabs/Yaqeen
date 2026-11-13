@@ -16,10 +16,11 @@ import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/yq_timeline.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
-import '../../recite/presentation/recite_available.dart';
 import '../../quran/domain/quran_data.dart';
+import '../domain/hifz_guide.dart';
 import '../domain/hifz_plan.dart';
 import '../domain/review_scheduler.dart';
+import 'grade_sheet.dart';
 import 'hifz_controller.dart';
 
 String hifzGoalLabel(AppLocalizations t, HifzGoal g) => switch (g) {
@@ -140,7 +141,6 @@ class _HifzScreenState extends ConsumerState<HifzScreen> {
     final upcoming = plan.upcoming(today).take(3).toList();
     final doneToday = memorised != null;
     final ctl = ref.read(hifzControllerProvider.notifier);
-    final reciteOn = ref.watch(reciteEntryProvider);
     final steps = [t.hifzStepListen, t.hifzStepRepeat, t.hifzStepTest];
     final ticked = plan.stepsFor(today);
     final firstOpen = [for (var i = 0; i < 3; i++) i].where((i) => !ticked.contains(i) && !doneToday).firstOrNull;
@@ -185,16 +185,12 @@ class _HifzScreenState extends ConsumerState<HifzScreen> {
               ),
           ],
         ),
-        if (reciteOn)
+        // The halaqa in the reader: listen ×3 → repeat ×10 → test, each step ticking itself.
+        if (!doneToday)
           YqButton(
-            label: t.hifzReciteNow,
-            onPressed: () => context.push('/quran/recite/${portion.surah}?from=${portion.from}&to=${portion.to}&hifz=1'),
-          )
-        else
-          YqButton.secondary(
-            label: t.ayahListen,
-            icon: const YqIcon(YqIcons.listen, size: 18),
-            onPressed: () => context.push('/quran/listen/${portion.surah}?ayah=${portion.from}&to=${portion.to}'),
+            label: HifzGuide.started(plan, today) ? t.qsContinueHalaqa : t.qsStartHalaqa,
+            icon: const YqIcon(YqIcons.memorise, size: 18, tone: YqIconTone.light),
+            onPressed: () => context.push(HifzGuide.halaqaLocation(q, portion)),
           ),
         const SizedBox(height: YqSpace.s),
         YqButton.secondary(label: t.hifzMarkDone, onPressed: doneToday ? null : ctl.memoriseToday),
@@ -221,7 +217,14 @@ class _HifzScreenState extends ConsumerState<HifzScreen> {
             ],
           ),
         ),
-      for (final p in due) _ReviewCard(portion: p, quran: q, today: today, onRate: (g) => ctl.rate(p.id, g)),
+      for (final p in due)
+        _ReviewCard(
+          portion: p,
+          quran: q,
+          today: today,
+          onRate: (g) => ctl.rate(p.id, g),
+          onReview: () => context.push(HifzGuide.reviewLocation(q, p)),
+        ),
       if (upcoming.isNotEmpty)
         YqTimeline(
           timeWidth: 0,
@@ -253,11 +256,14 @@ class _Tag extends StatelessWidget {
 }
 
 class _ReviewCard extends StatelessWidget {
-  const _ReviewCard({required this.portion, required this.quran, required this.today, required this.onRate});
+  const _ReviewCard({required this.portion, required this.quran, required this.today, required this.onRate, required this.onReview});
   final HifzPortion portion;
   final QuranData quran;
   final DateTime today;
   final ValueChanged<ReviewGrade> onRate;
+
+  /// «راجع»: the review in the reader, straight at the test.
+  final VoidCallback onReview;
 
   @override
   Widget build(BuildContext context) {
@@ -285,15 +291,13 @@ class _ReviewCard extends StatelessWidget {
             const SizedBox(height: YqSpace.xs),
             Text(t.hifzMemorisedAgo(ago, last), style: text.bodySmall),
             const SizedBox(height: YqSpace.m),
+            YqButton.secondary(label: t.qsReview, icon: const YqIcon(YqIcons.memorise, size: 18), onPressed: onReview),
+            const SizedBox(height: YqSpace.m),
             Text(t.hifzHowWasIt, style: text.labelMedium),
             const SizedBox(height: YqSpace.s),
             Row(
               children: [
-                for (final (g, label) in [
-                  (ReviewGrade.hard, t.hifzHard),
-                  (ReviewGrade.good, t.hifzGood(ReviewScheduler.nextInterval(ReviewGrade.good, prev))),
-                  (ReviewGrade.easy, t.hifzEasy(ReviewScheduler.nextInterval(ReviewGrade.easy, prev))),
-                ]) ...[
+                for (final (g, label) in [for (final g in ReviewGrade.values) (g, gradeLabel(t, g, previousInterval: prev))]) ...[
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => onRate(g),
@@ -347,9 +351,9 @@ class _HeatStrip extends StatelessWidget {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: plan.activeDays.contains(iso(Zoned.addDays(today, -i))) ? YqColors.gold : YqColors.white,
-                          border: Border.all(color: i == 0 ? YqColors.ink : const Color(0x33C6A867), width: i == 0 ? 1.5 : 1),
+                          border: Border.all(color: i == 0 ? YqColors.ink : YqColors.gold.withValues(alpha: 0x33 / 255), width: i == 0 ? 1.5 : 1),
                           boxShadow: plan.activeDays.contains(iso(Zoned.addDays(today, -i)))
-                              ? const [BoxShadow(color: Color(0x59C6A867), blurRadius: 8, spreadRadius: -2)]
+                              ? [BoxShadow(color: YqColors.gold.withValues(alpha: 0x59 / 255), blurRadius: 8, spreadRadius: -2)]
                               : null,
                         ),
                       ),
@@ -389,7 +393,7 @@ class _PlanSheetState extends ConsumerState<_PlanSheet> {
     final text = Theme.of(context).textTheme;
     final q = ref.watch(quranDataProvider).valueOrNull;
     final locale = ref.watch(settingsProvider.select((s) => s.locale));
-    if (q == null) return const SizedBox(height: 200);
+    if (q == null) return const YqSkeleton(child: YqSkeletonText(lines: 3));
     final now = ref.read(clockProvider)().toLocal();
     final preview = (widget.current ?? HifzPlan(goal: _goal, perDay: _perDay)).copyWith(goal: _goal, perDay: _perDay);
     final finish = preview.finishEstimate(q, now);

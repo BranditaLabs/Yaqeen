@@ -18,6 +18,7 @@ import '../../../core/widgets/yq_orb.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../prayer/domain/qibla.dart';
+import '../../quran/presentation/session/quran_entry.dart';
 import '../data/tasbeeh_controller.dart';
 import '../../../core/widgets/liquid_orb.dart';
 
@@ -180,13 +181,13 @@ class _QiblaOrbitPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.2
-        ..color = const Color(0x331F3F94),
+        ..color = YqColors.lapis.withValues(alpha: 0x33 / 255),
     );
     // Quarter ticks.
     final tick = Paint()
       ..strokeWidth = 1.2
       ..strokeCap = StrokeCap.round
-      ..color = const Color(0x4D1F3F94);
+      ..color = YqColors.lapis.withValues(alpha: 0x4D / 255);
     for (var i = 1; i < 4; i++) {
       final a = i * math.pi / 2 - math.pi / 2;
       final d = Offset(math.cos(a), math.sin(a));
@@ -206,7 +207,7 @@ class _QiblaOrbitPainter extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeWidth = 3
           ..strokeCap = StrokeCap.round
-          ..color = const Color(0x401F3F94),
+          ..color = YqColors.lapis.withValues(alpha: 0x40 / 255),
       );
     }
 
@@ -241,7 +242,7 @@ class _QiblaOrbitPainter extends CustomPainter {
         k,
         16,
         Paint()
-          ..shader = const RadialGradient(colors: [Color(0xB3E9D49E), Color(0x00E9D49E)])
+          ..shader = RadialGradient(colors: [YqColors.goldLight.withValues(alpha: 0xB3 / 255), YqColors.goldLight.withValues(alpha: 0)])
               .createShader(Rect.fromCircle(center: k, radius: 16)),
       );
     }
@@ -332,7 +333,8 @@ class TasbeehOrb extends ConsumerWidget {
   }
 }
 
-/// Wird complication: liquid that fills as today's pages are read. Tap → the Quran.
+/// Wird complication: liquid that fills as today's pages are read. Tap → «ابدأ وردك» (or today's
+/// wird session resumes) in the reader.
 class WirdOrb extends ConsumerWidget {
   const WirdOrb({super.key, required this.done, required this.goal});
   final int done;
@@ -344,7 +346,7 @@ class WirdOrb extends ConsumerWidget {
     final shown = done.clamp(0, goal);
     final complete = goal > 0 && done >= goal;
     return GlassTap(
-      onTap: () => context.go('/quran'),
+      onTap: () => startWirdSession(context, ref),
       semanticLabel: '${t.dailyWird}، ${t.pagesOf(shown, goal)}',
       child: YqOrb(
         title: t.dailyWird,

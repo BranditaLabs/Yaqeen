@@ -30,10 +30,12 @@ class HifzController extends AsyncNotifier<HifzPlan?> {
   }
 
   Future<void> memoriseToday() async {
-    final plan = state.valueOrNull;
+    final plan = state.valueOrNull ?? await future;
     if (plan == null) return;
     final q = await ref.read(quranDataProvider.future);
-    await _commit(plan.memorise(q, _today));
+    final next = plan.memorise(q, _today);
+    if (identical(next, plan)) return; // already memorised today: one portion a day
+    await _commit(next);
   }
 
   /// Ticks or unticks a «استمع · كرّر · اختبر نفسك» step for today; kept so leaving the screen (e.g.
@@ -46,8 +48,19 @@ class HifzController extends AsyncNotifier<HifzPlan?> {
     await ref.read(hifzRepositoryProvider).save(next);
   }
 
+  /// A guided stage ended: ticks [step] for today. Idempotent — a stage that ends twice (a resumed
+  /// session, a second listen) ticks once; the user can still untick it by hand ([toggleStep]).
+  Future<void> completeStep(int step) async {
+    final plan = state.valueOrNull ?? await future;
+    if (plan == null) return;
+    final next = plan.completeStep(step, _today);
+    if (identical(next, plan)) return;
+    state = AsyncData(next);
+    await ref.read(hifzRepositoryProvider).save(next);
+  }
+
   Future<void> rate(String portionId, ReviewGrade grade) async {
-    final plan = state.valueOrNull;
+    final plan = state.valueOrNull ?? await future;
     if (plan == null) return;
     await _commit(plan.rate(portionId, grade, _today));
   }

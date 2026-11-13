@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/config/config_controller.dart';
 import '../../../core/config/remote_config.dart';
@@ -16,7 +15,6 @@ import '../../../core/widgets/yq_layout.dart';
 import '../../../core/widgets/share_card.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
-import '../../recite/presentation/recite_available.dart';
 import '../data/reading_repository.dart';
 import '../data/tafsir_repository.dart';
 import '../domain/annotations.dart';
@@ -26,14 +24,25 @@ import 'note_sheet.dart';
 import 'quran_index_screen.dart';
 import 'quran_providers.dart';
 
-/// «خيارات الآية» (spec §5.11): bookmark · listen · tafsir · share · copy.
-Future<void> showAyahSheet(BuildContext context, {required QuranData quran, required AyahRef ref}) =>
-    showYqSheet<void>(context, scrollable: true, builder: (_) => _AyahSheet(quran: quran, ayah: ref));
+/// The reader's layers, as the ayah sheet offers them: «استمع من هنا / احفظ من هنا / سمّع من هنا»
+/// start a layer at this ayah; «إلى هنا» closes a passage begun with «من هنا» at another ayah.
+class AyahLayerActions {
+  const AyahLayerActions({this.listenFrom, this.memoriseFrom, this.reciteFrom, this.toHere});
+  final VoidCallback? listenFrom;
+  final VoidCallback? memoriseFrom;
+  final VoidCallback? reciteFrom;
+  final VoidCallback? toHere;
+}
+
+/// «خيارات الآية» (spec §5.11): the reader's layers from this ayah · bookmark · tafsir · share · copy.
+Future<void> showAyahSheet(BuildContext context, {required QuranData quran, required AyahRef ref, AyahLayerActions? layers}) =>
+    showYqSheet<void>(context, scrollable: true, builder: (_) => _AyahSheet(quran: quran, ayah: ref, layers: layers));
 
 class _AyahSheet extends ConsumerStatefulWidget {
-  const _AyahSheet({required this.quran, required this.ayah});
+  const _AyahSheet({required this.quran, required this.ayah, this.layers});
   final QuranData quran;
   final AyahRef ayah;
+  final AyahLayerActions? layers;
 
   @override
   ConsumerState<_AyahSheet> createState() => _AyahSheetState();
@@ -157,6 +166,12 @@ class _AyahSheetState extends ConsumerState<_AyahSheet> {
     final listenOn = ref.watch(remoteConfigProvider).isOn(Flags.listen);
     final theme = Theme.of(context).textTheme;
     final saved = _saved ?? false;
+    final layers = widget.layers;
+    void then(VoidCallback action) {
+      Navigator.of(context).pop();
+      action();
+    }
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -164,21 +179,25 @@ class _AyahSheetState extends ConsumerState<_AyahSheet> {
         Text(t.ayahOptions, style: theme.titleLarge),
         Text('${t.quranSurahName(_surahName)} · ${t.quranAyahN(widget.ayah.ayah)}', style: theme.bodySmall),
         const SizedBox(height: YqSpace.l),
+        if (layers != null) ...[
+          Wrap(
+            spacing: YqSpace.s,
+            runSpacing: YqSpace.s,
+            children: [
+              if (listenOn && layers.listenFrom != null) YqChip(label: t.qsListenFromHere, selected: false, onTap: () => then(layers.listenFrom!)),
+              if (layers.memoriseFrom != null) YqChip(label: t.qsMemoriseFromHere, selected: false, onTap: () => then(layers.memoriseFrom!)),
+              if (layers.reciteFrom != null) YqChip(label: t.qsReciteFromHere, selected: false, onTap: () => then(layers.reciteFrom!)),
+              if (layers.toHere != null) YqChip(label: t.qsToHere, selected: true, onTap: () => then(layers.toHere!)),
+            ],
+          ),
+          const SizedBox(height: YqSpace.l),
+        ],
         Wrap(
           alignment: WrapAlignment.spaceBetween,
           spacing: YqSpace.s,
           runSpacing: YqSpace.s,
           children: [
             _Action(icon: YqIcons.bookmark, label: saved ? t.ayahBookmarked : t.ayahBookmark, active: saved, onTap: _toggleBookmark),
-            if (listenOn)
-              _Action(
-                icon: YqIcons.listen,
-                label: t.ayahListen,
-                onTap: () {
-                  Navigator.of(context).pop();
-                  context.push('/quran/listen/${widget.ayah.surah}?ayah=${widget.ayah.ayah}');
-                },
-              ),
             _Action(icon: YqIcons.quran, label: t.ayahTafsir, active: _tafsirOpen, onTap: _openTafsir),
             _Action(
               icon: YqIcons.share,
@@ -221,7 +240,7 @@ class _AyahSheetState extends ConsumerState<_AyahSheet> {
                   padding: const EdgeInsets.only(top: YqSpace.l),
                   child: Container(
                     padding: const EdgeInsets.all(YqSpace.l),
-                    decoration: BoxDecoration(color: const Color(0xB3FFFFFF), borderRadius: BorderRadius.circular(YqRadii.tile)),
+                    decoration: BoxDecoration(color: YqColors.white.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(YqRadii.tile)),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -333,7 +352,7 @@ class _ColorRow extends StatelessWidget {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: on ? YqColors.ink : const Color(0x00000000), width: 2),
+              border: Border.all(color: on ? YqColors.ink : YqColors.ink.withValues(alpha: 0), width: 2),
             ),
             child: Container(
               width: 30,
@@ -387,7 +406,7 @@ class _Action extends StatelessWidget {
                   Container(
                     width: 52,
                     height: 52,
-                    decoration: BoxDecoration(color: const Color(0x141F3F94), borderRadius: BorderRadius.circular(YqRadii.chip)),
+                    decoration: BoxDecoration(color: YqColors.lapis.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(YqRadii.chip)),
                     child: Icon(material, color: YqColors.lapis, size: 22),
                   )
                 else
@@ -414,7 +433,8 @@ Future<void> showShareCard(BuildContext context, WidgetRef ref, {required QuranD
   );
 }
 
-/// «إعدادات القراءة». [page] is the page on screen: the listen / recite shortcuts open its surah.
+/// «إعدادات القراءة». [page] is the page on screen. Listening and reciting are the reader's own
+/// layers (its mode dock), so they are not repeated here.
 Future<void> showReaderSettings(BuildContext context, {required int page}) =>
     showYqSheet<void>(context, scrollable: true, builder: (_) => _ReaderSettings(page: page));
 
@@ -422,24 +442,11 @@ class _ReaderSettings extends ConsumerWidget {
   const _ReaderSettings({required this.page});
   final int page;
 
-  /// Closes the sheet and opens [mode] (`listen` / `recite`) on the surah of the page on screen.
-  /// (The sheet sits on the root navigator, outside any GoRoute: read the router before popping.)
-  void _open(BuildContext context, WidgetRef ref, String mode) {
-    final router = GoRouter.of(context);
-    Navigator.of(context).pop();
-    ref.read(quranDataProvider).whenData((q) {
-      final first = q.firstOfPage(page);
-      router.push(mode == 'listen' ? '/quran/listen/${first.surah}?ayah=${first.ayah}' : '/quran/recite/${first.surah}');
-    });
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
     final s = ref.watch(settingsProvider);
     final ctl = ref.read(settingsProvider.notifier);
-    final listenOn = ref.watch(remoteConfigProvider).isOn(Flags.listen);
-    final reciteOn = ref.watch(reciteEntryProvider);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -487,21 +494,6 @@ class _ReaderSettings extends ConsumerWidget {
             label: t.readerKeepAwake,
           ),
         ),
-        if (listenOn || reciteOn) ...[
-          const YqDivider(),
-          if (listenOn)
-            YqListRow(
-              leading: const YqIconTile(YqIcons.listen),
-              title: t.readerListenMode,
-              onTap: () => _open(context, ref, 'listen'),
-            ),
-          if (reciteOn)
-            YqListRow(
-              leading: const YqIconTile(YqIcons.azkar),
-              title: t.readerReciteMode,
-              onTap: () => _open(context, ref, 'recite'),
-            ),
-        ],
         const YqDivider(),
         const SizedBox(height: YqSpace.s),
         const MushafDownloadSection(),
