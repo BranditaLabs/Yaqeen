@@ -130,8 +130,17 @@ class ListenController extends Notifier<ListenState> {
   int _lastSavedSecond = -1;
   bool _disposed = false;
 
-  /// Completes when a counted range stops ([ListenState.loopEnded]); see [playAyahThenPause].
-  Completer<void>? _loopDone;
+  /// Completes when a counted range stops ([ListenState.loopEnded]) with true — or with false when
+  /// that wait is cut short (a pause, another open, the controller going away); see
+  /// [playAyahThenPause].
+  Completer<bool>? _loopDone;
+
+  /// Ends a pending [playAyahThenPause] wait without its ayah having finished.
+  void _cancelLoopWait() {
+    final c = _loopDone;
+    _loopDone = null;
+    if (c != null && !c.isCompleted) c.complete(false);
+  }
 
   AudioEngine get _engine => ref.read(audioEngineProvider);
   ReciterRepository get _reciters => ref.read(reciterRepositoryProvider);
@@ -153,6 +162,7 @@ class ListenController extends Notifier<ListenState> {
       _subs.clear();
       _sleep?.cancel();
       _tick?.cancel();
+      _cancelLoopWait();
     });
     return const ListenState();
   }
@@ -160,7 +170,13 @@ class ListenController extends Notifier<ListenState> {
   /// Opens [surah] at [ayah] (or the saved position for that surah) and starts playing. With [to],
   /// the ayat [ayah]–[to] loop [times] times (0 = without end: a hifz portion; 3: a guided «×3»).
   /// The surah already loaded is not reopened: the player only seeks to [ayah].
-  Future<void> open(int surah, {int? ayah, int? to, int? times, bool autoplay = true, Reciter? reciter, bool reload = false}) async {
+  Future<void> open(int surah, {int? ayah, int? to, int? times, bool autoplay = true, Reciter? reciter, bool reload = false}) {
+    // Something else is played: an echo waiting for its ayah to end will not see it end.
+    _cancelLoopWait();
+    return _open(surah, ayah: ayah, to: to, times: times, autoplay: autoplay, reciter: reciter, reload: reload);
+  }
+
+  Future<void> _open(int surah, {int? ayah, int? to, int? times, bool autoplay = true, Reciter? reciter, bool reload = false}) async {
     final loaded = state.status == ListenStatus.ready && state.sampleOf == null && state.surah == surah;
     if (loaded && !reload && (reciter == null || reciter.id == state.reciter?.id)) {
       return _seekWithin(ayah: ayah, to: to, times: times, autoplay: autoplay);
@@ -261,17 +277,33 @@ class ListenController extends Notifier<ListenState> {
   /// Echo practice (guided «تكرار ×10»): plays [ref] once and pauses. Resolves with the pause left
   /// for the reader to repeat it — the ayah's length × [gapFactor] at the current speed — or null
   /// when the ayah can't be cut out of the recitation (no timings, no audio).
+  ///
+  /// Also null when the wait is cut short — the user pauses, something else is opened, or the
+  /// controller goes away — so the echo loop never hangs. The ayah range it sets is the echo's own:
+  /// the caller puts the earlier repeat back with [restoreRepeat].
   Future<Duration?> playAyahThenPause(AyahRef ref, {double gapFactor = 1.2}) async {
-    final done = _loopDone = Completer<void>();
-    await open(ref.surah, ayah: ref.ayah, to: ref.ayah, times: 1);
+    _cancelLoopWait();
+    final done = _loopDone = Completer<bool>();
+    await _open(ref.surah, ayah: ref.ayah, to: ref.ayah, times: 1);
     final t = _timings;
-    if (state.status != ListenStatus.ready || t == null || state.surah != ref.surah) {
-      if (identical(_loopDone, done)) _loopDone = null;
+    if (!identical(_loopDone, done) || state.status != ListenStatus.ready || t == null || state.surah != ref.surah) {
+      if (identical(_loopDone, done)) _cancelLoopWait();
       return null;
     }
-    await done.future;
+    if (!await done.future) return null;
     final length = t.endOf(ref.ayah) - t.startOf(ref.ayah);
     return length * (gapFactor / state.speed);
+  }
+
+  /// Puts back the repeat (mode, passes, range) of [before] — the state captured before echo
+  /// practice cut the recitation into single ayat. A range belongs to its surah: another surah's
+  /// comes back as no repeat.
+  void restoreRepeat(ListenState before) {
+    if (before.surah == state.surah) {
+      setRepeat(before.repeat, times: before.repeatTimes, from: before.rangeFrom, to: before.rangeTo);
+    } else {
+      setRepeat(before.repeat == ListenRepeat.range ? ListenRepeat.off : before.repeat, times: before.repeatTimes);
+    }
   }
 
   /// The surah a general «استماع» entry (Home, Quran index, challenge) opens: the one already
@@ -343,10 +375,19 @@ class ListenController extends Notifier<ListenState> {
       // A counted range that ran out starts over.
       await seek(_timings!.startOf(state.rangeFrom ?? state.ayah));
     }
-    state.playing ? await _engine.pause() : await _engine.play();
+    if (state.playing) {
+      _cancelLoopWait();
+      await _engine.pause();
+    } else {
+      await _engine.play();
+    }
   }
 
-  Future<void> pause() => _engine.pause();
+  /// Pauses — and ends an echo's wait for its ayah ([playAyahThenPause] returns null).
+  Future<void> pause() {
+    _cancelLoopWait();
+    return _engine.pause();
+  }
 
   Future<void> seek(Duration to) async {
     state = state.copyWith(roundsDone: 0, loopEnded: false);
@@ -420,7 +461,7 @@ class ListenController extends Notifier<ListenState> {
   void _signalLoopEnd() {
     final c = _loopDone;
     _loopDone = null;
-    if (c != null && !c.isCompleted) c.complete();
+    if (c != null && !c.isCompleted) c.complete(true);
     _save();
   }
 
