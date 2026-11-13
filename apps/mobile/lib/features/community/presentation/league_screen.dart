@@ -76,13 +76,20 @@ class _LeagueScreenState extends ConsumerState<LeagueScreen> {
     final profile = ref.watch(meProfileProvider).valueOrNull;
     if (profile?.community.banned ?? false) return _Simple(bar: bar, child: CommunityNote(icon: YqIcons.lock, title: t.cmBanned));
 
+    // A failed refresh over a view already shown (a 5xx, a timeout) keeps that view and says so
+    // with a toast; only the typed states replace the screen.
+    ref.listen(leagueProvider, (prev, next) {
+      final e = next.error;
+      if (next.hasError && next.hasValue && !_fullScreen(e) && !(prev?.hasError ?? false)) {
+        YqToast.show(context, t.errorGeneric);
+      }
+    });
     final async = ref.watch(leagueProvider);
     final error = async.error;
-    if (error is CommunityException) {
+    if (error is CommunityException && _fullScreen(error)) {
       return switch (error.failure) {
-        CommunityFailure.featureOff => _Simple(bar: bar, child: YqEmptyState(icon: YqIcons.league, title: t.cmFeatureOff)),
         CommunityFailure.communityBanned => _Simple(bar: bar, child: CommunityNote(icon: YqIcons.lock, title: t.cmBanned)),
-        _ => _Simple(bar: bar, child: YqErrorState(onRetry: () => ref.invalidate(leagueProvider))),
+        _ => _Simple(bar: bar, child: YqEmptyState(icon: YqIcons.league, title: t.cmFeatureOff)),
       };
     }
     final fresh = async.valueOrNull;
@@ -117,6 +124,10 @@ class _LeagueScreenState extends ConsumerState<LeagueScreen> {
       final LeagueJoined j => _Joined(league: j, offline: fresh.offline, profile: profile, onRefresh: _refresh),
     };
   }
+
+  /// The server codes that replace the whole screen, cached view or not.
+  static bool _fullScreen(Object? e) =>
+      e is CommunityException && (e.failure == CommunityFailure.featureOff || e.failure == CommunityFailure.communityBanned);
 }
 
 /// A compact stage with one body block (states).
@@ -193,11 +204,40 @@ class _ZoneEntry extends _Entry {
   final String label;
 }
 
+/// The competition position the server's `outcomeFor` uses for each row (design §3.5): the rank
+/// itself, or — for 0 points (rank null) — the position shared by everyone at 0, which is one past
+/// the last ranked tie. Rows hidden here (blocked, filtered) can only push that position further
+/// down, so this is the kinder estimate: nobody is shown moving down who might not.
+List<int> leaguePositions(List<PublicCompetitor> rows) {
+  var zeroAt = 1;
+  for (final r in rows) {
+    final rank = r.rank;
+    if (rank == null) continue;
+    final tied = rows.where((x) => x.rank == rank).length;
+    if (rank + tied > zeroAt) zeroAt = rank + tied;
+  }
+  return [for (final r in rows) r.rank ?? zeroAt];
+}
+
+/// The index of the first row in the demote zone, or `rows.length` when nobody is in it. It
+/// follows the server's rule (`down` when position > size − demote; a tie straddling the boundary
+/// stays), never the list length — rows can be fewer than `size` — and never starts inside the
+/// promote zone ([up] rows).
+int demoteFrom(LeagueJoined l, List<PublicCompetitor> rows, {int up = 0}) {
+  if (l.demoteZone <= 0) return rows.length;
+  final positions = leaguePositions(rows);
+  for (var i = up; i < rows.length; i++) {
+    if (positions[i] > l.size - l.demoteZone) return i;
+  }
+  return rows.length;
+}
+
 /// The promote zone is everyone ranked within it (ties at the boundary all move up; 0 points never
-/// does); the demote zone is the last [LeagueJoined.demoteZone] places. Zones of 0 draw no label.
+/// does); the demote zone is everyone placed past `size − demote` ([demoteFrom]). Zones of 0 draw
+/// no label.
 List<_Entry> _leagueEntries(LeagueJoined l, List<PublicCompetitor> rows, {required String? next, required String? prev, required AppLocalizations t}) {
   final up = l.promoteZone > 0 ? rows.where((r) => r.rank != null && r.rank! <= l.promoteZone).length : 0;
-  final downFrom = l.demoteZone > 0 ? (rows.length - l.demoteZone).clamp(up, rows.length) : rows.length;
+  final downFrom = demoteFrom(l, rows, up: up);
   final out = <_Entry>[];
   for (var i = 0; i < rows.length; i++) {
     if (i == 0 && up > 0 && next != null) out.add(_ZoneEntry(t.cmPromoteZone(next)));

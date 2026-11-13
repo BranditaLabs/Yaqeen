@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:yaqeen/core/time/zoned.dart';
 import 'package:yaqeen/core/widgets/liquid_glass.dart';
 import 'package:yaqeen/features/community/data/community_repository.dart';
+import 'package:yaqeen/features/community/domain/community_models.dart';
 import 'package:yaqeen/features/community/presentation/league_screen.dart';
 import 'package:yaqeen/features/community/presentation/week_result_sheet.dart';
 import 'package:yaqeen/features/profile/data/profile_repository.dart';
@@ -79,7 +80,9 @@ void main() {
     expect(find.text('4'), findsWidgets); // my snapshot rank
     expect(find.text('335 نقطة هذا الأسبوع'), findsOneWidget); // live, self only
     expect(find.text('يصعدون إلى زمرّد'), findsOneWidget);
-    expect(find.text('يبدأون الأسبوع القادم في فضة'), findsOneWidget);
+    // Five rows of a group of 30: nobody shown is placed past 25 (laila's 0 points share place 5),
+    // so no one is shown moving down — the zone follows the rank, not the list length.
+    expect(find.text('يبدأون الأسبوع القادم في فضة'), findsNothing);
     expect(find.text('أنت'), findsOneWidget);
     expect(find.text('عضو يقين'), findsOneWidget); // support-hidden name
     expect(find.text('—'), findsNWidgets(2)); // laila: rank null, 0 points
@@ -109,7 +112,7 @@ void main() {
     expect(find.text('Ends in 3 days'), findsOneWidget);
     expect(find.text('335 points this week'), findsOneWidget);
     expect(find.text('Moving up to Emerald'), findsOneWidget);
-    expect(find.text('Start next week in Silver'), findsOneWidget);
+    expect(find.text('Start next week in Silver'), findsNothing); // see the Arabic test
     expect(find.text('You'), findsOneWidget);
     expect(find.textContaining(RegExp('[٠-٩]')), findsNothing);
   });
@@ -262,6 +265,115 @@ void main() {
     expect(find.text('إبلاغ عن الاسم أو الصورة'), findsOneWidget);
   });
 
+  group('zones follow the rank (design §3.5 outcomeFor)', () {
+    Map<String, dynamic> person(int i, int? rank) => {
+          'handle': 'p-$i',
+          'name': 'p$i',
+          'avatar': {'kind': 'preset', 'id': 'm03'},
+          'level': {'level': 1, 'progress': 0.1},
+          'points': rank == null ? 0 : 1000 - rank,
+          'rank': rank,
+          'me': false,
+        };
+    Map<String, dynamic> leagueJson(List<int?> ranks, {int size = 30, int promote = 5, int demote = 5}) => {
+          ...leagueJoined(),
+          'size': size,
+          'promoteZone': promote,
+          'demoteZone': demote,
+          'rows': [for (var i = 0; i < ranks.length; i++) person(i + 1, ranks[i])],
+        };
+    LeagueJoined leagueOf(List<int?> ranks, {int size = 30, int promote = 5, int demote = 5}) =>
+        LeagueCurrent.fromJson(leagueJson(ranks, size: size, promote: promote, demote: demote)) as LeagueJoined;
+    int downFrom(LeagueJoined l) => demoteFrom(l, l.rows, up: l.rows.where((r) => r.rank != null && r.rank! <= l.promoteZone).length);
+
+    test('fewer rows than the group (people left or are blocked): only places past size − demote', () {
+      final l = leagueOf([for (var r = 1; r <= 28; r++) r]); // size 30, 28 shown
+      expect(downFrom(l), 25); // rank 26 onwards; ranks 24–25 stay
+    });
+
+    test('a tie straddling the demote boundary stays (the kinder side)', () {
+      final l = leagueOf([1, 2, 3, 4, 4, 6], size: 6, promote: 2, demote: 2);
+      expect(downFrom(l), 5); // only rank 6; both rank-4 rows stay
+      expect(downFrom(leagueOf([1, 2, 3, 4, 5, 5], size: 6, promote: 2, demote: 2)), 4); // a tie past it all moves
+    });
+
+    test('0 points share the place after the last ranked tie', () {
+      // 20 ranked + 10 at 0: they share place 21 (≤ 25) — nobody moves down.
+      final many = leagueOf([for (var r = 1; r <= 20; r++) r, for (var i = 0; i < 10; i++) null]);
+      expect(downFrom(many), many.rows.length);
+      // 26 ranked + 4 at 0: place 27 > 25 — ranks 26+ and the 0-point rows move down.
+      final few = leagueOf([for (var r = 1; r <= 26; r++) r, for (var i = 0; i < 4; i++) null]);
+      expect(downFrom(few), 25);
+      // Before the first snapshot every rank is null: place 1, nobody moves.
+      final none = leagueOf([for (var i = 0; i < 30; i++) null]);
+      expect(downFrom(none), 30);
+    });
+
+    test('a zone of 0 and the promote zone are never crossed', () {
+      expect(downFrom(leagueOf([1, 2, 3, 4, 5, 6], size: 6, promote: 2, demote: 0)), 6);
+      final small = leagueOf([1, 1, 1], size: 3, promote: 1, demote: 1);
+      expect(downFrom(small), 3); // all tied first: in the promote zone, so never down
+    });
+
+    Future<void> pumpZones(WidgetTester tester, Map<String, dynamic> league) async {
+      final rig = CommunityRig(routes: {
+        'GET /v1/me/profile': (_) => jsonResponse(profileJson()),
+        'GET /v1/leagues/current': (_) => jsonResponse(league),
+        'GET /v1/leagues/history': (_) => jsonResponse(const []),
+      },);
+      await seedProfile(rig, {...profileJson(), 'league': null});
+      tester.view.physicalSize = const Size(390 * 3, 4200 * 3);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(harness(const LeagueScreen(), kv: rig.kv, overrides: rig.overrides));
+      await tester.pumpAndSettle();
+    }
+
+    double y(WidgetTester tester, String text) => tester.getCenter(find.text(text)).dy;
+
+    testWidgets('widget: 28 rows of 30 — the demote label sits between ranks 25 and 26', (tester) async {
+      await pumpZones(tester, leagueJson([for (var r = 1; r <= 28; r++) r]));
+      const down = 'يبدأون الأسبوع القادم في فضة';
+      expect(find.text(down), findsOneWidget);
+      expect(y(tester, down), greaterThan(y(tester, 'p25')));
+      expect(y(tester, down), lessThan(y(tester, 'p26')));
+    });
+
+    testWidgets('widget: a tie at the boundary is not split', (tester) async {
+      await pumpZones(tester, leagueJson([1, 2, 3, 4, 4, 6], size: 6, promote: 2, demote: 2));
+      const down = 'يبدأون الأسبوع القادم في فضة';
+      expect(y(tester, down), greaterThan(y(tester, 'p5'))); // both rank-4 rows above the label
+      expect(y(tester, down), lessThan(y(tester, 'p6')));
+    });
+  });
+
+  testWidgets('a server error after the cached league keeps the view, with a toast', (tester) async {
+    final rig = CommunityRig(routes: {
+      'GET /v1/leagues/current': (_) => errorResponse(500, 'internal'),
+      'GET /v1/leagues/history': (_) => jsonResponse(history),
+      'GET /v1/me/profile': (_) => offline(),
+    },);
+    await seedProfile(rig, {...profileJson(), 'league': null});
+    await rig.kv.write(CommunityRepository.leagueKey, jsonEncode(leagueJoined()));
+    await pumpLeague(tester, rig);
+    expect(find.text('أنت'), findsOneWidget);
+    expect(find.text('إعادة المحاولة'), findsNothing);
+    expect(find.text('تعذّر التحميل. تحقق من الاتصال.'), findsOneWidget);
+    await tester.pumpAndSettle(const Duration(seconds: 3));
+  });
+
+  testWidgets('feature_off still replaces a cached league', (tester) async {
+    final rig = CommunityRig(routes: {
+      'GET /v1/leagues/current': (_) => errorResponse(403, 'feature_off'),
+      'GET /v1/me/profile': (_) => offline(),
+    },);
+    await seedProfile(rig, {...profileJson(), 'league': null});
+    await rig.kv.write(CommunityRepository.leagueKey, jsonEncode(leagueJoined()));
+    await pumpLeague(tester, rig);
+    expect(find.text('هذه المنافسة غير متاحة الآن.'), findsOneWidget);
+    expect(find.text('أنت'), findsNothing);
+  });
+
   group('week result', () {
     Future<bool?> openHost(WidgetTester tester, CommunityRig rig) async {
       bool? shown;
@@ -331,6 +443,80 @@ void main() {
       });
       expect(await openHost(tester, rig), isTrue);
       expect(find.text('تبدأ هذا الأسبوع في برونز'), findsOneWidget);
+    });
+
+    testWidgets('two callers at once (Home and the league): one sheet', (tester) async {
+      final rig = CommunityRig(routes: {'GET /v1/me/profile': (_) => offline()});
+      await seedProfile(rig, profileJson());
+      List<bool>? results;
+      await tester.pumpWidget(
+        harness(
+          Scaffold(
+            body: Consumer(
+              builder: (context, ref, _) {
+                ref.watch(meProfileProvider);
+                return TextButton(
+                  onPressed: () async =>
+                      results = await Future.wait([maybeShowWeekResult(context, ref), maybeShowWeekResult(context, ref)]),
+                  child: const Text('go'),
+                );
+              },
+            ),
+          ),
+          kv: rig.kv,
+          overrides: rig.overrides,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('go'));
+      await tester.pumpAndSettle();
+      expect(results, [true, false]);
+      expect(find.text('انتهى الأسبوع'), findsOneWidget);
+    });
+
+    testWidgets('a caller gone before the sheet: the week stays unseen for the next one', (tester) async {
+      final rig = CommunityRig(routes: {'GET /v1/me/profile': (_) => offline()});
+      await seedProfile(rig, profileJson());
+      BuildContext? inner;
+      WidgetRef? outer;
+      var showInner = true;
+      late StateSetter setOuter;
+      await tester.pumpWidget(
+        harness(
+          Scaffold(
+            body: Consumer(
+              builder: (context, ref, _) {
+                ref.watch(meProfileProvider);
+                outer = ref;
+                return StatefulBuilder(
+                  builder: (context, set) {
+                    setOuter = set;
+                    return showInner
+                        ? Builder(
+                            builder: (c) {
+                              inner = c;
+                              return const SizedBox();
+                            },
+                          )
+                        : const SizedBox();
+                  },
+                );
+              },
+            ),
+          ),
+          kv: rig.kv,
+          overrides: rig.overrides,
+        ),
+      );
+      await tester.pumpAndSettle();
+      setOuter(() => showInner = false);
+      await tester.pump();
+      expect(inner!.mounted, isFalse);
+      final shown = maybeShowWeekResult(inner!, outer!);
+      await tester.pumpAndSettle();
+      expect(await shown, isFalse);
+      expect(await rig.kv.read(seenWeekKey), isNull);
+      expect(find.text('انتهى الأسبوع'), findsNothing);
     });
 
     testWidgets('the league screen shows it on open', (tester) async {

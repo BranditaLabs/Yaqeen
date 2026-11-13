@@ -25,6 +25,19 @@ const seenWeekKey = 'community.seenWeek';
 /// No sheet when the person left that week (`outcome` null), when the leagues flag is off, or for
 /// guests. Results are in-app only — never a push (rule 5).
 Future<bool> maybeShowWeekResult(BuildContext context, WidgetRef ref) async {
+  // Home and the league can both ask at once: only one caller reads, writes and shows.
+  if (_weekResultInFlight) return false;
+  _weekResultInFlight = true;
+  try {
+    return await _maybeShowWeekResult(context, ref);
+  } finally {
+    _weekResultInFlight = false;
+  }
+}
+
+bool _weekResultInFlight = false;
+
+Future<bool> _maybeShowWeekResult(BuildContext context, WidgetRef ref) async {
   if (!ref.read(sessionProvider).canEarnPoints) return false;
   if (!ref.read(remoteConfigProvider).isOn(Flags.leagues)) return false;
   // The profile's first value is the on-device cache (never the network): wait for it if the
@@ -43,9 +56,11 @@ Future<bool> maybeShowWeekResult(BuildContext context, WidgetRef ref) async {
   if (league == null || last == null || last.outcome == null) return false;
   final kv = ref.read(kvStoreProvider);
   if (await kv.read(seenWeekKey) == last.startsOn) return false;
-  await kv.write(seenWeekKey, last.startsOn);
+  // The caller may be gone after the reads (a screen popped quickly): then the week stays unseen
+  // for the next caller. The sheet is pushed before the key is written, so it is never lost.
   if (!context.mounted) return false;
   unawaited(showYqSheet<void>(context, builder: (_) => WeekResultSheet(lastWeek: last, current: league)));
+  await kv.write(seenWeekKey, last.startsOn);
   return true;
 }
 
