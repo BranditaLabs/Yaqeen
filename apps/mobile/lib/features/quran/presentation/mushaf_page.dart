@@ -7,24 +7,62 @@ import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../domain/annotations.dart';
+import '../domain/passage.dart';
 import '../domain/quran_data.dart';
 
 /// Colours of a mushaf theme (spec §2.1: paper · white · night).
 class MushafColors {
-  const MushafColors(this.page, this.ink, this.muted, this.highlight, this.frame);
+  MushafColors(this.page, this.ink, this.muted, this.highlight, this.frame, {required Color accent})
+      : playing = accent.withValues(alpha: 0.08),
+        playingRail = accent,
+        passageRail = accent.withValues(alpha: 0.35),
+        noteUnderline = muted;
   final Color page;
   final Color ink;
   final Color muted;
   final Color highlight;
   final Color frame;
 
+  /// The ayah being recited: a lapis wash (≈ 8 %) with a 2-pt rail under it — never a dimmed page.
+  final Color playing;
+  final Color playingRail;
+
+  /// The margin rail beside the lines of the passage a layer works on (memorise, recite, sessions).
+  final Color passageRail;
+
+  /// A recitation «تنبيه»: a muted dotted underline, never red, never «خطأ».
+  final Color noteUnderline;
+
+  static final _paper = MushafColors(
+    YqColors.paperPage,
+    YqColors.paperInk,
+    YqColors.paperInk.withValues(alpha: 0.6),
+    YqColors.goldLight.withValues(alpha: 0.3),
+    YqColors.gold.withValues(alpha: 0.2),
+    accent: YqColors.lapis,
+  );
+  static final _white = MushafColors(
+    YqColors.white,
+    YqColors.ink,
+    YqColors.muted,
+    YqColors.sky.withValues(alpha: 0.2),
+    YqColors.line,
+    accent: YqColors.lapis,
+  );
+  // Night: #E9E2D0 on #15161A ≈ 13:1 contrast (AA, spec §5.11); the wash uses the light sky hue.
+  static final _night = MushafColors(
+    YqColors.nightPage,
+    YqColors.nightInk,
+    YqColors.nightInk.withValues(alpha: 0.6),
+    YqColors.goldText.withValues(alpha: 0.25),
+    YqColors.nightInk.withValues(alpha: 0.2),
+    accent: YqColors.sky,
+  );
+
   static MushafColors of(MushafTheme t) => switch (t) {
-        MushafTheme.paper =>
-          const MushafColors(YqColors.paperPage, YqColors.paperInk, Color(0x991A1712), Color(0x4DE9D49E), Color(0x33C6A867)),
-        MushafTheme.white => const MushafColors(YqColors.white, YqColors.ink, YqColors.muted, Color(0x338FB0E0), YqColors.line),
-        // Night: #E9E2D0 on #15161A ≈ 13:1 contrast (AA, spec §5.11).
-        MushafTheme.night =>
-          const MushafColors(YqColors.nightPage, YqColors.nightInk, Color(0x99E9E2D0), Color(0x407C6127), Color(0x33E9E2D0)),
+        MushafTheme.paper => _paper,
+        MushafTheme.white => _white,
+        MushafTheme.night => _night,
       };
 
   /// A saved highlight's tint, readable on every page colour (token hues at low alpha).
@@ -59,6 +97,8 @@ class MushafPage extends StatefulWidget {
     this.annotations = Annotations.empty,
     this.memorise = MemoriseMode.off,
     this.revealed = const {},
+    this.marks = const {},
+    this.passage,
     this.onAyahLongPress,
     this.onAyahTap,
     this.onNoteTap,
@@ -71,13 +111,23 @@ class MushafPage extends StatefulWidget {
   final bool comfortable;
   final String locale;
   final AyahRef? selected;
+
+  /// The ayah being recited: its own wash and rail ([MushafColors.playing]), apart from [selected].
   final AyahRef? playing;
   final Annotations annotations;
   final MemoriseMode memorise;
   final Set<AyahRef> revealed;
+
+  /// Recitation «تنبيه» marks: 1-based word positions per ayah, drawn as a muted dotted underline.
+  final Map<AyahRef, Set<int>> marks;
+
+  /// The passage a layer works on (the printed page draws its margin rail; the text page has none).
+  final Passage? passage;
   final ValueChanged<AyahRef>? onAyahLongPress;
 
-  /// Memorise mode: a tap on an ayah reveals (or hides) it.
+  /// A tap on an ayah (memorise: reveal; listen: play from it; recite: hear a noted ayah). In
+  /// memorise mode, or without [onAyahLongPress], the text page answers taps; otherwise it keeps
+  /// long-press for the ayah options (a text span carries one recognizer).
   final ValueChanged<AyahRef>? onAyahTap;
   final ValueChanged<AyahRef>? onNoteTap;
 
@@ -87,7 +137,7 @@ class MushafPage extends StatefulWidget {
 
 class _MushafPageState extends State<MushafPage> {
   final Map<AyahRef, GestureRecognizer> _recognizers = {};
-  MemoriseMode? _builtFor;
+  bool? _builtForTap;
 
   @override
   void dispose() {
@@ -102,17 +152,20 @@ class _MushafPageState extends State<MushafPage> {
     _recognizers.clear();
   }
 
-  /// Long-press for the ayah options; in memorise mode a tap reveals instead.
+  bool get _tapMode => widget.onAyahTap != null && (widget.memorise != MemoriseMode.off || widget.onAyahLongPress == null);
+
+  /// Long-press for the ayah options; a tap where a layer listens for one ([MushafPage.onAyahTap]).
   GestureRecognizer _recognizer(AyahRef ref) {
-    if (_builtFor != widget.memorise) {
+    final tap = _tapMode;
+    if (_builtForTap != tap) {
       _clearRecognizers();
-      _builtFor = widget.memorise;
+      _builtForTap = tap;
     }
     return _recognizers.putIfAbsent(
       ref,
-      () => widget.memorise == MemoriseMode.off
-          ? (LongPressGestureRecognizer()..onLongPress = () => widget.onAyahLongPress?.call(ref))
-          : (TapGestureRecognizer()..onTap = () => widget.onAyahTap?.call(ref)),
+      () => tap
+          ? (TapGestureRecognizer()..onTap = () => widget.onAyahTap?.call(ref))
+          : (LongPressGestureRecognizer()..onLongPress = () => widget.onAyahLongPress?.call(ref)),
     );
   }
 
@@ -125,41 +178,51 @@ class _MushafPageState extends State<MushafPage> {
     final style = YqText.quran(size: widget.fontSize, height: widget.comfortable ? 2.6 : 2.15, color: c.ink);
     final segments = q.page(widget.page);
     final hidden = TextStyle(
-      color: const Color(0x00000000),
+      color: c.ink.withValues(alpha: 0),
       decoration: TextDecoration.underline,
       decorationStyle: TextDecorationStyle.dotted,
       decorationColor: c.muted,
       decorationThickness: 1.6,
     );
+    final noted = TextStyle(
+      decoration: TextDecoration.underline,
+      decorationStyle: TextDecorationStyle.dotted,
+      decorationColor: c.noteUnderline,
+      decorationThickness: 1.6,
+    );
 
-    Color? background(AyahRef r) {
-      if (r == widget.selected || r == widget.playing) return c.highlight;
+    TextStyle look(AyahRef r) {
+      if (r == widget.selected) return TextStyle(backgroundColor: c.highlight);
+      if (r == widget.playing) {
+        return TextStyle(backgroundColor: c.playing, decoration: TextDecoration.underline, decorationColor: c.playingRail, decorationThickness: 2);
+      }
       final mark = widget.annotations.highlights[r];
-      return mark == null ? null : c.mark(mark);
+      return TextStyle(backgroundColor: mark == null ? null : c.mark(mark));
     }
 
     List<InlineSpan> ayahSpans(PageSegment seg, PageAyah a) {
       final rec = _recognizer(a.ref);
-      final bg = background(a.ref);
+      final base = look(a.ref);
       final label = t.ayahA11y(seg.surah.nameAr, a.ref.ayah);
       final isHidden = widget.memorise != MemoriseMode.off && !widget.revealed.contains(a.ref);
+      final notes = widget.marks[a.ref] ?? const <int>{};
       final spans = <InlineSpan>[];
       final quarter = q.quarterStartingAt(a.ref);
       if (quarter != null && !(a.ref.surah == 1 && a.ref.ayah == 1)) spans.add(_marker(_quarterLabel(t, quarter), c, widget.fontSize));
-      if (!isHidden) {
-        spans.add(TextSpan(text: '${a.text} ', recognizer: rec, semanticsLabel: label, style: TextStyle(backgroundColor: bg)));
-      } else if (widget.memorise == MemoriseMode.ayat) {
+      if (!isHidden && notes.isEmpty) {
+        spans.add(TextSpan(text: '${a.text} ', recognizer: rec, semanticsLabel: label, style: base));
+      } else if (isHidden && widget.memorise == MemoriseMode.ayat) {
         spans.add(TextSpan(text: '${a.text} ', recognizer: rec, semanticsLabel: t.quranHiddenAyahA11y, style: hidden));
       } else {
-        // Every other word hidden; the first stays as a cue.
+        // Word by word: every other word hidden (the first stays as a cue), or noted words underlined.
         final words = a.text.split(' ');
         for (final (i, w) in words.indexed) {
           spans.add(
             TextSpan(
               text: '$w ',
               recognizer: rec,
-              semanticsLabel: i == 0 ? t.quranHiddenAyahA11y : '',
-              style: i.isOdd ? hidden : TextStyle(backgroundColor: bg),
+              semanticsLabel: i == 0 ? (isHidden ? t.quranHiddenAyahA11y : label) : '',
+              style: isHidden && i.isOdd ? hidden : (notes.contains(i + 1) ? base.merge(noted) : base),
             ),
           );
         }
@@ -367,6 +430,8 @@ class FittedMushafPage extends StatelessWidget {
               annotations: p.annotations,
               memorise: p.memorise,
               revealed: p.revealed,
+              marks: p.marks,
+              passage: p.passage,
               onAyahLongPress: p.onAyahLongPress,
               onAyahTap: p.onAyahTap,
               onNoteTap: p.onNoteTap,

@@ -20,6 +20,8 @@ import '../../../core/widgets/liquid_glass.dart';
 import '../../../core/widgets/yq_button.dart';
 import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_layout.dart';
+import '../../../core/widgets/yq_ring.dart';
+import '../../../core/widgets/yq_skeleton_mushaf.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../challenge/domain/challenge_models.dart';
@@ -60,7 +62,7 @@ class ReaderScreen extends ConsumerStatefulWidget {
   ConsumerState<ReaderScreen> createState() => _ReaderScreenState();
 }
 
-class _ReaderScreenState extends ConsumerState<ReaderScreen> {
+class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBindingObserver {
   final _pager = MushafPagerController();
   bool _spread = false;
   late int _page = widget.initialPage.clamp(1, QuranData.pageCount);
@@ -72,7 +74,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   Timer? _focusTimer;
   Timer? _hideTimer;
   Timer? _wirdTimer;
-  DateTime _pageShownAt = DateTime.now();
+  final _wirdClock = WirdClock();
   Future<void> _lastSave = Future.value();
   bool _pageMarked = false;
   MemoriseMode _memorise = MemoriseMode.off;
@@ -83,6 +85,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _c = ProviderScope.containerOf(context, listen: false);
     final s = ref.read(settingsProvider);
     _hint = !s.readerHintSeen;
@@ -93,7 +96,47 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // A full-screen page pushed over the reader takes it offstage (tickers off): the wird clock
+    // stops. A sheet (popup route) leaves the page on screen, so reading time keeps counting.
+    _setCovered(!TickerMode.valuesOf(context).enabled);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Only while the app is in the foreground with the screen on.
+    _wirdClock.foreground = state == AppLifecycleState.resumed;
+    _syncWirdClock();
+  }
+
+  void _setCovered(bool covered) {
+    if (_wirdClock.covered == covered) return;
+    _wirdClock.covered = covered;
+    _syncWirdClock();
+  }
+
+  /// Starts or stops the visible-time clock; the page counts once it has been visible 20 s.
+  void _syncWirdClock() {
+    final page = _page;
+    if (!_wirdClock.sync()) {
+      _wirdTimer?.cancel();
+      return;
+    }
+    _wirdTimer?.cancel();
+    final left = const Duration(seconds: WirdRules.minSecondsPerPage) - _wirdClock.visible;
+    if (left <= Duration.zero) return;
+    // Counting at 20 s while still on the page — the user may keep reading the same page.
+    _wirdTimer = Timer(left, () {
+      for (final p in _visible(page)) {
+        _countPage(p, const Duration(seconds: WirdRules.minSecondsPerPage));
+      }
+    });
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     // The last page counts too if it was read long enough. Home, the Quran index and the khatma
     // orb stay mounted under the tabs, so «continue reading» and the week's minutes reload once the
     // last writes land.
@@ -192,15 +235,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   }
 
   Future<void> _onPageShown(int page) async {
-    _pageShownAt = DateTime.now();
+    _wirdClock.restart();
     _warmFonts(page);
-    _wirdTimer?.cancel();
-    // Counting at 20 s while still on the page — the user may keep reading the same page.
-    _wirdTimer = Timer(const Duration(seconds: WirdRules.minSecondsPerPage), () {
-      for (final p in _visible(page)) {
-        _countPage(p, const Duration(seconds: WirdRules.minSecondsPerPage));
-      }
-    });
+    _syncWirdClock();
     final q = await _c.read(quranDataProvider.future);
     final reading = _c.read(readingRepositoryProvider);
     await (_lastSave = reading.saveLastRead(page, q.firstOfPage(page).surah, _c.read(clockProvider)()));
@@ -210,7 +247,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   /// Leaving the current page: its pages may count, and the time goes into the reading stats.
   Future<void> _leavePage() {
-    final shown = DateTime.now().difference(_pageShownAt);
+    final shown = _wirdClock.visible;
     return Future.wait([
       for (final p in _visible(_page)) _countPage(p, shown),
       _addSeconds(shown.inSeconds.clamp(0, ReadingStats.maxSecondsPerView)),
@@ -371,9 +408,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       child: Scaffold(
         backgroundColor: night ? YqColors.nightBg : colors.page,
         body: data.when(
-          loading: () => const Padding(
-            padding: EdgeInsets.all(YqSpace.gutter),
-            child: Center(child: YqSkeleton(child: YqSkeletonText(lines: 12, lineHeight: 18))),
+          loading: () => SafeArea(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: (MediaQuery.sizeOf(context).width * 0.045).clamp(10.0, 30.0), vertical: 6),
+              child: const YqSkeletonMushafPage(header: true),
+            ),
           ),
           error: (_, __) => YqErrorState(onRetry: () => ref.invalidate(quranDataProvider)),
           data: (q) {
@@ -391,7 +430,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   annotations: annotations,
                   memorise: _memorise,
                   revealed: _revealed,
-                  onAyahTap: (r) => setState(() => _revealed.contains(r) ? _revealed.remove(r) : _revealed.add(r)),
+                  onAyahTap: _memorise == MemoriseMode.off ? null : (r) => setState(() => _revealed.contains(r) ? _revealed.remove(r) : _revealed.add(r)),
                   onNoteTap: (r) => showNoteSheet(context, quran: q, ref: r),
                   onAyahLongPress: _locked
                       ? null
@@ -816,7 +855,8 @@ class _PageBodyState extends ConsumerState<_PageBody> {
             ),
           );
         } else {
-          child = const SizedBox.expand(key: ValueKey('wait'));
+          // The page's font is on its way (≤ 650 ms): the page's shape, shimmering, not a blank.
+          child = const Padding(key: ValueKey('wait'), padding: EdgeInsets.symmetric(vertical: 4), child: YqSkeletonMushafPage());
         }
         return AnimatedSwitcher(
           duration: YqMotion.fast,
@@ -1193,15 +1233,7 @@ class _LockOverlayState extends State<_LockOverlay> with SingleTickerProviderSta
                   builder: (context, _) => Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      SizedBox.square(
-                        dimension: 20,
-                        child: CircularProgressIndicator(
-                          value: _hold.value,
-                          strokeWidth: 2.4,
-                          color: YqColors.lapis,
-                          backgroundColor: YqColors.line,
-                        ),
-                      ),
+                      YqRing(value: _hold.value, size: 20, stroke: 2.4, track: YqColors.line),
                       const SizedBox(width: YqSpace.s),
                       Text(_hold.value > 0 ? t.readerKeepHolding : t.readerLocked, style: const TextStyle(fontSize: 13)),
                     ],
@@ -1225,7 +1257,7 @@ class _FirstOpenHint extends StatelessWidget {
     final t = AppLocalizations.of(context);
     return Positioned.fill(
       child: ColoredBox(
-        color: const Color(0x590A1530),
+        color: YqColors.ink.withValues(alpha: 0.35),
         child: Center(
           child: Padding(
             padding: const EdgeInsets.all(YqSpace.xxl),

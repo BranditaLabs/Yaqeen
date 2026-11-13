@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -9,6 +11,7 @@ import '../data/mushaf_fonts.dart';
 import '../domain/annotations.dart';
 import '../domain/mushaf_layout.dart';
 import '../domain/page_geometry.dart';
+import '../domain/passage.dart';
 import '../domain/quran_data.dart';
 import 'mushaf_page.dart';
 
@@ -31,6 +34,8 @@ class MadaniPage extends StatefulWidget {
     this.annotations = Annotations.empty,
     this.memorise = MemoriseMode.off,
     this.revealed = const {},
+    this.marks = const {},
+    this.passage,
     this.onAyahLongPress,
     this.onAyahTap,
     this.onNoteTap,
@@ -43,13 +48,22 @@ class MadaniPage extends StatefulWidget {
   final int page;
   final MushafTheme theme;
   final AyahRef? selected;
+
+  /// The ayah being recited: a lapis wash and a 2-pt rail, on their own layer (see [build]).
   final AyahRef? playing;
   final Annotations annotations;
   final MemoriseMode memorise;
   final Set<AyahRef> revealed;
+
+  /// Recitation «تنبيه» marks: 1-based word positions per ayah (muted dotted underline).
+  final Map<AyahRef, Set<int>> marks;
+
+  /// The passage a layer works on: a rail in the start margin beside its lines.
+  final Passage? passage;
   final ValueChanged<AyahRef>? onAyahLongPress;
 
-  /// Memorise mode: a tap on an ayah reveals (or hides) it.
+  /// A tap on an ayah, in every mode where the reader listens for one (memorise: reveal; listen:
+  /// play from it; recite: hear a noted ayah). Without it a tap goes to [onBackgroundTap].
   final ValueChanged<AyahRef>? onAyahTap;
   final ValueChanged<AyahRef>? onNoteTap;
 
@@ -131,8 +145,9 @@ class MadaniPageState extends State<MadaniPage> {
             behavior: HitTestBehavior.opaque,
             onTapUp: (d) {
               final ref = g.ayahAt(d.localPosition);
-              if (widget.memorise != MemoriseMode.off && ref != null) {
-                widget.onAyahTap?.call(ref);
+              final onAyah = widget.onAyahTap;
+              if (onAyah != null && ref != null) {
+                onAyah(ref);
               } else {
                 widget.onBackgroundTap?.call(d.globalPosition);
               }
@@ -145,24 +160,43 @@ class MadaniPageState extends State<MadaniPage> {
                   },
             child: Stack(
               children: [
+                // The glyphs repaint only when the page itself changes (theme, selection, memorise);
+                // the recitation's moving wash, the passage rail and «تنبيه» marks are a separate
+                // layer above, so following the audio never redraws the page's 15 lines.
                 Positioned.fill(
-                  child: CustomPaint(
-                    painter: _MadaniPainter(
-                      geometry: g,
-                      page: widget.page,
-                      layout: widget.layout,
-                      quran: widget.quran,
-                      colors: colors,
-                      night: widget.theme == MushafTheme.night,
-                      selected: widget.selected,
-                      playing: widget.playing,
-                      highlights: widget.annotations.highlights,
-                      hidden: _hidden,
-                      bandLabel: (s) => t.quranSurahName(widget.quran.surah(s).nameAr),
-                      ayahLabel: (r) => widget.memorise != MemoriseMode.off && !widget.revealed.contains(r)
-                          ? t.quranHiddenAyahA11y
-                          : '${t.ayahA11y(widget.quran.surah(r.surah).nameAr, r.ayah)}\n${widget.quran.text(r)}',
-                      memoriseKey: '${widget.memorise.name}:${widget.revealed.join(',')}',
+                  child: RepaintBoundary(
+                    child: CustomPaint(
+                      painter: _MadaniPainter(
+                        geometry: g,
+                        page: widget.page,
+                        layout: widget.layout,
+                        quran: widget.quran,
+                        colors: colors,
+                        night: widget.theme == MushafTheme.night,
+                        selected: widget.selected,
+                        highlights: widget.annotations.highlights,
+                        hidden: _hidden,
+                        bandLabel: (s) => t.quranSurahName(widget.quran.surah(s).nameAr),
+                        ayahLabel: (r) => widget.memorise != MemoriseMode.off && !widget.revealed.contains(r)
+                            ? t.quranHiddenAyahA11y
+                            : '${t.ayahA11y(widget.quran.surah(r.surah).nameAr, r.ayah)}\n${widget.quran.text(r)}',
+                        memoriseKey: '${widget.memorise.name}:${widget.revealed.join(',')}',
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: RepaintBoundary(
+                      child: CustomPaint(
+                        painter: _LayerPainter(
+                          geometry: g,
+                          colors: colors,
+                          playing: widget.playing,
+                          passage: widget.passage,
+                          marks: widget.marks,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -202,7 +236,6 @@ class _MadaniPainter extends CustomPainter {
     required this.colors,
     required this.night,
     required this.selected,
-    required this.playing,
     required this.highlights,
     required this.hidden,
     required this.bandLabel,
@@ -217,7 +250,6 @@ class _MadaniPainter extends CustomPainter {
   final MushafColors colors;
   final bool night;
   final AyahRef? selected;
-  final AyahRef? playing;
   final Map<AyahRef, MarkColor> highlights;
   final bool Function(MushafWord) hidden;
   final String Function(int surah) bandLabel;
@@ -247,9 +279,7 @@ class _MadaniPainter extends CustomPainter {
     for (final e in highlights.entries) {
       tint(e.key, colors.mark(e.value));
     }
-    for (final r in {selected, playing}.whereType<AyahRef>()) {
-      tint(r, colors.highlight);
-    }
+    if (selected case final AyahRef r) tint(r, colors.highlight);
 
     // 2 · lines.
     final dotted = Paint()
@@ -386,10 +416,86 @@ class _MadaniPainter extends CustomPainter {
       old.geometry != geometry ||
       old.colors != colors ||
       old.selected != selected ||
-      old.playing != playing ||
       old.highlights != highlights ||
       old.memoriseKey != memoriseKey;
 
   @override
   bool shouldRebuildSemantics(_MadaniPainter old) => old.geometry != geometry || old.memoriseKey != memoriseKey;
+}
+
+/// The reader's layers over the fixed page: the passage rail in the start margin, the recited
+/// ayah's wash with its 2-pt rail, and the recitation's «تنبيه» marks. Never dims the page.
+class _LayerPainter extends CustomPainter {
+  _LayerPainter({required this.geometry, required this.colors, required this.playing, required this.passage, required this.marks});
+
+  final PageGeometry geometry;
+  final MushafColors colors;
+  final AyahRef? playing;
+  final Passage? passage;
+  final Map<AyahRef, Set<int>> marks;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final g = geometry;
+    final p = passage;
+    if (p != null) {
+      // Start margin of an RTL page: just outside the block's right edge, one stroke per run of lines.
+      final rail = Paint()
+        ..color = colors.passageRail
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round;
+      final x = math.min(size.width - 2, g.block.right + math.max(3.0, g.pitch * 0.12));
+      double? top;
+      double? bottom;
+      for (final l in g.lines) {
+        final inside = l.words.any((w) => p.contains(w.word.ref));
+        if (inside) {
+          top ??= l.rect.top + g.pitch * 0.18;
+          bottom = l.rect.bottom - g.pitch * 0.18;
+        } else if (top != null) {
+          canvas.drawLine(Offset(x, top), Offset(x, bottom!), rail);
+          top = null;
+        }
+      }
+      if (top != null) canvas.drawLine(Offset(x, top), Offset(x, bottom!), rail);
+    }
+    final now = playing;
+    if (now != null) {
+      final wash = Paint()..color = colors.playing;
+      final rail = Paint()
+        ..color = colors.playingRail
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round;
+      for (final r in g.rectsOf(now)) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTRB(r.left - 2, r.top + g.pitch * 0.1, r.right + 2, r.bottom - g.pitch * 0.06),
+            Radius.circular(g.pitch * 0.18),
+          ),
+          wash,
+        );
+        final y = r.bottom - g.pitch * 0.08;
+        canvas.drawLine(Offset(r.left, y), Offset(r.right, y), rail);
+      }
+    }
+    if (marks.isNotEmpty) {
+      final dot = Paint()
+        ..color = colors.noteUnderline
+        ..strokeWidth = 1.4
+        ..strokeCap = StrokeCap.round;
+      for (final l in g.lines) {
+        for (final w in l.words) {
+          if (!(marks[w.word.ref]?.contains(w.word.position) ?? false)) continue;
+          final y = w.rect.top + g.pitch * 0.84;
+          for (var x = w.rect.left + 1; x < w.rect.right - 1; x += 4.5) {
+            canvas.drawLine(Offset(x, y), Offset(x + 1.2, y), dot);
+          }
+        }
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_LayerPainter old) =>
+      old.geometry != geometry || old.colors != colors || old.playing != playing || old.passage != passage || old.marks != marks;
 }

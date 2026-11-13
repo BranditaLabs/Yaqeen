@@ -23,6 +23,7 @@ import 'package:yaqeen/features/listen/presentation/listen_controller.dart';
 import 'package:yaqeen/features/listen/presentation/now_playing_screen.dart';
 import 'package:yaqeen/features/listen/presentation/reciters_screen.dart';
 import 'package:yaqeen/features/quran/data/tafsir_repository.dart';
+import 'package:yaqeen/features/quran/domain/passage.dart';
 import 'package:yaqeen/features/quran/domain/quran_data.dart';
 
 import '../../helpers/fonts.dart';
@@ -363,6 +364,74 @@ void main() {
       expect((await store.snapshot())?.ayah, 4);
       expect(await store.downloading(), {'afasy'});
       expect(await store.reciterId(), 'afasy');
+    });
+
+    test('a passage ×3 plays three times, stops and signals; the count is kept with the resume point', () async {
+      final engine = FakeAudioEngine();
+      final kv = MemoryKvStore();
+      final c = ProviderContainer(overrides: overrides(engine, kv));
+      addTearDown(c.dispose);
+      final ctl = c.read(listenControllerProvider.notifier);
+      await ctl.playPassage(const Passage(18, 2, 3), times: 3); // 10 s – 30 s
+      await Future<void>.delayed(Duration.zero);
+      var s = c.read(listenControllerProvider);
+      expect([s.repeat, s.rangeFrom, s.rangeTo, s.repeatTimes, s.roundsDone, s.loopEnded], [ListenRepeat.range, 2, 3, 3, 0, false]);
+      for (var pass = 1; pass <= 2; pass++) {
+        engine.advance(const Duration(seconds: 21)); // crosses the end of ayah 3
+        await Future<void>.delayed(Duration.zero);
+        s = c.read(listenControllerProvider);
+        expect([s.ayah, s.roundsDone, s.loopEnded, engine.current], [2, pass, false, const Duration(seconds: 10)]);
+      }
+      engine.advance(const Duration(seconds: 21));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      s = c.read(listenControllerProvider);
+      expect([s.roundsDone, s.loopEnded, engine.isPlaying], [3, true, false]);
+      final snap = await c.read(listenStoreProvider).snapshot();
+      expect([snap?.roundsDone, snap?.loopEnded], [3, true]);
+
+      // Play again after the end starts the passage over.
+      await ctl.toggle();
+      await Future<void>.delayed(Duration.zero);
+      s = c.read(listenControllerProvider);
+      expect([engine.current, s.roundsDone, s.loopEnded, engine.isPlaying], [const Duration(seconds: 10), 0, false, true]);
+    });
+
+    test('opening the surah already loaded only seeks (no reload)', () async {
+      final engine = FakeAudioEngine();
+      final c = ProviderContainer(overrides: overrides(engine, MemoryKvStore()));
+      addTearDown(c.dispose);
+      final ctl = c.read(listenControllerProvider.notifier);
+      await ctl.open(18, ayah: 3);
+      await ctl.pause();
+      await Future<void>.delayed(Duration.zero);
+      await ctl.open(18, ayah: 7);
+      await Future<void>.delayed(Duration.zero);
+      final s = c.read(listenControllerProvider);
+      expect(engine.opened, hasLength(1));
+      expect([engine.current, s.ayah, engine.isPlaying], [const Duration(seconds: 60), 7, true]);
+      // Another surah does load.
+      await ctl.open(19, ayah: 1);
+      expect(engine.opened, hasLength(2));
+    });
+
+    test('echo: an ayah plays once, pauses, and leaves 1.2× its length to repeat it', () async {
+      final engine = FakeAudioEngine();
+      final c = ProviderContainer(overrides: overrides(engine, MemoryKvStore()));
+      addTearDown(c.dispose);
+      final ctl = c.read(listenControllerProvider.notifier);
+      await ctl.open(18, ayah: 1);
+      final gap = ctl.playAyahThenPause(const AyahRef(18, 5)); // 40 s – 50 s
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect([engine.current, engine.isPlaying], [const Duration(seconds: 40), true]);
+      engine.advance(const Duration(seconds: 11));
+      expect(await gap, const Duration(seconds: 12));
+      expect(engine.isPlaying, isFalse);
+      // At 1.25× the pause is shorter.
+      await ctl.cycleSpeed();
+      final faster = ctl.playAyahThenPause(const AyahRef(18, 6));
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      engine.advance(const Duration(seconds: 11));
+      expect(await faster, const Duration(milliseconds: 9600));
     });
 
     test('5 minutes of play is recorded for the day', () async {

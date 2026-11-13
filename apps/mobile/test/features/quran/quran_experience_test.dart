@@ -9,6 +9,7 @@ import 'package:yaqeen/core/settings/app_settings.dart';
 import 'package:yaqeen/core/storage/kv_store.dart';
 import 'package:yaqeen/core/storage/local_store.dart';
 import 'package:yaqeen/core/widgets/liquid_glass.dart';
+import 'package:yaqeen/core/widgets/yq_states.dart';
 import 'package:yaqeen/features/quran/data/reading_repository.dart';
 import 'package:yaqeen/features/quran/domain/annotations.dart';
 import 'package:yaqeen/features/quran/domain/ayah_search.dart';
@@ -96,7 +97,7 @@ void main() {
       ),
     );
     await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.text('حفظ'));
+    await tester.tap(find.text('تحفيظ'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('إخفاء الآيات'));
     await tester.pumpAndSettle();
@@ -142,6 +143,47 @@ void main() {
     expect(page.annotations.highlights[const AyahRef(1, 3)], MarkColor.green);
     expect(find.byIcon(Icons.sticky_note_2_outlined), findsOneWidget);
     await leave(tester);
+  });
+
+  group('wird timer', () {
+    Future<int> pagesToday(MemoryKvStore kv) async => (await ReadingRepository(LocalStore(kv)).wird())?.pages.length ?? 0;
+
+    Future<void> open(WidgetTester tester, MemoryKvStore kv) async {
+      size(tester, const Size(390, 844));
+      await tester.pumpWidget(
+        harness(
+          const ReaderScreen(initialPage: 5),
+          kv: kv,
+          overrides: [...base(), initialSettingsProvider.overrideWithValue(const AppSettings(readerHintSeen: true))],
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+
+    testWidgets('a full-screen page over the reader stops the count', (tester) async {
+      final kv = MemoryKvStore();
+      await open(tester, kv);
+      tester.state<NavigatorState>(find.byType(Navigator)).push(MaterialPageRoute<void>(builder: (_) => const Scaffold()));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 25));
+      expect(await pagesToday(kv), 0);
+      // Back on the page the clock goes on from where it was.
+      tester.state<NavigatorState>(find.byType(Navigator)).pop();
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 21));
+      expect(await pagesToday(kv), 1);
+      await leave(tester);
+    });
+
+    testWidgets('a bottom sheet over the page does not pause it', (tester) async {
+      final kv = MemoryKvStore();
+      await open(tester, kv);
+      showYqSheet<void>(tester.element(find.byType(ReaderScreen)), builder: (_) => const SizedBox(height: 120));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 21));
+      expect(await pagesToday(kv), 1);
+      await leave(tester);
+    });
   });
 
   testWidgets('khatma: start a 30-day plan, see today\'s portion and status', (tester) async {

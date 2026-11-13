@@ -384,7 +384,7 @@ void main() {
         for (final l in tester.state<MadaniPageState>(page).geometry!.lines)
           for (final w in l.words) w.rect,
       ];
-      await tester.tap(find.text('حفظ'));
+      await tester.tap(find.text('تحفيظ'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('إخفاء الآيات'));
       await tester.pumpAndSettle();
