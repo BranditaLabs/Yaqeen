@@ -25,8 +25,9 @@ pnpm --filter @yaqeen/e2e e2e                                             # brow
 cd apps/mobile && flutter pub get && flutter gen-l10n && flutter analyze --no-fatal-infos && flutter test
 ```
 
-- Golden tests live in `apps/mobile/test/goldens`. Update them with `flutter test --update-goldens <file>` only for
-  intended visual changes. Look at the diff first.
+- Golden tests live in `apps/mobile/test/goldens`. Regenerate them only for intended visual changes, and only with
+  the Linux workflow (`.github/workflows/goldens.yml`, dispatched on your branch) — never on Windows/macOS, whose
+  fonts rasterise differently. Look at the diff first.
 - CI (`.github/workflows/ci.yml`) also builds the release APK and runs it on an Android emulator (`mobile-smoke`).
   Start-up must never block the first frame (`lib/app/bootstrap.dart`).
 
@@ -60,7 +61,11 @@ touching user privacy.
   - Every screen is a `YqCanvas`: a `YqStage` (living sky; `compact` on pushed screens, `gold` on reward screens) with a `YqStageBar` and one `YqMoment`, then up to three `YqOrb`s, then a `YqTimeline` / `YqGroup`s / lazy `slivers`. The reader and splash are the only exceptions (DESIGN_SYSTEM §3).
   - Tab bar = the dock (`FloatingTabBar`: five equal slots, profile avatar as the fifth, a lapis pill that glides under the active tab). Scrolling screens clear it with `YqInsets.bottom(context)` (the shell adds the dock to the bottom safe area inside tabs) — never a hard-coded bottom padding.
   - Shadows under translucent glass go through `OuterShadow` (never a plain `BoxShadow` under a see-through fill).
-  - Loading states are shaped like the content: `YqSkeletonOrbs`, `YqSkeletonRows`, `YqSkeletonText`, `YqSkeletonBox.circle`.
+  - No bare spinners: loading is shaped like the content (`YqSkeletonOrbs`, `YqSkeletonRows`, `YqSkeletonText`, `YqSkeletonCard`,
+    `YqSkeletonAvatarRows`, `YqSkeletonMushafPage`, `YqSkeletonBox.circle`) under one `YqSkeleton`; determinate progress is a
+    `YqRing`; `YqButton(loading: true)` keeps and shimmers its label. `test/core/no_spinner_test.dart` fails on any
+    `Circular/Linear/RefreshProgressIndicator` outside `core/widgets/yq_states.dart`; pull-to-refresh's `RefreshIndicator`
+    is the one exception, allowed only in `core/widgets/yq_stage.dart` and `features/home/home_screen.dart`.
 - **Public card (بطاقة يقين):** opt-in; shows only switched-on fields and never worship detail (CLAUDE.md rules 1–2). Server page in `services/api/src/web/profile-page.ts` (escape every user string; https links only); app in `features/card` (journey: `journey_widgets.dart`, Profile tab `JourneySection`); physical medals/cards: `services/tags.service.ts`, `routes/admin/tags.routes.ts`, `/t/:code` in `profile.routes.ts`, app «ميدالياتي» sheet in `card_screen.dart` (the app does not write NFC); admin programme in `routes/admin/cards.routes.ts` + `services/{cards-settings,card-stats}.service.ts`, pages `apps/admin/src/app/(dash)/{cards,tags}`.
   - Tests pin the sky with the harness `skyClock:` so goldens are deterministic.
 - **Agent tooling** (Claude Code project skills in `.claude/skills`, vendored as published; MIT/Apache licences inside):
@@ -86,6 +91,13 @@ touching user privacy.
 - **Observability & delivery:** errors via Sentry (`services/api/src/lib/observability.ts`, `apps/admin/src/sentry.shared.ts`, app `core/platform/error_reporter.dart`) — scrub everything personal; metrics `services/api/src/lib/metrics.ts` (route templates only); product analytics only through `PRODUCT_EVENTS` (closed list, never worship; a test mirrors it in Dart); deploys only through `.github/workflows/deploy.yml` / `tools/deploy/deploy.sh` (Kubernetes) or `tools/deploy/azure.sh` (Azure Container Apps, `deploy/azure/main.bicep`; staging is live there — docs/OPERATIONS.md › Azure; secrets only in the environment's Key Vault) (migrations backwards compatible).
 - **Ads:** app sinks live in `lib/core/analytics/sinks/` (Firebase Analytics for Google Ads, Meta App Events) behind the `Analytics` gate: `ads_measurement` consent + ATT, `AdEvent` values and allowlisted params only, registered only in builds with their ids, native auto-collection off. TikTok has no app SDK. The only server-to-ad-platform flow is the consented `purchase` conversion (`services/api/src/services/conversions.service.ts`, flag `serverConversions`, off by default). Never add an event or a param without a privacy review.
 - **Cloud backup:** device-first stores stay local-first; `features/backup` adapters export/merge them only when the user turned on `cloud_backup`. A new device-only store that holds personal progress needs an adapter (and a `BACKUP_KINDS` entry) or a documented reason to stay off the backup. Never read `user_backups` from admin, analytics or ads code (a test enforces it).
+- **Profile & community** (`docs/design/2026-11-profile-community-quran.md`): avatars are presets or a photo (sharp → WebP in
+  Postgres, EXIF stripped; public only after the 18+ attestation); gold only for achievement. Leagues, tournaments and the
+  level board are opt-in (consent `community`, re-checked on every path), read nightly snapshots only (nothing live), share
+  ranks on ties, support block/report/name filter, reward badges only, and sit behind flags `leagues`/`tournaments`/
+  `leaderboard` (off by default); job `yaqeen-community` hourly; admin «المسابقات». Never show worship detail there.
+- **One-Page Quran:** the reader holds the mode dock (read/listen/hifz/recite), follow-audio, the mini player and guided
+  hifz/review sessions; `/quran/listen/*` and `/quran/recite/*` redirect into it.
 - **NFC:** only through `NfcService` (`core/platform/nfc_service.dart`); accept only our `/t/<code>` URLs; never start a session at launch.
 - **Browser E2E:** `e2e/` (Playwright + axe) resets its own `*e2e*` database and runs the admin, the website and the card pages; add a test there when you change an admin page or a public page.
 - **Ramadan, widgets, website:** Ramadan mode in `features/ramadan` (on only with flag `ramadan` and a Ramadan/Sha'ban Hijri date; the log is device-only; Ramadan bonuses are claimed with the tick's date). Home-screen widgets read the snapshot from `features/home/data/widget_snapshot.dart` (written after each re-plan through `HomeWidgetPublisher`); native code in `android/.../NextPrayerWidget.kt` and `ios/YaqeenWidget/` — colours only from the generated `yq_tokens.xml` / `YqTokens.swift` (`pnpm --filter @yaqeen/design-tokens build`). The public website is `services/api/src/web/site-pages.ts` (no scripts; keep owner-only legal facts bracketed; bump `LEGAL_VERSION` when the policy changes) and `docs/STORE_LISTING.md` must match what the build collects.

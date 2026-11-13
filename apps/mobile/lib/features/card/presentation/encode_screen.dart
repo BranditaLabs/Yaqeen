@@ -209,7 +209,7 @@ class _EncodeScreenState extends ConsumerState<EncodeScreen> {
           stage: YqStage(compact: true, child: YqStageBar(back: true, title: t.encodeTitle)),
           children: [
             if (_loading)
-              const YqSkeletonRows(rows: 3)
+              const YqSkeleton(child: YqSkeletonRows(rows: 3))
             else if (_loadProblem == EncodeProblem.gone)
               YqEmptyState(icon: YqIcons.settings, title: t.encodeGone)
             else
