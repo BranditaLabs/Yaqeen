@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,249 +10,201 @@ import '../../../core/config/env.dart';
 import '../../../core/config/remote_config.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/format.dart';
-import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
-import '../../../core/theme/typography.dart';
+import '../../../core/widgets/liquid_glass.dart';
+import '../../../core/widgets/yq_avatar.dart';
+import '../../../core/widgets/yq_icon.dart';
+import '../../../core/widgets/yq_layout.dart';
 import '../../../core/widgets/yq_orb.dart';
 import '../../../core/widgets/yq_ring.dart';
 import '../../../core/widgets/yq_stage.dart';
-import '../../../core/widgets/controls.dart';
-import '../../../core/widgets/liquid_glass.dart';
-import '../../../core/widgets/yq_button.dart';
-import '../../../core/widgets/yq_icon.dart';
-import '../../../core/widgets/yq_layout.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
-import '../../backup/presentation/backup_widgets.dart';
+import '../../card/presentation/card_screen.dart' show myCardProvider;
 import '../../card/presentation/journey_widgets.dart';
 import '../../challenge/presentation/challenge_controller.dart';
+import '../../community/presentation/badge_label.dart';
 import '../../content/presentation/pack_row.dart';
-import '../../notifications/presentation/reminders_controller.dart';
-import '../../onboarding/data/auth_repository.dart';
-import '../../onboarding/data/consent_repository.dart';
 import '../../onboarding/presentation/session_controller.dart';
 import '../../onboarding/presentation/sign_in_sheet.dart';
-import '../../prayer/presentation/prayer_labels.dart';
-import '../../rewards/domain/reward.dart';
+import '../domain/avatar.dart';
+import '../domain/me_profile.dart';
+import 'avatar_sheet.dart';
+import 'badges_strip.dart';
+import 'edit_name_sheet.dart';
+import 'level_ladder_sheet.dart';
+import 'me_avatar.dart';
+import 'me_profile_controller.dart';
+import 'profile_providers.dart';
+import 'profile_settings_screen.dart';
 
-/// Queued writes; re-read whenever the outbox changes (a tick queued, a flush sent them).
-final pendingSyncProvider = FutureProvider.autoDispose((ref) {
-  final outbox = ref.watch(outboxProvider);
-  final sub = outbox.changes.listen((_) => ref.invalidateSelf());
-  ref.onDispose(sub.cancel);
-  return outbox.length;
-});
+// The sub-screens used to live in this file; keep them importable from here.
+export 'downloads_screen.dart';
+export 'ledger_screen.dart';
+export 'privacy_screen.dart';
+export 'profile_providers.dart';
 
-/// Bytes of audio and packs on disk; re-measured when the download queue drains.
-final downloadsBytesProvider = FutureProvider.autoDispose((ref) async {
-  final sub = ref.watch(downloadQueueProvider).idle.listen((_) => ref.invalidateSelf());
-  ref.onDispose(sub.cancel);
-  return await ref.watch(audioDownloadsProvider).bytesOnDisk() + await ref.watch(packRepositoryProvider).bytesOnDisk();
-});
-final ledgerProvider = FutureProvider.autoDispose((ref) => ref.watch(rewardsRepositoryProvider).ledger());
-
-/// `21 · Profile & settings` (spec §5.24).
-class ProfileScreen extends ConsumerWidget {
+/// `21 · Profile` (APP_SPEC §5.24, design §6.1): who you are and where you stand.
+///
+/// Stage: the avatar inside the level ring (lapis; gold only at the top level or for the one-shot
+/// level-up glint), the name and the level caption. Orbs: Level · Points (or Language) · League (or
+/// Downloads) — the set depends on flags and session only, so it never swaps while loading. Body:
+/// badges (the only gold block), the journey, «المنافسة», the card row and the rewards group.
+/// Everything else lives in `/profile/settings`. Never shows which prayers or azkar.
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  /// The level-up moment is playing (gold ring + glint), then the ring settles back to lapis.
+  bool _celebrating = false;
+  Timer? _celebration;
+
+  static const celebration = Duration(milliseconds: 1600);
+
+  @override
+  void dispose() {
+    _celebration?.cancel();
+    super.dispose();
+  }
+
+  /// Plays the level-up moment once, unless Home already did: glint, a quiet toast, then seen.
+  void _maybeCelebrate(LevelUp up) {
+    if (!up.pending || up.level == null || _celebrating) return;
+    // Only on screen (an offstage tab keeps its tickers off): the moment must be seen to be spent.
+    if (!TickerMode.valuesOf(context).enabled) return;
+    _celebrating = true;
+    final level = up.level!;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final t = AppLocalizations.of(context);
+      final locale = Localizations.localeOf(context).languageCode;
+      setState(() {});
+      YqToast.show(context, t.lvlReached(level.name(locale)));
+      ref.read(levelUpProvider.notifier).markSeen().ignore();
+      _celebration = Timer(celebration, () {
+        if (mounted) setState(() => _celebrating = false);
+      });
+    });
+  }
+
+  Future<void> _refresh() async {
     final t = AppLocalizations.of(context);
-    final text = Theme.of(context).textTheme;
+    final session = ref.read(sessionProvider);
+    ref
+      ..invalidate(pendingSyncProvider)
+      ..invalidate(downloadsBytesProvider)
+      ..invalidate(myJourneyProvider);
+    if (!session.canEarnPoints) return;
+    ref
+      ..invalidate(challengeControllerProvider)
+      ..invalidate(myCardProvider);
+    final before = ref.read(meProfileProvider).valueOrNull;
+    await ref.read(meProfileProvider.notifier).refresh();
+    // A failed refresh keeps the cached profile (the controller only replaces it on success).
+    if (before != null && identical(ref.read(meProfileProvider).valueOrNull, before) && mounted) {
+      YqToast.show(context, t.errorGeneric);
+    }
+    try {
+      await ref.read(challengeControllerProvider.future);
+    } on Exception {
+      // Offline: the cached summary stays.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     final session = ref.watch(sessionProvider);
-    final s = ref.watch(settingsProvider);
     final config = ref.watch(remoteConfigProvider);
-    final summary = session.canEarnPoints ? ref.watch(challengeControllerProvider).valueOrNull : null;
-    final pending = ref.watch(pendingSyncProvider).valueOrNull ?? 0;
-    final bytes = ref.watch(downloadsBytesProvider).valueOrNull ?? 0;
-    final name = session.canEarnPoints && (session.displayName?.isNotEmpty ?? false) ? session.displayName! : t.guestName;
-    final provider = switch (session.provider) {
-      SignInProvider.google => t.accountGoogle,
-      SignInProvider.apple => t.accountApple,
-      _ => null,
-    };
-    final cheapest = config.cheapestRewardPoints;
-    final toNext = summary == null || cheapest == null ? null : (cheapest - summary.balance);
+    final me = ref.watch(meProfileProvider);
+    final profile = me.valueOrNull;
+    final online = ref.watch(onlineProvider).valueOrNull ?? true;
+    // Only once a profile is on screen: LevelUpController reads the profile in a microtask after its
+    // first build, and must not be created while that profile is still resolving.
+    if (profile != null) _maybeCelebrate(ref.watch(levelUpProvider));
 
-    Widget row(String title, {String? subtitle, YqIcons? icon, VoidCallback? onTap, Color? color}) => YqListRow(
-          title: title,
-          subtitle: subtitle,
-          titleColor: color,
-          leading: icon == null ? null : YqIconTile(icon, size: 36),
-          trailing: const Icon(
-            Icons.chevron_right_rounded,
-            color: YqColors.muted,
-          ),
-          onTap: onTap,
-        );
+    final signedIn = session.canEarnPoints;
+    final rewards = signedIn && config.isOn(Flags.rewards);
+    final competitions = anyCompetitionOn(config);
 
-    final rewards = summary != null && config.isOn(Flags.rewards);
-    final initial = name.isEmpty ? '' : String.fromCharCode(name.runes.first);
-    final mb = megabytes(t, bytes);
+    final settings = GlassIconButton(
+      tooltip: t.pfSettings,
+      onPressed: () => context.push('/profile/settings'),
+      icon: const YqIcon(YqIcons.settings, size: 20),
+    );
+    final bar = YqStageBar(large: true, title: t.tabProfile, actions: [settings]);
+
+    // No value at all (a cold start that failed): the error with a retry instead of the screen.
+    if (profile == null && me.hasError && !me.isLoading) {
+      return YqCanvas(
+        stage: YqStage(child: bar),
+        children: [
+          YqOfflineBanner(offline: !online),
+          LiquidGlass(child: YqErrorState(onRetry: () => ref.invalidate(meProfileProvider))),
+        ],
+      );
+    }
 
     return YqCanvas(
-      onRefresh: () async {
-        ref
-          ..invalidate(pendingSyncProvider)
-          ..invalidate(downloadsBytesProvider)
-          ..invalidate(myJourneyProvider);
-        if (!session.canEarnPoints) return;
-        ref.invalidate(challengeControllerProvider);
-        try {
-          await ref.read(challengeControllerProvider.future);
-        } on Exception {
-          // Offline: the cached summary stays.
-        }
-      },
+      onRefresh: _refresh,
       stage: YqStage(
         child: Column(
           children: [
-            const SizedBox(height: YqSpace.s),
-            // Identity: the initial in a lapis medallion with a soft halo, then the name.
-            Container(
-              width: 96,
-              height: 96,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [YqColors.lapis500, YqColors.lapis],
-                ),
-                border: Border.all(color: const Color(0xF2FFFFFF), width: 3),
-                boxShadow: const [BoxShadow(color: Color(0x401F3F94), blurRadius: 24, spreadRadius: -10, offset: Offset(0, 10))],
-              ),
-              child: Text(
-                initial,
-                style: const TextStyle(fontFamily: YqFonts.naskh, fontSize: 40, fontWeight: FontWeight.w700, color: YqColors.white),
-              ),
-            ),
-            const SizedBox(height: YqSpace.m),
-            Semantics(header: true, child: Text(name, textAlign: TextAlign.center, style: YqMoment.display(context, size: 30))),
-            if (provider != null && session.canEarnPoints)
-              Text(t.profileLinked(provider), style: text.bodySmall)
-            else ...[
-              const SizedBox(height: YqSpace.s),
-              GlassTap(
-                onTap: () => showSignInSheet(context),
-                semanticLabel: t.profileGuestCta,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.s),
-                  decoration: BoxDecoration(color: YqColors.navy, borderRadius: BorderRadius.circular(YqRadii.pill)),
-                  child:
-                      Text(t.profileGuestCta, style: const TextStyle(color: YqColors.goldLight, fontWeight: FontWeight.w700, fontSize: 13)),
-                ),
-              ),
-            ],
-            if (pending > 0) ...[
-              const SizedBox(height: YqSpace.s),
-              Text(t.profilePending(pending), style: text.bodySmall?.copyWith(color: YqColors.goldText)),
-            ],
+            bar,
+            const SizedBox(height: YqSpace.l),
+            if (profile == null) const _StageSkeleton() else _Stage(profile: profile, celebrating: _celebrating),
           ],
         ),
       ),
       children: [
-        YqOrbRow(
-          orbs: [
-            if (rewards) ...[
-              YqOrb(
-                title: t.profileBalance,
-                status: t.challengePointsLabel(YqFormat.number(summary.balance)),
-                glow: true,
-                statusColor: YqColors.goldText,
-                onTap: () => context.push('/profile/ledger'),
-                semanticLabel: '${t.profileBalance}، ${t.challengePointsLabel(YqFormat.number(summary.balance))}',
-                disc: YqOrb.number(YqFormat.number(summary.balance), size: 21, color: YqColors.goldDeep),
-              ),
-              YqOrb(
-                title: t.profileRewards,
-                status: toNext != null && toNext > 0 ? t.profileToNext(YqFormat.number(toNext)) : t.redeemAvailable,
-                onTap: () => context.push('/challenge/redeem'),
-                disc: YqRing(
-                  value: cheapest == null || cheapest == 0 ? 0 : summary.balance / cheapest,
-                  gold: true,
-                  size: YqOrb.defaultSize - 12,
-                  stroke: 5,
-                  child: const YqIcon(YqIcons.store, size: 26, tone: YqIconTone.gold),
-                ),
-              ),
-            ] else
-              YqOrb(
-                title: t.langApp,
-                status: s.locale == 'ar' ? t.langArabic : t.langEnglish,
-                onTap: () => _languageSheet(context),
-                semanticLabel: '${t.langApp}، ${s.locale == 'ar' ? t.langArabic : t.langEnglish}',
-                disc: YqOrb.number(s.locale == 'ar' ? 'ع' : 'En', size: 28),
-              ),
-            YqOrb(
-              title: t.profileDownloads,
-              status: mb,
-              onTap: () => context.push('/profile/downloads'),
-              semanticLabel: '${t.profileDownloads}، $mb',
-              disc: const Center(child: YqIcon(YqIcons.download, size: 30)),
-            ),
-          ],
-        ),
+        YqOfflineBanner(offline: !online),
+        if (profile == null)
+          const YqSkeleton(child: YqSkeletonOrbs(count: 3))
+        else
+          YqOrbRow(
+            orbs: [
+              _LevelOrb(profile: profile),
+              if (rewards) _PointsOrb(weekPoints: profile.weekPoints) else const _LanguageOrb(),
+              if (config.isOn(Flags.leagues)) _LeagueOrb(profile: profile, signedIn: signedIn) else const _DownloadsOrb(),
+            ],
+          ),
         const SizedBox(height: YqSpace.xxl),
-        if (rewards) ...[
+        if (signedIn && profile != null) ...[
+          BadgesStrip(badges: profile.recentBadges, count: profile.badgesCount),
+          const SizedBox(height: YqSpace.l),
+        ],
+        if (signedIn) const JourneySection(),
+        if (competitions) ...[
+          YqHeading(t.pfCompetition),
           YqGroup(
-            gold: true,
             children: [
-              row(t.profileLedger, icon: YqIcons.streak, onTap: () => context.push('/profile/ledger')),
-              row(t.myCodes, icon: YqIcons.bookmark, onTap: () => context.push('/challenge/redeem/codes')),
-              row(
-                t.profileVisitStore,
-                icon: YqIcons.share,
-                onTap: () {
-                  unawaited(ref.read(productAnalyticsProvider).track(ProductEvent.storeClick, {'from': 'profile'}));
-                  ref.read(deviceServicesProvider).openUrl(Uri.parse(Env.storeUrl));
-                },
-              ),
+              if (config.isOn(Flags.leagues)) _row(t.pfWeeklyLeague, YqIcons.league, () => context.push('/profile/leagues')),
+              if (config.isOn(Flags.tournaments)) _row(t.pfTournaments, YqIcons.trophy, () => context.push('/profile/tournaments')),
+              if (config.isOn(Flags.leaderboard)) _row(t.pfLeaderboard, YqIcons.podium, () => context.push('/profile/leaderboard')),
+              if (signedIn) _row(t.pfVisibility, YqIcons.profile, () => context.push('/profile/community')),
             ],
           ),
           const SizedBox(height: YqSpace.xl),
         ],
-        if (session.canEarnPoints) const JourneySection(),
-        if (config.isOn(Flags.publicCards)) const _CardTeaser(),
-        const SizedBox(height: YqSpace.xl),
-        YqHeading(t.profileSettings),
-        YqGroup(
-          children: [
-            row(
-              t.profileLanguage,
-              subtitle:
-                  '${s.locale == 'ar' ? t.langArabic : t.langEnglish} · ${s.script == QuranScript.uthmani ? t.scriptUthmani : t.scriptIndopak}',
-              icon: YqIcons.quran,
-              onTap: () => _languageSheet(context),
-            ),
-            row(
-              t.profilePrayer,
-              subtitle: methodLabel(t, s.method),
-              icon: YqIcons.adhan,
-              onTap: () => context.push('/prayer/settings'),
-            ),
-            row(t.profilePrivacy, icon: YqIcons.settings, onTap: () => context.push('/profile/privacy')),
-            row(t.profileDownloads, subtitle: mb, icon: YqIcons.download, onTap: () => context.push('/profile/downloads')),
-          ],
-        ),
-        const SizedBox(height: YqSpace.l),
-        YqGroup(
-          children: [
-            row(t.profileAbout, onTap: () => ref.read(deviceServicesProvider).openUrl(Env.site('', s.locale))),
-            row(t.terms, onTap: () => ref.read(deviceServicesProvider).openUrl(Env.site('terms', s.locale))),
-            row(t.privacyPolicy, onTap: () => ref.read(deviceServicesProvider).openUrl(Env.site('privacy', s.locale))),
-            row(t.profileContact, onTap: () => ref.read(deviceServicesProvider).openUrl(Env.site('support', s.locale))),
-          ],
-        ),
-        if (session.signedIn && session.userId != null) ...[
-          const SizedBox(height: YqSpace.l),
+        if (config.isOn(Flags.publicCards)) ...[
+          _CardRow(signedIn: signedIn),
+          const SizedBox(height: YqSpace.xl),
+        ],
+        if (rewards) ...[
+          YqHeading(t.pfRewards),
           YqGroup(
             children: [
-              row(t.profileExport, onTap: () => _export(context, ref)),
-              row(t.profileDelete, color: YqColors.goldText, onTap: () => _delete(context, ref)),
-              row(t.profileSignOut, onTap: () => _signOut(context, ref)),
+              _row(t.profileLedger, YqIcons.streak, () => context.push('/profile/ledger')),
+              _row(t.myCodes, YqIcons.bookmark, () => context.push('/challenge/redeem/codes')),
+              _row(t.profileVisitStore, YqIcons.share, () {
+                unawaited(ref.read(productAnalyticsProvider).track(ProductEvent.storeClick, {'from': 'profile'}));
+                ref.read(deviceServicesProvider).openUrl(Uri.parse(Env.storeUrl));
+              }),
             ],
           ),
         ],
@@ -261,394 +212,377 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  void _languageSheet(BuildContext context) => showYqSheet<void>(
-        context,
-        builder: (c) => Consumer(
-          builder: (c, ref, _) {
-            final t = AppLocalizations.of(c);
-            final s = ref.watch(settingsProvider);
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(t.profileLanguage, style: Theme.of(c).textTheme.titleLarge),
-                const SizedBox(height: YqSpace.l),
-                Text(t.langApp, style: Theme.of(c).textTheme.titleSmall),
-                const SizedBox(height: YqSpace.s),
-                YqSegmented<String>(
-                  segments: [('ar', t.langArabic), ('en', t.langEnglish)],
-                  selected: s.locale,
-                  onChanged: (v) {
-                    ref.read(settingsProvider.notifier).update((x) => x.copyWith(locale: v));
-                    unawaited(ref.read(productAnalyticsProvider).track(ProductEvent.settingsChange, {'setting': 'language'}));
-                  },
-                ),
-              ],
-            );
-          },
+  Widget _row(String title, YqIcons icon, VoidCallback onTap) => YqListRow(title: title, leading: YqIconTile(icon, size: 36), onTap: onTap);
+}
+
+/* ------------------------------------------------------------------ stage */
+
+/// Cold start without a cached profile: a 120-pt circle and two lines.
+class _StageSkeleton extends StatelessWidget {
+  const _StageSkeleton();
+
+  @override
+  Widget build(BuildContext context) => const YqSkeleton(
+        key: ValueKey('profile-stage-skeleton'),
+        child: Column(
+          children: [
+            YqSkeletonBox.circle(120),
+            SizedBox(height: YqSpace.m),
+            YqSkeletonBox(width: 160, height: 24, radius: YqRadii.pill),
+            SizedBox(height: YqSpace.s),
+            YqSkeletonBox(width: 120, height: 12, radius: YqRadii.pill),
+          ],
         ),
       );
-
-  Future<void> _export(BuildContext context, WidgetRef ref) async {
-    final t = AppLocalizations.of(context);
-    try {
-      final data = await ref.read(authRepositoryProvider).exportData();
-      await ref.read(deviceServicesProvider).shareText(const JsonEncoder.withIndent('  ').convert(data));
-      if (context.mounted) YqToast.show(context, t.exportReady);
-    } on Exception {
-      if (context.mounted) YqToast.show(context, t.errorGeneric);
-    }
-  }
-
-  Future<void> _signOut(BuildContext context, WidgetRef ref) async {
-    final t = AppLocalizations.of(context);
-    final ok = await _confirm(context, t.signOutConfirm, null, t.profileSignOut);
-    if (!ok) return;
-    await ref.read(sessionProvider.notifier).signOut();
-    if (context.mounted) context.go('/onboarding/welcome');
-  }
-
-  /// Two-step confirm (spec §5.24).
-  Future<void> _delete(BuildContext context, WidgetRef ref) async {
-    final t = AppLocalizations.of(context);
-    if (!await _confirm(context, t.deleteStep1Title, t.deleteStep1Body, t.continueCta)) return;
-    if (!context.mounted || !await _confirm(context, t.deleteStep2Title, t.deleteStep2Body, t.deleteConfirm)) return;
-    try {
-      await ref.read(sessionProvider.notifier).deleteAccount();
-      if (!context.mounted) return;
-      YqToast.show(context, t.deleteDone);
-      context.go('/onboarding/welcome');
-    } on Exception {
-      if (context.mounted) YqToast.show(context, t.errorGeneric);
-    }
-  }
-
-  Future<bool> _confirm(BuildContext context, String title, String? body, String cta) async =>
-      await showYqSheet<bool>(
-        context,
-        builder: (c) {
-          final t = AppLocalizations.of(c);
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(title, style: Theme.of(c).textTheme.titleLarge),
-              if (body != null) ...[const SizedBox(height: YqSpace.s), Text(body, style: Theme.of(c).textTheme.bodyMedium)],
-              const SizedBox(height: YqSpace.l),
-              YqButton(label: cta, onPressed: () => Navigator.of(c).pop(true)),
-              const SizedBox(height: YqSpace.s),
-              YqButton.secondary(label: t.cancel, onPressed: () => Navigator.of(c).pop(false)),
-            ],
-          );
-        },
-      ) ??
-      false;
 }
 
-/// «الخصوصية والموافقات» — the same five switches as onboarding, recorded with source `settings`, then
-/// the opt-in cloud backup (signed-in accounts only).
-class PrivacyScreen extends ConsumerStatefulWidget {
-  const PrivacyScreen({super.key});
+class _Stage extends ConsumerWidget {
+  const _Stage({required this.profile, required this.celebrating});
+  final MeProfile profile;
+  final bool celebrating;
 
-  @override
-  ConsumerState<PrivacyScreen> createState() => _PrivacyScreenState();
-}
-
-class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
-  static const _notificationKinds = {ConsentKind.worshipReminders, ConsentKind.challengeRewards, ConsentKind.storeOffers};
-
-  Future<void> _set(ConsentKind k, bool v) async {
-    final consents = ref.read(consentRepositoryProvider);
-    await consents.record(k, v, ConsentSource.settings);
-    // The switch follows the tap; the event reaches the server in the background (queued offline).
-    if (mounted) setState(() {});
-    unawaited(consents.syncAll().catchError((Object _) {}));
-    if (k == ConsentKind.adsMeasurement) {
-      // ATT first (iOS), so the SDKs start with its answer.
-      if (v) await ref.read(deviceServicesProvider).requestTracking();
-      await ref.read(analyticsProvider).onConsentChanged(v);
-    }
-    if (k == ConsentKind.productAnalytics) await ref.read(productAnalyticsProvider).onConsentChanged(v);
-    // Same OS prompt as onboarding: a notification switch turned on needs the permission to deliver.
-    if (v && _notificationKinds.contains(k)) await ref.read(localNotificationsProvider).requestPermission();
-    // Worship reminders are local: schedule them now, or cancel the ones already planned.
-    if (k == ConsentKind.worshipReminders) ref.read(remindersControllerProvider.notifier).replan().ignore();
-    if (mounted) setState(() {});
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AppLocalizations.of(context);
-    final text = Theme.of(context).textTheme;
-    final consents = ref.watch(consentRepositoryProvider);
-    final rows = [
-      (ConsentKind.worshipReminders, t.consentWorship, t.consentWorshipDetail),
-      (ConsentKind.challengeRewards, t.consentChallenge, t.consentChallengeDetail),
-      (ConsentKind.storeOffers, t.consentOffers, t.consentOffersDetail),
-      (ConsentKind.adsMeasurement, t.consentAds, t.consentAdsDetail),
-      (ConsentKind.productAnalytics, t.consentAnalytics, t.consentAnalyticsDetail),
-    ];
-    return Scaffold(
-      backgroundColor: YqColors.porcelain,
-      body: YqCanvas(
-        stage: YqStage(compact: true, child: YqStageBar(back: true, title: t.profilePrivacy)),
-        children: [
-          LiquidGlass(
-            padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.s),
-            child: Column(
-              children: [
-                for (final (i, (k, title, detail)) in rows.indexed) ...[
-                  if (i > 0) const YqDivider(),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: YqSpace.m),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                              Text(detail, style: text.bodySmall),
-                            ],
-                          ),
-                        ),
-                        YqSwitch(label: title, value: consents.granted(k), onChanged: (v) => _set(k, v)),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: YqSpace.m),
-          Text(t.consentPrivacyNote, style: text.bodySmall?.copyWith(color: YqColors.success)),
-          const SizedBox(height: YqSpace.l),
-          const BackupSection(),
-        ],
-      ),
-    );
-  }
-}
-
-/// «سجل النقاط» — the user's own ledger (amounts and reasons; never which worship act).
-class LedgerScreen extends ConsumerWidget {
-  const LedgerScreen({super.key});
+  static const size = 120.0;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
-    final ledger = ref.watch(ledgerProvider);
-    final locale = ref.watch(settingsProvider.select((s) => s.locale));
-    String reason(LedgerReason r) => switch (r) {
-          LedgerReason.task => t.ledgerTask,
-          LedgerReason.bonus => t.ledgerBonus,
-          LedgerReason.milestone => t.ledgerMilestone,
-          LedgerReason.grant => t.ledgerGrant,
-          LedgerReason.qada => t.ledgerQada,
-          LedgerReason.redemption => t.ledgerRedemption,
-          LedgerReason.adminAdjustment => t.ledgerAdjust,
-          LedgerReason.reversal => t.ledgerReversal,
-        };
-    return Scaffold(
-      backgroundColor: YqColors.porcelain,
-      body: YqCanvas(
-        stage: YqStage(compact: true, child: YqStageBar(back: true, title: t.profileLedger)),
-        children: ledger.when(
-          loading: () => [const YqSkeleton(child: YqSkeletonRows(rows: 4, leading: 0, trailing: true))],
-          error: (_, __) => [YqErrorState(onRetry: () => ref.invalidate(ledgerProvider))],
-          data: (list) => list.isEmpty
-              ? [LiquidGlass(child: YqEmptyState(icon: YqIcons.challenge, title: t.ledgerEmpty))]
-              : [
-                  LiquidGlass(
-                    padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
-                    child: Column(
-                      children: [
-                        for (final e in list)
-                          YqListRow(
-                            dense: true,
-                            title: reason(e.reason),
-                            subtitle: YqFormat.fullDate(e.createdAt.toLocal(), locale),
-                            trailing: Directionality(
-                              textDirection: TextDirection.ltr,
-                              child: Text(
-                                '${e.delta > 0 ? '+' : '−'}${YqFormat.number(e.delta.abs())}',
-                                style: YqText.numberSmall.copyWith(color: e.delta > 0 ? YqColors.success : YqColors.goldText),
-                              ),
-                            ),
-                          ),
-                      ],
+    final text = Theme.of(context).textTheme;
+    final locale = Localizations.localeOf(context).languageCode;
+    final session = ref.watch(sessionProvider);
+    final signedIn = session.canEarnPoints;
+    final uploading = ref.watch(photoUploadingProvider);
+    final pending = ref.watch(pendingSyncProvider).valueOrNull ?? 0;
+    final rawName = profile.displayName ?? (signedIn ? session.displayName : null);
+    final name = (rawName?.trim().isNotEmpty ?? false) ? rawName!.trim() : t.guestName;
+    final avatar = profile.photoHidden && profile.avatar is PhotoAvatar ? const InitialAvatar() : profile.avatar;
+    final level = profile.level;
+    final achieved = signedIn && (level.isTop || celebrating);
+    final caption = t.lvlCaption(YqFormat.number(level.level), level.name(locale)) +
+        (signedIn && profile.handle != null ? t.pfHandleSuffix(profile.handle!) : '');
+
+    final picture = YqLevelAvatar(
+      key: ValueKey('profile-avatar-${avatar.kind}-${switch (avatar) {
+        PresetAvatar(:final id) => id,
+        PhotoAvatar(:final id) => id,
+        _ => ''
+      }}-$achieved'),
+      avatar: avatar,
+      level: level.level,
+      progress: signedIn ? level.progress : 0,
+      size: size,
+      stroke: 4,
+      achieved: achieved,
+      name: profile.nameHidden ? null : name,
+      levelName: level.name(locale),
+    );
+
+    return Column(
+      children: [
+        GlassTap(
+          onTap: () => showAvatarSheet(context, ref),
+          semanticLabel:
+              '${t.lvlRingSemantics(YqFormat.number(level.level), level.name(locale), YqFormat.number((level.progress * 100).round()))}، ${t.pfEditPhoto}',
+          child: ExcludeSemantics(
+            child: SizedBox.square(
+              dimension: size,
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                children: [
+                  AnimatedSwitcher(duration: YqMotion.base, child: picture),
+                  // Uploading a photo: the ring shimmers in lapis until it lands.
+                  if (uploading)
+                    const IgnorePointer(
+                      key: ValueKey('profile-uploading'),
+                      child: YqSkeleton(child: YqRing(value: 1, size: size, stroke: 4, color: YqColors.lapis)),
+                    ),
+                  const PositionedDirectional(
+                    end: 0,
+                    bottom: 0,
+                    child: ExcludeSemantics(
+                      child: SizedBox.square(
+                        dimension: 32,
+                        child: LiquidGlass(
+                          radius: YqRadii.pill,
+                          padding: EdgeInsets.zero,
+                          highlight: false,
+                          opacity: 0.9,
+                          child: Center(child: YqIcon(YqIcons.edit, size: 16)),
+                        ),
+                      ),
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
         ),
+        const SizedBox(height: YqSpace.m),
+        GlassTap(
+          onTap: () => showEditNameSheet(context),
+          semanticLabel: '${profile.nameHidden ? t.avHiddenName : name}، ${t.pfNameTitle}',
+          child: ExcludeSemantics(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: YqSpace.touch),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      profile.nameHidden ? t.avHiddenName : name,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: YqMoment.display(context, size: 28).copyWith(color: profile.nameHidden ? YqColors.muted : YqColors.ink),
+                    ),
+                  ),
+                  if (profile.nameHidden) ...[
+                    const SizedBox(width: YqSpace.s),
+                    const YqIcon(YqIcons.lock, size: 18, tone: YqIconTone.idle),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+        Text(caption, textAlign: TextAlign.center, style: const TextStyle(fontSize: 13, height: 1.4, color: YqColors.muted)),
+        if (!signedIn) ...[
+          const SizedBox(height: YqSpace.s),
+          Text(t.pfGuestNote, textAlign: TextAlign.center, style: text.bodySmall),
+          const SizedBox(height: YqSpace.m),
+          GlassTap(
+            onTap: () => showSignInSheet(context),
+            semanticLabel: t.pfGuestCta,
+            child: Container(
+              constraints: const BoxConstraints(minHeight: YqSpace.touch),
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: YqSpace.xl, vertical: YqSpace.s),
+              decoration: BoxDecoration(color: YqColors.ink, borderRadius: BorderRadius.circular(YqRadii.pill)),
+              child: Text(t.pfGuestCta, style: const TextStyle(color: YqColors.white, fontWeight: FontWeight.w700, fontSize: 13.5)),
+            ),
+          ),
+        ],
+        if (pending > 0) ...[
+          const SizedBox(height: YqSpace.s),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const YqIcon(YqIcons.sync, size: 14, tone: YqIconTone.idle),
+              const SizedBox(width: 6),
+              Flexible(child: Text(t.pfPendingSync, style: const TextStyle(fontSize: 12, color: YqColors.muted))),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/* ------------------------------------------------------------------- orbs */
+
+class _LevelOrb extends StatelessWidget {
+  const _LevelOrb({required this.profile});
+  final MeProfile profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    final level = profile.level;
+    final next = level.nextAt;
+    final status = next == null ? t.pfTopLevel : t.pfToNext(YqFormat.number((next - profile.lifetimePoints).clamp(0, next)));
+    return YqOrb(
+      title: t.pfLevel,
+      status: status,
+      onTap: () => showLevelLadderSheet(context, level),
+      semanticLabel: '${t.lvlNumeral(YqFormat.number(level.level))}، $status',
+      disc: YqRing(
+        value: level.progress,
+        color: YqColors.lapis,
+        track: YqColors.lapis100.withValues(alpha: 0.5),
+        size: YqOrb.defaultSize - 12,
+        stroke: 5,
+        child: Text(YqFormat.number(level.level), style: YqMoment.numeral(size: 30)),
       ),
     );
   }
 }
 
-/// «التنزيلات دون اتصال» — storage per reciter; deleting reclaims it (spec §5.14 acceptance).
-class DownloadsScreen extends ConsumerStatefulWidget {
-  const DownloadsScreen({super.key});
+/// «الرصيد»; a tap flips to «هذا الأسبوع» (self only), a long press opens the ledger.
+class _PointsOrb extends ConsumerStatefulWidget {
+  const _PointsOrb({required this.weekPoints});
+  final int weekPoints;
 
   @override
-  ConsumerState<DownloadsScreen> createState() => _DownloadsScreenState();
+  ConsumerState<_PointsOrb> createState() => _PointsOrbState();
 }
 
-class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
-  Map<String, int>? _sizes;
-  int _packBytes = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final d = ref.read(audioDownloadsProvider);
-    final reciters = await ref.read(reciterRepositoryProvider).cached();
-    final sizes = <String, int>{};
-    for (final r in reciters) {
-      final b = await d.bytesOnDisk(r.id);
-      if (b > 0) sizes[r.id] = b;
-    }
-    final packBytes = await ref.read(packRepositoryProvider).bytesOnDisk();
-    if (mounted) {
-      setState(() {
-        _sizes = sizes;
-        _packBytes = packBytes;
-      });
-    }
-  }
+class _PointsOrbState extends ConsumerState<_PointsOrb> {
+  bool _week = false;
 
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
+    final balance = ref.watch(challengeControllerProvider).valueOrNull?.balance;
+    final value = _week ? widget.weekPoints : balance;
+    final title = _week ? t.pfThisWeek : t.pfBalance;
+    final status = value == null ? '' : t.challengePointsLabel(YqFormat.number(value));
+    return YqOrb(
+      title: title,
+      status: status,
+      onTap: () => setState(() => _week = !_week),
+      onLongPress: () => context.push('/profile/ledger'),
+      semanticLabel: '$title، $status',
+      disc: AnimatedSwitcher(
+        duration: YqMotion.base,
+        child: value == null
+            ? const YqSkeleton(
+                key: ValueKey('points-loading'),
+                child: Center(child: YqSkeletonBox(width: 44, height: 18, radius: YqRadii.pill)),
+              )
+            : KeyedSubtree(key: ValueKey('points-$_week'), child: YqOrb.number(YqFormat.number(value), size: 22)),
+      ),
+    );
+  }
+}
+
+class _LanguageOrb extends ConsumerWidget {
+  const _LanguageOrb();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(context);
     final locale = ref.watch(settingsProvider.select((s) => s.locale));
-    final total = _sizes?.values.fold<int>(0, (a, b) => a + b) ?? 0;
-    return Scaffold(
-      backgroundColor: YqColors.porcelain,
-      body: YqCanvas(
-        stage: YqStage(
-          compact: true,
-          child: YqStageBar(back: true, title: t.profileDownloads, subtitle: t.downloadsUsed(megabytes(t, total + _packBytes))),
+    final name = locale == 'ar' ? t.langArabic : t.langEnglish;
+    return YqOrb(
+      title: t.langApp,
+      status: name,
+      onTap: () => showLanguageSheet(context),
+      semanticLabel: '${t.langApp}، $name',
+      disc: YqOrb.number(locale == 'ar' ? 'ع' : 'En', size: 28),
+    );
+  }
+}
+
+/// The league place from the nightly snapshot, or an invitation to join. Monochrome: an ink tier
+/// numeral on a hairline ring (the division «ذهب» never turns gold).
+class _LeagueOrb extends StatelessWidget {
+  const _LeagueOrb({required this.profile, required this.signedIn});
+  final MeProfile profile;
+  final bool signedIn;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    final locale = Localizations.localeOf(context).languageCode;
+    final league = profile.league;
+    final joined = signedIn && profile.community.leagues;
+    final String title;
+    final String status;
+    final Widget disc;
+    if (joined && league != null) {
+      title = divisionName(league.division, t, custom: league.divisionName(locale));
+      status = league.rank == null ? t.pfNoRank : t.pfRankOf(YqFormat.number(league.rank!), YqFormat.number(league.size));
+      disc = Center(
+        child: Container(
+          width: 64,
+          height: 64,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: YqColors.line, width: 2)),
+          child: Text(YqFormat.number(league.division), style: YqMoment.numeral(size: 28)),
         ),
+      );
+    } else {
+      title = t.pfLeague;
+      status = joined ? t.pfNoRank : t.pfLeagueJoin;
+      disc = Center(
+        child: Container(
+          width: 64,
+          height: 64,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: YqColors.lapis, width: 1.5)),
+          child: const YqIcon(YqIcons.league, size: 28),
+        ),
+      );
+    }
+    return YqOrb(
+      title: title,
+      status: status,
+      statusColor: joined ? null : YqColors.lapis,
+      onTap: () => context.push('/profile/leagues'),
+      semanticLabel: '$title، $status',
+      disc: disc,
+    );
+  }
+}
+
+class _DownloadsOrb extends ConsumerWidget {
+  const _DownloadsOrb();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(context);
+    final bytes = ref.watch(downloadsBytesProvider);
+    // A failed measurement reads as nothing on disk.
+    final mb = bytes.isLoading && !bytes.hasValue ? null : megabytes(t, bytes.valueOrNull ?? 0);
+    return YqOrb(
+      title: t.profileDownloads,
+      status: mb ?? '',
+      onTap: () => context.push('/profile/downloads'),
+      semanticLabel: mb == null ? t.profileDownloads : '${t.profileDownloads}، $mb',
+      disc: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          ...switch (ref.watch(packsCatalogueProvider).valueOrNull) {
-            final packs? when packs.isNotEmpty => [
-                Text(t.packsTitle, style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: YqSpace.s),
-                LiquidGlass(
-                  padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
-                  child: Column(
-                    children: [
-                      for (final p in packs)
-                        PackRow(
-                          pack: p,
-                          onRemove: () async {
-                            await ref.read(packRepositoryProvider).remove(p.id);
-                            ref.invalidate(installedPacksProvider);
-                            ref.invalidate(tafsirRepositoryProvider);
-                            ref.invalidate(downloadsBytesProvider);
-                            await _load();
-                          },
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: YqSpace.l),
-                Text(t.downloadsAudio, style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: YqSpace.s),
-              ],
-            _ => const <Widget>[],
-          },
-          if (_sizes == null)
-            const YqSkeleton(child: YqSkeletonRows(rows: 2, leading: 40))
-          else if (_sizes!.isEmpty)
-            LiquidGlass(child: YqEmptyState(icon: YqIcons.download, title: t.downloadsNone))
-          else
-            FutureBuilder(
-              future: ref.read(reciterRepositoryProvider).cached(),
-              builder: (context, snap) => LiquidGlass(
-                padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
-                child: Column(
-                  children: [
-                    for (final r in snap.data ?? const [])
-                      if (_sizes!.containsKey(r.id))
-                        YqListRow(
-                          title: r.name(locale),
-                          subtitle: megabytes(t, _sizes![r.id]!),
-                          trailing: TextButton(
-                            onPressed: () async {
-                              await ref.read(audioDownloadsProvider).delete(r.id);
-                              ref.invalidate(downloadsBytesProvider);
-                              await _load();
-                            },
-                            child: Text(t.delete),
-                          ),
-                        ),
-                  ],
-                ),
-              ),
-            ),
+          const YqIcon(YqIcons.download, size: 30),
+          if (mb == null) ...[
+            const SizedBox(height: YqSpace.xs),
+            const YqSkeleton(child: YqSkeletonBox(width: 36, height: 8, radius: YqRadii.pill)),
+          ],
         ],
       ),
     );
   }
 }
 
-/// Entry to «بطاقة يقين»: an ink card with a gold edge — the public card for NFC tags and QR.
-class _CardTeaser extends StatelessWidget {
-  const _CardTeaser();
+/* ------------------------------------------------------------------- card */
+
+/// «بطاقة يقين»: the person's avatar, and whether the card is published (and how often opened).
+class _CardRow extends ConsumerWidget {
+  const _CardRow({required this.signedIn});
+  final bool signedIn;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
+    final card = signedIn ? ref.watch(myCardProvider).valueOrNull : null;
+    final subtitle = !signedIn
+        ? t.cardTeaserBody
+        : card == null
+            ? null
+            : card.published
+                ? t.pfCardPublished(YqFormat.number(card.views))
+                : t.pfCardUnpublished;
     return GlassTap(
       onTap: () => context.push('/profile/card'),
-      semanticLabel: '${t.cardTitle}، ${t.cardTeaserBody}',
-      child: Container(
-        padding: const EdgeInsets.all(YqSpace.l),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(YqRadii.card),
-          gradient: const LinearGradient(
-            begin: AlignmentDirectional.centerStart,
-            end: AlignmentDirectional.centerEnd,
-            colors: [YqColors.midnight, YqColors.navy, YqColors.lapis],
+      semanticLabel: subtitle == null ? t.pfCardRow : '${t.pfCardRow}، $subtitle',
+      child: ExcludeSemantics(
+        child: LiquidGlass(
+          padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.m),
+          child: Row(
+            children: [
+              const MeAvatar(size: 40),
+              const SizedBox(width: YqSpace.m),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(t.pfCardRow, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700, height: 1.4)),
+                    if (subtitle != null) Text(subtitle, style: const TextStyle(fontSize: 12, height: 1.5, color: YqColors.muted)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: YqColors.muted),
+            ],
           ),
-          border: Border.all(color: const Color(0x40E9D49E)),
-          boxShadow: const [BoxShadow(color: Color(0x590A1530), blurRadius: 26, spreadRadius: -12, offset: Offset(0, 12))],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: YqColors.goldLight.withValues(alpha: 0.6)),
-                color: const Color(0x14E9D49E),
-              ),
-              child: const Icon(Icons.contactless_outlined, color: YqColors.goldLight, size: 28),
-            ),
-            const SizedBox(width: YqSpace.m),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    t.cardTitle,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: YqColors.goldLight, letterSpacing: 0.4),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(t.cardTeaserTitle, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: YqColors.white)),
-                  Text(t.cardTeaserBody, style: const TextStyle(fontSize: 12, height: 1.5, color: YqColors.navy200)),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right_rounded, color: YqColors.goldLight),
-          ],
         ),
       ),
     );
