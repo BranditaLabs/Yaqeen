@@ -29,12 +29,10 @@ class SessionController extends Notifier<Session> {
   String get _locale => ref.read(settingsProvider).locale;
 
   Future<void> _afterSignIn() async {
-    await ref.read(consentRepositoryProvider).syncAll();
-    // Settings chosen before the account existed reach the server too.
-    final s = ref.read(settingsProvider);
-    await ref.read(settingsRepositoryProvider).save(s);
-    // The name and picture a guest chose on this phone reach the account (only what they changed;
-    // the server's values win otherwise). Never fails sign-in: offline keeps the flags for later.
+    // First, before any other network call: the name and picture a guest chose on this phone reach
+    // the account (only what they changed; the server's values win otherwise). The repository
+    // keeps those changes on top of any refresh until they are pushed (`profile.dirty.v1`). Never
+    // fails sign-in: offline keeps the flags for later.
     MeProfile? profile;
     try {
       profile = await ref.read(profileRepositoryProvider).pushAfterSignIn();
@@ -43,6 +41,12 @@ class SessionController extends Notifier<Session> {
     }
     // Signing in is not a level-up: the account's level becomes the last one seen on this phone.
     await _rebaseLevel(profile?.level.level);
+    // Screens show the pushed profile (a refresh that raced the push was dropped by the repository).
+    if (profile != null && ref.exists(meProfileProvider)) await ref.read(meProfileProvider.notifier).reload();
+    await ref.read(consentRepositoryProvider).syncAll();
+    // Settings chosen before the account existed reach the server too.
+    final s = ref.read(settingsProvider);
+    await ref.read(settingsRepositoryProvider).save(s);
     ref.read(outboxSyncProvider).flush().ignore();
   }
 
@@ -170,6 +174,10 @@ class SessionController extends Notifier<Session> {
   /// cached keys always go before the session changes (so no screen paints the old profile);
   /// [awaitFiles] false leaves the photo files to finish in the background.
   Future<void> _forgetProfile({bool awaitFiles = true}) async {
+    // Started first: from here on a profile request still out for this account (a background
+    // refresh, an upload) is dropped instead of writing the old profile back (the repository's
+    // generation moves synchronously).
+    final files = ref.read(profileRepositoryProvider).wipe();
     final kv = ref.read(kvStoreProvider);
     for (final key in ProfileRepository.wipedKeys) {
       await kv.delete(key);
@@ -178,7 +186,6 @@ class SessionController extends Notifier<Session> {
     // The last-seen level also lives in memory: the next account must not be compared with it.
     if (ref.exists(levelUpProvider)) ref.read(levelUpProvider.notifier).reset();
     await ref.read(consentRepositoryProvider).adopt(ConsentKind.community, false);
-    final files = ref.read(profileRepositoryProvider).wipe();
     if (awaitFiles) {
       await files;
     } else {

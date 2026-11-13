@@ -52,6 +52,9 @@ class MeProfileController extends AsyncNotifier<MeProfile> {
     if (p != null) state = AsyncData(p);
   }
 
+  /// Shows the cached profile again, without the network (after the sign-in push wrote it).
+  Future<void> reload() => _reload();
+
   /// Pull-to-refresh. Keeps the cached value on failure; errors only when there is nothing to show.
   Future<void> refresh() async {
     if (!_repo.isAccount) return;
