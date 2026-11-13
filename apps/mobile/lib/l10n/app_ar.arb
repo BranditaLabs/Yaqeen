@@ -2723,6 +2723,8 @@
   "cmErrTournamentNotOpen": "انتهى الانضمام إلى هذه البطولة.",
   "cmErrAck": "وافق على الظهور في البطولة للانضمام.",
   "cmErrGeneric": "تعذّر الانضمام. حاول مرة أخرى.",
+  "cmTEndsTonight": "تنتهي الليلة",
+  "cmLeagueEmpty": "لم يُنشر ترتيب هذا الأسبوع بعد.",
   "hmChipSemantics": "{name}، المستوى {n} · {levelName}، {percent}%",
   "@hmChipSemantics": {
     "placeholders": {

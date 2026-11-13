@@ -2696,6 +2696,8 @@
   "cmErrTournamentNotOpen": "Joining this tournament has closed.",
   "cmErrAck": "Agree to appear in the tournament to join.",
   "cmErrGeneric": "Couldn't join. Try again.",
+  "cmTEndsTonight": "Ends tonight",
+  "cmLeagueEmpty": "This week's standings aren't out yet.",
   "hmChipSemantics": "{name}, level {n} · {levelName}, {percent}%",
   "@hmChipSemantics": {
     "placeholders": {
