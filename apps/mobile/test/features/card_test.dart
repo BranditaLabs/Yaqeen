@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,11 +12,16 @@ import 'package:yaqeen/core/network/api_client.dart';
 import 'package:yaqeen/core/notifications/push_service.dart';
 import 'package:yaqeen/core/storage/kv_store.dart';
 import 'package:yaqeen/core/widgets/controls.dart';
+import 'package:yaqeen/core/theme/tokens.dart';
 import 'package:yaqeen/core/widgets/liquid_glass.dart';
+import 'package:yaqeen/core/widgets/yq_avatar.dart';
+import 'package:yaqeen/core/widgets/yq_ring.dart';
 import 'package:yaqeen/features/card/domain/public_card.dart';
 import 'package:yaqeen/features/card/presentation/card_screen.dart';
 import 'package:yaqeen/features/card/presentation/journey_widgets.dart';
 import 'package:yaqeen/features/onboarding/data/auth_repository.dart';
+import 'package:yaqeen/features/profile/data/profile_repository.dart';
+import 'package:yaqeen/features/profile/domain/avatar.dart';
 
 import '../helpers/fonts.dart';
 import '../helpers/harness.dart';
@@ -37,6 +43,9 @@ Map<String, Object?> journeyJson() => {
         {'kind': 'badge', 'date': '2026-08-30', 'value': 3},
       ],
     };
+
+Map<String, dynamic> profileFixture() =>
+    (jsonDecode(File('test/fixtures/community/me_profile.json').readAsStringSync()) as Map).cast<String, dynamic>();
 
 /// What GET /v1/me/public-profile returns (shape of contracts `PublicProfileSettings`).
 Map<String, Object?> cardJson({bool published = false}) => {
@@ -128,7 +137,6 @@ void main() {
       expect(const CardVisibility().timeline, isFalse); // off unless the user switches it on
       expect(CardVisibility.fromJson(const {}).toJson()['timeline'], false);
     });
-
   });
 
   group('card screen', () {
@@ -138,12 +146,17 @@ void main() {
     late List<http.Request> requests;
     late List<Map<String, Object?>> tags;
     var journeyFailures = 0; // the next N journey requests fail like a dropped connection
+    var unnamed = false; // the next card comes back without a name (a new card)
     http.Client server({bool published = false, bool moderated = false}) => MockClient((req) async {
           requests.add(req);
           final p = req.url.path;
           final h = {'content-type': 'application/json'};
           if (p == '/v1/me/public-profile' && req.method == 'GET') {
-            return http.Response(jsonEncode({...cardJson(published: published), 'moderated': moderated}), 200, headers: h);
+            return http.Response(
+              jsonEncode({...cardJson(published: published), 'moderated': moderated, if (unnamed) 'displayName': ''}),
+              200,
+              headers: h,
+            );
           }
           if (p == '/v1/me/public-profile' && req.method == 'PUT') {
             final body = (jsonDecode(req.body) as Map).cast<String, Object?>();
@@ -182,12 +195,16 @@ void main() {
             return http.Response(jsonEncode(journeyJson()), 200, headers: h);
           }
           if (p == '/v1/me/ledger') return http.Response('[]', 200, headers: h);
+          if (p == '/v1/me/attestation' && req.method == 'POST') {
+            return http.Response(jsonEncode({'leagues': false, 'leaderboard': false, 'attestedAdult': true}), 200, headers: h);
+          }
           return http.Response('{}', 404, headers: h);
         });
 
     Future<List<Override>> overrides({bool published = false, bool guest = false, RemoteConfig? config, bool moderated = false}) async {
       requests = [];
       tags = [];
+      unnamed = false;
       journeyFailures = 0;
       final secure = MemoryKvStore();
       await secure.write('auth.access', 'token');
@@ -273,12 +290,14 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
     });
 
-    testWidgets('Profile journey: level, lifetime points and the whole rail on demand', (tester) async {
+    testWidgets('Profile journey: lifetime points, to-next and the whole rail on demand (no second ring)', (tester) async {
       tall(tester);
       await tester.pumpWidget(harness(const Scaffold(body: SingleChildScrollView(child: JourneySection())), overrides: await overrides()));
       await settle(tester);
       await tester.pump(const Duration(seconds: 2));
-      expect(find.text('على الطريق'), findsOneWidget);
+      // The level ring is the Profile stage's avatar: the journey doesn't repeat it.
+      expect(find.byType(YqRing), findsNothing);
+      expect(find.text('على الطريق'), findsNothing);
       expect(find.text('1,250 نقطة منذ البداية'), findsOneWidget);
       expect(find.text('750 نقطة إلى «مواظب»'), findsOneWidget);
       expect(find.text('وسام المواظبة · 7 أيام'), findsOneWidget);
@@ -288,6 +307,15 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
       expect(find.text('وسام المواظبة · 3 أيام'), findsOneWidget);
       expect(find.bySemanticsLabel(RegExp('الانضمام إلى يقين، 31 أغسطس 2026')), findsOneWidget);
+      // Gold only on what was earned: level and badge dots; the rest are porcelain with a lapis edge.
+      BoxDecoration dot(String kind) =>
+          tester.widget<Container>(find.byKey(ValueKey('journey-dot-$kind')).first).decoration! as BoxDecoration;
+      expect(dot('level').border!.top.color, YqColors.gold);
+      expect(dot('badge').border!.top.color, YqColors.gold);
+      for (final k in ['challengeDay', 'challengeStart', 'joined']) {
+        expect(dot(k).color, YqColors.porcelain, reason: k);
+        expect(dot(k).border!.top.color, YqColors.lapis, reason: k);
+      }
     });
 
     testWidgets('Profile journey: a failed load offers a retry instead of vanishing', (tester) async {
@@ -301,8 +329,57 @@ void main() {
       await tester.tap(find.text('إعادة المحاولة'));
       await settle(tester);
       await tester.pump(const Duration(seconds: 2));
-      expect(find.text('على الطريق'), findsOneWidget);
+      expect(find.text('1,250 نقطة منذ البداية'), findsOneWidget);
       expect(find.text('إعادة المحاولة'), findsNothing);
+    });
+
+    testWidgets('preview: the profile picture inside the level ring; a saved card name is kept', (tester) async {
+      tall(tester);
+      final kv = MemoryKvStore();
+      await kv.write(ProfileRepository.meKey, jsonEncode({...profileFixture(), 'displayName': 'أحمد حمدي'}));
+      final o = await overrides();
+      await tester.pumpWidget(harness(const CardScreen(), kv: kv, overrides: o));
+      await settle(tester);
+      final ring = tester.widget<YqLevelAvatar>(find.byType(YqLevelAvatar));
+      expect(ring.avatar, const PresetAvatar('m03'));
+      expect(ring.size, 88);
+      expect(ring.stroke, 3);
+      expect(ring.level, 2); // the card's level (the public view / journey), not a guess
+      // The card already has a name, so it is kept.
+      expect(find.widgetWithText(TextField, 'أحمد'), findsOneWidget);
+      // No photo: no age switch.
+      expect(find.byKey(const ValueKey('card-attest')), findsNothing);
+
+      // A new card (no name yet) starts from the profile name.
+      await tester.pumpWidget(const SizedBox());
+      final o2 = await overrides();
+      unnamed = true;
+      await tester.pumpWidget(harness(const CardScreen(), kv: kv, overrides: o2));
+      await settle(tester);
+      expect(find.widgetWithText(TextField, 'أحمد حمدي'), findsOneWidget);
+    });
+
+    testWidgets('a photo that is not attested offers the age switch, which calls POST /v1/me/attestation', (tester) async {
+      tall(tester);
+      final kv = MemoryKvStore();
+      await kv.write(
+        ProfileRepository.meKey,
+        jsonEncode({
+          ...profileFixture(),
+          'avatar': {'kind': 'photo', 'id': 'p1', 'url': '/v1/me/avatar/photo/256', 'smallUrl': '/v1/me/avatar/photo/96'},
+          'community': {'attestedAdult': false},
+        }),
+      );
+      await tester.pumpWidget(harness(const CardScreen(), kv: kv, overrides: await overrides()));
+      await settle(tester);
+      expect(find.text('لإظهار صورتك في البطاقة'), findsOneWidget);
+      // Visitors don't see the photo until the age is attested, so neither does the preview.
+      expect(tester.widget<YqLevelAvatar>(find.byType(YqLevelAvatar)).avatar, const InitialAvatar());
+      await tester.tap(find.descendant(of: find.byKey(const ValueKey('card-attest')), matching: find.byType(YqSwitch)));
+      await settle(tester);
+      expect(requests.where((r) => r.method == 'POST' && r.url.path == '/v1/me/attestation'), hasLength(1));
+      expect(find.byKey(const ValueKey('card-attest')), findsNothing);
+      expect(tester.widget<YqLevelAvatar>(find.byType(YqLevelAvatar)).avatar, isA<PhotoAvatar>());
     });
 
     testWidgets('a bad handle blocks saving and says why', (tester) async {
