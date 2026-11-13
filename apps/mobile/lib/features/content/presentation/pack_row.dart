@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/providers.dart';
+import '../../../core/format.dart';
 import '../../../core/network/resumable_download.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
@@ -80,7 +81,11 @@ class _PackRowState extends ConsumerState<PackRow> {
       title: widget.pack.title(locale),
       subtitle: busy ? t.packInstalling : (installed ? t.packInstalled : t.packInstall(megabytes(t, widget.pack.sizeBytes))),
       trailing: busy
-          ? YqRing(value: _progress ?? 0, size: 22, stroke: 2.4)
+          // The ring paints no semantics of its own: announce the percentage, like the old spinner did.
+          ? Semantics(
+              value: '${YqFormat.number(((_progress ?? 0).clamp(0.0, 1.0) * 100).round())}%',
+              child: YqRing(value: _progress ?? 0, size: 22, stroke: 2.4),
+            )
           : installed
               ? (widget.onRemove == null
                   ? const Icon(Icons.check_circle_rounded, color: YqColors.success)
