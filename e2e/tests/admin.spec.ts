@@ -138,8 +138,10 @@ test.describe('competitions «المسابقات»', () => {
     await expect(page.getByText('competitor.hide_photo').first()).toBeVisible();
   });
 
-  test('a removed photo loads through the admin proxy for support, never cached', async ({ page }) => {
+  test('a removed photo loads through the admin proxy for support, never cached', async ({ browser }) => {
     const f = fixture();
+    const context = await staffContext(browser, f.tokens.support);
+    const page = await context.newPage();
     await page.goto(`/competitions?tab=moderation&filter=hidden&q=${encodeURIComponent(f.removed.name)}`);
     const thumb = page.getByTestId(`competitor-${f.removed.handle}`).locator('img[data-photo-status="removed"]');
     await expect(thumb).toBeVisible();
@@ -149,6 +151,33 @@ test.describe('competitions «المسابقات»', () => {
     expect(res.status()).toBe(200);
     expect(res.headers()['content-type']).toContain('image/webp');
     expect(res.headers()['cache-control']).toBe('private, no-store');
+    await context.close();
+  });
+
+  test('support moderates, but cannot manage tournaments, league settings or the rollover', async ({ browser }) => {
+    const f = fixture();
+    const context = await staffContext(browser, f.tokens.support);
+    const page = await context.newPage();
+
+    await page.goto('/competitions');
+    await expect(page.getByRole('heading', { name: 'المسابقات', level: 1 })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'بطولة جديدة' })).toHaveCount(0);
+
+    await page.goto(`/competitions?tab=moderation&q=${encodeURIComponent(f.runner.name)}`);
+    const row = page.getByTestId(`competitor-${f.runner.handle}`);
+    await row.getByText('إجراء', { exact: true }).click();
+    await expect(row.getByRole('button', { name: 'إيقاف من المنافسات' })).toBeVisible();
+    await expect(row.getByLabel('إخفاء الاسم')).toBeVisible();
+
+    await page.goto('/competitions?tab=leagues');
+    await expect(page.locator('fieldset[disabled]').filter({ has: page.locator('input[name="groupSize"]') })).toHaveCount(1);
+    await expect(page.getByRole('button', { name: 'حفظ الإعدادات' })).toHaveCount(0);
+    await expect(page.getByText('تشغيل التدوير الآن')).toHaveCount(0);
+    await expect(page.getByText('المعمول به هذا الأسبوع')).toBeVisible();
+
+    const res = await page.goto('/competitions/tournaments/new');
+    expect(res?.status()).toBe(403);
+    await context.close();
   });
 
   test('the user page shows the competitions card with points only', async ({ page }) => {
@@ -174,6 +203,11 @@ test.describe('competitions «المسابقات»', () => {
     await expect(page.locator('img[data-photo-status]')).toHaveCount(0);
     // The photo route itself is support-only.
     expect((await page.request.get(`/api/competitors/${f.removed.id}/photos/${f.removed.photoId}/96`)).status()).toBe(403);
+
+    // League settings are theirs to edit; the rollover is the super admin's.
+    await page.goto('/competitions?tab=leagues');
+    await expect(page.getByRole('button', { name: 'حفظ الإعدادات' })).toBeVisible();
+    await expect(page.getByText('تشغيل التدوير الآن')).toHaveCount(0);
     await context.close();
   });
 
@@ -215,6 +249,39 @@ test.describe('competitions «المسابقات»', () => {
 
     await page.goto('/settings');
     await expect(page.getByText('tournament.close').first()).toBeVisible();
+  });
+
+  test('a draft whose join day is cleared joins until its last day', async ({ page }) => {
+    const f = fixture();
+    const day = (n: number) => new Date(Date.parse(`${f.today}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+    await page.goto('/competitions/tournaments/new');
+    await page.getByLabel(/المعرّف/).fill(`e2e-join-${Date.now() % 1_000_000}`);
+    await page.getByLabel(/العنوان بالعربية/).fill('مسودة الانضمام');
+    await page.getByLabel(/Title \(English\)/).fill('Join draft');
+    await page.getByLabel('اليوم الأول').fill(day(10));
+    await page.getByLabel('اليوم الأخير').fill(day(20));
+    await page.getByLabel(/آخر يوم للانضمام/).fill(day(12));
+    await page.getByLabel(/اسم الشارة بالعربية/).fill('وسام');
+    await page.getByLabel(/Badge name \(English\)/).fill('Medal');
+    await page.getByRole('button', { name: 'حفظ كمسودة' }).click();
+    await expect(page).toHaveURL(/\/competitions\/tournaments\/[0-9a-f-]{36}$/, { timeout: ACTION });
+
+    const header = page.getByText(/الانضمام حتى/).first();
+    const joinAndLast = async () => {
+      const m = /إلى (.+) · الانضمام حتى (.+)$/.exec((await header.textContent()) ?? '');
+      return m ? { last: m[1], join: m[2] } : null;
+    };
+    const before = await joinAndLast();
+    expect(before?.join).not.toBe(before?.last);
+
+    await expect(page.getByLabel(/آخر يوم للانضمام/)).toHaveValue(day(12));
+    await page.getByLabel(/آخر يوم للانضمام/).fill('');
+    await page.getByRole('button', { name: 'حفظ كمسودة' }).click();
+    await expect(page.getByText('تم الحفظ')).toBeVisible({ timeout: ACTION });
+    await page.reload();
+    const after = await joinAndLast();
+    expect(after?.join).toBe(after?.last);
+    expect(after?.last).toBe(before?.last);
   });
 
   test('league settings save from next week; a group page is read-only', async ({ page }) => {
