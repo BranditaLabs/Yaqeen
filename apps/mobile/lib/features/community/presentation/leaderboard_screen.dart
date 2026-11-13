@@ -93,7 +93,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
           actionLabel: t.cmJoin,
           onAction: () => showSignInSheet(context),
         ),
-        const CommunityFooter(sincerity: false),
+        const CommunityFooter(),
       ]);
     }
     final profile = ref.watch(meProfileProvider).valueOrNull;

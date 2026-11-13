@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yaqeen/core/time/zoned.dart';
 import 'package:yaqeen/core/widgets/liquid_glass.dart';
@@ -59,9 +58,9 @@ void main() {
         'GET /v1/leagues/history': (_) => jsonResponse([
               {'startsOn': '2026-11-07', 'division': 2, 'rank': 2, 'size': 28, 'points': 510, 'outcome': 'up'},
             ]),
-      });
+      },);
       await shoot(tester, rig, const LeagueScreen(), LeagueScreen, 'league_$locale.png', locale);
-    }, skip: _missing('league_$locale.png'));
+    }, skip: _missing('league_$locale.png'),);
 
     testWidgets('tournament golden ($locale)', (tester) async {
       final t = ((fixture('tournaments.json') as List)[1] as Map).cast<String, dynamic>();
@@ -73,8 +72,8 @@ void main() {
         'GET /v1/me/profile': (_) => jsonResponse(_profile()),
         'GET /v1/tournaments/$id': (_) => jsonResponse(t),
         'GET /v1/tournaments/$id/standings': (_) => jsonResponse(st),
-      });
+      },);
       await shoot(tester, rig, TournamentScreen(id: id), TournamentScreen, 'tournament_$locale.png', locale);
-    }, skip: _missing('tournament_$locale.png'));
+    }, skip: _missing('tournament_$locale.png'),);
   }
 }
