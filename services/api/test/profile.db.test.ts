@@ -6,7 +6,7 @@
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import pg from 'pg';
 import { buildApp } from '../src/app.js';
@@ -84,6 +84,8 @@ describe.skipIf(!url)('public profile cards (Postgres)', () => {
       { userId: u.id, delta: 100, reason: 'milestone', refKey: 'milestone:7' },
       { userId: u.id, delta: -1000, reason: 'redemption', refKey: 'seed:r' },
     ]);
+    // Public level rings read the nightly public snapshot (user_point_totals.public_lifetime).
+    await db.execute(sql`select yq_rebuild_points_rollups()`);
     const put = await app.inject({ method: 'PUT', url: '/v1/me/public-profile', headers: auth(u.token), payload: card() });
     expect(put.statusCode).toBe(200);
     expect(put.json()).toMatchObject({ published: true, handle: 'ahmed', url: 'https://id.test/u/ahmed' });
@@ -138,6 +140,23 @@ describe.skipIf(!url)('public profile cards (Postgres)', () => {
     expect(pub.timeline).toHaveLength(5);
     const page = await app.inject({ method: 'GET', url: '/u/journey', headers: { 'accept-language': 'en' } });
     expect(page.body).toContain('Day 30 of the 365-day journey');
+  });
+
+  it('a failed-redemption reversal never raises the level; the public ring waits for the snapshot', async () => {
+    const u = await makeUser('Reversal');
+    await db.insert(s.pointsLedger).values([
+      { userId: u.id, delta: 400, reason: 'task', refKey: 'rv:1' },
+      { userId: u.id, delta: -300, reason: 'redemption', refKey: 'rv:r' },
+      // The redemption failed: points come back as a reversal — a refund, not earned points.
+      { userId: u.id, delta: 300, reason: 'reversal', refKey: 'rv:rr' },
+    ]);
+    const mine = (await app.inject({ method: 'GET', url: '/v1/me/journey', headers: auth(u.token) })).json();
+    expect(mine).toMatchObject({ lifetimePoints: 400, level: { level: 1, nextAt: 500 } });
+    expect(mine.events.filter((e: { kind: string }) => e.kind === 'level')).toEqual([]);
+    const me = (await app.inject({ method: 'GET', url: '/v1/me/profile', headers: auth(u.token) })).json();
+    expect(me).toMatchObject({ lifetimePoints: 400, level: { level: 1 }, avatar: { kind: 'initial' } });
+    const totals = await db.execute<{ lifetime_earned: number; public_lifetime: number }>(sql`select lifetime_earned, public_lifetime from user_point_totals where user_id = ${u.id}`);
+    expect(totals.rows[0]).toEqual({ lifetime_earned: 400, public_lifetime: 0 });
   });
 
   it('counts human opens only', async () => {
