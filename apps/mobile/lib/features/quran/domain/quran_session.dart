@@ -53,6 +53,7 @@ class QuranSession {
     this.page,
     this.planKey,
     this.portion,
+    this.goal,
   });
 
   /// Starts [kind] on [passage]: hifz at «استماع ×3», a review straight at «اختبار».
@@ -65,6 +66,7 @@ class QuranSession {
     int? page,
     String? planKey,
     String? portion,
+    int? goal,
   }) =>
       QuranSession(
         id: '${kind.name}-${now.microsecondsSinceEpoch}',
@@ -81,6 +83,7 @@ class QuranSession {
         page: page,
         planKey: planKey,
         portion: portion,
+        goal: goal,
       );
 
   final String id;
@@ -110,6 +113,11 @@ class QuranSession {
 
   /// The portion it covers (a hifz portion id, today's khatma portion): no longer today's → stale.
   final String? portion;
+
+  /// A reading session's target, fixed when it starts: the day's count (wird pages, khatma pages
+  /// read today) at which it is met. Started after today's goal was already reached, it is that
+  /// count plus the pages chosen — so it never ends the moment it opens. Null: the day's own goal.
+  final int? goal;
 
   bool get finished => stage == SessionStage.done;
 
@@ -171,6 +179,7 @@ class QuranSession {
         page: page ?? this.page,
         planKey: planKey,
         portion: portion,
+        goal: goal,
       );
 
   static const version = 1;
@@ -190,6 +199,7 @@ class QuranSession {
         if (page != null) 'page': page,
         if (planKey != null) 'planKey': planKey,
         if (portion != null) 'portion': portion,
+        if (goal != null) 'goal': goal,
       };
 
   /// Anything unreadable (another version, a damaged value) is null: the session is simply gone.
@@ -220,6 +230,7 @@ class QuranSession {
       page: page is int && page >= 1 && page <= QuranData.pageCount ? page : null,
       planKey: j['planKey'] as String?,
       portion: j['portion'] as String?,
+      goal: j['goal'] is int && (j['goal'] as int) > 0 ? j['goal'] as int : null,
     );
   }
 }

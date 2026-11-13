@@ -27,6 +27,14 @@ const kSurahStartPage = <int>[
 /// Start page of [surah] (clamped to 1–114), synchronously.
 int surahStartPage(int surah) => kSurahStartPage[surah.clamp(1, QuranData.surahCount) - 1];
 
+/// [p] (from a link: `?surah=&from=&to=`) held against the mushaf: its end clamped to the surah's
+/// last ayah, or null when it starts past it. Every layer can then read each of its ayat.
+Passage? checkedPassage(QuranData q, Passage? p) {
+  if (p == null || p.surah < 1 || p.surah > QuranData.surahCount) return null;
+  if (p.from > q.surah(p.surah).ayahCount) return null;
+  return Passage.ofHifz(q, p.surah, p.from, p.to);
+}
+
 /// A run of ayat inside one surah — what the reader's layers work on: what plays, what is hidden
 /// for memorising, what a recitation is checked against, what a guided session covers.
 class Passage {

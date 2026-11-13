@@ -19,10 +19,47 @@ String sessionToday(ProviderRead read) {
   return Zoned.isoDate(Zoned.today(s.placeOrDefault.timezone, read(clockProvider)()));
 }
 
-DateTime _localDay(ProviderRead read) {
+/// The device's local day — the clock the hifz plan keeps (memorised on, due reviews, ticked steps).
+DateTime sessionLocalDay(ProviderRead read) {
   final n = read(clockProvider)().toLocal();
   return DateTime(n.year, n.month, n.day);
 }
+
+/// The day a session of [kind] belongs to (YYYY-MM-DD). Guided hifz and review sessions follow the
+/// hifz plan's own day (the device's), so the session, its portion and the plan never disagree when
+/// the device's timezone is not the saved place's; reading sessions count the place's day, as the
+/// wird and the khatma do.
+String sessionDay(ProviderRead read, QuranSessionKind kind) =>
+    kind.guided ? Zoned.isoDate(sessionLocalDay(read)) : sessionToday(read);
+
+/// What a reading session of [kind] must reach to be met, fixed now ([QuranSession.goal]): today's
+/// wird or khatma portion when it is still open; once it is met, the same again (the wird) or one
+/// more page (the khatma) on top of what is already read. Null for other kinds.
+Future<int?> sessionGoal(ProviderRead read, QuranSessionKind kind) async {
+  final today = sessionToday(read);
+  switch (kind) {
+    case QuranSessionKind.wird:
+      final goal = read(settingsProvider).wirdGoalPages;
+      final w = await read(readingRepositoryProvider).wird();
+      final done = w?.date == today ? w!.count : 0;
+      return done + wirdSessionPages(done: done, goal: goal);
+    case QuranSessionKind.khatma:
+      final k = await read(readingRepositoryProvider).khatma();
+      if (k == null || k.finished) return null;
+      final done = k.readOn(today);
+      return done + khatmaSessionPages(k.dailyTarget(today, readToday: done) - done);
+    case QuranSessionKind.hifz:
+    case QuranSessionKind.review:
+    case QuranSessionKind.free:
+      return null;
+  }
+}
+
+/// Pages a wird session offers: what is left of today's goal, or a whole goal once it is met.
+int wirdSessionPages({required int done, required int goal}) => done < goal ? goal - done : goal;
+
+/// Pages a khatma session covers: what is left of today's portion, or one page once it is read.
+int khatmaSessionPages(int left) => left < 1 ? 1 : left;
 
 /// The plan a session of [kind] follows, as a key: editing that plan makes the session stale.
 Future<String?> sessionPlanKey(ProviderRead read, QuranSessionKind kind) async {
@@ -47,7 +84,7 @@ Future<String?> sessionPortion(ProviderRead read, QuranSessionKind kind, {String
   if (!kind.guided) return null;
   final plan = await read(hifzRepositoryProvider).load();
   if (plan == null) return '';
-  final today = _localDay(read);
+  final today = sessionLocalDay(read);
   if (kind == QuranSessionKind.review) return plan.due(today).any((p) => p.id == wanted) ? wanted : '';
   final q = await read(quranDataProvider.future);
   // Memorised already today: the session's passage is still today's (its grade may be pending).
@@ -68,12 +105,14 @@ Future<QuranSession?> loadValidSession(ProviderRead read) async {
   if (s == null) return null;
   final stale = s.finished ||
       s.isStale(
-        today: sessionToday(read),
+        today: sessionDay(read, s.kind),
         planKey: await sessionPlanKey(read, s.kind),
         portion: await sessionPortion(read, s.kind, wanted: s.portion),
       );
   if (!stale) return s;
-  await store.clear();
+  // In the session writes' order, and only if that same session is still the one saved: a check
+  // that read an older value must not wipe a session begun meanwhile.
+  await read(activeSessionProvider.notifier).discard(s.id);
   return null;
 }
 
@@ -111,8 +150,20 @@ class ActiveSessionController extends Notifier<QuranSession?> {
     return _persist(null);
   }
 
-  /// The reader closed: the session stays saved for «أكمل جلستك».
-  void detach() => state = null;
+  /// The reader that began session [id] closed: the session stays saved for «أكمل جلستك». Only that
+  /// session leaves the screen — a reader closing after the next one opened (the end card's
+  /// «التالي») must not take its successor's session with it.
+  void detach(String? id) {
+    if (id != null && state?.id == id) state = null;
+  }
+
+  /// Drops the saved session [id] from the device (it went stale) unless it is running or another
+  /// session was saved since.
+  Future<void> discard(String id) => _writes = _writes.then((_) async {
+        if (state?.id == id) return;
+        final saved = await _store.load();
+        if (saved?.id == id) await _store.clear();
+      });
 
   /// Completes once every pending write has landed (tests, leaving the reader).
   Future<void> flushed() => _writes;
@@ -131,12 +182,12 @@ final sessionProgressProvider = Provider.autoDispose<({int done, int goal})?>((r
     case QuranSessionKind.wird:
       final goal = ref.watch(settingsProvider.select((x) => x.wirdGoalPages));
       final wird = ref.watch(todayWirdProvider).valueOrNull;
-      return (done: wird?.date == today ? wird!.count : 0, goal: goal);
+      return (done: wird?.date == today ? wird!.count : 0, goal: s.goal ?? goal);
     case QuranSessionKind.khatma:
       final k = ref.watch(khatmaProvider).valueOrNull;
       if (k == null || k.finished) return null;
       final read = k.readOn(today);
-      return (done: read, goal: k.dailyTarget(today, readToday: read));
+      return (done: read, goal: s.goal ?? k.dailyTarget(today, readToday: read));
     case QuranSessionKind.hifz:
       final i = SessionStage.values.indexOf(s.stage) - SessionStage.listen.index;
       return (done: i.clamp(0, 3), goal: 3);

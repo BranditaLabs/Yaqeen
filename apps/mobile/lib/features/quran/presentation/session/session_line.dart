@@ -33,6 +33,7 @@ class SessionLine extends ConsumerWidget {
     this.onFinished,
     this.onEcho,
     this.echoing = false,
+    this.onListenKept,
   });
 
   final QuranSession session;
@@ -47,6 +48,10 @@ class SessionLine extends ConsumerWidget {
   /// Echo practice for «تكرار ×10» (play an ayah, leave time to repeat it); null without audio.
   final VoidCallback? onEcho;
   final bool echoing;
+
+  /// Another surah's recitation was kept over «استماع ×3» («استبدال التشغيل الحالي؟» → no): the
+  /// stage offers to listen now (replacing it) or «تخطَّ إلى التكرار». Null: not the case.
+  final VoidCallback? onListenKept;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -93,6 +98,7 @@ class SessionLine extends ConsumerWidget {
       _ => (t.qsTest, null),
     };
     final missing = stage == SessionStage.listen && noAudio(listen);
+    final kept = stage == SessionStage.listen && !missing && onListenKept != null;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -119,6 +125,14 @@ class SessionLine extends ConsumerWidget {
           ],
         ),
         if (missing) _NoAudio(onSkip: onSkipToRepeat, onReady: onAudioReady),
+        if (kept)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              YqButton.text(label: t.qsListenTimes(YqFormat.number(guidedListenTimes)), onPressed: onListenKept),
+              if (onSkipToRepeat != null) YqButton.text(label: t.qsSkipToRepeat, onPressed: onSkipToRepeat),
+            ],
+          ),
       ],
     );
   }

@@ -145,6 +145,21 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
   /// Leaving is allowed although the guided test is not graded (the grade sheet was offered).
   bool _allowPop = false;
 
+  /// The session this reader began or resumed: closing lets go of that one only.
+  String? _ownSession;
+
+  /// This reader started its session just now (not a resume): taking over another surah's
+  /// recitation asks first.
+  bool _freshSession = false;
+
+  /// The end card's «التالي» replaced this reader with the next step's: it no longer reacts to the
+  /// shared layers, session or recitation (they are the next reader's now).
+  bool _handedOff = false;
+
+  /// The route's `?surah=&from=&to=`, checked against the mushaf (null until it has loaded, or when
+  /// it names no ayah of that surah).
+  Passage? _routePassage;
+
   @override
   void initState() {
     super.initState();
@@ -161,7 +176,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
       if (!mounted) return;
       // The app-wide mini player steps aside while a reader is open.
       ref.read(readerPresenceProvider.notifier).enter();
-      _layers.init(passage: widget.passage);
+      final q0 = ref.read(quranDataProvider).valueOrNull;
+      _routePassage = q0 == null ? null : checkedPassage(q0, widget.passage);
+      _layers.init(passage: _routePassage);
+      if (q0 == null && widget.passage != null) {
+        final q = await ref.read(quranDataProvider.future).then<QuranData?>((q) => q, onError: (Object _) => null);
+        if (!mounted || q == null) return;
+        _routePassage = checkedPassage(q, widget.passage);
+        _layers.setPassage(_routePassage);
+      }
       final session = await _openSession();
       if (!mounted) return;
       if (session != null) {
@@ -232,7 +255,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     Future.microtask(presence.leave);
     // The session stays saved for «أكمل جلستك»; it is simply no longer on screen.
     final sessions = _c.read(activeSessionProvider.notifier);
-    Future.microtask(sessions.detach);
+    final mine = _ownSession;
+    Future.microtask(() => sessions.detach(mine));
+    // Echo practice is this reader's: closing it stops the ayah it was playing (and its wait).
+    if (_echoing) {
+      _echoing = false;
+      _c.read(listenControllerProvider.notifier).pause().ignore();
+    }
     _c.read(deviceServicesProvider).keepAwake(false);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
@@ -431,24 +460,25 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     final saved = await loadValidSession(ref.read);
     if (!mounted) return null;
     if (raw == 'resume') {
-      if (saved != null) await _sessions.begin(saved);
+      if (saved != null) await _begin(saved);
       return saved;
     }
     final kind = QuranSessionKind.tryParse(raw);
     if (kind == null) return null;
-    if (saved != null && saved.kind == kind && (widget.passage == null || saved.passage == widget.passage)) {
-      await _sessions.begin(saved);
+    if (saved != null && saved.kind == kind && (_routePassage == null || saved.passage == _routePassage)) {
+      await _begin(saved);
       return saved;
     }
     final q = await ref.read(quranDataProvider.future);
-    final passage = widget.passage ?? await _sessionPassage(q, kind);
+    final passage = _routePassage ?? await _sessionPassage(q, kind);
     final planKey = await sessionPlanKey(ref.read, kind);
+    final goal = await sessionGoal(ref.read, kind);
     if (!mounted) return null;
     final s = QuranSession.start(
       kind,
       passage,
       now: ref.read(clockProvider)(),
-      day: sessionToday(ref.read),
+      day: sessionDay(ref.read, kind),
       mode: widget.mode,
       page: _page,
       planKey: planKey,
@@ -457,9 +487,17 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
         QuranSessionKind.hifz => passage.toString(),
         _ => null,
       },
+      goal: goal,
     );
-    await _sessions.begin(s);
+    _freshSession = true;
+    await _begin(s);
     return s;
+  }
+
+  /// Puts [s] in the reader, as this reader's own.
+  Future<void> _begin(QuranSession s) {
+    _ownSession = s.id;
+    return _sessions.begin(s);
   }
 
   /// What a session started without `surah/from/to` covers: the khatma portion from this page, else
@@ -470,7 +508,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
       if (k != null && !k.finished) {
         final today = sessionToday(ref.read);
         final left = k.dailyTarget(today, readToday: k.readOn(today)) - k.readOn(today);
-        return Passage.ofKhatma(q, _page, _page + (left < 1 ? 1 : left) - 1);
+        return Passage.ofKhatma(q, _page, _page + khatmaSessionPages(left) - 1);
       }
     }
     return Passage.ofPage(q, _page);
@@ -483,18 +521,30 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     final page = s.page;
     if (widget.session == 'resume' && page != null && page != _page) _goTo(page);
     if (s.stage == SessionStage.reading) {
-      final mode = widget.mode != QuranMode.read ? widget.mode : s.mode;
+      var mode = widget.mode != QuranMode.read ? widget.mode : s.mode;
+      // A session starting here with the recitation (the khatma's «استمع إلى الحصّة») asks before
+      // it replaces another surah's; kept, the portion is read instead. A resume never asks.
+      if (mode == QuranMode.listen && _freshSession) {
+        final q = ref.read(quranDataProvider).valueOrNull;
+        if (q != null && playingOtherSurah(ref.read(listenControllerProvider), q.firstOfPage(_page).surah)) {
+          if (!await confirmReplacePlayback(context)) mode = QuranMode.read;
+          if (!mounted) return;
+        }
+      }
       if (mode != QuranMode.read) await _setMode(mode, ask: false);
       if (mode == QuranMode.memorise && s.reveals.isNotEmpty) _layers.revealAll(s.reveals);
     } else if (s.kind.guided) {
-      await _enterStage(s);
+      await _enterStage(s, fresh: _freshSession);
     }
   }
 
   /// Sets the page up for a guided stage: «استماع ×3» plays the passage three times; «تكرار ×10»
   /// shows it with the «كرّرت» counter (and echo); «اختبار» hides it — the microphone when this build
   /// can recite, else every other word with a tap to reveal.
-  Future<void> _enterStage(QuranSession s) async {
+  ///
+  /// [fresh]: the session was started just now — another surah's recitation is replaced only after
+  /// «استبدال التشغيل الحالي؟»; kept, the stage waits with «تخطَّ إلى التكرار».
+  Future<void> _enterStage(QuranSession s, {bool fresh = false}) async {
     final listen = ref.read(listenControllerProvider.notifier);
     switch (s.stage) {
       case SessionStage.listen:
@@ -502,6 +552,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
         if (!ref.read(quranModesProvider).contains(QuranMode.listen)) return _skipToRepeat();
         _layers.setMode(QuranMode.listen);
         _sessions.update((x) => x.withMode(QuranMode.listen));
+        if (fresh && playingOtherSurah(ref.read(listenControllerProvider), s.passage.surah)) {
+          final replace = await confirmReplacePlayback(context);
+          if (!mounted) return;
+          if (!replace) {
+            _keptPlayback = true;
+            break;
+          }
+        }
+        _keptPlayback = false;
         await listen.playPassage(s.passage, times: HifzGuide.listenTimes);
       case SessionStage.repeat:
         await listen.pause();
@@ -540,6 +599,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     if (mounted) setState(() {});
   }
 
+  /// The user kept another surah's recitation over the guided «استماع ×3»: the stage offers
+  /// «تخطَّ إلى التكرار» instead of taking the player over.
+  bool _keptPlayback = false;
+
   /// A guided stage ended by itself: its step of the plan ticks, and the next stage begins.
   Future<void> _completeStage() async {
     final s = ref.read(activeSessionProvider);
@@ -557,6 +620,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
   Future<void> _skipToRepeat() async {
     final s = ref.read(activeSessionProvider);
     if (s == null || s.stage != SessionStage.listen) return;
+    _keptPlayback = false;
     _sessions.update((x) => x.skipToRepeat());
     final next = ref.read(activeSessionProvider);
     if (next != null && mounted) await _enterStage(next);
@@ -583,6 +647,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     if (s == null || s.stage != SessionStage.repeat) return;
     setState(() => _echoing = true);
     final listen = ref.read(listenControllerProvider.notifier);
+    // Echo cuts the recitation into single ayat; the repeat the user had set comes back after it.
+    final before = ref.read(listenControllerProvider);
     while (_echoing && mounted && ref.read(activeSessionProvider)?.stage == SessionStage.repeat) {
       for (final a in s.passage.range) {
         if (!_echoing || !mounted) break;
@@ -598,6 +664,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
         HapticFeedback.selectionClick();
       }
     }
+    listen.restoreRepeat(before);
     if (mounted) setState(() => _echoing = false);
   }
 
@@ -633,7 +700,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     final hifz = ref.read(hifzControllerProvider.notifier);
     if (s.kind == QuranSessionKind.hifz) {
       await hifz.completeStep(2);
-      await hifz.memoriseToday();
+      // Only the passage this session studied, and only while it is still the plan's next one: had
+      // «حفظت» on the hifz screen recorded it meanwhile, the plan has moved on to a passage this
+      // session never covered.
+      final q = ref.read(quranDataProvider).valueOrNull;
+      final t = q == null ? null : plan?.today(q);
+      if (t != null && Passage(t.surah, t.from, t.to) == s.passage) await hifz.memoriseToday();
     } else if (s.portion != null) {
       await hifz.rate(s.portion!, grade);
     }
@@ -647,8 +719,18 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     final router = GoRouter.maybeOf(context);
     final goal = s.kind == QuranSessionKind.hifz ? HifzGuide.steps : 1;
     final go = await showSessionEndCard(context, met: true, done: goal, goal: goal, next: next?.$1);
-    if (go == true && next != null) router?.push(next.$2).ignore();
+    if (go == true && next != null && mounted) _handOff(router, next.$2);
     return true;
+  }
+
+  /// «التالي»: the next step's reader takes this one's place (not on top of it — the layers, the
+  /// session and the recitation are app-wide, and a reader left underneath would come back showing
+  /// the next one's).
+  void _handOff(GoRouter? router, String location) {
+    if (router == null) return;
+    _handedOff = true;
+    _hideTimer?.cancel();
+    router.pushReplacement(location).ignore();
   }
 
   /// Back / «خروج»: an ungraded test asks for its grade first (dismissing it still leaves; the
@@ -678,13 +760,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
       _sessions.update((s) => s.withPassage(p));
       return;
     }
-    _sessions
-        .begin(
+    _begin(
           QuranSession.start(
             QuranSessionKind.free,
             p,
             now: ref.read(clockProvider)(),
-            day: sessionToday(ref.read),
+            day: sessionDay(ref.read, QuranSessionKind.free),
             mode: mode,
             page: _page,
           ),
@@ -702,7 +783,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     if (!mounted) return;
     final router = GoRouter.maybeOf(context);
     final go = await showSessionEndCard(context, met: true, done: p.done, goal: p.goal, next: next?.$1);
-    if (go == true && next != null && mounted) router?.push(next.$2).ignore();
+    if (go == true && next != null && mounted) _handOff(router, next.$2);
   }
 
   /// After a session: a due review first, then today's hifz passage.
@@ -710,8 +791,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     final plan = await ref.read(hifzRepositoryProvider).load();
     final q = ref.read(quranDataProvider).valueOrNull;
     if (plan == null || q == null) return null;
-    final n = ref.read(clockProvider)().toLocal();
-    final today = DateTime(n.year, n.month, n.day);
+    final today = sessionLocalDay(ref.read);
     final due = plan.due(today).firstOrNull;
     if (due != null) {
       final page = q.pageOf(AyahRef(due.surah, due.from));
@@ -917,6 +997,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
         onFinished: () => _finishTest(),
         onEcho: ref.read(quranModesProvider).contains(QuranMode.listen) ? _echo : null,
         echoing: _echoing,
+        onListenKept: _keptPlayback
+            ? () {
+                final now = ref.read(activeSessionProvider);
+                setState(() => _keptPlayback = false);
+                if (now != null) _enterStage(now);
+              }
+            : null,
       );
 
   /// Night pages from Maghrib until sunrise when «تلقائياً» is on.
@@ -934,31 +1021,37 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     // «إبقاء الشاشة مضاءة» takes effect while reading, not only on the next open.
     ref.listen(settingsProvider.select((s) => s.keepAwake), (_, on) => ref.read(deviceServicesProvider).keepAwake(on));
     ref.listen<ListenState>(listenControllerProvider, (prev, next) {
+      if (_handedOff) return;
       _follow(prev, next);
       _guidedListen(prev, next);
     });
     // «تكرار ×10»: the tenth repetition ends the stage.
     ref.listen(quranSessionControllerProvider.select((l) => l.repeats), (_, n) {
+      if (_handedOff) return;
       final s = ref.read(activeSessionProvider);
       if (s == null || s.stage != SessionStage.repeat) return;
       _sessions.update((x) => x.withRound(n));
       if (n >= HifzGuide.repeatTimes) _completeStage();
     });
     // A reading session meeting its goal ends with its card.
+    // Only a change that crosses the goal: a session that opens already met (no progress before)
+    // does not end the moment it opens.
     ref.listen(sessionProgressProvider, (prev, next) {
+      if (_handedOff) return;
       final s = ref.read(activeSessionProvider);
       if (s == null || s.kind.guided || next == null || next.goal <= 0 || next.done < next.goal) return;
-      if (prev != null && prev.done >= prev.goal) return;
+      if (prev == null || prev.done >= prev.goal) return;
       _sessionMet(next);
     });
     // Reveals made while memorising come back after a kill.
     ref.listen(quranSessionControllerProvider.select((l) => l.revealed), (_, revealed) {
-      if (revealed.isEmpty) return;
+      if (revealed.isEmpty || _handedOff) return;
       _sessions.update((s) => s.stage == SessionStage.test || s.kind == QuranSessionKind.free ? s.reveal(revealed) : s);
     });
     // A recitation during the guided test comes back after a kill (on the device only).
     if (ref.read(quranSessionControllerProvider).mode == QuranMode.recite) {
       ref.listen(reciteControllerProvider.select((r) => r.heard), (_, heard) {
+        if (_handedOff) return;
         _sessions.update((s) => s.stage == SessionStage.test ? s.withResults(heard) : s);
       });
     }

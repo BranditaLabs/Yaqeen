@@ -21,8 +21,14 @@ import 'session_start_sheet.dart';
 /// Home and the Quran index enter the reader through here (spec §5.9, §5.11).
 
 /// A session that can still be resumed («أكمل جلستك · ص {page}»), or null. Stale ones are dropped.
-final quranResumeProvider = FutureProvider.autoDispose<QuranSession?>((ref) {
-  ref.watch(activeSessionProvider);
+/// Only a session starting or ending re-checks it — not every page turn of the open reader. While a
+/// reader holds a session it is that one (valid by construction: nothing is read or cleared); once
+/// the reader lets go, the check waits for the session's last writes.
+final quranResumeProvider = FutureProvider.autoDispose<QuranSession?>((ref) async {
+  final id = ref.watch(activeSessionProvider.select((s) => s?.id));
+  final active = ref.read(activeSessionProvider);
+  if (id != null && active != null) return active;
+  await ref.read(activeSessionProvider.notifier).flushed();
   return loadValidSession(ref.read);
 });
 
@@ -75,7 +81,8 @@ Future<void> startWirdSession(BuildContext context, WidgetRef ref) async {
   final done = wird?.date == today ? wird!.count : 0;
   final page = (last?.page ?? 1).clamp(1, 604);
   final listenOn = ref.read(remoteConfigProvider).isOn(Flags.listen);
-  final choice = await showSessionStartSheet(context, pages: done < goal ? goal - done : goal, page: page, listenOn: listenOn);
+  final pages = wirdSessionPages(done: done, goal: goal);
+  final choice = await showSessionStartSheet(context, pages: pages, page: page, listenOn: listenOn);
   if (choice == null || !context.mounted) return;
   var audio = choice.audio;
   final passage = Passage.ofPage(q, page);
@@ -91,6 +98,8 @@ Future<void> startWirdSession(BuildContext context, WidgetRef ref) async {
     mode: audio ? QuranMode.listen : QuranMode.read,
     page: page,
     planKey: await sessionPlanKey(ref.read, QuranSessionKind.wird),
+    // Measured from where today's count stands now: after the goal is met, «{pages} صفحات» more.
+    goal: done + pages,
   );
   await ref.read(quranSessionStoreProvider).save(session);
   ref.invalidate(quranResumeProvider);
