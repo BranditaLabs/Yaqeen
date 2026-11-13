@@ -1,0 +1,95 @@
+[
+  {
+    "kind": "league_top3",
+    "refKey": "league:2026-11-07",
+    "awardedAt": "2026-11-14T00:07:00.000Z",
+    "meta": {
+      "startsOn": "2026-11-07",
+      "division": 2,
+      "rank": 2,
+      "size": 28
+    }
+  },
+  {
+    "kind": "division_reached",
+    "refKey": "division:3",
+    "awardedAt": "2026-11-14T00:07:00.000Z",
+    "meta": {
+      "division": 3
+    }
+  },
+  {
+    "kind": "league_first",
+    "refKey": "league:2026-10-31",
+    "awardedAt": "2026-11-07T00:07:00.000Z",
+    "meta": {
+      "startsOn": "2026-10-31",
+      "division": 1,
+      "rank": 1,
+      "size": 30
+    }
+  },
+  {
+    "kind": "league_promoted",
+    "refKey": "league:2026-10-24",
+    "awardedAt": "2026-10-31T00:07:00.000Z",
+    "meta": {
+      "startsOn": "2026-10-24",
+      "division": 2,
+      "rank": 4,
+      "size": 30
+    }
+  },
+  {
+    "kind": "tournament_podium",
+    "refKey": "tournament:7d3c2a10-5b1e-4c7a-9f00-1a2b3c4d5e03",
+    "awardedAt": "2026-10-31T00:07:00.000Z",
+    "meta": {
+      "tournamentId": "7d3c2a10-5b1e-4c7a-9f00-1a2b3c4d5e03",
+      "rank": 1,
+      "size": 140,
+      "titleAr": "تحدّي المولد",
+      "titleEn": "Mawlid challenge",
+      "labelAr": "منصّة",
+      "labelEn": "Podium"
+    }
+  },
+  {
+    "kind": "tournament_top10",
+    "refKey": "tournament:7d3c2a10-5b1e-4c7a-9f00-1a2b3c4d5e02",
+    "awardedAt": "2026-09-01T00:07:00.000Z",
+    "meta": {
+      "tournamentId": "7d3c2a10-5b1e-4c7a-9f00-1a2b3c4d5e02",
+      "rank": 9,
+      "size": 120,
+      "titleAr": "صيف الخير",
+      "titleEn": "Summer of good"
+    }
+  },
+  {
+    "kind": "tournament_finisher",
+    "refKey": "tournament:7d3c2a10-5b1e-4c7a-9f00-1a2b3c4d5e01",
+    "awardedAt": "2026-08-01T00:07:00.000Z",
+    "meta": {
+      "tournamentId": "7d3c2a10-5b1e-4c7a-9f00-1a2b3c4d5e01",
+      "titleAr": "العشر من ذي الحجة",
+      "titleEn": "First ten of Dhul Hijjah"
+    }
+  },
+  {
+    "kind": "streak",
+    "refKey": "milestone:7",
+    "awardedAt": "2026-11-03T18:00:00.000Z",
+    "meta": {
+      "days": 7
+    }
+  },
+  {
+    "kind": "level",
+    "refKey": "level:2",
+    "awardedAt": "2026-10-28T12:00:00.000Z",
+    "meta": {
+      "level": 2
+    }
+  }
+]

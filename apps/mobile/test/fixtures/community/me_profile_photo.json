@@ -1,0 +1,33 @@
+{
+  "displayName": "Sara",
+  "nameHidden": false,
+  "handle": "sara-1093",
+  "avatar": {
+    "kind": "photo",
+    "id": "4f9e8d7c-6b5a-4c3d-8e2f-0a1b2c3d4e5f",
+    "url": "/v1/me/avatar/photo/256",
+    "smallUrl": "/v1/me/avatar/photo/96"
+  },
+  "photoHidden": false,
+  "photoPublic": false,
+  "level": {
+    "level": 6,
+    "nameAr": "منارة",
+    "nameEn": "Beacon",
+    "progress": 1,
+    "nextAt": null
+  },
+  "lifetimePoints": 26100,
+  "weekPoints": 0,
+  "community": {
+    "leagues": false,
+    "leaderboard": false,
+    "leaderboardCountry": false,
+    "banned": false,
+    "attestedAdult": false,
+    "country": null
+  },
+  "league": null,
+  "recentBadges": [],
+  "badgesCount": 0
+}

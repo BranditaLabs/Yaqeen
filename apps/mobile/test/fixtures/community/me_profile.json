@@ -1,0 +1,83 @@
+{
+  "displayName": "أحمد",
+  "nameHidden": false,
+  "handle": "ahmed-4821",
+  "avatar": {
+    "kind": "preset",
+    "id": "m03"
+  },
+  "photoHidden": false,
+  "photoPublic": false,
+  "level": {
+    "level": 3,
+    "nameAr": "مواظب",
+    "nameEn": "Steadfast",
+    "progress": 0.4,
+    "nextAt": 5000
+  },
+  "lifetimePoints": 3200,
+  "weekPoints": 145,
+  "community": {
+    "leagues": true,
+    "leaderboard": true,
+    "leaderboardCountry": false,
+    "banned": false,
+    "attestedAdult": true,
+    "country": "EG"
+  },
+  "league": {
+    "division": 3,
+    "divisionAr": "ذهب",
+    "divisionEn": "Gold",
+    "rank": 4,
+    "size": 30,
+    "lastWeek": {
+      "startsOn": "2026-11-07",
+      "division": 2,
+      "newDivision": 3,
+      "rank": 2,
+      "outcome": "up",
+      "badge": {
+        "kind": "league_top3",
+        "refKey": "league:2026-11-07",
+        "awardedAt": "2026-11-14T00:07:00.000Z",
+        "meta": {
+          "startsOn": "2026-11-07",
+          "division": 2,
+          "rank": 2,
+          "size": 28
+        }
+      }
+    }
+  },
+  "recentBadges": [
+    {
+      "kind": "league_top3",
+      "refKey": "league:2026-11-07",
+      "awardedAt": "2026-11-14T00:07:00.000Z",
+      "meta": {
+        "startsOn": "2026-11-07",
+        "division": 2,
+        "rank": 2,
+        "size": 28
+      }
+    },
+    {
+      "kind": "division_reached",
+      "refKey": "division:3",
+      "awardedAt": "2026-11-14T00:07:00.000Z",
+      "meta": {
+        "division": 3
+      }
+    },
+    {
+      "kind": "streak",
+      "refKey": "milestone:7",
+      "awardedAt": "2026-11-03T18:00:00.000Z",
+      "meta": {
+        "days": 7
+      }
+    }
+  ],
+  "badgesCount": 5
+}

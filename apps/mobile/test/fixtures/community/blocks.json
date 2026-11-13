@@ -1,0 +1,17 @@
+[
+  {
+    "handle": "member-x7k2p9",
+    "name": null,
+    "avatar": {
+      "kind": "initial"
+    }
+  },
+  {
+    "handle": "omar-5521",
+    "name": "عمر",
+    "avatar": {
+      "kind": "preset",
+      "id": "m05"
+    }
+  }
+]
