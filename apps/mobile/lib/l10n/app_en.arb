@@ -2491,6 +2491,7 @@
   "pfNameLocked": "Support hid this name. Contact us to review it.",
   "pfNameReverted": "That name wasn't accepted, so we restored the previous one.",
   "pfSave": "Save",
+  "pfAttestOffline": "You need a connection to confirm your age",
   "cmSincerity": "A gentle race in doing good. No extra points here; badges are keepsakes only.",
   "cmPrivacy": "Others see only your name, picture, level and points for the period — never your prayers, azkar or tasks.",
   "cmSnapshotLine": "Standings update every night.",

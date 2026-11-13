@@ -22,14 +22,17 @@ import '../../../core/widgets/yq_button.dart';
 import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_layout.dart';
 import '../../../core/widgets/yq_orb.dart';
-import '../../../core/widgets/yq_ring.dart';
 import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../onboarding/presentation/session_controller.dart';
 import '../../onboarding/presentation/sign_in_sheet.dart';
-import '../../profile/presentation/profile_screen.dart';
+import '../../../core/widgets/yq_avatar.dart';
+import '../../community/domain/community_models.dart' show CommunityFailure;
+import '../../profile/domain/avatar.dart';
+import '../../profile/presentation/me_profile_controller.dart';
 import '../../rewards/domain/reward.dart';
+import '../../rewards/presentation/ledger_providers.dart';
 import '../data/card_repository.dart';
 import '../domain/medal_nfc.dart';
 import '../domain/public_card.dart';
@@ -110,10 +113,23 @@ class _CardScreenState extends ConsumerState<CardScreen> {
     _saved = c;
     _draft = c;
     _name.text = c.displayName;
+    _prefillName();
     _handle.text = c.handle;
     _bio.text = c.bio;
     _handleProblem = null;
     _handleFree = true;
+  }
+
+  bool _nameTouched = false;
+
+  /// A new card (no name yet) starts from the profile name — the name others already see — as soon
+  /// as both are known, unless the person has typed one meanwhile.
+  void _prefillName() {
+    final d = _draft;
+    final name = ref.read(meProfileProvider).valueOrNull?.displayName?.trim() ?? '';
+    if (d == null || _nameTouched || name.isEmpty || d.displayName.trim().isNotEmpty || _name.text.isNotEmpty) return;
+    _draft = d.copyWith(displayName: name);
+    _name.text = name;
   }
 
   void _edit(PublicCard Function(PublicCard d) f) => setState(() => _draft = f(_draft!));
@@ -182,6 +198,24 @@ class _CardScreenState extends ConsumerState<CardScreen> {
     }
   }
 
+  bool _attesting = false;
+
+  /// A photo is set but the age isn't confirmed: visitors see a picture from the set until it is.
+  bool get _needsAttest {
+    final p = ref.watch(meProfileProvider).valueOrNull;
+    return p != null && p.avatar is PhotoAvatar && !p.photoHidden && !p.community.attestedAdult;
+  }
+
+  Future<void> _attest() async {
+    final t = AppLocalizations.of(context);
+    setState(() => _attesting = true);
+    final r = await ref.read(meProfileProvider.notifier).attest();
+    if (!mounted) return;
+    setState(() => _attesting = false);
+    final failure = r.errorOrNull;
+    if (failure != null) YqToast.show(context, failure == CommunityFailure.offline ? t.pfAttestOffline : t.errorGeneric);
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
@@ -190,7 +224,9 @@ class _CardScreenState extends ConsumerState<CardScreen> {
     if (!session.canEarnPoints) return _GuestView(onSignIn: () => showSignInSheet(context));
 
     final mine = ref.watch(myCardProvider);
+    ref.watch(meProfileProvider.select((p) => p.valueOrNull?.displayName));
     if (_saved == null && mine.valueOrNull != null) _adopt(mine.valueOrNull!);
+    _prefillName();
     final d = _draft;
 
     return Scaffold(
@@ -296,6 +332,18 @@ class _CardScreenState extends ConsumerState<CardScreen> {
           trailing: YqSwitch(label: t.cardPublish, value: d.published, onChanged: (v) => _edit((x) => x.copyWith(published: v))),
         ),
       ),
+      if (_needsAttest) ...[
+        const SizedBox(height: YqSpace.m),
+        LiquidGlass(
+          key: const ValueKey('card-attest'),
+          padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.s),
+          child: YqListRow(
+            title: t.pfAttest,
+            subtitle: t.pfCardAttest,
+            trailing: YqSwitch(label: t.pfAttest, value: _attesting, onChanged: (v) => v && !_attesting ? _attest() : null),
+          ),
+        ),
+      ],
       const SizedBox(height: YqSpace.xl),
       YqHeading(t.cardIdentity),
       LiquidGlass(
@@ -306,7 +354,10 @@ class _CardScreenState extends ConsumerState<CardScreen> {
               controller: _name,
               label: t.cardName,
               maxLength: PublicCard.maxName,
-              onChanged: (v) => _edit((x) => x.copyWith(displayName: v)),
+              onChanged: (v) {
+                _nameTouched = true;
+                _edit((x) => x.copyWith(displayName: v));
+              },
             ),
             const SizedBox(height: YqSpace.m),
             _Field(
@@ -466,7 +517,8 @@ class _CardPreview extends ConsumerWidget {
     final night = card.theme == CardLook.night;
     final ink = night ? YqColors.white : YqColors.ink;
     final muted = night ? YqColors.navy200 : YqColors.muted;
-    final initial = card.displayName.trim().isEmpty ? '·' : String.fromCharCode(card.displayName.trim().runes.first);
+    final me = ref.watch(meProfileProvider).valueOrNull;
+    final avatar = me == null || (me.photoHidden && me.avatar is PhotoAvatar) ? const InitialAvatar() : me.avatar;
 
     final chips = <Widget>[
       if (card.show.streak && view?.streak != null) _Stat(value: view!.streak!, label: t.cardShowStreak, night: night),
@@ -484,40 +536,26 @@ class _CardPreview extends ConsumerWidget {
           begin: AlignmentDirectional.topStart,
           end: AlignmentDirectional.bottomEnd,
           colors: switch (card.theme) {
-            CardLook.sky => const [Color(0xF2FFFFFF), Color(0xCCE3EBF7)],
+            CardLook.sky => [YqColors.white.withValues(alpha: 0.95), YqColors.sky100.withValues(alpha: 0.8)],
             CardLook.gold => const [YqColors.cream, YqColors.sand],
             CardLook.night => const [YqColors.midnight, YqColors.navy, YqColors.lapis],
           },
         ),
-        border: Border.all(color: night ? const Color(0x29FFFFFF) : const Color(0xF2FFFFFF)),
+        border: Border.all(color: YqColors.white.withValues(alpha: night ? 0.16 : 0.95)),
       ),
       child: Column(
         children: [
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              if (card.show.level) YqRing(value: level.progress, gold: true, size: 112, stroke: 4),
-              Container(
-                width: 88,
-                height: 88,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: card.theme == CardLook.gold
-                        ? const [YqColors.gold300, YqColors.goldText]
-                        : const [YqColors.lapis500, YqColors.lapis],
-                  ),
-                  border: Border.all(color: const Color(0xF2FFFFFF), width: 3),
-                ),
-                child: Text(
-                  initial,
-                  style: const TextStyle(fontFamily: YqFonts.naskh, fontSize: 38, fontWeight: FontWeight.w700, color: YqColors.white),
-                ),
-              ),
-            ],
+          // The owner's own picture inside the level ring (the ring only when the level is shown).
+          YqLevelAvatar(
+            avatar: avatar,
+            level: level.level,
+            progress: level.progress,
+            size: 88,
+            stroke: 3,
+            ring: card.show.level,
+            achieved: level.isTop,
+            name: card.displayName.trim().isEmpty ? null : card.displayName.trim(),
+            levelName: level.name(locale),
           ),
           const SizedBox(height: YqSpace.m),
           Text(
@@ -531,9 +569,9 @@ class _CardPreview extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
               decoration: BoxDecoration(
-                color: night ? const Color(0x1AE9D49E) : const Color(0x59E9D49E),
+                color: YqColors.goldLight.withValues(alpha: night ? 0.1 : 0.35),
                 borderRadius: BorderRadius.circular(YqRadii.pill),
-                border: Border.all(color: const Color(0x73C6A867)),
+                border: Border.all(color: YqColors.gold.withValues(alpha: 0.45)),
               ),
               child: Text(
                 '${level.name(locale)} · ${t.cardLevel(level.level)}',

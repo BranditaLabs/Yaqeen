@@ -7,7 +7,7 @@ import '../../../core/di/providers.dart';
 import '../../../core/format.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/liquid_glass.dart';
-import '../../../core/widgets/yq_ring.dart';
+import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
@@ -155,9 +155,11 @@ class _Row extends StatelessWidget {
     final title = journeyLabel(t, event, locale);
     final date = YqFormat.fullDate(event.date, locale);
     final rise = CurvedAnimation(parent: animation, curve: Interval(start, math.min(1, start + 0.4), curve: Curves.easeOutCubic));
-    final pop = CurvedAnimation(parent: animation, curve: Interval(math.min(1, start + 0.05), math.min(1, start + 0.45), curve: Curves.elasticOut));
-    final draw = CurvedAnimation(parent: animation, curve: Interval(math.min(1, start + 0.15), math.min(1, start + 0.55), curve: YqMotion.ease));
-    final thread = night ? const Color(0x33FFFFFF) : YqColors.line;
+    final pop =
+        CurvedAnimation(parent: animation, curve: Interval(math.min(1, start + 0.05), math.min(1, start + 0.45), curve: Curves.elasticOut));
+    final draw =
+        CurvedAnimation(parent: animation, curve: Interval(math.min(1, start + 0.15), math.min(1, start + 0.55), curve: YqMotion.ease));
+    final thread = night ? YqColors.white.withValues(alpha: 0.2) : YqColors.line;
     final gap = dense ? YqSpace.m : YqSpace.l;
 
     return Semantics(
@@ -187,7 +189,8 @@ class _Row extends StatelessWidget {
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          colors: [event.golden ? YqColors.gold : YqColors.lapis300, thread],
+                          // Lapis fading into the hairline; gold stays on the earned dots only.
+                          colors: [night ? YqColors.lapis500 : YqColors.lapis300, thread],
                         ),
                       ),
                     ),
@@ -246,8 +249,10 @@ class _Dot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Gold only for what was earned (a level reached, a badge); every other milestone is a quiet
+    // porcelain dot with a lapis edge.
     final golden = kind == JourneyKind.level || kind == JourneyKind.badge;
-    final accent = night ? YqColors.goldLight : YqColors.lapis;
+    final accent = night ? YqColors.lapis300 : YqColors.lapis;
     final Widget mark = switch (kind) {
       JourneyKind.level => Transform.rotate(
           angle: math.pi / 4,
@@ -268,40 +273,33 @@ class _Dot extends StatelessWidget {
       JourneyKind.challengeDay => Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: accent)),
       JourneyKind.challengeStart => Icon(Icons.flag_rounded, size: 14, color: accent),
       JourneyKind.joined => Container(
-          width: 7,
-          height: 7,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: YqColors.goldLight,
-            boxShadow: [BoxShadow(color: Color(0xB3E9D49E), blurRadius: 8, spreadRadius: 1)],
-          ),
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: accent, width: 2)),
         ),
     };
     return Container(
+      key: ValueKey('journey-dot-${kind.name}'),
       width: size,
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: golden || kind == JourneyKind.joined ? null : (night ? YqColors.navy : YqColors.porcelain),
+        color: golden ? null : (night ? YqColors.navy : YqColors.porcelain),
         gradient: golden
             ? const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [YqColors.cream, YqColors.sand])
-            : kind == JourneyKind.joined
-                ? const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [YqColors.lapis500, YqColors.navy])
-                : null,
-        border: Border.all(
-          color: golden ? YqColors.gold : (kind == JourneyKind.joined ? YqColors.navy : (night ? YqColors.lapis300 : YqColors.lapis500)),
-          width: 2,
-        ),
-        boxShadow: golden ? const [BoxShadow(color: Color(0x40E9D49E), spreadRadius: 5)] : null,
+            : null,
+        border: Border.all(color: golden ? YqColors.gold : accent, width: golden ? 2 : 1.5),
+        boxShadow: golden ? [BoxShadow(color: YqColors.goldLight.withValues(alpha: 0.25), spreadRadius: 5)] : null,
       ),
       child: mark,
     );
   }
 }
 
-/// Profile tab: where the user stands (level ring, lifetime points, to-next) and every milestone
-/// so far. Private — the public card shows the rail only when its switch is on.
+/// Profile tab: lifetime points, what is left to the next level, and every milestone so far. The
+/// level ring itself is the Profile stage's avatar, so it isn't repeated here. Private — the public
+/// card shows the rail only when its switch is on.
 class JourneySection extends ConsumerStatefulWidget {
   const JourneySection({super.key});
 
@@ -329,7 +327,11 @@ class _JourneySectionState extends ConsumerState<JourneySection> {
                 radius: YqRadii.hero,
                 child: YqErrorState(onRetry: () => ref.invalidate(myJourneyProvider)),
               )
-            : const LiquidGlass(radius: YqRadii.hero, child: YqSkeletonRows(rows: 3, leading: 28));
+            : const LiquidGlass(
+                key: ValueKey('journey-loading'),
+                radius: YqRadii.hero,
+                child: YqSkeleton(child: YqSkeletonRows(rows: 3, leading: 28)),
+              );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -350,35 +352,16 @@ class _JourneySectionState extends ConsumerState<JourneySection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              YqRing(
-                value: j.level.progress,
-                gold: true,
-                size: 84,
-                stroke: 5,
-                child: Text(YqFormat.number(j.level.level), style: YqMoment.numeral(size: 30, color: YqColors.goldDeep)),
-              ),
-              const SizedBox(width: YqSpace.l),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(j.level.name(locale), style: YqMoment.display(context, size: 24)),
-                    CountUp(
-                      value: j.lifetimePoints,
-                      builder: t.journeyLifetime,
-                      style: const TextStyle(fontSize: 13, color: YqColors.muted),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      toNext == null ? t.journeyTop : t.journeyToNext(YqFormat.number(toNext), levelName(j.level.level + 1, locale)),
-                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: YqColors.goldText),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          // One quiet line: lifetime points (counting up) and the distance to the next level.
+          CountUp(
+            value: j.lifetimePoints,
+            builder: t.journeyLifetime,
+            style: const TextStyle(fontSize: 15, height: 1.4, fontWeight: FontWeight.w700, color: YqColors.ink),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            toNext == null ? t.journeyTop : t.journeyToNext(YqFormat.number(toNext), levelName(j.level.level + 1, locale)),
+            style: const TextStyle(fontSize: 12.5, height: 1.4, fontWeight: FontWeight.w600, color: YqColors.lapis),
           ),
           const SizedBox(height: YqSpace.l),
           if (j.events.isEmpty)
@@ -402,7 +385,7 @@ class _JourneySectionState extends ConsumerState<JourneySection> {
             const SizedBox(height: YqSpace.s),
           Row(
             children: [
-              const Icon(Icons.lock_outline_rounded, size: 14, color: YqColors.muted),
+              const YqIcon(YqIcons.lock, size: 14, tone: YqIconTone.idle),
               const SizedBox(width: 6),
               Expanded(child: Text(t.journeyPrivate, style: const TextStyle(fontSize: 11.5, color: YqColors.muted))),
             ],
