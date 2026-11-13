@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { SESSION_COOKIE } from './lib/session';
+import { PATH_HEADER, SESSION_COOKIE } from './lib/session';
 
 /** Cheap gate: no cookie → login. The API still validates the token on every call. */
 export function middleware(req: NextRequest) {
@@ -7,7 +7,10 @@ export function middleware(req: NextRequest) {
   const isLogin = req.nextUrl.pathname.startsWith('/login');
   if (!hasSession && !isLogin) return NextResponse.redirect(new URL('/login', req.url));
   if (hasSession && isLogin) return NextResponse.redirect(new URL('/', req.url));
-  return NextResponse.next();
+  const headers = new Headers(req.headers);
+  headers.set(PATH_HEADER, req.nextUrl.pathname);
+  return NextResponse.next({ request: { headers } });
 }
 
-export const config = { matcher: ['/((?!_next|favicon.ico|.*\\.(?:png|svg|ico)$).*)'] };
+// Static artwork (brand PNGs, preset avatars) is public; everything else needs a session.
+export const config = { matcher: ['/((?!_next|favicon.ico|.*\\.(?:png|svg|ico|webp)$).*)'] };

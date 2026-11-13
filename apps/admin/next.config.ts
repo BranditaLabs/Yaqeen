@@ -1,10 +1,16 @@
 import { withSentryConfig } from '@sentry/nextjs/config';
+import { resolve } from 'node:path';
 import type { NextConfig } from 'next';
 
 const config: NextConfig = {
   output: 'standalone',
+  // The monorepo root (builds run in apps/admin): traced files land at standalone/apps/admin even when
+  // this checkout sits inside another one (git worktrees), which would otherwise move the root up.
+  outputFileTracingRoot: resolve(process.cwd(), '..', '..'),
   poweredByHeader: false,
   reactStrictMode: true,
+  // forbidden(): a role outside a section's NAV_ACCESS gets a real 403 page (app/forbidden.tsx).
+  experimental: { authInterrupts: true },
   async headers() {
     return [
       {
