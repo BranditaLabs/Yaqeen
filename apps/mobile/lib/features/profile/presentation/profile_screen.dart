@@ -92,6 +92,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     });
   }
 
+  /// A signed-in cold start with nothing cached: the controller's own background refresh fails
+  /// silently, so the tab fetches once itself to know when to stop shimmering and offer a retry.
+  bool _coldFetching = false;
+  bool _coldFailed = false;
+
+  void _coldFetch() {
+    if (_coldFetching || _coldFailed) return;
+    _coldFetching = true;
+    Future.microtask(() async {
+      await ref.read(meProfileProvider.notifier).refresh(); // keeps the placeholder on failure
+      final cached = await ref.read(profileRepositoryProvider).cached();
+      _coldFetching = false;
+      if (mounted && cached == null) setState(() => _coldFailed = true);
+    });
+  }
+
   Future<void> _refresh() async {
     final t = AppLocalizations.of(context);
     final session = ref.read(sessionProvider);
@@ -121,14 +137,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final t = AppLocalizations.of(context);
     final session = ref.watch(sessionProvider);
     final config = ref.watch(remoteConfigProvider);
-    final me = ref.watch(meProfileProvider);
-    final profile = me.valueOrNull;
-    final online = ref.watch(onlineProvider).valueOrNull ?? true;
-    // Only once a profile is on screen: LevelUpController reads the profile in a microtask after its
-    // first build, and must not be created while that profile is still resolving.
-    if (profile != null) _maybeCelebrate(ref.watch(levelUpProvider));
-
     final signedIn = session.canEarnPoints;
+    final me = ref.watch(meProfileProvider);
+    // An account with nothing cached is first given a level-1 placeholder: treat it as still loading.
+    final ready = ref.watch(meProfileReadyProvider).valueOrNull;
+    final real = !signedIn || ready == true;
+    final profile = real ? me.valueOrNull : null;
+    final online = ref.watch(onlineProvider).valueOrNull ?? true;
+    if (real) {
+      _coldFailed = false;
+    } else if (me.hasValue && ready == false) {
+      _coldFetch();
+    }
+    // Only once the real profile is on screen: LevelUpController reads the profile in a microtask
+    // after its first build, and must neither be created while the profile is still resolving nor
+    // record the placeholder's level 1 as seen (the real level would then read as a level-up).
+    if (profile != null) _maybeCelebrate(ref.watch(levelUpProvider));
+    // A name the server refused on replay is back to the server's: say so (design §6.4).
+    ref.listen<int>(nameRevertsProvider, (before, now) {
+      if (now > (before ?? 0)) YqToast.show(context, t.pfNameReverted);
+    });
+
     final rewards = signedIn && config.isOn(Flags.rewards);
     final competitions = anyCompetitionOn(config);
 
@@ -139,13 +168,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
     final bar = YqStageBar(large: true, title: t.tabProfile, actions: [settings]);
 
-    // No value at all (a cold start that failed): the error with a retry instead of the screen.
-    if (profile == null && me.hasError && !me.isLoading) {
+    // No profile at all (a cold start whose first fetch failed): the error with a retry.
+    if (profile == null && ((me.hasError && !me.isLoading) || _coldFailed)) {
       return YqCanvas(
         stage: YqStage(child: bar),
         children: [
           YqOfflineBanner(offline: !online),
-          LiquidGlass(child: YqErrorState(onRetry: () => ref.invalidate(meProfileProvider))),
+          LiquidGlass(
+            child: YqErrorState(
+              onRetry: () {
+                if (me.hasError) ref.invalidate(meProfileProvider);
+                setState(() => _coldFailed = false); // the next build fetches again
+              },
+            ),
+          ),
         ],
       );
     }
@@ -280,8 +316,10 @@ class _Stage extends ConsumerWidget {
       children: [
         GlassTap(
           onTap: () => showAvatarSheet(context, ref),
-          semanticLabel:
-              '${t.lvlRingSemantics(YqFormat.number(level.level), level.name(locale), YqFormat.number((level.progress * 100).round()))}، ${t.pfEditPhoto}',
+          semanticLabel: t.pfSemanticsJoin(
+            t.lvlRingSemantics(YqFormat.number(level.level), level.name(locale), YqFormat.number((level.progress * 100).round())),
+            t.pfEditPhoto,
+          ),
           child: ExcludeSemantics(
             child: SizedBox.square(
               dimension: size,
@@ -320,7 +358,7 @@ class _Stage extends ConsumerWidget {
         const SizedBox(height: YqSpace.m),
         GlassTap(
           onTap: () => showEditNameSheet(context),
-          semanticLabel: '${profile.nameHidden ? t.avHiddenName : name}، ${t.pfNameTitle}',
+          semanticLabel: t.pfSemanticsJoin(profile.nameHidden ? t.avHiddenName : name, t.pfNameTitle),
           child: ExcludeSemantics(
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: YqSpace.touch),
@@ -394,7 +432,7 @@ class _LevelOrb extends StatelessWidget {
       title: t.pfLevel,
       status: status,
       onTap: () => showLevelLadderSheet(context, level),
-      semanticLabel: '${t.lvlNumeral(YqFormat.number(level.level))}، $status',
+      semanticLabel: t.pfSemanticsJoin(t.lvlNumeral(YqFormat.number(level.level)), status),
       disc: YqRing(
         value: level.progress,
         color: YqColors.lapis,
@@ -422,24 +460,31 @@ class _PointsOrbState extends ConsumerState<_PointsOrb> {
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
-    final balance = ref.watch(challengeControllerProvider).valueOrNull?.balance;
+    final challenge = ref.watch(challengeControllerProvider);
+    final balance = challenge.valueOrNull?.balance;
+    // No summary and nothing cached (offline on a fresh install, a server error): «—» and a tap
+    // retries — never an endless shimmer. The skeleton is only for a first load on its way.
+    final failed = challenge.hasError && !challenge.hasValue && !challenge.isLoading;
     final value = _week ? widget.weekPoints : balance;
     final title = _week ? t.pfThisWeek : t.pfBalance;
-    final status = value == null ? '' : t.challengePointsLabel(YqFormat.number(value));
+    final status = value == null ? (failed ? t.pfNoRank : '') : t.challengePointsLabel(YqFormat.number(value));
     return YqOrb(
       title: title,
       status: status,
-      onTap: () => setState(() => _week = !_week),
+      onTap: () => failed && !_week ? ref.invalidate(challengeControllerProvider) : setState(() => _week = !_week),
       onLongPress: () => context.push('/profile/ledger'),
-      semanticLabel: '$title، $status',
+      semanticLabel: t.pfSemanticsJoin(title, failed && value == null ? t.retry : status),
       disc: AnimatedSwitcher(
         duration: YqMotion.base,
-        child: value == null
-            ? const YqSkeleton(
-                key: ValueKey('points-loading'),
-                child: Center(child: YqSkeletonBox(width: 44, height: 18, radius: YqRadii.pill)),
-              )
-            : KeyedSubtree(key: ValueKey('points-$_week'), child: YqOrb.number(YqFormat.number(value), size: 22)),
+        child: value == null && failed
+            // A retry affordance: the tap fetches the summary again.
+            ? const Center(key: ValueKey('points-failed'), child: YqIcon(YqIcons.sync, size: 26, tone: YqIconTone.idle))
+            : value == null
+                ? const YqSkeleton(
+                    key: ValueKey('points-loading'),
+                    child: Center(child: YqSkeletonBox(width: 44, height: 18, radius: YqRadii.pill)),
+                  )
+                : KeyedSubtree(key: ValueKey('points-$_week'), child: YqOrb.number(YqFormat.number(value), size: 22)),
       ),
     );
   }
@@ -457,8 +502,8 @@ class _LanguageOrb extends ConsumerWidget {
       title: t.langApp,
       status: name,
       onTap: () => showLanguageSheet(context),
-      semanticLabel: '${t.langApp}، $name',
-      disc: YqOrb.number(locale == 'ar' ? 'ع' : 'En', size: 28),
+      semanticLabel: t.pfSemanticsJoin(t.langApp, name),
+      disc: YqOrb.number(t.pfLangGlyph, size: 28),
     );
   }
 }
@@ -509,7 +554,7 @@ class _LeagueOrb extends StatelessWidget {
       status: status,
       statusColor: joined ? null : YqColors.lapis,
       onTap: () => context.push('/profile/leagues'),
-      semanticLabel: '$title، $status',
+      semanticLabel: t.pfSemanticsJoin(title, status),
       disc: disc,
     );
   }
@@ -528,7 +573,7 @@ class _DownloadsOrb extends ConsumerWidget {
       title: t.profileDownloads,
       status: mb ?? '',
       onTap: () => context.push('/profile/downloads'),
-      semanticLabel: mb == null ? t.profileDownloads : '${t.profileDownloads}، $mb',
+      semanticLabel: mb == null ? t.profileDownloads : t.pfSemanticsJoin(t.profileDownloads, mb),
       disc: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -563,7 +608,7 @@ class _CardRow extends ConsumerWidget {
                 : t.pfCardUnpublished;
     return GlassTap(
       onTap: () => context.push('/profile/card'),
-      semanticLabel: subtitle == null ? t.pfCardRow : '${t.pfCardRow}، $subtitle',
+      semanticLabel: subtitle == null ? t.pfCardRow : t.pfSemanticsJoin(t.pfCardRow, subtitle),
       child: ExcludeSemantics(
         child: LiquidGlass(
           padding: const EdgeInsets.symmetric(horizontal: YqSpace.l, vertical: YqSpace.m),

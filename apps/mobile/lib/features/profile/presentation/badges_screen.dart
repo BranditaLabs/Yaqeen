@@ -31,7 +31,8 @@ class BadgesScreen extends ConsumerWidget {
     final t = AppLocalizations.of(context);
     final badges = ref.watch(myBadgesProvider);
     final list = badges.valueOrNull;
-    final Widget moment = list == null
+    // Shimmer only while the first load is on its way; a failed load ends on «—» (the body retries).
+    final Widget moment = badges.isLoading && !badges.hasValue
         ? const YqSkeleton(
             child: Column(
               children: [
@@ -42,7 +43,7 @@ class BadgesScreen extends ConsumerWidget {
             ),
           )
         : YqMoment(
-            value: Text(YqFormat.number(list.length), style: YqMoment.numeral()),
+            value: Text(list == null ? t.pfNoRank : YqFormat.number(list.length), style: YqMoment.numeral()),
             caption: Text(t.pfBadgeUnit),
           );
 

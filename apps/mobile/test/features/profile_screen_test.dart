@@ -5,7 +5,9 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart' hide Badge;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:yaqeen/core/config/remote_config.dart';
@@ -23,19 +25,24 @@ import 'package:yaqeen/core/widgets/liquid_glass.dart';
 import 'package:yaqeen/core/widgets/yq_icon.dart';
 import 'package:yaqeen/core/widgets/yq_layout.dart';
 import 'package:yaqeen/core/widgets/yq_orb.dart';
+import 'package:yaqeen/core/widgets/yq_button.dart';
 import 'package:yaqeen/core/widgets/yq_states.dart';
 import 'package:yaqeen/features/card/presentation/journey_widgets.dart';
 import 'package:yaqeen/features/challenge/domain/challenge_models.dart';
 import 'package:yaqeen/features/challenge/presentation/challenge_controller.dart';
 import 'package:yaqeen/features/onboarding/data/auth_repository.dart';
 import 'package:yaqeen/features/profile/data/profile_repository.dart';
+import 'package:yaqeen/features/profile/domain/level.dart';
 import 'package:yaqeen/features/profile/domain/me_profile.dart';
 import 'package:yaqeen/features/profile/presentation/badges_screen.dart';
 import 'package:yaqeen/features/profile/presentation/badges_strip.dart';
 import 'package:yaqeen/features/profile/presentation/edit_name_sheet.dart';
+import 'package:yaqeen/features/profile/presentation/level_ladder_sheet.dart';
 import 'package:yaqeen/features/profile/presentation/me_profile_controller.dart';
 import 'package:yaqeen/features/profile/presentation/profile_screen.dart';
 import 'package:yaqeen/features/profile/presentation/profile_settings_screen.dart';
+
+import 'package:yaqeen/l10n/gen/app_localizations.dart';
 
 import '../helpers/fonts.dart';
 import '../helpers/harness.dart';
@@ -63,6 +70,28 @@ class _Challenge extends ChallengeController {
   final Future<ChallengeSummary> value;
   @override
   Future<ChallengeSummary> build() => value;
+}
+
+/// The first summary fails (offline, nothing cached); a retry gets it.
+class _FlakyChallenge extends ChallengeController {
+  static var builds = 0;
+  @override
+  Future<ChallengeSummary> build() async {
+    builds++;
+    if (builds == 1) throw const OfflineException();
+    return ChallengeSummary.fromJson(summary());
+  }
+}
+
+/// The first build fails outright (no value to show); a retry gets the profile.
+class _FailingProfile extends MeProfileController {
+  static var builds = 0;
+  @override
+  Future<MeProfile> build() async {
+    builds++;
+    if (builds == 1) throw const OfflineException();
+    return MeProfile.fromJson(fixture('me_profile'));
+  }
 }
 
 /// A profile that never arrives (a cold start without cache).
@@ -149,6 +178,7 @@ void main() {
     Future<http.Response?> Function(http.Request)? handler,
     RemoteConfig? config,
     Future<ChallengeSummary>? challenge,
+    ChallengeController Function()? challengeController,
     PhotoPicker? picker,
     ConnectivityMonitor? connectivity,
     Session session = account,
@@ -195,7 +225,8 @@ void main() {
           }),
         ),
       ),
-      challengeControllerProvider.overrideWith(() => _Challenge(challenge ?? Future.value(ChallengeSummary.fromJson(summary())))),
+      challengeControllerProvider
+          .overrideWith(challengeController ?? () => _Challenge(challenge ?? Future.value(ChallengeSummary.fromJson(summary())))),
       downloadsBytesProvider.overrideWith((ref) async => 0),
       if (config != null) initialConfigProvider.overrideWithValue(config),
       if (picker != null) photoPickerProvider.overrideWithValue(picker),
@@ -640,6 +671,251 @@ void main() {
     await settle(tester);
     expect(find.text('تعذّر تحميل الشارات.'), findsOneWidget);
     expect(find.text('إعادة المحاولة'), findsOneWidget);
+    // The stage ends on «—», not an endless shimmer.
+    expect(find.byType(YqSkeleton), findsNothing);
+    expect(find.text('—'), findsOneWidget);
+    await dispose(tester);
+  });
+  /* ---------------------------------------------------------- error states */
+
+  testWidgets('cold start without a profile: the error state, and its retry brings the tab', (tester) async {
+    size(tester);
+    _FailingProfile.builds = 0;
+    await tester.pumpWidget(
+      harness(
+        const Scaffold(body: ProfileScreen()),
+        kv: kv,
+        overrides: [...await signedIn(), meProfileProvider.overrideWith(_FailingProfile.new)],
+      ),
+    );
+    await settle(tester);
+    expect(find.byType(YqErrorState), findsOneWidget);
+    expect(find.byType(YqOrb), findsNothing);
+    await tester.tap(find.text('إعادة المحاولة'));
+    await settle(tester);
+    expect(find.byType(YqErrorState), findsNothing);
+    expect(find.text('المستوى 3 · مواظب · @ahmed-4821'), findsOneWidget);
+    await dispose(tester);
+  });
+
+  testWidgets('signed in with nothing cached: no level-1 placeholder; a failed fetch ends on the retry', (tester) async {
+    size(tester);
+    var down = true;
+    await pumpProfile(
+      tester,
+      await signedIn(
+        cache: false,
+        handler: (req) async => down && req.url.path == '/v1/me/profile' ? json({'error': {}}, 503) : null,
+      ),
+    );
+    await settle(tester);
+    expect(find.text('المستوى 1 · بداية الطريق'), findsNothing);
+    expect(find.byType(YqErrorState), findsOneWidget);
+    down = false;
+    await tester.tap(find.text('إعادة المحاولة'));
+    await settle(tester, 6);
+    expect(find.byType(YqErrorState), findsNothing);
+    expect(find.text('المستوى 3 · مواظب · @ahmed-4821'), findsOneWidget);
+    await dispose(tester);
+  });
+
+  testWidgets('pull-to-refresh that fails: a toast, and the cached profile stays', (tester) async {
+    size(tester);
+    await pumpProfile(
+      tester,
+      await signedIn(handler: (req) async => req.url.path == '/v1/me/profile' ? json({'error': {}}, 503) : null),
+    );
+    final gets = requests.where((r) => r.method == 'GET' && r.url.path == '/v1/me/profile').length;
+    unawaited(tester.state<RefreshIndicatorState>(find.byType(RefreshIndicator)).show());
+    for (var i = 0; i < 8; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(requests.where((r) => r.method == 'GET' && r.url.path == '/v1/me/profile').length, greaterThan(gets));
+    expect(find.text('تعذّر التحميل. تحقق من الاتصال.'), findsOneWidget);
+    expect(find.text('أحمد'), findsOneWidget);
+    expect(find.text('المستوى 3 · مواظب · @ahmed-4821'), findsOneWidget);
+    await dispose(tester);
+  });
+
+  testWidgets('points orb: a failed summary shows «—» and a tap retries (no endless shimmer)', (tester) async {
+    size(tester);
+    _FlakyChallenge.builds = 0;
+    await pumpProfile(tester, await signedIn(challengeController: _FlakyChallenge.new));
+    await tester.pump(const Duration(seconds: 1)); // the cross-fade from the first-load shimmer ends
+    expect(find.byKey(const ValueKey('points-loading')), findsNothing);
+    expect(find.byKey(const ValueKey('points-failed')), findsOneWidget);
+    expect(find.text('—'), findsWidgets);
+    await tester.tap(find.text('الرصيد'));
+    await settle(tester);
+    expect(find.byKey(const ValueKey('points-failed')), findsNothing);
+    expect(find.text('820 نقطة'), findsOneWidget);
+    expect(find.text('الرصيد'), findsOneWidget); // the retry did not flip to this week
+    await dispose(tester);
+  });
+
+  /* ------------------------------------------------------- badges and ladder */
+
+  testWidgets('badges strip: nothing earned yet says so, without «الكل»', (tester) async {
+    size(tester);
+    await pumpProfile(tester, await signedIn(profile: {...fixture('me_profile'), 'recentBadges': <Object>[], 'badgesCount': 0}));
+    expect(find.text('الشارات'), findsOneWidget);
+    expect(find.text('تظهر شاراتك هنا حين تكسبها.'), findsOneWidget);
+    expect(find.text('الكل'), findsNothing);
+    expect(find.byType(BadgeMedal), findsNothing);
+    await dispose(tester);
+  });
+
+  testWidgets('badges strip: «الكل» opens /profile/badges', (tester) async {
+    final me = MeProfile.fromJson(fixture('me_profile'));
+    final router = GoRouter(
+      routes: [
+        GoRoute(path: '/', builder: (_, __) => Scaffold(body: BadgesStrip(badges: me.recentBadges, count: me.badgesCount))),
+        GoRoute(path: '/profile/badges', builder: (_, __) => const Scaffold(body: Text('all-badges'))),
+      ],
+    );
+    await tester.pumpWidget(
+      MaterialApp.router(
+        routerConfig: router,
+        locale: const Locale('ar'),
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(BadgeMedal), findsNWidgets(3));
+    await tester.tap(find.text('الكل'));
+    await tester.pumpAndSettle();
+    expect(find.text('all-badges'), findsOneWidget);
+  });
+
+  testWidgets('level ladder: six levels, the current one in lapis, gold dots on the reached, the note', (tester) async {
+    size(tester);
+    await pumpProfile(tester, await signedIn());
+    await tester.tap(find.text('المستوى'));
+    await settle(tester, 2);
+    final ladder = find.byType(LevelLadder);
+    expect(ladder, findsOneWidget);
+    for (final l in cardLevels) {
+      expect(find.descendant(of: ladder, matching: find.text(l.$2)), findsOneWidget, reason: l.$2);
+    }
+    expect(find.descendant(of: ladder, matching: find.byKey(const ValueKey('ladder-reached'))), findsNWidgets(3));
+    expect(tester.widget<Text>(find.descendant(of: ladder, matching: find.text('مواظب'))).style?.color, YqColors.lapis);
+    expect(tester.widget<Text>(find.descendant(of: ladder, matching: find.text(cardLevels.last.$2))).style?.color, YqColors.ink);
+    expect(find.text('المستوى يُحسب من كل النقاط التي كسبتها، ولا ينقص حين تستبدلها.'), findsOneWidget);
+    await dispose(tester);
+  });
+
+  /* ------------------------------------------------- avatar and name, more */
+
+  testWidgets('avatar sheet: a photo too large → «الصورة كبيرة جداً…», previous picture kept', (tester) async {
+    size(tester);
+    await pumpProfile(
+      tester,
+      await signedIn(
+        picker: _Picker(),
+        handler: (req) async => req.method == 'PUT' && req.url.path == '/v1/me/avatar/photo'
+            ? json(
+                {
+                  'error': {'code': 'FST_ERR_CTP_BODY_TOO_LARGE'},
+                },
+                413,
+              )
+            : null,
+      ),
+    );
+    await tester.tap(find.bySemanticsLabel(RegExp('تغيير الصورة')));
+    await settle(tester, 2);
+    await tester.tap(find.text('من الألبوم'));
+    bool put() => requests.any((r) => r.method == 'PUT');
+    for (var i = 0; i < 60 && !put(); i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+    for (var i = 0; i < 6; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(find.text('الصورة كبيرة جداً. اختر صورة أصغر.'), findsOneWidget);
+    final saved = jsonDecode((await kv.read(ProfileRepository.meKey))!) as Map;
+    expect(saved['avatar'], {'kind': 'preset', 'id': 'm03'});
+    await dispose(tester);
+  });
+
+  testWidgets('avatar sheet: guests are told the picture stays on this phone', (tester) async {
+    size(tester);
+    await tester.pumpWidget(
+      harness(
+        const Scaffold(body: ProfileScreen()),
+        kv: kv,
+        overrides: [
+          initialSessionProvider.overrideWithValue(guest),
+          downloadsBytesProvider.overrideWith((ref) async => 0),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel(RegExp('تغيير الصورة')));
+    await tester.pumpAndSettle();
+    expect(find.text('تبقى صورتك على هذا الجهاز حتى تسجّل الدخول.'), findsOneWidget);
+    expect(find.text('لا يرى صورتك غيرك إلا في بطاقتك أو في المنافسات التي تنضم إليها.'), findsNothing);
+    expect(find.byKey(const ValueKey('avatar-attest')), findsNothing);
+  });
+
+  testWidgets('name sheet: starts from the sign-in name the stage shows when the profile has none', (tester) async {
+    size(tester);
+    await pumpProfile(tester, await signedIn(profile: {...fixture('me_profile'), 'displayName': null}));
+    expect(find.text('أحمد'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('أحمد، اسمك'));
+    await settle(tester, 2);
+    expect(tester.widget<TextField>(find.byType(TextField)).controller?.text, 'أحمد');
+    expect(tester.widget<YqButton>(find.byType(YqButton)).onPressed, isNotNull);
+    await dispose(tester);
+  });
+
+  testWidgets('name refused on replay (invalid_name): the server name comes back with a toast', (tester) async {
+    size(tester);
+    await pumpProfile(
+      tester,
+      await signedIn(
+        handler: (req) async => req.method == 'PATCH' && req.url.path == '/v1/me/profile'
+            ? json(
+                {
+                  'error': {'code': 'invalid_name'},
+                },
+                400,
+              )
+            : null,
+      ),
+    );
+    await tester.tap(find.bySemanticsLabel('أحمد، اسمك'));
+    await settle(tester, 2);
+    await tester.enterText(find.byType(TextField), 'اسم مرفوض');
+    await tester.pump();
+    await tester.tap(find.text('حفظ'));
+    for (var i = 0; i < 10; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(requests.where((r) => r.method == 'PATCH' && r.url.path == '/v1/me/profile'), hasLength(1));
+    expect(find.text('لم يُقبل الاسم، فأعدناه كما كان.'), findsOneWidget);
+    expect(find.text('اسم مرفوض'), findsNothing);
+    expect(find.text('أحمد'), findsOneWidget);
+    expect((jsonDecode((await kv.read(ProfileRepository.meKey))!) as Map)['displayName'], 'أحمد');
+    expect(await Outbox(kv).items(), isEmpty);
+    await dispose(tester);
+  });
+
+  testWidgets('English screen-reader labels join their parts without the Arabic comma', (tester) async {
+    size(tester);
+    await pumpProfile(tester, await signedIn(config: flags({Flags.leagues: true})), locale: 'en');
+    expect(find.bySemanticsLabel('أحمد, Your name'), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('،')), findsNothing);
     await dispose(tester);
   });
 }

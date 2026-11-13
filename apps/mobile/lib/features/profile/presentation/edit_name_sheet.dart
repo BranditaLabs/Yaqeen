@@ -6,6 +6,7 @@ import '../../../core/widgets/yq_button.dart';
 import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
+import '../../onboarding/presentation/session_controller.dart';
 import 'me_profile_controller.dart';
 
 /// contracts `DISPLAY_NAME_MAX`.
@@ -32,7 +33,16 @@ class EditNameSheet extends ConsumerStatefulWidget {
 }
 
 class _EditNameSheetState extends ConsumerState<EditNameSheet> {
-  late final TextEditingController _c = TextEditingController(text: ref.read(meProfileProvider).valueOrNull?.displayName ?? '');
+  /// Starts from the name the stage shows: the profile's, else the account's sign-in name.
+  late final TextEditingController _c = TextEditingController(text: _initialName());
+
+  String _initialName() {
+    final own = ref.read(meProfileProvider).valueOrNull?.displayName?.trim() ?? '';
+    if (own.isNotEmpty) return own;
+    final session = ref.read(sessionProvider);
+    return session.canEarnPoints ? (session.displayName?.trim() ?? '') : '';
+  }
+
   bool _touched = false;
 
   @override
