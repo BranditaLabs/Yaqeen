@@ -19,6 +19,8 @@ import '../../features/notifications/data/inbox_repository.dart';
 import '../../features/notifications/data/reminder_service.dart';
 import '../../features/onboarding/data/auth_repository.dart';
 import '../../features/onboarding/data/consent_repository.dart';
+import '../../features/onboarding/presentation/session_controller.dart';
+import '../../features/profile/data/profile_repository.dart';
 import '../../features/prayer/data/city_repository.dart';
 import '../../features/prayer/data/prayer_repository.dart';
 import '../../features/quran/data/quran_repository.dart';
@@ -41,6 +43,7 @@ import '../offline/outbox.dart';
 import '../platform/audio_engine.dart';
 import '../platform/device_services.dart';
 import '../platform/location_service.dart';
+import '../platform/photo_picker.dart';
 import '../platform/recitation_engine.dart';
 import '../platform/social_auth.dart';
 import '../settings/app_settings.dart';
@@ -94,6 +97,9 @@ final compassServiceProvider = Provider<CompassService>((_) => FakeCompassServic
 final socialAuthProvider = Provider<SocialAuth>((_) => FakeSocialAuth());
 final connectivityProvider = Provider<ConnectivityMonitor>((_) => const AlwaysOnline());
 
+/// Profile photo picker; the `image_picker` one is set in main(). Unavailable by default.
+final photoPickerProvider = Provider<PhotoPicker>((_) => const NoopPhotoPicker());
+
 /// Live online/offline state (starts optimistic).
 final onlineProvider = StreamProvider<bool>((ref) async* {
   final c = ref.watch(connectivityProvider);
@@ -124,6 +130,18 @@ final challengeRepositoryProvider = Provider(
 final cardRepositoryProvider = Provider((ref) => CardRepository(ref.watch(apiClientProvider)));
 final encodeRepositoryProvider = Provider((ref) => EncodeRepository(ref.watch(apiClientProvider)));
 final rewardsRepositoryProvider = Provider((ref) => RewardsRepository(ref.watch(apiClientProvider), cache: ref.watch(kvStoreProvider)));
+/// The caller's profile and competition switches (features/profile/data/profile_repository.dart).
+/// Guests stay on the device; only a signed-in account syncs.
+final profileRepositoryProvider = Provider(
+  (ref) => ProfileRepository(
+    api: ref.watch(apiClientProvider),
+    store: ref.watch(kvStoreProvider),
+    outbox: ref.watch(outboxProvider),
+    docsDir: ref.watch(filesDirProvider),
+    consents: ref.watch(consentRepositoryProvider),
+    isAccount: () => ref.read(sessionProvider).canEarnPoints,
+  ),
+);
 final calendarRepositoryProvider =
     Provider((ref) => CalendarRepository(api: ref.watch(apiClientProvider), cache: ref.watch(kvStoreProvider)));
 

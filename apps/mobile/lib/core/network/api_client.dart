@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show SocketException;
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -75,12 +76,22 @@ class ApiClient {
   Future<dynamic> patch(String path, [Object? body]) => _send('PATCH', path, body: body);
   Future<dynamic> delete(String path) => _send('DELETE', path);
 
+  /// Uploads raw bytes (e.g. a profile photo as `image/jpeg`) and decodes the JSON answer.
+  Future<dynamic> putBytes(String path, List<int> bytes, String contentType) =>
+      _send('PUT', path, bytes: bytes, contentType: contentType);
+
+  /// Downloads an authed binary (e.g. the caller's own photo at `/v1/me/avatar/photo/256`).
+  Future<Uint8List> getBytes(String path) async => await _send('GET', path, raw: true) as Uint8List;
+
   Future<dynamic> _send(
     String method,
     String path, {
     Object? body,
     Map<String, String>? query,
     Map<String, String>? headers,
+    List<int>? bytes,
+    String? contentType,
+    bool raw = false,
     bool retried = false,
   }) async {
     final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
@@ -93,7 +104,11 @@ class ApiClient {
       ..headers['Accept-Language'] = 'ar';
     if (token != null) req.headers['Authorization'] = 'Bearer $token';
     if (headers != null) req.headers.addAll(headers);
-    if (body != null) {
+    if (raw) req.headers['Accept'] = '*/*';
+    if (bytes != null) {
+      req.headers['Content-Type'] = contentType ?? 'application/octet-stream';
+      req.bodyBytes = bytes;
+    } else if (body != null) {
       req.headers['Content-Type'] = 'application/json';
       req.body = jsonEncode(body);
     }
@@ -113,10 +128,21 @@ class ApiClient {
       // Another call may have rotated the pair while this one was in flight: retry with it.
       final current = await tokens.accessToken;
       if ((current != null && current != token) || await _refreshOnce()) {
-        return _send(method, path, body: body, query: query, headers: headers, retried: true);
+        return _send(
+          method,
+          path,
+          body: body,
+          query: query,
+          headers: headers,
+          bytes: bytes,
+          contentType: contentType,
+          raw: raw,
+          retried: true,
+        );
       }
     }
     if (res.statusCode >= 400) throw _error(res);
+    if (raw) return res.bodyBytes;
     if (res.statusCode == 204 || res.body.isEmpty) return null;
     try {
       return jsonDecode(utf8.decode(res.bodyBytes));

@@ -5,7 +5,9 @@ import 'package:flutter/widgets.dart';
 import '../theme/tokens.dart';
 
 /// A progress ring that eases to [value] (0…1), starting at the top and running with the reading
-/// direction. Gold for rewards and worship goals, lapis otherwise. [child] sits in the centre.
+/// direction. Gold for rewards and worship goals, lapis otherwise; [color] overrides both. [glint]
+/// sweeps one soft highlight round the ring once (600 ms; static under reduce-motion) — used for the
+/// level-up moment only. [child] sits in the centre.
 class YqRing extends StatelessWidget {
   const YqRing({
     super.key,
@@ -13,6 +15,8 @@ class YqRing extends StatelessWidget {
     this.size = 96,
     this.stroke = 7,
     this.gold = false,
+    this.color,
+    this.glint = false,
     this.track,
     this.child,
   });
@@ -21,13 +25,18 @@ class YqRing extends StatelessWidget {
   final double size;
   final double stroke;
   final bool gold;
+  final Color? color;
+  final bool glint;
   final Color? track;
   final Widget? child;
+
+  Color get _color => color ?? (gold ? YqColors.gold : YqColors.lapis);
 
   @override
   Widget build(BuildContext context) {
     final rtl = Directionality.of(context) == TextDirection.rtl;
-    return RepaintBoundary(
+    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final ring = RepaintBoundary(
       child: SizedBox.square(
         dimension: size,
         child: TweenAnimationBuilder<double>(
@@ -38,8 +47,8 @@ class YqRing extends StatelessWidget {
             painter: _RingPainter(
               value: v,
               stroke: stroke,
-              color: gold ? YqColors.gold : YqColors.lapis,
-              track: track ?? (gold ? const Color(0x33C6A867) : const Color(0x261F3F94)),
+              color: _color,
+              track: track ?? _color.withValues(alpha: gold && color == null ? 0x33 / 255 : 0x26 / 255),
               rtl: rtl,
             ),
             child: child,
@@ -48,7 +57,56 @@ class YqRing extends StatelessWidget {
         ),
       ),
     );
+    if (!glint || reduceMotion) return ring;
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        ring,
+        IgnorePointer(
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: YqMotion.slow,
+            curve: Curves.easeInOutSine,
+            builder: (context, t, _) => CustomPaint(
+              size: Size.square(size),
+              painter: _GlintPainter(t: t, stroke: stroke, rtl: rtl),
+            ),
+          ),
+        ),
+      ],
+    );
   }
+}
+
+/// One soft highlight travelling once round the ring, fading out at the end.
+class _GlintPainter extends CustomPainter {
+  _GlintPainter({required this.t, required this.stroke, required this.rtl});
+  final double t;
+  final double stroke;
+  final bool rtl;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (t >= 1) return;
+    final arc = (Offset.zero & size).deflate(stroke / 2 + 1);
+    final dir = rtl ? -1.0 : 1.0;
+    final start = -math.pi / 2 + dir * math.pi * 2 * t;
+    final opacity = (t < .8 ? 1.0 : (1 - t) / .2).clamp(0.0, 1.0);
+    canvas.drawArc(
+      arc,
+      start,
+      dir * math.pi / 5,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke
+        ..strokeCap = StrokeCap.round
+        ..color = YqColors.goldLight.withValues(alpha: .9 * opacity),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_GlintPainter old) => old.t != t || old.stroke != stroke || old.rtl != rtl;
 }
 
 class _RingPainter extends CustomPainter {

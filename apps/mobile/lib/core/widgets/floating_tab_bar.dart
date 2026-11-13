@@ -11,18 +11,23 @@ import 'liquid_glass.dart';
 import 'outer_shadow.dart';
 import 'yq_icon.dart';
 
-/// One destination in the dock: a Yaqeen icon, or the profile avatar (its initial), and a label.
+/// One destination in the dock: a Yaqeen icon, or the profile avatar, and a label.
 class YqTab {
-  const YqTab({required YqIcons this.icon, required this.label}) : avatar = null;
+  const YqTab({required YqIcons this.icon, required this.label})
+      : avatar = null,
+        initial = null;
 
-  /// The profile destination: the person's initial on a gold disc stands in for the icon.
-  const YqTab.avatar({required String initial, required this.label})
-      : avatar = initial,
-        icon = null;
+  /// The profile destination: the person's [avatar] (e.g. `MeAvatar(size: 24)`) in a 24-pt circle
+  /// with a lapis rim when active and a white rim otherwise; their [initial] (ink on ice) until one
+  /// is given.
+  const YqTab.avatar({this.avatar, required String this.initial, required this.label}) : icon = null;
 
   final YqIcons? icon;
-  final String? avatar;
+  final Widget? avatar;
+  final String? initial;
   final String label;
+
+  bool get isAvatar => initial != null;
 }
 
 /// The dock (docs/DESIGN_SYSTEM.md §4): a floating porcelain-glass capsule with equal slots, each an
@@ -103,12 +108,12 @@ class _FloatingTabBarState extends State<FloatingTabBar> with SingleTickerProvid
     final bar = DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: radius,
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xEBFFFFFF), Color(0xD6FFFFFF)],
+          colors: [YqColors.white.withValues(alpha: 0xEB / 255), YqColors.white.withValues(alpha: 0xD6 / 255)],
         ),
-        border: Border.all(color: const Color(0xF2FFFFFF)),
+        border: Border.all(color: YqColors.white.withValues(alpha: 0xF2 / 255)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(FloatingTabBar._inset),
@@ -157,9 +162,9 @@ class _FloatingTabBarState extends State<FloatingTabBar> with SingleTickerProvid
               // Shadows outside the capsule only, so the translucent glass never looks smudged.
               child: OuterShadow(
                 borderRadius: radius,
-                shadows: const [
-                  BoxShadow(color: Color(0x2E0A1530), blurRadius: 36, spreadRadius: -14, offset: Offset(0, 16)),
-                  BoxShadow(color: Color(0x140A1530), blurRadius: 4, offset: Offset(0, 1)),
+                shadows: [
+                  BoxShadow(color: YqColors.ink.withValues(alpha: 0x2E / 255), blurRadius: 36, spreadRadius: -14, offset: const Offset(0, 16)),
+                  BoxShadow(color: YqColors.ink.withValues(alpha: 0x14 / 255), blurRadius: 4, offset: const Offset(0, 1)),
                 ],
                 child: ClipRRect(
                   borderRadius: radius,
@@ -219,8 +224,8 @@ class _SlotState extends State<_Slot> {
     final active = widget.active;
     final color = active ? YqColors.lapis : YqColors.muted;
     final scaler = MediaQuery.textScalerOf(context).clamp(maxScaleFactor: FloatingTabBar._maxTextScale);
-    final icon = tab.avatar != null
-        ? _AvatarIcon(initial: tab.avatar!, active: active)
+    final icon = tab.isAvatar
+        ? _AvatarIcon(avatar: tab.avatar, initial: tab.initial!, active: active)
         : YqIcon(tab.icon!, size: 24, tone: active ? YqIconTone.active : YqIconTone.idle);
     return Semantics(
       container: true,
@@ -274,10 +279,13 @@ class _SlotState extends State<_Slot> {
   }
 }
 
-/// The profile "icon": the person's initial on a gold disc, ringed lapis when active.
+/// The profile "icon": the person's avatar in a circle, ringed lapis when active and white
+/// otherwise. Without an avatar widget, their initial in ink on ice (no gold — gold is for
+/// achievement only).
 class _AvatarIcon extends StatelessWidget {
-  const _AvatarIcon({required this.initial, required this.active});
+  const _AvatarIcon({required this.avatar, required this.initial, required this.active});
 
+  final Widget? avatar;
   final String initial;
   final bool active;
 
@@ -288,16 +296,19 @@ class _AvatarIcon extends StatelessWidget {
         width: 24,
         height: 24,
         alignment: Alignment.center,
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [YqColors.goldLight, YqColors.gold]),
+          color: YqColors.ice,
           border: Border.all(color: active ? YqColors.lapis : YqColors.white, width: 1.5),
         ),
-        child: Text(
-          initial,
-          // An icon, not text: it keeps its size at any text scale.
-          textScaler: TextScaler.noScaling,
-          style: const TextStyle(fontFamily: 'Tajawal', fontSize: 11, height: 1.1, fontWeight: FontWeight.w700, color: YqColors.goldDeep),
-        ),
+        child: avatar != null
+            ? ClipOval(child: SizedBox.expand(child: FittedBox(fit: BoxFit.cover, child: avatar)))
+            : Text(
+                initial,
+                // An icon, not text: it keeps its size at any text scale.
+                textScaler: TextScaler.noScaling,
+                style: const TextStyle(fontFamily: 'Tajawal', fontSize: 11, height: 1.1, fontWeight: FontWeight.w700, color: YqColors.ink),
+              ),
       );
 }

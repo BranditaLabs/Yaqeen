@@ -26,6 +26,7 @@ import 'core/network/connectivity.dart';
 import 'core/platform/device_services.dart';
 import 'core/platform/just_audio_engine.dart';
 import 'core/platform/location_service.dart';
+import 'core/platform/plugin_photo_picker.dart';
 import 'core/platform/sentry_error_reporter.dart';
 import 'core/platform/social_auth.dart';
 import 'core/settings/settings_controller.dart';
@@ -124,6 +125,8 @@ Future<void> _start() async {
       homeWidgetPublisherProvider.overrideWithValue(PluginHomeWidgetPublisher()),
       // Constructing it touches no platform channel; a session opens only on a user's tap.
       nfcServiceProvider.overrideWithValue(PluginNfcService()),
+      // Opens the system picker only on a tap (profile photo); nothing at start-up.
+      photoPickerProvider.overrideWithValue(PluginPhotoPicker()),
       filesDirProvider.overrideWithValue(getApplicationSupportDirectory),
       pushServiceProvider.overrideWithValue(push),
       // Ad SDKs whose build values exist; each stays off until `ads_measurement` is granted.

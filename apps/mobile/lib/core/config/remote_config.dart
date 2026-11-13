@@ -16,6 +16,11 @@ abstract final class Flags {
   static const tafsirFull = 'tafsirFull';
   static const publicCards = 'publicCards';
   static const medalActivation = 'medalActivation';
+
+  /// Opt-in community (APP_SPEC §5.31) — off unless the admin turns them on.
+  static const leagues = 'leagues';
+  static const tournaments = 'tournaments';
+  static const leaderboard = 'leaderboard';
 }
 
 /// Mirror of `RemoteConfig` in packages/contracts/src/api.ts.
@@ -55,6 +60,9 @@ class RemoteConfig {
     Flags.tafsirFull: false,
     Flags.publicCards: true,
     Flags.medalActivation: true,
+    Flags.leagues: false,
+    Flags.tournaments: false,
+    Flags.leaderboard: false,
   };
 
   /// Bundled default (Quran 15:99) — replaced by the reviewed verse from remote config.

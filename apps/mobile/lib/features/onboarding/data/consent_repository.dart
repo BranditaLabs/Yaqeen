@@ -5,14 +5,18 @@ import '../../../core/storage/kv_store.dart';
 
 /// The consent buckets (Egypt PDPL 151/2020: explicit, specific, revocable). `cloudBackup` is the
 /// opt-in encrypted copy of personal progress — signed-in accounts only, set from Privacy (never in
-/// onboarding), and withdrawing it deletes the server copy.
+/// onboarding), and withdrawing it deletes the server copy. `community` is derived on the server:
+/// granted while the user is in a weekly league, on the level board or in a live tournament
+/// (APP_SPEC §5.31). It is set by joining (`PUT /v1/me/community`), never granted directly, and the
+/// app only [ConsentRepository.adopt]s the server's answer; withdrawing it from Privacy leaves all.
 enum ConsentKind {
   worshipReminders('worship_reminders'),
   challengeRewards('challenge_rewards'),
   storeOffers('store_offers'),
   adsMeasurement('ads_measurement'),
   productAnalytics('product_analytics'),
-  cloudBackup('cloud_backup');
+  cloudBackup('cloud_backup'),
+  community('community');
 
   const ConsentKind(this.wire);
   final String wire;
@@ -28,9 +32,11 @@ const consentDefaults = {
   ConsentKind.adsMeasurement: false,
   ConsentKind.productAnalytics: false,
   ConsentKind.cloudBackup: false,
+  ConsentKind.community: false,
 };
 
-/// The kinds the onboarding consent step asks about (cloud backup needs an account, so it lives in Privacy).
+/// The kinds the onboarding consent step asks about (cloud backup needs an account, so it lives in
+/// Privacy; community is joined from the profile step and the competition screens).
 const onboardingConsents = [
   ConsentKind.worshipReminders,
   ConsentKind.challengeRewards,
@@ -100,7 +106,7 @@ class ConsentRepository {
   }
 
   /// Takes the server's answer without recording a new event — the decision was already recorded
-  /// (on another phone, or the server refused it). Used by the cloud backup only.
+  /// (on another phone, or the server refused it). Used by the cloud backup and community joins.
   Future<void> adopt(ConsentKind kind, bool value) async {
     _cache = {..._cache, kind: value};
     await store.write(_key, jsonEncode({for (final e in _cache.entries) e.key.wire: e.value}));

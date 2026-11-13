@@ -94,6 +94,7 @@ class AppSettings {
     this.dhikrSlot = RoutineSlot.off,
     this.hijriOffsetDays = 0,
     this.onboardingStep = 0,
+    this.onboardingRoute,
     this.onboardingCompletedAt,
     this.lastSplashDay,
     this.readerHintSeen = false,
@@ -164,7 +165,14 @@ class AppSettings {
   final RoutineSlot hifzSlot;
   final RoutineSlot dhikrSlot;
   final int hijriOffsetDays;
+
+  /// Legacy resume index (kept for settings saved before [onboardingRoute] existed; read through the
+  /// frozen v1 route list by the splash gate).
   final int onboardingStep;
+
+  /// The onboarding route to resume at (e.g. `/onboarding/profile`) — resume by name, so adding a
+  /// step never shifts where an interrupted onboarding continues. Null in settings saved before it.
+  final String? onboardingRoute;
   final DateTime? onboardingCompletedAt;
 
   /// YYYY-MM-DD of the last full splash animation (later launches that day use the short hold).
@@ -215,6 +223,7 @@ class AppSettings {
     RoutineSlot? dhikrSlot,
     int? hijriOffsetDays,
     int? onboardingStep,
+    String? onboardingRoute,
     DateTime? onboardingCompletedAt,
     String? lastSplashDay,
     bool? readerHintSeen,
@@ -258,6 +267,7 @@ class AppSettings {
         dhikrSlot: dhikrSlot ?? this.dhikrSlot,
         hijriOffsetDays: hijriOffsetDays ?? this.hijriOffsetDays,
         onboardingStep: onboardingStep ?? this.onboardingStep,
+        onboardingRoute: onboardingRoute ?? this.onboardingRoute,
         onboardingCompletedAt: onboardingCompletedAt ?? this.onboardingCompletedAt,
         lastSplashDay: lastSplashDay ?? this.lastSplashDay,
         readerHintSeen: readerHintSeen ?? this.readerHintSeen,
@@ -302,6 +312,7 @@ class AppSettings {
         'dhikrSlot': dhikrSlot.toJson(),
         'hijriOffsetDays': hijriOffsetDays,
         'onboardingStep': onboardingStep,
+        'onboardingRoute': onboardingRoute,
         'onboardingCompletedAt': onboardingCompletedAt?.toIso8601String(),
         'lastSplashDay': lastSplashDay,
         'readerHintSeen': readerHintSeen,
@@ -361,16 +372,25 @@ class AppSettings {
       dhikrSlot: RoutineSlot.fromJson(j['dhikrSlot'], d.dhikrSlot),
       hijriOffsetDays: pick('hijriOffsetDays', d.hijriOffsetDays),
       onboardingStep: pick('onboardingStep', d.onboardingStep),
+      onboardingRoute: j['onboardingRoute'] is String ? j['onboardingRoute'] as String : null,
       onboardingCompletedAt: DateTime.tryParse(j['onboardingCompletedAt'] as String? ?? ''),
       lastSplashDay: j['lastSplashDay'] as String?,
       readerHintSeen: pick('readerHintSeen', d.readerHintSeen),
     );
   }
 
+  /// ISO-3166 alpha-2 of the chosen city (`assets/geo/cities.json`), null when unknown. The server
+  /// uses it only for the opt-in country board (APP_SPEC §5.31.3).
+  String? get countryCode {
+    final c = place?.country.trim().toUpperCase();
+    return c != null && RegExp(r'^[A-Z]{2}$').hasMatch(c) ? c : null;
+  }
+
   /// The fields the API stores (spec §6.2). Coordinates are deliberately absent.
   Map<String, dynamic> serverPatch() => {
         'locale': locale,
         'city': place?.nameEn,
+        'country': countryCode,
         'timezone': placeOrDefault.timezone,
         'prayerMethod': method.apiWire,
         'asrSchool': asr.wire,
