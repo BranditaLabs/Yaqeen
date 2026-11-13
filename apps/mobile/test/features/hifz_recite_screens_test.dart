@@ -101,7 +101,7 @@ void main() {
           listenControllerProvider.overrideWith(() => listen),
           recitationEngineProvider.overrideWithValue(engine),
           initialSettingsProvider.overrideWithValue(const AppSettings(readerHintSeen: true)),
-          initialConfigProvider.overrideWithValue(const RemoteConfig(features: {...RemoteConfig.defaultFeatures, Flags.recite: true})),
+          initialConfigProvider.overrideWithValue(RemoteConfig(features: {...RemoteConfig.defaultFeatures, Flags.recite: true})),
         ];
 
     Future<void> leave(WidgetTester tester) async {
