@@ -123,6 +123,8 @@ class MadaniPageState extends State<MadaniPage> {
 
   bool _hidden(MushafWord w) {
     if (widget.memorise == MemoriseMode.off || widget.revealed.contains(w.ref) || w.isEnd) return false;
+    // With a chosen passage only its ayat are hidden; the rest of the page stays as a guide.
+    if (widget.passage case final Passage p when !p.contains(w.ref)) return false;
     // Every other word; the first stays as a cue.
     return widget.memorise == MemoriseMode.ayat || w.position.isEven;
   }
@@ -180,7 +182,7 @@ class MadaniPageState extends State<MadaniPage> {
                         ayahLabel: (r) => widget.memorise != MemoriseMode.off && !widget.revealed.contains(r)
                             ? t.quranHiddenAyahA11y
                             : '${t.ayahA11y(widget.quran.surah(r.surah).nameAr, r.ayah)}\n${widget.quran.text(r)}',
-                        memoriseKey: '${widget.memorise.name}:${widget.revealed.join(',')}',
+                        memoriseKey: '${widget.memorise.name}:${widget.passage}:${widget.revealed.join(',')}',
                       ),
                     ),
                   ),

@@ -386,8 +386,6 @@ void main() {
       ];
       await tester.tap(find.text('تحفيظ'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('إخفاء الآيات'));
-      await tester.pumpAndSettle();
       final widget = tester.widget<MadaniPage>(page);
       expect(widget.memorise, MemoriseMode.ayat);
       final state = tester.state<MadaniPageState>(page);

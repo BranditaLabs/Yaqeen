@@ -99,8 +99,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     await tester.tap(find.text('تحفيظ'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('إخفاء الآيات'));
-    await tester.pumpAndSettle();
     final page = tester.widget<MushafPage>(find.byType(MushafPage).first);
     expect(page.memorise, MemoriseMode.ayat);
     expect(page.revealed, isEmpty);

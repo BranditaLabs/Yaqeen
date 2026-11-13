@@ -204,7 +204,9 @@ class _MushafPageState extends State<MushafPage> {
       final rec = _recognizer(a.ref);
       final base = look(a.ref);
       final label = t.ayahA11y(seg.surah.nameAr, a.ref.ayah);
-      final isHidden = widget.memorise != MemoriseMode.off && !widget.revealed.contains(a.ref);
+      final isHidden = widget.memorise != MemoriseMode.off &&
+          !widget.revealed.contains(a.ref) &&
+          (widget.passage == null || widget.passage!.contains(a.ref));
       final notes = widget.marks[a.ref] ?? const <int>{};
       final spans = <InlineSpan>[];
       final quarter = q.quarterStartingAt(a.ref);

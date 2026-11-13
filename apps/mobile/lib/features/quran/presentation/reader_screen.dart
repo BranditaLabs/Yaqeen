@@ -6,8 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/config/config_controller.dart';
-import '../../../core/config/remote_config.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/format.dart';
 import '../../../core/settings/app_settings.dart';
@@ -15,11 +13,9 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/time/zoned.dart';
-import '../../../core/widgets/controls.dart';
 import '../../../core/widgets/liquid_glass.dart';
 import '../../../core/widgets/yq_button.dart';
 import '../../../core/widgets/yq_icon.dart';
-import '../../../core/widgets/yq_layout.dart';
 import '../../../core/widgets/yq_ring.dart';
 import '../../../core/widgets/yq_skeleton_mushaf.dart';
 import '../../../core/widgets/yq_states.dart';
@@ -27,12 +23,12 @@ import '../../../l10n/gen/app_localizations.dart';
 import '../../challenge/domain/challenge_models.dart';
 import '../../challenge/presentation/challenge_controller.dart';
 import '../../listen/presentation/listen_controller.dart';
-import '../../recite/presentation/recite_available.dart';
 import '../../notifications/presentation/reminders_controller.dart';
 import '../../onboarding/presentation/session_controller.dart';
 import '../data/reading_repository.dart';
 import '../domain/annotations.dart';
 import '../domain/mushaf_layout.dart';
+import '../domain/passage.dart';
 import '../domain/quran_data.dart';
 import '../domain/reading_stats.dart';
 import '../domain/wird.dart';
@@ -44,19 +40,52 @@ import 'note_sheet.dart';
 import 'page_curl.dart';
 import 'quran_index_screen.dart';
 import 'quran_providers.dart';
+import 'session/follow_audio.dart';
+import 'session/listen_strip.dart';
+import 'session/memorise_strip.dart';
+import 'session/mode_dock.dart';
+import 'session/passage_picker_sheet.dart';
+import 'session/quran_session_controller.dart';
+import 'session/read_strip.dart';
 
-final todayWirdProvider = FutureProvider.autoDispose((ref) => ref.watch(readingRepositoryProvider).wird());
+export 'session/read_strip.dart' show todayWirdProvider;
 
 /// Two mushaf pages side by side when the screen is wide (tablet, or a phone in landscape).
 bool spreadLayout(Size size) => size.width > size.height && size.width >= 700;
 
-/// `09 · Reading mode` (spec §5.11) — full screen, offline, the heart of the app.
+/// `09 · Reading mode` (spec §5.11) — «صفحة واحدة»: the printed page is the only Quran surface.
+/// Reading, listening, memorising and reciting are layers over it ([QuranModeDock]); switching
+/// layers never pushes a route. Full screen, offline, the heart of the app.
 class ReaderScreen extends ConsumerStatefulWidget {
-  const ReaderScreen({super.key, required this.initialPage, this.focus});
+  const ReaderScreen({
+    super.key,
+    required this.initialPage,
+    this.focus,
+    this.mode = QuranMode.read,
+    this.passage,
+    this.session,
+    this.portion,
+    this.openPlayer = false,
+  });
   final int initialPage;
 
   /// An ayah to light briefly and bring into view (search, bookmarks, «انتقل إلى»).
   final AyahRef? focus;
+
+  /// The layer to open on (`?mode=`).
+  final QuranMode mode;
+
+  /// The passage a layer works on (`?surah=&from=&to=`).
+  final Passage? passage;
+
+  /// A guided session to start or resume (`?session=wird|khatma|hifz|review|resume`).
+  final String? session;
+
+  /// The hifz portion a review session grades (`?portion=`).
+  final String? portion;
+
+  /// Open the full player at once (`?player=open`, from «استماع» entries).
+  final bool openPlayer;
 
   @override
   ConsumerState<ReaderScreen> createState() => _ReaderScreenState();
@@ -77,10 +106,19 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
   final _wirdClock = WirdClock();
   Future<void> _lastSave = Future.value();
   bool _pageMarked = false;
-  MemoriseMode _memorise = MemoriseMode.off;
-  final Set<AyahRef> _revealed = {};
+
+  /// Following the recitation: a page change made by the reader itself is not a manual look-ahead.
+  late final _guard = FollowGuard(onEnd: _refresh);
+  bool _following = false;
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
+
   // Wird counting outlives the widget (the last page counts on exit), so it reads the container, not `ref`.
   late final ProviderContainer _c;
+
+  QuranSessionController get _layers => ref.read(quranSessionControllerProvider.notifier);
 
   @override
   void initState() {
@@ -93,6 +131,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     _setFocus(widget.focus);
     _onPageShown(_page);
     _scheduleHide();
+    // Providers can't change while the tree builds: the layers are set right after this frame.
+    Future.microtask(() async {
+      if (!mounted) return;
+      _layers.init(passage: widget.passage);
+      if (widget.mode != QuranMode.read) await _setMode(widget.mode, ask: false);
+      if (widget.openPlayer && mounted) _openPlayer();
+    });
   }
 
   @override
@@ -148,6 +193,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     _hideTimer?.cancel();
     _wirdTimer?.cancel();
     _focusTimer?.cancel();
+    _guard.clear();
     _pager.dispose();
     _c.read(deviceServicesProvider).keepAwake(false);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -169,13 +215,24 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
   /// The pager moved (a turn, the slider, a jump): the old page counts, the new one starts.
   void _showPage(int page) {
     if (page == _page) return;
+    final manual = !_following;
+    _following = false;
     _leavePage().ignore();
     setState(() {
       _page = page;
       _selected = null;
-      _revealed.clear();
     });
+    _layers.pageChanged();
+    if (manual && _isFollowing) {
+      // A look ahead while listening: following waits 8 s, with the way back on a chip.
+      _guard.hold();
+    }
     _onPageShown(page);
+  }
+
+  bool get _isFollowing {
+    final l = ref.read(listenControllerProvider);
+    return ref.read(quranSessionControllerProvider).mode == QuranMode.listen && l.playing && l.sampleOf == null;
   }
 
   /// ±2 neighbours once the page has settled (the open pages ask for their own fonts, ahead of these).
@@ -326,40 +383,126 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     if (mounted) _scheduleHide();
   }
 
-  Future<void> _openMemorise() async {
+  /// Switches the layer over the page. [ask]: confirm before taking over another surah's audio.
+  Future<void> _setMode(QuranMode mode, {bool ask = true}) async {
+    if (mode == QuranMode.listen && !await _startListening(ask: ask)) return;
+    if (!mounted) return;
+    _layers.setMode(mode);
     _hideTimer?.cancel();
+    // Reading and listening fold their tools away after 4 s; memorising and reciting keep them.
+    if (mode == QuranMode.read || mode == QuranMode.listen) {
+      if (!_chrome) _setChrome(true);
+      _scheduleHide();
+    } else if (!_chrome) {
+      _setChrome(true);
+    }
+  }
+
+  /// «استماع» from the page on screen: the surah already playing only seeks here; another surah's
+  /// audio is replaced only after «استبدال التشغيل الحالي؟». Returns false when the user keeps it.
+  Future<bool> _startListening({bool ask = true}) async {
+    final q = ref.read(quranDataProvider).valueOrNull;
+    if (q == null) return false;
+    final ctl = ref.read(listenControllerProvider.notifier);
+    final l = ref.read(listenControllerProvider);
+    final passage = ref.read(quranSessionControllerProvider).passage;
+    final start = passage != null && _visible(_page).contains(q.pageOf(passage.first)) ? passage.first : q.firstOfPage(_page);
+    final busy = l.status == ListenStatus.ready && l.playing && l.sampleOf == null;
+    if (busy && _visible(_page).contains(q.pageOf(l.ref))) return true; // already reciting this page
+    if (busy && l.surah != start.surah && ask) {
+      final replace = await _confirmReplace();
+      if (!mounted) return false;
+      // Keeping what plays: the layer still opens and the page follows that recitation.
+      if (replace != true) return true;
+    }
+    ctl.open(start.surah, ayah: start.ayah).ignore();
+    return true;
+  }
+
+  Future<bool?> _confirmReplace() {
     final t = AppLocalizations.of(context);
-    final picked = await showYqSheet<MemoriseMode>(
+    return showYqSheet<bool>(
       context,
       builder: (c) => Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(t.memoriseTitle, style: Theme.of(c).textTheme.titleLarge),
-          const SizedBox(height: YqSpace.xs),
-          Text(t.memoriseHint, style: Theme.of(c).textTheme.bodySmall),
-          const SizedBox(height: YqSpace.m),
-          for (final (m, label) in [
-            (MemoriseMode.off, t.memoriseOff),
-            (MemoriseMode.ayat, t.memoriseAyat),
-            (MemoriseMode.words, t.memoriseWords),
-          ])
-            YqListRow(
-              title: label,
-              trailing: m == _memorise ? const Icon(Icons.check_rounded, color: YqColors.lapis) : const SizedBox.shrink(),
-              onTap: () => Navigator.of(c).pop(m),
-            ),
+          Text(t.qsReplacePlaybackTitle, style: Theme.of(c).textTheme.titleLarge),
+          const SizedBox(height: YqSpace.l),
+          YqButton(label: t.qsReplace, onPressed: () => Navigator.of(c).pop(true)),
+          const SizedBox(height: YqSpace.s),
+          YqButton.secondary(label: t.cancel, onPressed: () => Navigator.of(c).pop(false)),
         ],
       ),
     );
-    if (picked != null && mounted) {
-      setState(() {
-        _memorise = picked;
-        _revealed.clear();
-      });
-      if (picked != MemoriseMode.off) _setChrome(false);
-    }
   }
+
+  /// The page follows the recitation (see [FollowAudio]).
+  void _follow(ListenState? prev, ListenState next) {
+    if (!mounted || ref.read(quranSessionControllerProvider).mode != QuranMode.listen) return;
+    if (prev != null && prev.ref == next.ref && prev.playing == next.playing && prev.status == next.status) return;
+    final sheetOpen = !(ModalRoute.of(context)?.isCurrent ?? true);
+    final target = FollowAudio.target(
+      now: next,
+      previousSurah: prev?.surah,
+      visible: _visible(_page),
+      quran: ref.read(quranDataProvider).valueOrNull,
+      blocked: _locked || sheetOpen || _guard.active,
+    );
+    if (target == null) return;
+    _following = true;
+    if (_indexOf(target, _spread) == _indexOf(_page, _spread) + 1) {
+      _pager.next(); // a real turn (a cross-fade under reduce-motion)
+    } else {
+      _goTo(target);
+    }
+    FollowAudio.announce(context, target);
+  }
+
+  /// «عُد إلى موضع التلاوة».
+  void _backToRecitation(QuranData q) {
+    _guard.clear();
+    _following = true;
+    _goTo(q.pageOf(ref.read(listenControllerProvider).ref));
+  }
+
+  void _openPlayer() {
+    final l = ref.read(listenControllerProvider);
+    context.push('/quran/listen/${l.surah}');
+  }
+
+  /// A tap on an ayah, per layer: reveal it (memorise), play from it (listen).
+  ValueChanged<AyahRef>? _ayahTap(ReaderLayers layers) => switch (layers.mode) {
+        QuranMode.memorise => (r) {
+            if (layers.passage == null || layers.passage!.contains(r)) _layers.toggleReveal(r);
+          },
+        QuranMode.listen => (r) => ref.read(listenControllerProvider.notifier).open(r.surah, ayah: r.ayah),
+        _ => null,
+      };
+
+  /// What the memorise layer covers: the chosen passage, or every ayah on screen.
+  Iterable<AyahRef> _memoriseScope(QuranData q, ReaderLayers layers) =>
+      layers.passage?.range ?? [for (final p in _visible(_page)) for (final seg in q.page(p)) ...seg.ayat.map((a) => a.ref)];
+
+  Future<void> _pickPassage(QuranData q, Passage current) async {
+    final picked = await showPassagePicker(context, quran: q, initial: current);
+    if (picked == null || !mounted) return;
+    _layers.setPassage(picked);
+    if (!_visible(_page).contains(q.pageOf(picked.first))) _goTo(q.pageOf(picked.first));
+  }
+
+  Widget _strip(QuranData q, ReaderLayers layers) => switch (layers.mode) {
+        QuranMode.read => ReadStrip(page: _page, onJump: _goTo),
+        QuranMode.listen => ListenStrip(onOpenPlayer: _openPlayer, onRetry: () => _startListening(ask: false)),
+        QuranMode.memorise => MemoriseStrip(
+            quran: q,
+            passage: layers.passage ?? Passage.ofPage(q, _page),
+            onShowAll: () => _layers.revealAll(_memoriseScope(q, layers)),
+            onPickPassage: () => _pickPassage(q, layers.passage ?? Passage.ofPage(q, _page)),
+            onListen3: () => ref.read(listenControllerProvider.notifier).playPassage(layers.passage ?? Passage.ofPage(q, _page), times: 3),
+          ),
+        QuranMode.recite => const SizedBox.shrink(),
+      };
 
   /// Night pages from Maghrib until sunrise when «تلقائياً» is on.
   MushafTheme _effectiveTheme(AppSettings s, DateTime now) {
@@ -375,6 +518,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     final t = AppLocalizations.of(context);
     // «إبقاء الشاشة مضاءة» takes effect while reading, not only on the next open.
     ref.listen(settingsProvider.select((s) => s.keepAwake), (_, on) => ref.read(deviceServicesProvider).keepAwake(on));
+    ref.listen<ListenState>(listenControllerProvider, _follow);
     // Only what the pages draw: other settings writes (e.g. readerHintSeen, wird counters) must not
     // rebuild the reader and its pre-built neighbour pages.
     final look0 = ref.watch(
@@ -394,14 +538,17 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     final data = ref.watch(quranDataProvider);
     final layout = ref.watch(mushafLayoutProvider).valueOrNull;
     final annotations = ref.watch(annotationsProvider).valueOrNull ?? Annotations.empty;
+    final layers = ref.watch(quranSessionControllerProvider);
     final colors = MushafColors.of(look.theme);
     final night = look.theme == MushafTheme.night;
-    // Highlight the ayah the player is on while recitation is playing (spec §5.13).
+    // The ayah being recited is lit while recitation plays (spec §5.13), in every layer.
     final playing = ref.watch(listenControllerProvider.select((l) => l.playing && l.sampleOf == null ? l.ref : null));
     // Rotation switches between one page and a spread, keeping the page.
     _spread = spreadLayout(MediaQuery.sizeOf(context));
     final spread = _spread;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final pinned = layers.mode == QuranMode.memorise || layers.mode == QuranMode.recite;
+    final dockVisible = _chrome || pinned;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: night ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
@@ -417,6 +564,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
           error: (_, __) => YqErrorState(onRetry: () => ref.invalidate(quranDataProvider)),
           data: (q) {
             final first = q.firstOfPage(_page);
+            final recitedPage = playing == null ? null : q.pageOf(playing);
+            final showBack = layers.mode == QuranMode.listen && _guard.active && recitedPage != null && !_visible(_page).contains(recitedPage);
+            final layerPassage = layers.mode == QuranMode.read ? null : layers.passage;
             Widget frame(int page) => _PageFrame(
                   quran: q,
                   layout: layout,
@@ -428,9 +578,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
                   onBackgroundTap: _onPageTap,
                   onOpenSettings: () => showReaderSettings(context, page: _page),
                   annotations: annotations,
-                  memorise: _memorise,
-                  revealed: _revealed,
-                  onAyahTap: _memorise == MemoriseMode.off ? null : (r) => setState(() => _revealed.contains(r) ? _revealed.remove(r) : _revealed.add(r)),
+                  memorise: layers.hiding,
+                  revealed: layers.revealed,
+                  passage: layerPassage,
+                  marks: layers.mode == QuranMode.recite ? layers.marks : const {},
+                  onAyahTap: _locked ? null : _ayahTap(layers),
                   onNoteTap: (r) => showNoteSheet(context, quran: q, ref: r),
                   onAyahLongPress: _locked
                       ? null
@@ -468,22 +620,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
                     spineBuilder: (_) => _Spine(night: night),
                   ),
                 ),
-                if (_memorise != MemoriseMode.off && !_locked && !_chrome)
-                  _MemoriseBanner(
-                    mode: _memorise,
-                    onShowAll: () => setState(() {
-                      for (final p in _visible(_page)) {
-                        for (final seg in q.page(p)) {
-                          _revealed.addAll(seg.ayat.map((a) => a.ref));
-                        }
-                      }
-                    }),
-                    onHideAll: () => setState(_revealed.clear),
-                    onExit: () => setState(() {
-                      _memorise = MemoriseMode.off;
-                      _revealed.clear();
-                    }),
-                  ),
                 if (!_locked) ...[
                   _TopChrome(
                     visible: _chrome,
@@ -500,15 +636,37 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
                     title: q.surah(first.surah).name(look.locale),
                     subtitle: t.quranJuzHizb(q.juzOf(first), q.hizbOf(first)),
                   ),
-                  _BottomChrome(
-                    visible: _chrome,
-                    night: night,
-                    page: _page,
-                    quran: q,
-                    memorise: _memorise != MemoriseMode.off,
-                    onJump: (p) => _goTo(p),
-                    onMemorise: _openMemorise,
+                  if (layers.mode == QuranMode.listen && !dockVisible)
+                    Positioned(left: 0, right: 0, bottom: 0, child: SafeArea(top: false, child: ListenHairline(onShow: () => _setChrome(true)))),
+                  AnimatedPositioned(
+                    duration: reduceMotion ? Duration.zero : YqMotion.base,
+                    curve: YqMotion.ease,
+                    bottom: dockVisible ? 0 : -320,
+                    left: 0,
+                    right: 0,
+                    child: IgnorePointer(
+                      ignoring: !dockVisible,
+                      child: SafeArea(
+                        top: false,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(YqSpace.l, 0, YqSpace.l, YqSpace.s),
+                          child: QuranModeDock(
+                            mode: layers.mode,
+                            night: night,
+                            onChanged: _setMode,
+                            strip: _strip(q, layers),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
+                  if (showBack)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: dockVisible ? 210 : 72,
+                      child: SafeArea(top: false, child: Center(child: BackToRecitationChip(onTap: () => _backToRecitation(q)))),
+                    ),
                 ] else
                   _LockOverlay(onUnlock: () => setState(() => _locked = false)),
                 if (_hint) _FirstOpenHint(onDismiss: _dismissHint),
@@ -566,6 +724,8 @@ class _PageFrame extends ConsumerWidget {
     required this.annotations,
     required this.memorise,
     required this.revealed,
+    this.passage,
+    this.marks = const {},
     this.selected,
     this.playing,
     this.onAyahLongPress,
@@ -584,6 +744,8 @@ class _PageFrame extends ConsumerWidget {
   final Annotations annotations;
   final MemoriseMode memorise;
   final Set<AyahRef> revealed;
+  final Passage? passage;
+  final Map<AyahRef, Set<int>> marks;
   final ValueChanged<AyahRef>? onAyahLongPress;
   final ValueChanged<AyahRef>? onAyahTap;
   final ValueChanged<AyahRef>? onNoteTap;
@@ -663,6 +825,8 @@ class _PageFrame extends ConsumerWidget {
                     annotations: annotations,
                     memorise: memorise,
                     revealed: revealed,
+                    passage: passage,
+                    marks: marks,
                     onAyahLongPress: onAyahLongPress,
                     onAyahTap: onAyahTap,
                     onNoteTap: onNoteTap,
@@ -740,6 +904,8 @@ class _PageBody extends ConsumerStatefulWidget {
     required this.annotations,
     required this.memorise,
     required this.revealed,
+    this.passage,
+    this.marks = const {},
     this.selected,
     this.playing,
     this.onAyahLongPress,
@@ -756,6 +922,8 @@ class _PageBody extends ConsumerStatefulWidget {
   final Annotations annotations;
   final MemoriseMode memorise;
   final Set<AyahRef> revealed;
+  final Passage? passage;
+  final Map<AyahRef, Set<int>> marks;
   final ValueChanged<AyahRef>? onAyahLongPress;
   final ValueChanged<AyahRef>? onAyahTap;
   final ValueChanged<AyahRef>? onNoteTap;
@@ -829,6 +997,8 @@ class _PageBodyState extends ConsumerState<_PageBody> {
             annotations: widget.annotations,
             memorise: widget.memorise,
             revealed: widget.revealed,
+            passage: widget.passage,
+            marks: widget.marks,
             onAyahLongPress: widget.onAyahLongPress,
             onAyahTap: widget.onAyahTap,
             onNoteTap: widget.onNoteTap,
@@ -849,6 +1019,8 @@ class _PageBodyState extends ConsumerState<_PageBody> {
               annotations: widget.annotations,
               memorise: widget.memorise,
               revealed: widget.revealed,
+              passage: widget.passage,
+              marks: widget.marks,
               onAyahLongPress: widget.onAyahLongPress,
               onAyahTap: widget.onAyahTap,
               onNoteTap: widget.onNoteTap,
@@ -986,148 +1158,6 @@ class _TopChrome extends StatelessWidget {
   }
 }
 
-class _BottomChrome extends ConsumerWidget {
-  const _BottomChrome({
-    required this.visible,
-    required this.night,
-    required this.page,
-    required this.quran,
-    required this.memorise,
-    required this.onJump,
-    required this.onMemorise,
-  });
-  final bool visible;
-  final bool night;
-  final int page;
-  final QuranData quran;
-  final bool memorise;
-  final ValueChanged<int> onJump;
-  final VoidCallback onMemorise;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = AppLocalizations.of(context);
-    final goal = ref.watch(settingsProvider.select((s) => s.wirdGoalPages));
-    final wird = ref.watch(todayWirdProvider).valueOrNull;
-    final config = ref.watch(remoteConfigProvider);
-    final s = ref.watch(settingsProvider);
-    final today = Zoned.isoDate(Zoned.today(s.placeOrDefault.timezone, ref.watch(clockProvider)()));
-    final read = wird?.date == today ? wird!.count : 0;
-    final khatma = ref.watch(khatmaProvider).valueOrNull;
-    final first = quran.firstOfPage(page);
-    final surah = first.surah;
-    return AnimatedPositioned(
-      duration: YqMotion.base,
-      curve: YqMotion.ease,
-      bottom: visible ? 0 : -220,
-      left: 0,
-      right: 0,
-      child: IgnorePointer(
-        ignoring: !visible,
-        child: SafeArea(
-          top: false,
-          child: _ChromeWidth(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(YqSpace.l, 0, YqSpace.l, YqSpace.s),
-              child: LiquidGlass(
-                radius: YqRadii.card,
-                opacity: night ? _nightGlass : 0.58,
-                padding: const EdgeInsets.fromLTRB(YqSpace.l, YqSpace.m, YqSpace.l, YqSpace.s),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                khatma != null && !khatma.finished
-                                    ? '${t.readerWird} · ${t.pagesOf(read.clamp(0, goal), goal)} · ${t.quranKhatma} ${YqFormat.number((khatma.progress * 100).round())}%'
-                                    : '${t.readerWird} · ${t.pagesOf(read.clamp(0, goal), goal)}',
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 4),
-                              YqProgressLine(value: goal == 0 ? 0 : read / goal),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: YqSpace.s),
-                        YqButton.text(
-                          label: t.readerMemorise,
-                          icon: Icon(Icons.visibility_off_outlined, size: 18, color: memorise ? YqColors.goldText : YqColors.lapis),
-                          onPressed: onMemorise,
-                        ),
-                        if (config.isOn(Flags.listen))
-                          YqButton.text(
-                            label: t.readerListen,
-                            icon: const YqIcon(YqIcons.listen, size: 18),
-                            // From the page on screen, not the surah's start.
-                            onPressed: () => context.push('/quran/listen/$surah?ayah=${first.ayah}'),
-                          ),
-                        if (ref.watch(reciteEntryProvider))
-                          YqButton.text(
-                            label: t.readerRecite,
-                            icon: const YqIcon(YqIcons.azkar, size: 18),
-                            onPressed: () => context.push('/quran/recite/$surah'),
-                          ),
-                      ],
-                    ),
-                    Semantics(
-                      label: t.readerSlider,
-                      value: t.quranPageOf(page),
-                      child: Directionality(
-                        textDirection: TextDirection.rtl,
-                        child: _PageSlider(page: page, onJump: onJump),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The page slider: dragging only moves the thumb and its label; the reader turns to the page (and
-/// fetches its font, saves it as the last read) once the thumb is let go.
-class _PageSlider extends StatefulWidget {
-  const _PageSlider({required this.page, required this.onJump});
-  final int page;
-  final ValueChanged<int> onJump;
-
-  @override
-  State<_PageSlider> createState() => _PageSliderState();
-}
-
-class _PageSliderState extends State<_PageSlider> {
-  double? _drag;
-
-  @override
-  Widget build(BuildContext context) {
-    final value = _drag ?? widget.page.toDouble();
-    return Slider(
-      min: 1,
-      max: QuranData.pageCount.toDouble(),
-      divisions: QuranData.pageCount - 1,
-      value: value,
-      label: YqFormat.number(value.round()),
-      activeColor: YqColors.lapis,
-      inactiveColor: YqColors.line,
-      onChanged: (v) => setState(() => _drag = v),
-      onChangeEnd: (v) {
-        setState(() => _drag = null);
-        widget.onJump(v.round());
-      },
-    );
-  }
-}
-
 /// Reader chrome keeps a comfortable width on tablets and in landscape, centred over the pages.
 class _ChromeWidth extends StatelessWidget {
   const _ChromeWidth({required this.child});
@@ -1139,53 +1169,6 @@ class _ChromeWidth extends StatelessWidget {
         child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 640), child: child),
       );
 }
-
-/// While memorising: what's hidden, show / hide all, and the way out.
-class _MemoriseBanner extends StatelessWidget {
-  const _MemoriseBanner({required this.mode, required this.onShowAll, required this.onHideAll, required this.onExit});
-  final MemoriseMode mode;
-  final VoidCallback onShowAll;
-  final VoidCallback onHideAll;
-  final VoidCallback onExit;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AppLocalizations.of(context);
-    return Positioned(
-      left: 0,
-      right: 0,
-      bottom: 0,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(YqSpace.l, 0, YqSpace.l, YqSpace.s),
-          child: LiquidGlass(
-            tone: GlassTone.gold,
-            radius: YqRadii.pill,
-            padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: 2),
-            child: Row(
-              children: [
-                const Icon(Icons.visibility_off_outlined, size: 18, color: YqColors.goldText),
-                const SizedBox(width: YqSpace.s),
-                Expanded(
-                  child: Text(
-                    t.memoriseBanner(mode == MemoriseMode.ayat ? t.memoriseAyat : t.memoriseWords),
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                TextButton(onPressed: onShowAll, child: Text(t.memoriseShowAll)),
-                TextButton(onPressed: onHideAll, child: Text(t.memoriseHideAll)),
-                IconButton(tooltip: t.memoriseExit, onPressed: onExit, icon: const Icon(Icons.close_rounded, color: YqColors.muted)),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// Touch lock: ignores taps/swipes; a 1.2 s hold unlocks (spec §5.11).
 class _LockOverlay extends StatefulWidget {
   const _LockOverlay({required this.onUnlock});
