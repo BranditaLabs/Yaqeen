@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start -p 3000",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"admin: covered by typecheck + build\""
+    "test": "node --conditions=react-server --experimental-strip-types --test \"src/**/*.test.ts\""
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
