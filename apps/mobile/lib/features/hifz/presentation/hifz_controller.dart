@@ -33,7 +33,9 @@ class HifzController extends AsyncNotifier<HifzPlan?> {
     final plan = state.valueOrNull ?? await future;
     if (plan == null) return;
     final q = await ref.read(quranDataProvider.future);
-    await _commit(plan.memorise(q, _today));
+    final next = plan.memorise(q, _today);
+    if (identical(next, plan)) return; // already memorised today: one portion a day
+    await _commit(next);
   }
 
   /// Ticks or unticks a «استمع · كرّر · اختبر نفسك» step for today; kept so leaving the screen (e.g.

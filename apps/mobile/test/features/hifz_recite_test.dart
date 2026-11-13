@@ -61,6 +61,14 @@ void main() {
       expect(kahf.today(q), (surah: 18, from: 1, to: 20));
     });
 
+    test('memorising twice in one day records one portion (the next, unstudied one is not taken)', () {
+      final once = const HifzPlan(goal: HifzGoal.amma, perDay: 5).memorise(q, day);
+      final twice = once.memorise(q, day);
+      expect(twice, same(once));
+      expect(twice.portions.map((p) => p.id), ['114:1-5']);
+      expect(twice.memorise(q, Zoned.addDays(day, 1)).portions.map((p) => p.id), ['114:1-5', '114:6-6']);
+    });
+
     test("today's card keeps the passage memorised today once the cursor moves on", () {
       final p = const HifzPlan(goal: HifzGoal.amma, perDay: 5).memorise(q, day);
       expect(p.todaysPortion(day)?.id, '114:1-5');
