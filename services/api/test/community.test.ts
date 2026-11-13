@@ -28,6 +28,8 @@ import {
   weekWindow,
 } from '../src/domain/community.js';
 import { localToday } from '../src/domain/points.js';
+import { POLICY_VERSION } from '../src/services/community.service.js';
+import { LEGAL_VERSION, renderPrivacy, renderTerms } from '../src/web/site-pages.js';
 
 const seq = (...xs: number[]) => {
   let i = 0;
@@ -248,6 +250,29 @@ describe('tournament windows', () => {
     expect(tournamentPhase(ok, now)).toBe('upcoming');
     expect(tournamentPhase(ok, new Date('2027-02-08T00:00:00Z'))).toBe('live');
     expect(tournamentPhase(ok, ok.endsAt)).toBe('ended');
+  });
+});
+
+describe('policy pages', () => {
+  const links = { base: 'https://x.test', store: 'https://store.test', getApp: 'https://x.test/get-app', supportEmail: '' };
+  it('/terms has the «المنافسات والسلوك» section at #community in both languages', () => {
+    const ar = renderTerms('ar', links);
+    expect(ar).toContain('<section id="community">');
+    expect(ar).toContain('href="#community"');
+    expect(ar).toContain('المنافسات والسلوك');
+    expect(renderTerms('en', links)).toContain('Competitions and conduct');
+  });
+  it('/privacy covers photos, nightly snapshots, the country board, attestation and retention; counsel brackets kept', () => {
+    for (const lang of ['ar', 'en'] as const) {
+      const html = renderPrivacy(lang, links);
+      expect(html).toMatch(/WebP/);
+      expect(html).toMatch(lang === 'ar' ? /كل ليلة/ : /once a night/);
+      expect(html).toMatch(/20/);
+      expect(html).toMatch(lang === 'ar' ? /18 عاماً/ : /18 or older/);
+      expect(html).toMatch(lang === 'ar' ? /7 أيام/ : /7 days/);
+      expect(html).toMatch(/\[[^\]]+\]/);
+    }
+    expect(POLICY_VERSION).toBe(LEGAL_VERSION);
   });
 });
 
