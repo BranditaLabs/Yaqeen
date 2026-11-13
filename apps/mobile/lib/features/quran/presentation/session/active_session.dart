@@ -181,7 +181,10 @@ final sessionProgressProvider = Provider.autoDispose<({int done, int goal})?>((r
   switch (s.kind) {
     case QuranSessionKind.wird:
       final goal = ref.watch(settingsProvider.select((x) => x.wirdGoalPages));
-      final wird = ref.watch(todayWirdProvider).valueOrNull;
+      final day = ref.watch(todayWirdProvider);
+      // Nothing to say before today's count has loaded (a 0 there is not progress).
+      if (!day.hasValue) return null;
+      final wird = day.valueOrNull;
       return (done: wird?.date == today ? wird!.count : 0, goal: s.goal ?? goal);
     case QuranSessionKind.khatma:
       final k = ref.watch(khatmaProvider).valueOrNull;

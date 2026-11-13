@@ -7,6 +7,7 @@ import 'package:yaqeen/core/di/providers.dart';
 import 'package:yaqeen/core/settings/app_settings.dart';
 import 'package:yaqeen/core/storage/kv_store.dart';
 import 'package:yaqeen/core/storage/local_store.dart';
+import 'package:yaqeen/core/time/zoned.dart';
 import 'package:yaqeen/core/widgets/liquid_glass.dart';
 import 'package:yaqeen/features/hifz/domain/hifz_plan.dart';
 import 'package:yaqeen/features/hifz/domain/review_scheduler.dart';
@@ -162,6 +163,54 @@ void main() {
     expect(find.text('أتممت جلستك'), findsOneWidget);
     await tester.tap(find.text('إغلاق').last);
     await tester.pumpAndSettle();
+    await leave(tester);
+  });
+
+  testWidgets('resuming a halaqa after «حفظت» on the hifz screen does not record the next, unstudied portion', (tester) async {
+    // «حفظت» recorded today's passage while the halaqa waited at its test.
+    final kv = await withPlan(const HifzPlan(goal: HifzGoal.amma, perDay: 5).memorise(q, today));
+    await QuranSessionStore(kv).save(
+      QuranSession.start(
+        QuranSessionKind.hifz,
+        passage,
+        now: now,
+        day: Zoned.isoDate(today),
+        page: 604,
+        planKey: 'hifz/amma/5',
+        portion: passage.toString(),
+      ).advance().advance(),
+    );
+    final listen = FakeListen();
+    await open(tester, const ReaderScreen(initialPage: 604, session: 'resume'), kv, listen);
+    expect(session(tester)!.stage, SessionStage.test);
+    await tester.tap(find.text('انتهيت'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('تأكيد'));
+    await tester.pumpAndSettle();
+    expect(planIn(kv)!.portions.map((p) => p.id), ['114:1-5'], reason: '114:6 was never studied');
+    expect(find.text('أتممت جلستك'), findsOneWidget);
+    await tester.tap(find.text('إغلاق').last);
+    await tester.pumpAndSettle();
+    await leave(tester);
+  });
+
+  testWidgets('a new halaqa asks before replacing another surah\'s recitation; kept, it offers listening or «تخطَّ إلى التكرار»', (tester) async {
+    final kv = await withPlan(const HifzPlan(goal: HifzGoal.amma, perDay: 5));
+    final listen = FakeListen(const ListenState(status: ListenStatus.ready, surah: 18, ayah: 10, playing: true, synced: true));
+    await open(tester, const ReaderScreen(initialPage: 604, session: 'hifz', passage: passage), kv, listen);
+    await tester.pumpAndSettle();
+    expect(find.text('استبدال التشغيل الحالي؟'), findsOneWidget);
+    await tester.tap(find.text('إلغاء'));
+    await tester.pumpAndSettle();
+    expect(listen.passages, isEmpty, reason: 'the recitation of al-Kahf keeps playing');
+    expect(listen.state.surah, 18);
+    expect(session(tester)!.stage, SessionStage.listen);
+    expect(find.text('تخطَّ إلى التكرار'), findsOneWidget);
+    // Listening after all: the passage plays its three rounds.
+    await tester.tap(find.text('استماع ×3'));
+    await tester.pumpAndSettle();
+    expect(listen.passages.last, (114, 1, 5, 3));
+    expect(find.text('تخطَّ إلى التكرار'), findsNothing);
     await leave(tester);
   });
 

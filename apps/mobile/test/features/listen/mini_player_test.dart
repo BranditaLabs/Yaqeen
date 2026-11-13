@@ -20,6 +20,7 @@ import 'package:yaqeen/features/quran/domain/passage.dart';
 import 'package:yaqeen/features/quran/domain/quran_data.dart';
 import 'package:yaqeen/features/quran/presentation/quran_providers.dart';
 import 'package:yaqeen/features/quran/presentation/reader_screen.dart';
+import 'package:yaqeen/features/quran/presentation/session/quran_session_controller.dart';
 import 'package:yaqeen/l10n/gen/app_localizations.dart';
 
 import '../../helpers/fonts.dart';
@@ -223,5 +224,40 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 1));
     });
+
+    testWidgets('a link past the surah\'s last ayah is clamped to it (or dropped when it starts past it)', (tester) async {
+      phone(tester);
+      final r = router();
+      await tester.pumpWidget(app(r, [quranDataProvider.overrideWith((_) async => q), listenControllerProvider.overrideWith(FakeListen.new)]));
+      await tester.pumpAndSettle();
+      ReaderLayers layers() => ProviderScope.containerOf(tester.element(find.byType(ReaderScreen))).read(quranSessionControllerProvider);
+
+      r.go('/quran/read/1?mode=memorise&surah=1&from=1&to=50');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(tester.takeException(), isNull);
+      expect(layers().passage, const Passage(1, 1, 7));
+
+      r.go('/quran/recite/1?from=1&to=50');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(tester.takeException(), isNull);
+      expect(layers().passage, const Passage(1, 1, 7));
+
+      r.go('/quran/read/1?mode=memorise&surah=1&from=9&to=50');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(tester.takeException(), isNull);
+      expect(layers().passage, isNull);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 1));
+    });
+  });
+
+  test('checkedPassage clamps a passage to its surah', () {
+    expect(checkedPassage(q, const Passage(1, 1, 50)), const Passage(1, 1, 7));
+    expect(checkedPassage(q, const Passage(1, 3, 5)), const Passage(1, 3, 5));
+    expect(checkedPassage(q, const Passage(1, 8, 9)), isNull);
+    expect(checkedPassage(q, null), isNull);
   });
 }

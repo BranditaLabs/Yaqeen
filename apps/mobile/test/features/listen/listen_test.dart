@@ -434,6 +434,55 @@ void main() {
       expect(await faster, const Duration(milliseconds: 9600));
     });
 
+    test('echo: a pause, another open or the controller going away ends the wait (null), never a hang', () async {
+      final engine = FakeAudioEngine();
+      final c = ProviderContainer(overrides: overrides(engine, MemoryKvStore()));
+      addTearDown(c.dispose);
+      final ctl = c.read(listenControllerProvider.notifier);
+      await ctl.open(18, ayah: 1);
+
+      final paused = ctl.playAyahThenPause(const AyahRef(18, 5));
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      await ctl.pause();
+      expect(await paused.timeout(const Duration(seconds: 1)), isNull);
+
+      final replaced = ctl.playAyahThenPause(const AyahRef(18, 5));
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      await ctl.open(18, ayah: 2);
+      expect(await replaced.timeout(const Duration(seconds: 1)), isNull);
+
+      final toggled = ctl.playAyahThenPause(const AyahRef(18, 6));
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      await ctl.toggle();
+      expect(await toggled.timeout(const Duration(seconds: 1)), isNull);
+
+      final c2 = ProviderContainer(overrides: overrides(FakeAudioEngine(), MemoryKvStore()));
+      final ctl2 = c2.read(listenControllerProvider.notifier);
+      await ctl2.open(18, ayah: 1);
+      final gone = ctl2.playAyahThenPause(const AyahRef(18, 5));
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      c2.dispose();
+      expect(await gone.timeout(const Duration(seconds: 1)), isNull);
+    });
+
+    test('echo: the repeat set before it (mode, range, passes) comes back afterwards', () async {
+      final engine = FakeAudioEngine();
+      final c = ProviderContainer(overrides: overrides(engine, MemoryKvStore()));
+      addTearDown(c.dispose);
+      final ctl = c.read(listenControllerProvider.notifier);
+      await ctl.playPassage(const Passage(18, 1, 6), times: 3);
+      final before = c.read(listenControllerProvider);
+      final gap = ctl.playAyahThenPause(const AyahRef(18, 5));
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      engine.advance(const Duration(seconds: 11));
+      await gap;
+      final during = c.read(listenControllerProvider);
+      expect([during.rangeFrom, during.rangeTo, during.repeatTimes], [5, 5, 1]);
+      ctl.restoreRepeat(before);
+      final after = c.read(listenControllerProvider);
+      expect([after.repeat, after.rangeFrom, after.rangeTo, after.repeatTimes], [ListenRepeat.range, 1, 6, 3]);
+    });
+
     test('5 minutes of play is recorded for the day', () async {
       final kv = MemoryKvStore();
       final c = ProviderContainer(overrides: overrides(FakeAudioEngine(), kv));
