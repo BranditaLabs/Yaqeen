@@ -54,12 +54,12 @@ void main() {
       await tester.pumpWidget(harness(Scaffold(body: button(loading: true))));
       expect(
         tester.getSemantics(find.byType(YqButton)),
-        containsSemantics(label: 'تأكيد', value: 'جارٍ التنفيذ', isButton: true, hasEnabledState: true, isEnabled: false),
+        isSemantics(label: 'تأكيد', value: 'جارٍ التنفيذ', isButton: true, hasEnabledState: true, isEnabled: false),
       );
       await tester.pumpWidget(harness(Scaffold(body: button(loading: true)), locale: 'en'));
-      expect(tester.getSemantics(find.byType(YqButton)), containsSemantics(label: 'تأكيد', value: 'Working'));
+      expect(tester.getSemantics(find.byType(YqButton)), isSemantics(label: 'تأكيد', value: 'Working'));
       await tester.pumpWidget(harness(Scaffold(body: button(loading: false))));
-      expect(tester.getSemantics(find.byType(YqButton)), isNot(containsSemantics(value: 'جارٍ التنفيذ')));
+      expect(tester.getSemantics(find.byType(YqButton)), isNot(isSemantics(value: 'جارٍ التنفيذ')));
       handle.dispose();
     });
 
