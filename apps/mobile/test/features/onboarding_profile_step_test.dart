@@ -23,6 +23,7 @@ import 'package:yaqeen/core/storage/kv_store.dart';
 import 'package:yaqeen/core/theme/theme.dart';
 import 'package:yaqeen/core/time/zoned.dart';
 import 'package:yaqeen/core/widgets/liquid_glass.dart';
+import 'package:yaqeen/core/widgets/yq_avatar.dart';
 import 'package:yaqeen/features/onboarding/data/auth_repository.dart';
 import 'package:yaqeen/features/onboarding/presentation/profile_step.dart';
 import 'package:yaqeen/features/profile/data/profile_repository.dart';
@@ -306,6 +307,20 @@ void main() {
     // The join went straight out: nothing for it waits in the Outbox.
     expect((await Outbox(kv).items()).where((i) => i.path == '/v1/me/community'), isEmpty);
     expect(kv.data['consents.v1'], contains('"community":true'));
+  });
+
+  testWidgets("the preview is where everyone starts, never a returning account's live level", (tester) async {
+    await TokenStore(secure).save(access: 'a1', refresh: 'r1');
+    await kv.write(ProfileRepository.meKey, File('test/fixtures/community/me_profile.json').readAsStringSync()); // level 3
+    await open(tester, app(session: google));
+
+    final preview = tester.widget<YqLevelAvatar>(find.byType(YqLevelAvatar));
+    expect(preview.level, 1);
+    expect(preview.progress, 0);
+    expect(preview.achieved, isFalse);
+    expect(preview.levelName, 'بداية الطريق');
+    expect(find.text('بداية الطريق'), findsOneWidget);
+    expect(find.text('مواظب'), findsNothing);
   });
 
   testWidgets('offline join: says a connection is needed, turns the switch off, and lets the person continue', (tester) async {

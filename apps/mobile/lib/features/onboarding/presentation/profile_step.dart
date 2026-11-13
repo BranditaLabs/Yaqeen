@@ -146,7 +146,7 @@ class _ProfileStepState extends ConsumerState<ProfileStep> {
       if (!ok || !ref.read(sessionProvider).canEarnPoints) return;
       // Signed in just now: an empty, untouched field takes the account's first name (never the
       // full Google/Apple name; the league shows what is in this field).
-      if (!_nameTouched && _name.text.trim().isEmpty) _name.text = _initialName();
+      if (!_nameTouched) _name.text = _initialName();
     }
     setState(() {
       _join = true;
@@ -228,7 +228,9 @@ class _ProfileStepState extends ConsumerState<ProfileStep> {
     final picker = ref.watch(photoPickerProvider);
     final current = _picked ?? (profile.photoHidden && profile.avatar is PhotoAvatar ? const InitialAvatar() : profile.avatar);
     final typed = _name.text.trim();
-    final level = profile.level;
+    // The preview is where everyone starts (design §8): level 1 «بداية الطريق», an empty ring —
+    // never the account's live level.
+    final start = levelFor(0);
     final attested = profile.community.attestedAdult;
     // The cached profile can land a moment after the first frame: prefill from it then.
     ref.listen(meProfileProvider, (prev, next) {
@@ -259,13 +261,12 @@ class _ProfileStepState extends ConsumerState<ProfileStep> {
           children: [
             YqLevelAvatar(
               avatar: current,
-              level: level.level,
-              progress: level.progress,
+              level: start.level,
+              progress: 0,
               size: 112,
               stroke: 4,
-              achieved: level.isTop,
               name: typed.isEmpty ? null : typed,
-              levelName: level.name(locale),
+              levelName: start.name(locale),
             ),
             const SizedBox(height: YqSpace.s),
             Text(
@@ -274,7 +275,7 @@ class _ProfileStepState extends ConsumerState<ProfileStep> {
               overflow: TextOverflow.ellipsis,
               style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700, color: typed.isEmpty ? YqColors.muted : YqColors.ink),
             ),
-            Text(level.name(locale), style: text.bodySmall?.copyWith(color: YqColors.muted)),
+            Text(start.name(locale), style: text.bodySmall?.copyWith(color: YqColors.muted)),
           ],
         ),
       ),
