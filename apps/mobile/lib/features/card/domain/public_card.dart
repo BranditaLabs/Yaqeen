@@ -1,5 +1,10 @@
 import 'dart:convert';
 
+import '../../profile/domain/avatar.dart';
+import '../../profile/domain/level.dart';
+
+export '../../profile/domain/level.dart';
+
 /// Public profile card («بطاقة يقين») — mirrors `packages/contracts/src/profile.ts`.
 ///
 /// Opt-in and privacy-first: unpublished until the user says so, only the switched-on fields are
@@ -207,44 +212,7 @@ HandleProblem? handleProblemOf(String raw) {
 }
 
 /* ------------------------------------------------------------------ levels */
-
-class CardLevel {
-  const CardLevel({required this.level, required this.nameAr, required this.nameEn, required this.progress, this.nextAt});
-  final int level;
-  final String nameAr;
-  final String nameEn;
-  final double progress;
-  final int? nextAt;
-
-  String name(String locale) => locale == 'ar' ? nameAr : nameEn;
-}
-
-/// Mirrors `LEVELS` / `levelFor` in contracts: levels from lifetime points.
-const cardLevels = [
-  (0, 'بداية الطريق', 'Setting out'),
-  (500, 'على الطريق', 'On the path'),
-  (2000, 'مواظب', 'Steadfast'),
-  (5000, 'ثابت', 'Unwavering'),
-  (12000, 'راسخ', 'Rooted'),
-  (25000, 'منارة', 'Beacon'),
-];
-
-CardLevel levelFor(int lifetimePoints) {
-  final pts = lifetimePoints < 0 ? 0 : lifetimePoints;
-  var i = 0;
-  while (i + 1 < cardLevels.length && pts >= cardLevels[i + 1].$1) {
-    i++;
-  }
-  final cur = cardLevels[i];
-  final next = i + 1 < cardLevels.length ? cardLevels[i + 1] : null;
-  return CardLevel(
-    level: i + 1,
-    nameAr: cur.$2,
-    nameEn: cur.$3,
-    progress: next == null ? 1 : (pts - cur.$1) / (next.$1 - cur.$1),
-    nextAt: next?.$1,
-  );
-}
+// CardLevel, cardLevels and levelFor live in features/profile/domain/level.dart (re-exported above).
 
 /// The public view (GET /v1/public/profiles/:handle) — what a scanner sees.
 class CardView {
@@ -255,8 +223,12 @@ class CardView {
     required this.challengeOf,
     required this.badges,
     this.timeline,
+    this.avatar = const InitialAvatar(),
   });
   final CardLevel? level;
+
+  /// Drawn inside the public level ring (a photo only after the owner's age attestation).
+  final AvatarRef avatar;
   final int? streak;
   final int? challengeDay;
   final int? challengeOf;
@@ -275,6 +247,7 @@ class CardView {
               nameEn: l['nameEn'] as String,
               progress: (l['progress'] as num).toDouble(),
             ),
+      avatar: j.containsKey('avatar') ? AvatarRef.fromJson(j['avatar']) : const InitialAvatar(),
       streak: (j['streak'] as num?)?.toInt(),
       challengeDay: (c?['day'] as num?)?.toInt(),
       challengeOf: (c?['of'] as num?)?.toInt(),
@@ -329,8 +302,12 @@ class MyJourney {
     required this.challengeDay,
     required this.challengeOf,
     required this.events,
+    this.avatar = const InitialAvatar(),
   });
   final int lifetimePoints;
+
+  /// The caller's own avatar (authed photo paths); initial for servers before migration 0017.
+  final AvatarRef avatar;
   final CardLevel level;
   final int streak;
   final int? challengeDay;
@@ -341,13 +318,8 @@ class MyJourney {
     final l = (j['level'] as Map).cast<String, dynamic>();
     return MyJourney(
       lifetimePoints: (j['lifetimePoints'] as num).toInt(),
-      level: CardLevel(
-        level: (l['level'] as num).toInt(),
-        nameAr: l['nameAr'] as String,
-        nameEn: l['nameEn'] as String,
-        progress: (l['progress'] as num).toDouble(),
-        nextAt: (l['nextAt'] as num?)?.toInt(),
-      ),
+      level: CardLevel.fromJson(l),
+      avatar: AvatarRef.fromJson(j['avatar']),
       streak: (j['streak'] as num?)?.toInt() ?? 0,
       challengeDay: (j['challengeDay'] as num?)?.toInt(),
       challengeOf: (j['challengeOf'] as num?)?.toInt() ?? 365,
