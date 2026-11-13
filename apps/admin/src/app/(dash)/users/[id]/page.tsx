@@ -1,14 +1,14 @@
 import Link from 'next/link';
-import type { AdminCompetitorRow, AdminMe, Avatar as AvatarValue, LedgerEntry } from '@yaqeen/contracts';
+import type { AdminCompetitorRow, AdminMe, Avatar as AvatarValue, LeagueSettings, LedgerEntry } from '@yaqeen/contracts';
 import { ActionForm } from '@/components/action-form';
 import { CompetitorActions } from '@/components/competitor-actions';
 import { Avatar, Badge, Button, Card, CardTitle, Kpi, Notice, PageHeader, Table, Td } from '@/components/ui';
 import { competitionRights } from '@/lib/access';
-import { api } from '@/lib/api';
+import { api, tryApi } from '@/lib/api';
 import { date, dateTime, num } from '@/lib/format';
 import { adjustPoints, setStatus, unpublishCard } from '../actions';
 import { restoreCard } from '../../cards/actions';
-import { DIVISION, USER_STATUS as STATUS } from '@/lib/labels';
+import { USER_STATUS as STATUS, divisionName } from '@/lib/labels';
 import { CompetitorFlags, PhotoHistory, competitorState } from '../../competitions/parts';
 
 interface UserDetail {
@@ -224,7 +224,9 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
 }
 
 /** «المسابقات» on the user page: opt-ins, attestation, division, moderation flags — points only. */
-function CompetitionsCard({ c, canModerate }: { c: NonNullable<UserDetail['competitions']>; canModerate: boolean }) {
+async function CompetitionsCard({ c, canModerate }: { c: NonNullable<UserDetail['competitions']>; canModerate: boolean }) {
+  // The division as marketing named it (the leagues tab uses the same names); defaults on failure.
+  const names = (await tryApi<LeagueSettings>('/admin/competitions/leagues/settings')).data?.divisionNames;
   const yes = (b: boolean) => (b ? 'نعم' : 'لا');
   return (
     <Card>
@@ -247,7 +249,7 @@ function CompetitionsCard({ c, canModerate }: { c: NonNullable<UserDetail['compe
         <dt className="text-muted">أكّد العمر</dt>
         <dd>{yes(c.attestedAdult)}</dd>
         <dt className="text-muted">القسم</dt>
-        <dd>{DIVISION[c.division]}</dd>
+        <dd>{divisionName(c.division, names)}</dd>
         <dt className="text-muted">هذا الأسبوع (لقطة الليلة)</dt>
         <dd>
           {c.currentWeek ? (

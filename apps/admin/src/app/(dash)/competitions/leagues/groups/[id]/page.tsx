@@ -15,6 +15,8 @@ interface GroupView {
   division: number;
   size: number;
   closedAt: string | null;
+  /** The nightly snapshot the open week's ranks come from (servers that send it). */
+  snapshotDay?: string | null;
   rows: (AdminStandingRow & { outcome: 'up' | 'stay' | 'down' | null })[];
 }
 
@@ -27,8 +29,9 @@ export default async function LeagueGroupPage({ params }: { params: Promise<{ id
   const [me, res, settings] = await Promise.all([
     api<AdminMe>('/admin/auth/me'),
     tryApi<GroupView>(`/admin/competitions/leagues/groups/${id}`),
-    api<LeagueSettings>('/admin/competitions/leagues/settings'),
+    tryApi<LeagueSettings>('/admin/competitions/leagues/settings'),
   ]);
+  const names = settings.data?.divisionNames;
   if (res.code === 'not_found' || !res.data) {
     if (res.code === 'not_found') notFound();
     return <Notice tone="red">{res.error ?? 'تعذّر تحميل المجموعة'}</Notice>;
@@ -40,7 +43,7 @@ export default async function LeagueGroupPage({ params }: { params: Promise<{ id
   return (
     <>
       <PageHeader
-        title={`مجموعة ${divisionName(g.division, settings.divisionNames)}`}
+        title={`مجموعة ${divisionName(g.division, names)}`}
         subtitle={`أسبوع ${longDate(new Date(`${g.startsOn}T12:00:00Z`), hijri.get(g.startsOn) ?? null)} · ${num(g.size)} عضو`}
         action={
           <div className="flex items-center gap-3">
@@ -78,7 +81,7 @@ export default async function LeagueGroupPage({ params }: { params: Promise<{ id
             }
           />
         )}
-        <SnapshotLine day={closed ? g.startsOn : undefined} />
+        <SnapshotLine day={closed ? undefined : g.snapshotDay} final={closed} />
       </Card>
     </>
   );

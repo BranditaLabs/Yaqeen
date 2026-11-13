@@ -37,11 +37,16 @@ export function availableActions(s: CompetitorState): CompetitorAction[] {
   return out;
 }
 
-/** Support forms (support / super admin only — callers check the role): each needs an audited reason. */
-export function CompetitorActions({ state, compact = false }: { state: CompetitorState; compact?: boolean }) {
+/**
+ * Support forms (support / super admin only — callers check the role): each needs an audited reason.
+ * `actions` narrows the forms when the caller knows less than a full competitor row.
+ */
+export function CompetitorActions({ state, compact = false, actions }: { state: CompetitorState; compact?: boolean; actions?: readonly CompetitorAction[] }) {
+  const shown = actions ?? availableActions(state);
+  if (shown.length === 0) return null;
   return (
     <div className={`grid gap-3 ${compact ? 'min-w-64' : 'sm:grid-cols-2'}`}>
-      {availableActions(state).map((a) => {
+      {shown.map((a) => {
         const c = ACTIONS[a];
         return (
           <ActionForm key={a} action={competitorAction.bind(null, state.userId, a)} className="space-y-2 rounded-tile border border-line bg-white/60 p-3" success={c.done}>

@@ -7,17 +7,23 @@ import { dateTime, num } from '@/lib/format';
 export const HIDDEN_NAME = 'عضو يقين';
 export const levelName = (level: number) => LEVELS[level - 1]?.ar ?? '';
 
-/** Shared copy under every standings list (design §1.4). */
-export function SnapshotLine({ day }: { day?: string | null }) {
+/**
+ * Shared copy under every standings list (design §1.4). `day`: the snapshot day, null when none was
+ * taken yet, undefined when the endpoint does not say (the line then names no day). `final`: the
+ * results of a closed period, which come from its close, not from a nightly snapshot.
+ */
+export function SnapshotLine({ day, final = false }: { day?: string | null; final?: boolean }) {
+  if (final) return <p className="mt-3 text-xs text-muted">النتائج النهائية عند الإغلاق</p>;
   return (
     <p className="mt-3 text-xs text-muted">
-      يُحدَّث الترتيب كل ليلة{day ? (
+      يُحدَّث الترتيب كل ليلة
+      {day ? (
         <>
           {' '}· آخر لقطة <span className="num">{day}</span>
         </>
-      ) : (
+      ) : day === null ? (
         ' · لم تُلتقط بعد'
-      )}
+      ) : null}
     </p>
   );
 }
@@ -82,11 +88,18 @@ export function StandingsTable({
             <Td>
               <details>
                 <summary className="cursor-pointer text-sm text-lapis">إجراء</summary>
-                <div className="mt-2">
+                <div className="mt-2 space-y-2">
+                  {/* A standings row is the public projection: a null name may be one never set, and
+                      bans or restorable photos are not in it. Offer only the hides it can tell apart;
+                      everything else lives on the user page with the full competitor row. */}
                   <CompetitorActions
                     compact
+                    actions={[...(r.name !== null ? (['hide-name'] as const) : []), ...(r.avatar.kind === 'photo' ? (['hide-photo'] as const) : [])]}
                     state={{ userId: r.userId, nameHidden: r.name === null, photoActive: r.avatar.kind === 'photo', photoRestorable: false, banned: false }}
                   />
+                  <Link href={`/users/${r.userId}`} className="inline-flex min-h-10 items-center text-sm text-lapis">
+                    كل الإجراءات في صفحة المستخدم
+                  </Link>
                 </div>
               </details>
             </Td>
