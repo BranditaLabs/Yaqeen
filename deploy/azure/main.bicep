@@ -489,6 +489,8 @@ var jobs = concat(
   [
     { name: 'yaqeen-migrate', command: ['node', 'dist/db/migrate.js'], cron: '' }
     { name: 'yaqeen-purge', command: ['node', 'dist/jobs/purge-deleted.js'], cron: '17 1 * * *' }
+    // Leagues close, nightly snapshot, tournaments close (hourly; Postgres only, so not behind redisOn).
+    { name: 'yaqeen-community', command: ['node', 'dist/jobs/community.js'], cron: '7 * * * *' }
   ],
   enableCampaigns && redisOn ? [{ name: 'yaqeen-campaigns', command: ['node', 'dist/jobs/campaign-dispatcher.js'], cron: '*/10 * * * *' }] : []
 )
