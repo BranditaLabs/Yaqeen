@@ -31,6 +31,13 @@ export default defineConfig({
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'], baseURL: ADMIN, storageState: '.auth/admin.json', launchOptions: { executablePath } },
     },
+    {
+      // Public card pages after the admin's moderation (a hidden photo must stop being served).
+      name: 'cards',
+      testMatch: /cards\.spec\.ts/,
+      dependencies: ['admin'],
+      use: { ...devices['Pixel 7'], baseURL: API, launchOptions: { executablePath } },
+    },
   ],
   webServer: [
     {
