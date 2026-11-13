@@ -46,16 +46,23 @@ import 'session_controller.dart';
 import 'sign_in_sheet.dart';
 import 'splash_gate.dart';
 
-/// Each step saves as it goes (kill-safe, spec §6.2); `onboardingStep` lets a restart resume.
-void _saveStep(WidgetRef ref, int step) => ref.read(settingsProvider.notifier).update((s) => s.copyWith(onboardingStep: step), sync: false);
+/// Each step saves where it goes before going there (kill-safe, spec §6.2): the route name, which a
+/// restart resumes by (`AppSettings.onboardingRoute`), and its index in [onboardingRoutes].
+Future<void> _saveRoute(WidgetRef ref, String route) => ref
+    .read(settingsProvider.notifier)
+    .update((s) => s.copyWith(onboardingRoute: route, onboardingStep: onboardingRoutes.indexOf(route)), sync: false);
+
+/// Moves onboarding on to [route]: saves it (resume by name), then goes. Every step uses this; no
+/// step hard-codes an index.
+void advanceOnboarding(BuildContext context, WidgetRef ref, String route) {
+  _saveRoute(ref, route).ignore();
+  context.go(route);
+}
 
 /// Back from the step at [index] of [onboardingRoutes] goes to the step before it (spec §5.4
 /// «Back returns to 02»), never to Home. Steps move on with `context.go`, so there is no stack to pop.
-void _backFrom(BuildContext context, WidgetRef ref, int index) {
-  final prev = (index - 1).clamp(0, onboardingRoutes.length - 1);
-  _saveStep(ref, prev);
-  context.go(onboardingRoutes[prev]);
-}
+void _backFrom(BuildContext context, WidgetRef ref, int index) =>
+    advanceOnboarding(context, ref, onboardingRoutes[(index - 1).clamp(0, onboardingRoutes.length - 1)]);
 
 /// The chevron and the system back (Android, iOS edge swipe) both step back through onboarding.
 class _StepBack extends ConsumerWidget {
@@ -119,7 +126,6 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   }
 
   void _next() {
-    _saveStep(ref, 1);
     // From inside the app (challenge, profile) the flow returns; after a sign-out or an ended
     // session it goes home (everything is already set); first launch continues the steps.
     final onboarded = ref.read(settingsProvider).onboarded;
@@ -128,7 +134,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
     } else if (onboarded) {
       context.go('/home');
     } else {
-      context.go('/onboarding/language');
+      advanceOnboarding(context, ref, '/onboarding/language');
     }
   }
 
@@ -253,8 +259,12 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
 
 /* ------------------------------------------------------- step scaffold */
 
-class _Step extends ConsumerWidget {
-  const _Step({
+/// The frame every numbered onboarding step shares (03 … 05·ج): back, the stepper, skip, the
+/// eyebrow and title in the stage, the step's content and its CTA. [step] is also the step's
+/// index in [onboardingRoutes], which Back and the system back use.
+class OnboardingStepFrame extends ConsumerWidget {
+  const OnboardingStepFrame({
+    super.key,
     required this.step,
     required this.title,
     required this.sub,
@@ -262,6 +272,7 @@ class _Step extends ConsumerWidget {
     required this.cta,
     required this.onCta,
     this.onSkip,
+    this.skipLabel,
     this.footer,
     this.ctaLoading = false,
     this.visual,
@@ -274,6 +285,9 @@ class _Step extends ConsumerWidget {
   final String cta;
   final VoidCallback onCta;
   final VoidCallback? onSkip;
+
+  /// Defaults to «تخطي».
+  final String? skipLabel;
   final Widget? footer;
   final bool ctaLoading;
 
@@ -284,7 +298,8 @@ class _Step extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
-    // The stepper's step is also the step's index in [onboardingRoutes] (03 = 1 … 05·ب = 5).
+    // The stepper's step is also the step's index in [onboardingRoutes] (03 = 1 … 05·ج = 6); the
+    // welcome and download screens are outside the stepper, hence `length - 2` dashes.
     return _StepBack(
       index: step,
       child: Scaffold(
@@ -300,12 +315,16 @@ class _Step extends ConsumerWidget {
                   children: [
                     // Equal sides, so the stepper sits on the stage's centre line.
                     SizedBox(width: 64, child: Align(alignment: AlignmentDirectional.centerStart, child: YqBackButton(label: t.back, onPressed: () => _backFrom(context, ref, step)))),
-                    Expanded(child: Center(child: YqStepper(step: step, semanticLabel: t.stepOf(step)))),
-                    SizedBox(width: 64, child: onSkip == null ? null : TextButton(onPressed: onSkip, child: Text(t.skip))),
+                    Expanded(
+                      child: Center(
+                        child: YqStepper(step: step, total: onboardingRoutes.length - 2, semanticLabel: t.stepOf(step)),
+                      ),
+                    ),
+                    SizedBox(width: 64, child: onSkip == null ? null : TextButton(onPressed: onSkip, child: Text(skipLabel ?? t.skip))),
                   ],
                 ),
                 const SizedBox(height: YqSpace.xl),
-                Text(t.stepEyebrow(step), style: YqText.numberSmall.copyWith(color: YqColors.goldText)),
+                Text(t.stepEyebrow(step), style: YqText.numberSmall.copyWith(color: YqColors.muted)),
                 const SizedBox(height: YqSpace.xs),
                 Semantics(
                   header: true,
@@ -344,12 +363,9 @@ class LanguageStep extends ConsumerWidget {
     final s = ref.watch(settingsProvider);
     final ctl = ref.read(settingsProvider.notifier);
     final quran = ref.watch(quranDataProvider).valueOrNull;
-    void next() {
-      _saveStep(ref, 2);
-      context.go('/onboarding/prayer');
-    }
+    void next() => advanceOnboarding(context, ref, '/onboarding/prayer');
 
-    return _Step(
+    return OnboardingStepFrame(
       step: 1,
       title: t.langTitle,
       sub: t.langSub,
@@ -420,7 +436,7 @@ class _RadioCard extends StatelessWidget {
           duration: YqMotion.fast,
           padding: const EdgeInsets.all(YqSpace.m),
           decoration: BoxDecoration(
-            color: selected ? const Color(0xE6FFFFFF) : const Color(0x80FFFFFF),
+            color: YqColors.white.withValues(alpha: selected ? 0.9 : 0.5),
             borderRadius: BorderRadius.circular(YqRadii.tile),
             border: Border.all(color: selected ? YqColors.lapis : YqColors.line, width: selected ? 1.6 : 1),
           ),
@@ -502,7 +518,7 @@ class _PrayerStepState extends ConsumerState<PrayerStep> {
 
     final arc = dayArcAt(s, ref.watch(prayerRepositoryProvider), ref.watch(clockProvider)());
     final times = ref.watch(prayerRepositoryProvider).forDate(s, ref.watch(prayerRepositoryProvider).today(s, ref.watch(clockProvider)()));
-    return _Step(
+    return OnboardingStepFrame(
       step: 2,
       title: t.prayerSetupTitle,
       sub: t.prayerSetupSub,
@@ -536,8 +552,7 @@ class _PrayerStepState extends ConsumerState<PrayerStep> {
       cta: t.continueCta,
       onCta: () {
         if (s.place == null) ctl.update((x) => x.copyWith(place: Place.cairo));
-        _saveStep(ref, 3);
-        context.go('/onboarding/consent');
+        advanceOnboarding(context, ref, '/onboarding/consent');
       },
       children: [
         LiquidGlass(
@@ -661,8 +676,7 @@ class _ConsentStepState extends ConsumerState<ConsentStep> {
     ref.read(remindersControllerProvider.notifier).replan().ignore();
     if (!mounted) return;
     setState(() => _busy = false);
-    _saveStep(ref, 4);
-    context.go('/onboarding/goal');
+    advanceOnboarding(context, ref, '/onboarding/goal');
   }
 
   @override
@@ -677,7 +691,7 @@ class _ConsentStepState extends ConsumerState<ConsentStep> {
       (ConsentKind.adsMeasurement, YqIcons.share, t.consentAds, t.consentAdsDetail),
       (ConsentKind.productAnalytics, YqIcons.settings, t.consentAnalytics, t.consentAnalyticsDetail),
     ];
-    return _Step(
+    return OnboardingStepFrame(
       step: 3,
       title: t.consentTitle,
       sub: t.consentSub,
@@ -723,7 +737,7 @@ class _ConsentStepState extends ConsumerState<ConsentStep> {
         const SizedBox(height: YqSpace.m),
         Container(
           padding: const EdgeInsets.all(YqSpace.m),
-          decoration: BoxDecoration(color: const Color(0x142E7A55), borderRadius: BorderRadius.circular(YqRadii.tile)),
+          decoration: BoxDecoration(color: YqColors.success.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(YqRadii.tile)),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -786,8 +800,7 @@ class _GoalStepState extends ConsumerState<GoalStep> {
     ref.read(remindersControllerProvider.notifier).replan().ignore();
     if (!mounted) return;
     setState(() => _busy = false);
-    _saveStep(ref, 5);
-    context.go('/onboarding/routine');
+    advanceOnboarding(context, ref, '/onboarding/routine');
   }
 
   @override
@@ -798,7 +811,7 @@ class _GoalStepState extends ConsumerState<GoalStep> {
     final config = ref.watch(remoteConfigProvider);
     final goals = [(1, t.goalPage), (2, t.goalTwoPages), (4, t.goalFourPages), (20, t.goalJuz)];
 
-    return _Step(
+    return OnboardingStepFrame(
       step: 4,
       title: t.goalTitle,
       sub: t.goalSub,
@@ -867,15 +880,14 @@ class RoutineStep extends ConsumerWidget {
     final hifz = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.hifz)));
     void set(AppSettings Function(AppSettings) f) => ref.read(settingsProvider.notifier).update(f, sync: false);
 
-    return _Step(
+    return OnboardingStepFrame(
       step: 5,
       title: t.routineTitle,
       sub: t.routineSub,
       cta: t.routineCta,
       onCta: () {
         ref.read(remindersControllerProvider.notifier).replan().ignore();
-        _saveStep(ref, 6);
-        context.go('/onboarding/download');
+        advanceOnboarding(context, ref, '/onboarding/profile');
       },
       children: [
         HabitSlotCard(
@@ -934,7 +946,7 @@ class _Stat extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(vertical: YqSpace.s, horizontal: YqSpace.m),
-        decoration: BoxDecoration(color: const Color(0x80FFFFFF), borderRadius: BorderRadius.circular(YqRadii.chip)),
+        decoration: BoxDecoration(color: YqColors.white.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(YqRadii.chip)),
         child: Text(label, textAlign: TextAlign.center, style: YqText.numberSmall.copyWith(color: YqColors.goldDeep)),
       );
 }
@@ -1076,8 +1088,16 @@ class _RecitationRow extends ConsumerWidget {
       final list = next.valueOrNull;
       if (list != null) ref.read(downloadsControllerProvider.notifier).refresh(list);
     });
-    // The catalogue's first reciter is the app's default (as in the listen player).
-    final reciter = ref.watch(recitersProvider).valueOrNull?.firstOrNull;
+    // The catalogue's first reciter is the app's default (as in the listen player). While the
+    // catalogue loads the row is a shaped skeleton; an empty or failed catalogue shows no row.
+    final reciters = ref.watch(recitersProvider);
+    if (reciters.isLoading && !reciters.hasValue) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: YqSpace.xs),
+        child: YqSkeleton(child: YqSkeletonBox(height: 44, radius: YqRadii.chip)),
+      );
+    }
+    final reciter = reciters.valueOrNull?.firstOrNull;
     if (reciter == null) return const SizedBox.shrink();
     final d = ref.watch(downloadsControllerProvider)[reciter.id] ?? const ReciterDownload();
     final label = t.downloadAudio(reciter.name(locale));

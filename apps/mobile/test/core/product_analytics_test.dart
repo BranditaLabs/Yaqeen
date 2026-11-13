@@ -75,6 +75,26 @@ void main() {
     expect(ProductEvent.onboardingStep.allows({'step': 'consent', 'surah': '18'}), isFalse);
   });
 
+  test('the onboarding profile step (05·ج) is a tracked screen name, like every other step', () async {
+    final store = MemoryKvStore();
+    final a = make(store);
+    expect(ProductEvent.onboardingStep.allows({'step': 'profile'}), isTrue);
+    online = false;
+    final r = RouteTracker(a);
+    for (final p in ['/onboarding/routine', '/onboarding/profile', '/onboarding/download']) {
+      r.onLocation(p);
+    }
+    await Future<void>.delayed(Duration.zero);
+    online = true;
+    await a.flush();
+    final events = [for (final e in sent.single['events'] as List) '${(e as Map)['name']} ${jsonEncode(e['props'])}'];
+    expect(events, [
+      'onboarding_step {"step":"routine"}',
+      'onboarding_step {"step":"profile"}',
+      'onboarding_step {"step":"download"}',
+    ]);
+  });
+
   test('withdrawing consent deletes the queue and the install id', () async {
     final store = MemoryKvStore();
     final a = make(store);

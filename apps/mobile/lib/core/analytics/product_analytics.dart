@@ -14,7 +14,7 @@ import '../storage/kv_store.dart';
 enum ProductEvent {
   appOpen('app_open', {}),
   onboardingStep('onboarding_step', {
-    'step': {'welcome', 'language', 'prayer', 'consent', 'goal', 'routine', 'download'},
+    'step': {'welcome', 'language', 'prayer', 'consent', 'goal', 'routine', 'profile', 'download'},
   }),
   onboardingComplete('onboarding_complete', {}),
   signIn('sign_in', {
