@@ -2,7 +2,37 @@ import { createHmac } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-export type Fixture = { email: string; password: string; totpSecret: string; handle: string; tagCode: string };
+type Member = { id: string; handle: string; name: string; photoId?: string };
+
+export type Fixture = {
+  email: string;
+  password: string;
+  totpSecret: string;
+  handle: string;
+  tagCode: string;
+  /** Cairo calendar day the database was prepared on. */
+  today: string;
+  /** Session tokens for staff in the other roles (the super admin signs in through the form). */
+  tokens: { marketing: string; support: string; content_editor: string };
+  /** Opted in, attested, preset m03, in the tournament, the league group and the level board. */
+  runner: Member;
+  /** Support removed this member's photo a day ago. */
+  removed: Member & { photoId: string };
+  /** Published card with an active, attested photo and an open report. */
+  pictured: Member & { photoId: string };
+  tournamentId: string;
+  groupId: string;
+};
+
+export const ADMIN_URL = 'http://localhost:3100';
+export const API_URL = 'http://localhost:4100';
+
+/** A browser context signed in as another staff role (cookie as the login action sets it). */
+export async function staffContext(browser: import('@playwright/test').Browser, token: string) {
+  const context = await browser.newContext({ baseURL: ADMIN_URL, locale: 'ar-EG' });
+  await context.addCookies([{ name: 'yq_admin', value: token, url: ADMIN_URL, httpOnly: true, sameSite: 'Strict' }]);
+  return context;
+}
 
 export const fixture = (): Fixture => JSON.parse(readFileSync(join(import.meta.dirname, '..', '.auth', 'fixture.json'), 'utf8')) as Fixture;
 

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { AdminCardRow, AdminMe, CardMetric, CardsSettings, CardsStats } from '@yaqeen/contracts';
 import { ActionForm } from '@/components/action-form';
 import { Bar, LineChart } from '@/components/charts';
-import { Badge, Button, Card, CardTitle, Kpi, Notice, PageHeader, Table, Td } from '@/components/ui';
+import { Avatar, Badge, Button, Card, CardTitle, Kpi, Notice, PageHeader, Table, Td } from '@/components/ui';
 import { api } from '@/lib/api';
 import { date, num } from '@/lib/format';
 import { moderateCard, releaseHandle, restoreCard, saveCardSettings } from './actions';
@@ -87,11 +87,16 @@ async function Directory({ q, canModerate }: { q: { search?: string; status?: st
           {list.items.map((c) => (
             <tr key={c.userId}>
               <Td>
-                <p className="font-medium">{c.displayName}</p>
-                <a href={c.url} target="_blank" rel="noreferrer" dir="ltr" className="num text-xs text-lapis">
-                  @{c.handle}
-                </a>
-                {c.bio && <p className="mt-1 max-w-80 truncate text-xs text-muted">{c.bio}</p>}
+                <div className="flex items-start gap-3">
+                  <Avatar avatar={c.avatar} name={c.displayName} size={36} photos={canModerate} />
+                  <div className="min-w-0">
+                    <p className="font-medium">{c.displayName}</p>
+                    <a href={c.url} target="_blank" rel="noreferrer" dir="ltr" className="num text-xs text-lapis">
+                      @{c.handle}
+                    </a>
+                    {c.bio && <p className="mt-1 max-w-80 truncate text-xs text-muted">{c.bio}</p>}
+                  </div>
+                </div>
               </Td>
               <Td>
                 {c.moderated ? (
