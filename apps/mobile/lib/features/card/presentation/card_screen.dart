@@ -518,7 +518,10 @@ class _CardPreview extends ConsumerWidget {
     final ink = night ? YqColors.white : YqColors.ink;
     final muted = night ? YqColors.navy200 : YqColors.muted;
     final me = ref.watch(meProfileProvider).valueOrNull;
-    final avatar = me == null || (me.photoHidden && me.avatar is PhotoAvatar) ? const InitialAvatar() : me.avatar;
+    // What visitors see: a photo only once the age is attested (and not hidden by support); until
+    // then the public page falls back, so the preview does too (the attestation row explains why).
+    final photoPrivate = me != null && me.avatar is PhotoAvatar && (me.photoHidden || !me.community.attestedAdult);
+    final avatar = me == null || photoPrivate ? const InitialAvatar() : me.avatar;
 
     final chips = <Widget>[
       if (card.show.streak && view?.streak != null) _Stat(value: view!.streak!, label: t.cardShowStreak, night: night),
@@ -903,7 +906,7 @@ class _MedalsOrb extends ConsumerWidget {
       glow: n > 0,
       statusColor: n > 0 ? YqColors.goldText : null,
       onTap: onTap,
-      semanticLabel: '${t.cardMedals}، $status',
+      semanticLabel: t.pfSemanticsJoin(t.cardMedals, status),
       disc: Center(child: _NfcGlyph(size: 46, color: n > 0 ? YqColors.goldDeep : YqColors.lapis)),
     );
   }

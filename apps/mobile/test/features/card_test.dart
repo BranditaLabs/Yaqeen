@@ -373,10 +373,13 @@ void main() {
       await tester.pumpWidget(harness(const CardScreen(), kv: kv, overrides: await overrides()));
       await settle(tester);
       expect(find.text('لإظهار صورتك في البطاقة'), findsOneWidget);
+      // Visitors don't see the photo until the age is attested, so neither does the preview.
+      expect(tester.widget<YqLevelAvatar>(find.byType(YqLevelAvatar)).avatar, const InitialAvatar());
       await tester.tap(find.descendant(of: find.byKey(const ValueKey('card-attest')), matching: find.byType(YqSwitch)));
       await settle(tester);
       expect(requests.where((r) => r.method == 'POST' && r.url.path == '/v1/me/attestation'), hasLength(1));
       expect(find.byKey(const ValueKey('card-attest')), findsNothing);
+      expect(tester.widget<YqLevelAvatar>(find.byType(YqLevelAvatar)).avatar, isA<PhotoAvatar>());
     });
 
     testWidgets('a bad handle blocks saving and says why', (tester) async {
