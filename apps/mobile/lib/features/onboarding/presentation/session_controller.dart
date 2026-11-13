@@ -9,7 +9,10 @@ import '../../../core/network/api_client.dart';
 import '../../../core/offline/outbox.dart';
 import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
+import '../../../core/widgets/yq_avatar.dart';
 import '../../backup/data/backup_engine.dart';
+import '../../profile/data/profile_repository.dart';
+import '../../quran/data/session_store.dart';
 import '../data/auth_repository.dart';
 import '../data/consent_repository.dart';
 
@@ -28,6 +31,13 @@ class SessionController extends Notifier<Session> {
     // Settings chosen before the account existed reach the server too.
     final s = ref.read(settingsProvider);
     await ref.read(settingsRepositoryProvider).save(s);
+    // The name and picture a guest chose on this phone reach the account (only what they changed;
+    // the server's values win otherwise). Never fails sign-in: offline keeps the flags for later.
+    try {
+      await ref.read(profileRepositoryProvider).pushAfterSignIn();
+    } on Object {
+      // best effort
+    }
     ref.read(outboxSyncProvider).flush().ignore();
   }
 
@@ -115,14 +125,15 @@ class SessionController extends Notifier<Session> {
   Future<bool> expire() async {
     if (!state.signedIn || state.pendingServer) return false;
     await _repo.forget();
-    await _forgetAccountCaches();
+    // The UI signs out at once: the profile's photo files are removed in the background.
+    await _forgetAccountCaches(awaitFiles: false);
     state = Session.none;
     return true;
   }
 
   static bool _accountScoped(OutboxItem i) => i.path.startsWith('/v1/me/') || i.path.startsWith('/v1/challenge/');
 
-  Future<void> _forgetAccountCaches() async {
+  Future<void> _forgetAccountCaches({bool awaitFiles = true}) async {
     final kv = ref.read(kvStoreProvider);
     for (final key in ['cache.rewards', 'cache.redemptions', ...BackupEngine.storageKeys]) {
       await kv.delete(key);
@@ -131,14 +142,37 @@ class SessionController extends Notifier<Session> {
     // The cloud backup belongs to the account: the next account on this phone decides for itself
     // (the server copy and the consent record stay with this one).
     await ref.read(consentRepositoryProvider).adopt(ConsentKind.cloudBackup, false);
+    // So do the profile (name, picture, level cache) and the competitions it joined.
+    await _forgetProfile(awaitFiles: awaitFiles);
+  }
+
+  /// Profile and community caches, photo files and the `community` consent on this phone. The
+  /// cached keys always go before the session changes (so no screen paints the old profile);
+  /// [awaitFiles] false leaves the photo files to finish in the background.
+  Future<void> _forgetProfile({bool awaitFiles = true}) async {
+    final kv = ref.read(kvStoreProvider);
+    for (final key in ProfileRepository.wipedKeys) {
+      await kv.delete(key);
+    }
+    YqAvatar.clearMemoryCache();
+    await ref.read(consentRepositoryProvider).adopt(ConsentKind.community, false);
+    final files = ref.read(profileRepositoryProvider).wipe();
+    if (awaitFiles) {
+      await files;
+    } else {
+      files.ignore();
+    }
   }
 
   /// `DELETE /v1/me`, then wipes everything on this device (spec §5.24): tokens, caches, the local
-  /// worship store and onboarding — the next start is a first launch.
+  /// worship store, the profile, the Quran session and onboarding — the next start is a first launch.
+  /// (Sign-out keeps the Quran session like other on-device Quran data.)
   Future<void> deleteAccount() async {
     await _repo.deleteAccount();
     await ref.read(socialAuthProvider).signOut();
+    await _forgetProfile();
     final kv = ref.read(kvStoreProvider);
+    await QuranSessionStore.wipe(kv);
     for (final key in [
       'cache.challenge.summary', 'cache.rewards', 'cache.redemptions', 'cache.content', 'cache.dailyTask', //
       'consents.v1', 'consents.pending.v1', 'consents.decided', 'analytics.pending.v1', 'outbox.v1',
