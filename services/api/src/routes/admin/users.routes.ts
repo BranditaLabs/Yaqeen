@@ -11,6 +11,7 @@ import { badRequest, notFound } from '../../lib/errors.js';
 import { DELETION_GRACE_DAYS, exportUser } from '../public/me.routes.js';
 import { adminOf } from '../../plugins/auth.js';
 import { moderateCard } from './cards.routes.js';
+import { competitor } from './competitions.routes.js';
 
 export const adminUsersRoutes: FastifyPluginAsync = async (app) => {
   const { db } = app.ctx;
@@ -109,8 +110,30 @@ export const adminUsersRoutes: FastifyPluginAsync = async (app) => {
       // The public card's identity only (what anyone scanning it already sees) — for moderation.
       publicProfile: card ? { ...card, url: `${app.ctx.env.PUBLIC_PROFILE_BASE_URL.replace(/\/$/, '')}/u/${card.handle}` } : null,
       tags: tagRows.map((t) => ({ code: t.code, kind: t.kind, scans: t.scans, linkedAt: t.linkedAt, active: !t.disabledAt })),
+      ...(await competitionsSummary(id)),
     };
   });
+
+  /**
+   * The avatar and «المسابقات» card of the user detail: opt-ins (incl. the country board), the 18+
+   * attestation, division, moderation flags and open reports — never which prayers or azkar.
+   */
+  async function competitionsSummary(id: string) {
+    const row = await competitor(db, id, app.ctx.now());
+    const league = await db.execute<{ division: number; snapshot_rank: number | null; snapshot_points: number | null }>(sql`
+      select m.division, m.snapshot_rank, m.snapshot_points from league_members m join league_weeks w on w.starts_on = m.starts_on
+      where m.user_id = ${id} and w.status = 'open' and m.left_at is null order by m.starts_on desc limit 1`);
+    const badges = await db.execute<{ n: number }>(sql`select count(*)::int as n from user_badges where user_id = ${id}`);
+    return {
+      avatar: row.avatar,
+      competitions: {
+        ...row,
+        country: (await db.select({ c: users.country }).from(users).where(eq(users.id, id)))[0]?.c ?? null,
+        currentWeek: league.rows[0] ? { division: Number(league.rows[0].division), rank: league.rows[0].snapshot_rank, points: league.rows[0].snapshot_points } : null,
+        badges: Number(badges.rows[0]?.n ?? 0),
+      },
+    };
+  }
 
   /**
    * PDPL access request handled by support: account, consents, ledger, redemptions.

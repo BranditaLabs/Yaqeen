@@ -5,9 +5,12 @@
  * worship detail — the level comes from lifetime points, the streak is a number of days, badges are
  * the streak milestones reached. A guest cannot publish (the card would vanish with the device).
  */
-import { and, eq, gt, isNull, like, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNull, like, sql } from 'drizzle-orm';
 import {
+  type Avatar,
   type JourneyEvent,
+  LEVEL_REASONS,
+  type MeProfile,
   type MyJourney,
   JOURNEY_DAYS,
   LEVELS,
@@ -15,15 +18,22 @@ import {
   type PublicProfileUpdate,
   type PublicProfileView,
   PROFILE_HANDLE,
+  type UpdateProfileRequest,
   levelFor,
 } from '@yaqeen/contracts';
 import type { AppContext } from '../context.js';
 import { challengeEnrollments, pointsLedger, publicProfiles, users } from '../db/schema.js';
+import { weekWindow } from '../domain/community.js';
 import { addDays } from '../domain/points.js';
-import { conflict, forbidden, badRequest } from '../lib/errors.js';
+import { conflict, forbidden, badRequest, notFound } from '../lib/errors.js';
+import { ownAvatar, setAvatar } from './avatar.service.js';
+import { listBadges } from './badges.service.js';
 import * as stats from './card-stats.service.js';
 import { cardFeatureOn, isReservedHandle } from './cards-settings.service.js';
 import * as challenge from './challenge.service.js';
+import { type CommunityCtx, featureOn } from './community-settings.service.js';
+import { type AvatarColumns, avatarOf, avatarUrl, checkDisplayName, photoPublicSql, readSettings } from './community.service.js';
+import * as leagues from './leagues.service.js';
 
 const DEFAULT_SHOW = { level: true, streak: false, challengeDay: false, badges: false, memberSince: false, timeline: false };
 
@@ -55,15 +65,17 @@ export async function handleAvailable(ctx: AppContext, handle: string, uid?: str
 export async function settings(ctx: AppContext, uid: string): Promise<PublicProfileSettings> {
   const [row] = await ctx.db.select().from(publicProfiles).where(eq(publicProfiles.userId, uid));
   if (row) {
+    // A competitor handle (`omar-5521`, `member-x7k2p9`) isn't a card handle: suggest one to publish with.
+    const handle = PROFILE_HANDLE.test(row.handle) ? row.handle : await suggestHandle(ctx, row.displayName, uid);
     return {
       published: row.published,
-      handle: row.handle,
+      handle,
       displayName: row.displayName,
       bio: row.bio,
       links: row.links as PublicProfileSettings['links'],
       show: { ...DEFAULT_SHOW, ...row.show },
       theme: row.theme as PublicProfileSettings['theme'],
-      url: profileUrl(ctx, row.handle),
+      url: profileUrl(ctx, handle),
       views: row.views,
       moderated: row.moderatedAt !== null,
     };
@@ -155,8 +167,8 @@ export async function publicView(ctx: AppContext, handle: string): Promise<Publi
 
   let level: PublicProfileView['level'] = null;
   if (show.level) {
-    // Lifetime earned points: spending on rewards never lowers the level.
-    const l = levelFor(await lifetimePoints(ctx, uid));
+    // The nightly public snapshot of lifetime earned points (never live; spending never lowers it).
+    const l = levelFor(await publicLifetime(ctx, uid));
     level = { level: l.level, nameAr: l.nameAr, nameEn: l.nameEn, progress: l.progress };
   }
 
@@ -194,17 +206,41 @@ export async function publicView(ctx: AppContext, handle: string): Promise<Publi
     badges,
     memberSince: show.memberSince ? row.createdAt.toISOString().slice(0, 10) : null,
     timeline,
+    avatar: await publicAvatarOf(ctx, uid),
   };
+}
+
+/** The avatar a scanner sees: a photo only when it is publicly servable, else the preset or initial. */
+export async function publicAvatarOf(ctx: Pick<CommunityCtx, 'db' | 'env'>, uid: string): Promise<Avatar> {
+  const r = await ctx.db.execute<AvatarColumns & { photo_ok: boolean }>(sql`
+    select u.avatar_kind, u.avatar_preset, u.avatar_photo_id, ${photoPublicSql()} as photo_ok
+    from users u
+    left join avatar_photos ap on ap.id = u.avatar_photo_id
+    left join community_members cm on cm.user_id = u.id
+    where u.id = ${uid}`);
+  const row = r.rows[0];
+  if (!row) return { kind: 'initial' };
+  return avatarOf(row, row.photo_ok, (id) => ({ url: avatarUrl(ctx, id, 256), smallUrl: avatarUrl(ctx, id, 96) }));
+}
+
+/** `user_point_totals.public_lifetime` — every public level ring reads this nightly snapshot. */
+export async function publicLifetime(ctx: Pick<CommunityCtx, 'db'>, uid: string): Promise<number> {
+  const r = await ctx.db.execute<{ pts: number }>(sql`
+    select coalesce((select public_lifetime from user_point_totals where user_id = ${uid}), 0)::int as pts`);
+  return Number(r.rows[0]?.pts ?? 0);
 }
 
 /* ------------------------------------------------------------------ journey */
 
-/** Lifetime earned points (positive ledger rows): spending never lowers a level. */
-async function lifetimePoints(ctx: AppContext, uid: string): Promise<number> {
+/**
+ * Lifetime earned points — the caller's own, live: positive ledger rows with a `LEVEL_REASONS`
+ * reason. Spending never lowers a level and a reversal (e.g. a failed redemption) never raises it.
+ */
+export async function lifetimePoints(ctx: Pick<CommunityCtx, 'db'>, uid: string): Promise<number> {
   const [sum] = await ctx.db
     .select({ pts: sql<number>`coalesce(sum(${pointsLedger.delta}), 0)::int` })
     .from(pointsLedger)
-    .where(and(eq(pointsLedger.userId, uid), gt(pointsLedger.delta, 0)));
+    .where(and(eq(pointsLedger.userId, uid), gt(pointsLedger.delta, 0), inArray(pointsLedger.reason, [...LEVEL_REASONS])));
   return sum?.pts ?? 0;
 }
 
@@ -238,6 +274,7 @@ export async function journeyEvents(ctx: AppContext, uid: string): Promise<Journ
                sum(${pointsLedger.delta}) over (order by ${pointsLedger.createdAt}, ${pointsLedger.id}) as cum
         from ${pointsLedger}
         where ${pointsLedger.userId} = ${uid} and ${pointsLedger.delta} > 0
+          and ${pointsLedger.reason}::text in (${sql.raw(LEVEL_REASONS.map((r) => `'${r}'`).join(', '))})
       )
       select t.min, (select min(at) from earned where cum >= t.min) as reached
       from unnest(${sql.raw(`array[${thresholds.join(',')}]`)}::int[]) as t(min)`);
@@ -273,7 +310,83 @@ export async function myJourney(ctx: AppContext, uid: string): Promise<MyJourney
     challengeDay: summary.enrolled ? summary.dayNumber : null,
     challengeOf: summary.challengeLengthDays,
     events,
+    avatar: await ownAvatar(ctx.db, uid),
   };
+}
+
+/* ---------------------------------------------------------------- my profile */
+
+/**
+ * GET /v1/me/profile — the caller only: name, @handle, own avatar (authed photo paths), the live
+ * level and this week's live points, community switches, the league summary (placing the member in
+ * this week's group when opted in) and recent badges.
+ */
+export async function meProfile(ctx: CommunityCtx, uid: string): Promise<MeProfile> {
+  const r = await ctx.db.execute<{
+    display_name: string | null;
+    name_hidden: boolean;
+    photo_locked: boolean;
+    photo_public: boolean | null;
+    handle: string | null;
+  }>(sql`
+    select u.display_name, (u.name_hidden_at is not null) as name_hidden, (u.photo_locked_at is not null) as photo_locked,
+      (u.avatar_kind = 'photo' and ${photoPublicSql()}) as photo_public,
+      (select p.handle from public_profiles p where p.user_id = u.id) as handle
+    from users u
+    left join avatar_photos ap on ap.id = u.avatar_photo_id
+    left join community_members cm on cm.user_id = u.id
+    where u.id = ${uid}`);
+  const u = r.rows[0];
+  if (!u) throw notFound('user');
+  const week = weekWindow(ctx.now());
+  const [avatar, pts, weekPoints, community, badges] = await Promise.all([
+    ownAvatar(ctx.db, uid),
+    lifetimePoints(ctx, uid),
+    leagues.livePoints(ctx.db, uid, week.startsOn, addDays(week.startsOn, 7)),
+    readSettings(ctx.db, uid),
+    listBadges(ctx, uid),
+  ]);
+  const league = community.leagues && !community.banned && (await featureOn(ctx, 'leagues')) ? await leagues.summary(ctx, uid) : null;
+  const l = levelFor(pts);
+  return {
+    displayName: u.display_name,
+    nameHidden: u.name_hidden,
+    handle: u.handle,
+    avatar,
+    photoHidden: u.photo_locked,
+    photoPublic: u.photo_public === true,
+    level: { level: l.level, nameAr: l.nameAr, nameEn: l.nameEn, progress: l.progress, nextAt: l.nextAt },
+    lifetimePoints: pts,
+    weekPoints,
+    community,
+    league,
+    recentBadges: badges.slice(0, 12),
+    badgesCount: badges.length,
+  };
+}
+
+/** PATCH /v1/me/profile — name and preset/initial avatar (a photo goes through PUT /v1/me/avatar/photo). */
+export async function updateMe(ctx: CommunityCtx, uid: string, isGuest: boolean, body: UpdateProfileRequest): Promise<MeProfile> {
+  if (isGuest) throw forbidden('account_required', 'Sign in to save your profile');
+  const now = ctx.now();
+  await ctx.db.transaction(async (tx) => {
+    const [u] = await tx
+      .select({ isGuest: users.isGuest, nameHiddenAt: users.nameHiddenAt })
+      .from(users)
+      .where(eq(users.id, uid))
+      .for('update');
+    if (!u) throw notFound('user');
+    if (u.isGuest) throw forbidden('account_required', 'Sign in to save your profile');
+    if (body.displayName !== undefined) {
+      if (u.nameHiddenAt) throw conflict('name_locked', 'Support hid this name');
+      await checkDisplayName(ctx, body.displayName);
+      await tx.update(users).set({ displayName: body.displayName.trim(), updatedAt: now }).where(eq(users.id, uid));
+    }
+    if (body.avatar) await setAvatar(tx, uid, body.avatar, now);
+  });
+  await ctx.cache.bumpNamespace('community');
+  await ctx.cache.bumpNamespace('profile');
+  return meProfile(ctx, uid);
 }
 
 /** One page open (bots excluded by the caller). A counter only — nothing about the visitor. */

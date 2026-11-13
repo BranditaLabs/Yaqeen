@@ -9,6 +9,7 @@ import { badRequest, conflict, unauthorized } from '../../lib/errors.js';
 import { opaqueToken, sha256 } from '../../lib/crypto.js';
 import { ACCESS_TTL_SEC, REFRESH_TTL_DAYS, signUserToken } from '../../lib/tokens.js';
 import { userId } from '../../plugins/auth.js';
+import { recomputeCommunityConsent } from '../../services/community.service.js';
 
 export const authRoutes: FastifyPluginAsync = async (app) => {
   const { db, env } = app.ctx;
@@ -52,8 +53,12 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     if (existing) {
       if (existing.status === 'suspended' || existing.status === 'deleted') throw unauthorized('account_suspended');
       if (existing.status === 'deletion_requested') {
-        // Signing in again within the grace period cancels the erasure request.
-        await db.update(users).set({ status: 'active', deletionRequestedAt: null, updatedAt: app.ctx.now() }).where(eq(users.id, existing.id));
+        // Signing in again within the grace period cancels the erasure request. The user stays out of
+        // competitions until they opt in again, and a removed photo stays removed (design §1.3).
+        await db.transaction(async (tx) => {
+          await tx.update(users).set({ status: 'active', deletionRequestedAt: null, updatedAt: app.ctx.now() }).where(eq(users.id, existing.id));
+          await recomputeCommunityConsent(tx, existing.id, 'erasure');
+        });
       }
       return issueSession(existing);
     }
@@ -121,6 +126,14 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
           { userId: existing.id, delta: points, reason: 'grant', refKey: `merge:${guestId}`, note: 'Points from guest session' },
         ]);
       }
+      // The guest's earned days follow the points (summing on a shared day) so this week's and a
+      // tournament's points keep counting; the `grant` above is not an EARNED reason, so nothing is
+      // counted twice — it only raises the level (LEVEL_REASONS). Same as yq_rebuild_points_rollups().
+      await tx.execute(sql`
+        insert into points_earned_daily (user_id, day, earned)
+        select ${existing.id}, day, earned from points_earned_daily where user_id = ${guestId}
+        on conflict (user_id, day) do update set earned = points_earned_daily.earned + excluded.earned`);
+      await tx.execute(sql`delete from points_earned_daily where user_id = ${guestId}`);
       await tx.update(users).set({ mergedInto: existing.id, updatedAt: app.ctx.now() }).where(eq(users.id, guestId));
       await tx.update(refreshTokens).set({ revokedAt: app.ctx.now() }).where(and(eq(refreshTokens.userId, guestId), isNull(refreshTokens.revokedAt)));
       await tx.insert(auditLog).values({ actorUserId: guestId, action: 'auth.link', targetType: 'user', targetId: existing.id, after: { provider: body.provider, merged: true, points }, ip: req.ip });

@@ -14,8 +14,12 @@ import { cacheLookups } from './metrics.js';
 import { createHash } from 'node:crypto';
 import type { Redis } from 'ioredis';
 
-/** `quran` = Quran Foundation audio/timings/tafsir (≤ 24 h; never bumped by admin writes). */
-export type CacheNamespace = 'config' | 'content' | 'calendar' | 'catalogue' | 'profile' | 'quran';
+/**
+ * `quran` = Quran Foundation audio/timings/tafsir (≤ 24 h; never bumped by admin writes).
+ * `community` = league groups, tournament standings and level boards — shared snapshot rows only;
+ * per-caller parts (me, blocks, live points) are applied after the cached read.
+ */
+export type CacheNamespace = 'config' | 'content' | 'calendar' | 'catalogue' | 'profile' | 'quran' | 'community';
 
 const L1_TTL_MS = 5_000;
 const L1_MAX = 500;

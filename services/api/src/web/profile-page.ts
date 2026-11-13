@@ -207,6 +207,20 @@ function cta(lang: PageLang, links: PageLinks): string {
 </section>`;
 }
 
+/**
+ * The avatar drawn inside the public level ring: a photo only when the API already decided it is
+ * publicly servable (https URL), a bundled preset, or null for the initial.
+ */
+export function avatarImg(avatar: PublicProfileView['avatar'], alt: string): string | null {
+  if (!avatar || avatar.kind === 'initial') return null;
+  if (avatar.kind === 'preset') {
+    if (!/^[mf]0[1-8]$/.test(avatar.id)) return null;
+    return `<img class="avatar" src="/u/assets/avatars/${avatar.id}.webp" width="104" height="104" alt="${alt}" decoding="async">`;
+  }
+  if (!/^https:\/\//.test(avatar.url)) return null;
+  return `<img class="avatar" src="${escapeHtml(avatar.url)}" width="104" height="104" alt="${alt}" decoding="async" referrerpolicy="no-referrer">`;
+}
+
 export function renderProfilePage(view: PublicProfileView, lang: PageLang, links: PageLinks): string {
   const t = COPY[lang];
   const name = escapeHtml(view.displayName);
@@ -255,7 +269,7 @@ export function renderProfilePage(view: PublicProfileView, lang: PageLang, links
       : '';
 
   const body = `<section class="card rise" style="--d:1">
-<div class="medallion">${level ? ring(level.progress) : ''}<span class="initial">${initial}</span></div>
+<div class="medallion">${level ? ring(level.progress) : ''}${avatarImg(view.avatar, name) ?? `<span class="initial">${initial}</span>`}</div>
 <h1>${name}</h1>
 <p class="handle" dir="ltr">@${escapeHtml(view.handle)}</p>
 ${level ? `<p class="level"><i class="diamond"></i>${escapeHtml(lang === 'ar' ? level.nameAr : level.nameEn)} · ${t.level(level.level).replace(String(level.level), n(level.level))}</p>` : ''}
@@ -336,6 +350,7 @@ main{position:relative;max-width:460px;margin:0 auto;padding:calc(env(safe-area-
 .initial{width:104px;height:104px;border-radius:50%;display:grid;place-items:center;font-family:Amiri,serif;font-weight:700;font-size:48px;color:#fff;background:linear-gradient(180deg,#576FAF,#1F3F94);border:3px solid rgba(255,255,255,.95);box-shadow:0 18px 34px -16px rgba(31,63,148,.7)}
 .theme-gold .initial{background:linear-gradient(180deg,#D4BE8D,#7C6127)}
 .medallion.empty .initial{background:linear-gradient(180deg,#C8D5EC,#8F9FCA)}
+.avatar{position:relative;width:104px;height:104px;border-radius:50%;object-fit:cover;background:#EEF2FA;border:3px solid rgba(255,255,255,.95);box-shadow:0 18px 34px -16px rgba(31,63,148,.7)}
 h1{font-family:Amiri,Tajawal,serif;font-size:32px;line-height:1.25;font-weight:700;letter-spacing:.2px}
 .handle{margin-top:4px;color:var(--muted);font-family:Jost,sans-serif;font-size:14px;letter-spacing:.3px}
 .level{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:7px 14px;border-radius:999px;font-size:13px;font-weight:700;color:var(--goldText);background:rgba(233,212,158,.35);border:1px solid rgba(198,168,103,.45)}

@@ -17,7 +17,10 @@ import * as profile from '../../services/profile.service.js';
 import * as tags from '../../services/tags.service.js';
 import * as cardStats from '../../services/card-stats.service.js';
 import { cardFeatureOn, readCardsSettings, storeUrl } from '../../services/cards-settings.service.js';
+import * as avatar from '../../services/avatar.service.js';
 import { BRAND_PNG } from '../../web/brand-assets.js';
+import { AVATAR_WEBP } from '../../web/avatar-assets.js';
+import { sendPhoto } from './me.routes.js';
 import { type PageLang, pickLang, renderActivatePage, renderNotFoundPage, renderProfilePage, type PageLinks } from '../../web/profile-page.js';
 
 const HandleParam = z.object({ handle: z.string().min(1).max(40) });
@@ -121,6 +124,35 @@ export const profileRoutes: FastifyPluginAsync = async (app) => {
     if (human(req)) cardStats.bumpLater(ctx, 'store_click', req.log);
     reply.header('Cache-Control', 'no-store');
     return reply.redirect(store.toString(), 302);
+  });
+
+  /**
+   * A public profile photo — only when it is active, the owner active and attested 18+, and the owner
+   * actually visible (in a competition and not banned, or on a published unmoderated card). Short
+   * cache so a support removal disappears within 5 minutes.
+   */
+  app.get('/v1/public/avatars/:photoId/:file', async (req, reply) => {
+    const p = z.object({ photoId: z.string(), file: z.string() }).parse(req.params);
+    const m = /^(96|256)\.webp$/.exec(p.file);
+    if (!m || !/^[0-9a-f-]{36}$/i.test(p.photoId)) throw notFound('photo');
+    const photo = await avatar.publicPhotoBytes(ctx.db, p.photoId, Number(m[1]) as avatar.PhotoSize);
+    if (!photo) {
+      reply.header('Cache-Control', 'public, max-age=60');
+      throw notFound('photo');
+    }
+    reply.header('Cross-Origin-Resource-Policy', 'cross-origin');
+    return sendPhoto(req, reply, photo, 'public, max-age=300, stale-while-revalidate=60');
+  });
+
+  /** Preset avatar art (embedded), immutable. */
+  app.get('/u/assets/avatars/:file', async (req, reply) => {
+    const { file } = z.object({ file: z.string() }).parse(req.params);
+    const m = /^([mf]0[1-8])\.webp$/.exec(file);
+    const b64 = m ? AVATAR_WEBP[m[1]!] : undefined;
+    if (!b64) throw notFound('avatar');
+    reply.header('Cache-Control', 'public, max-age=31536000, immutable');
+    reply.type('image/webp');
+    return reply.send(Buffer.from(b64, 'base64'));
   });
 
   app.get('/u/assets/icon.png', async (_req, reply) => {
