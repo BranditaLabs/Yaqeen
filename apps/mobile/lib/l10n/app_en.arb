@@ -578,7 +578,7 @@
     }
   },
   "listenNowPlaying": "Now playing",
-  "listenBack": "Back to the mushaf",
+  "listenBack": "Back",
   "listenDownloadSurah": "Download surah",
   "listenSurahMeta": "Surah {n} · {type} · {count} ayat",
   "@listenSurahMeta": {
@@ -1196,7 +1196,7 @@
   "welcomeError": "Couldn't sign in, please try again",
   "welcomeOffline": "Signing in needs a connection",
   "languageOther": "العربية",
-  "stepOf": "Step {n} of 5",
+  "stepOf": "Step {n} of 6",
   "@stepOf": {
     "placeholders": {
       "n": {
@@ -1204,7 +1204,7 @@
       }
     }
   },
-  "stepEyebrow": "0{n} / 05",
+  "stepEyebrow": "0{n} / 06",
   "@stepEyebrow": {
     "placeholders": {
       "n": {
@@ -2237,5 +2237,649 @@
   "mushafCredit": "Mushaf font: King Fahd Glorious Qur'an Printing Complex (QCF V2) · page layout: Quran.com",
   "readerFallbackHint": "Download the page to see it as printed",
   "readerNextPage": "Next page",
-  "readerPreviousPage": "Previous page"
+  "readerPreviousPage": "Previous page",
+  "avM01": "White kufi",
+  "avM02": "Ghutra and agal",
+  "avM03": "Imama",
+  "avM04": "Trimmed beard",
+  "avM05": "Gold kufi",
+  "avM06": "Young man",
+  "avM07": "Elder",
+  "avM08": "Navy imama",
+  "avF01": "Navy hijab",
+  "avF02": "Sky hijab",
+  "avF03": "Khimar",
+  "avF04": "Niqab",
+  "avF05": "Gold shayla",
+  "avF06": "White hijab",
+  "avF07": "Young woman",
+  "avF08": "Elder",
+  "avSemantics": "{name}'s picture",
+  "@avSemantics": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "avInitialSemantics": "{name}'s initial",
+  "@avInitialSemantics": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "avHiddenName": "Yaqeen member",
+  "divBronze": "Bronze",
+  "divSilver": "Silver",
+  "divGold": "Gold",
+  "divEmerald": "Emerald",
+  "divRuby": "Ruby",
+  "divDiamond": "Diamond",
+  "badgeStreak": "{days, plural, =1{1 day in a row} other{{days} days in a row}}",
+  "@badgeStreak": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "badgeLevel": "Reached {level}",
+  "@badgeLevel": {
+    "placeholders": {
+      "level": {
+        "type": "String"
+      }
+    }
+  },
+  "badgeLeagueFirst": "First in the group",
+  "badgeLeagueTop3": "In the top three",
+  "badgeLeaguePromoted": "Up to {division}",
+  "@badgeLeaguePromoted": {
+    "placeholders": {
+      "division": {
+        "type": "String"
+      }
+    }
+  },
+  "badgeDivision": "Reached the {division} division",
+  "@badgeDivision": {
+    "placeholders": {
+      "division": {
+        "type": "String"
+      }
+    }
+  },
+  "badgeTournamentPodium": "{title} podium",
+  "@badgeTournamentPodium": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "badgeTournamentTop10": "Top 10% · {title}",
+  "@badgeTournamentTop10": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "badgeTournamentFinisher": "Finished {title}",
+  "@badgeTournamentFinisher": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "badgeSemantics": "Badge: {label}, {date}",
+  "@badgeSemantics": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "lvlRingSemantics": "Level {n} · {name}, {percent}%",
+  "@lvlRingSemantics": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "lvlReached": "You reached {name}",
+  "@lvlReached": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "lvlCaption": "Level {n} · {name}",
+  "@lvlCaption": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "lvlNumeral": "Level {n}",
+  "@lvlNumeral": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "pfEditPhoto": "Change picture",
+  "pfHandleSuffix": " · @{handle}",
+  "@pfHandleSuffix": {
+    "placeholders": {
+      "handle": {
+        "type": "String"
+      }
+    }
+  },
+  "pfGuestNote": "Your level and journey are saved when you sign in",
+  "pfGuestCta": "Sign in to keep your points",
+  "pfPendingSync": "Your changes sync when you're back online",
+  "pfLevel": "Level",
+  "pfToNext": "{n} to the next level",
+  "@pfToNext": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "pfTopLevel": "Top level",
+  "pfLadderTitle": "Levels",
+  "pfLadderFrom": "From {points} points",
+  "@pfLadderFrom": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "pfLadderNote": "Your level counts every point you have earned, and never drops when you redeem them.",
+  "pfLadderCurrent": "Your level now",
+  "pfBalance": "Balance",
+  "pfThisWeek": "This week",
+  "pfLeague": "League",
+  "pfLeagueJoin": "Join",
+  "pfRankOf": "{rank} of {size}",
+  "@pfRankOf": {
+    "placeholders": {
+      "rank": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "pfNoRank": "—",
+  "pfBadges": "Badges",
+  "pfBadgesAll": "All",
+  "pfBadgesEmpty": "Your badges appear here when you earn them.",
+  "pfBadgeUnit": "badges",
+  "pfBadgesLeague": "League",
+  "pfBadgesTournaments": "Tournaments",
+  "pfBadgesJourney": "Journey",
+  "pfBadgesError": "Couldn't load your badges.",
+  "pfCompetition": "Competition",
+  "pfWeeklyLeague": "Weekly league",
+  "pfTournaments": "Tournaments",
+  "pfLeaderboard": "Level board",
+  "pfVisibility": "Showing in competitions",
+  "pfCardRow": "Yaqeen card",
+  "pfCardPublished": "Published · {n} visits",
+  "@pfCardPublished": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "pfCardUnpublished": "Not published",
+  "pfRewards": "Rewards",
+  "pfSettings": "Settings",
+  "pfAccount": "Account",
+  "pfApp": "App",
+  "pfYourName": "Your name",
+  "pfYourPhoto": "Your picture",
+  "pfAvatarTitle": "Your picture",
+  "pfFilterAll": "All",
+  "pfFilterMen": "Men",
+  "pfFilterWomen": "Women",
+  "pfTakePhoto": "Take a photo",
+  "pfFromAlbum": "From your album",
+  "pfRemovePhoto": "Remove photo",
+  "pfUseInitial": "Your initial",
+  "pfSelected": "Selected",
+  "pfAvatarNote": "Only you see your picture, except on your card or in competitions you join.",
+  "pfAvatarGuestNote": "Your picture stays on this phone until you sign in.",
+  "pfAvatarAttestNote": "Others see a picture from the set until you confirm your age.",
+  "pfAttest": "I am 18 or older, or I have my guardian's consent",
+  "pfAvatarHidden": "Support hid your photo. Choose a picture from the set.",
+  "pfUploadFailed": "Couldn't upload the photo. Try again.",
+  "pfPhotoTooLarge": "That photo is too large. Choose a smaller one.",
+  "pfPhotoRateLimited": "You've uploaded many photos. Try again in an hour.",
+  "pfPhotoUnreadable": "Couldn't read that photo. Choose another one.",
+  "pfCardAttest": "To show your photo on your card",
+  "pfNameTitle": "Your name",
+  "pfNameHint": "The name others see",
+  "pfNameHelper": "1 to 40 characters",
+  "pfNameInvalid": "Use a name of 1 to 40 characters, without links or symbols.",
+  "pfNameLocked": "Support hid this name. Contact us to review it.",
+  "pfNameReverted": "That name wasn't accepted, so we restored the previous one.",
+  "pfSave": "Save",
+  "cmSincerity": "A gentle race in doing good. No extra points here; badges are keepsakes only.",
+  "cmPrivacy": "Others see only your name, picture, level and points for the period — never your prayers, azkar or tasks.",
+  "cmSnapshotLine": "Standings update every night.",
+  "cmTerms": "Competition terms",
+  "cmAttest": "I am 18 or older, or I have my guardian's consent",
+  "cmNeedsConnection": "You need a connection to join",
+  "cmNoValue": "—",
+  "cmYou": "You",
+  "cmJoin": "Join",
+  "cmNotNow": "Not now",
+  "cmLeave": "Leave",
+  "cmClose": "OK",
+  "cmGuest": "Sign in to join competitions",
+  "cmBanned": "Your participation in competitions is paused. Contact us to review it.",
+  "cmFeatureOff": "This competition isn't available right now.",
+  "cmLeagueTitle": "Weekly league",
+  "cmEndsInDays": "{days, plural, =1{Ends tomorrow} other{Ends in {days} days}}",
+  "@cmEndsInDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "cmEndsTonight": "Ends tonight",
+  "cmWeekPoints": "{points} points this week",
+  "@cmWeekPoints": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "cmRankOf": "{rank} of {size}",
+  "@cmRankOf": {
+    "placeholders": {
+      "rank": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "cmPromoteZone": "Moving up to {division}",
+  "@cmPromoteZone": {
+    "placeholders": {
+      "division": {
+        "type": "String"
+      }
+    }
+  },
+  "cmDemoteZone": "Start next week in {division}",
+  "@cmDemoteZone": {
+    "placeholders": {
+      "division": {
+        "type": "String"
+      }
+    }
+  },
+  "cmPastWeeks": "Past weeks",
+  "cmHistoryRank": "Place {rank} of {size}",
+  "@cmHistoryRank": {
+    "placeholders": {
+      "rank": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "cmOutcomeUp": "Moved up",
+  "cmOutcomeStay": "Stayed",
+  "cmOutcomeDown": "Previous division",
+  "cmLeaveLeague": "Leave the league",
+  "cmLeaveLeagueBody": "You'll disappear from this week's standings at once, and you can come back any time.",
+  "cmClosing": "We're working out the week's results… come back shortly",
+  "cmJoinLeagueTitle": "Join the weekly league",
+  "cmJoinLeagueBody": "Each week you're placed with about 30 people in your division. The highest move up, and the lowest start in the previous division.",
+  "cmDisplayName": "Display name",
+  "cmWeekEnded": "The week is over",
+  "cmMovedUp": "You moved up to {division}",
+  "@cmMovedUp": {
+    "placeholders": {
+      "division": {
+        "type": "String"
+      }
+    }
+  },
+  "cmStayed": "You stay in {division}",
+  "@cmStayed": {
+    "placeholders": {
+      "division": {
+        "type": "String"
+      }
+    }
+  },
+  "cmStartsIn": "You start this week in {division}",
+  "@cmStartsIn": {
+    "placeholders": {
+      "division": {
+        "type": "String"
+      }
+    }
+  },
+  "cmTournaments": "Tournaments",
+  "cmLive": "Live",
+  "cmUpcoming": "Upcoming",
+  "cmEnded": "Ended",
+  "cmTEndsInDays": "{days, plural, =1{Ends tomorrow} other{Ends in {days} days}}",
+  "@cmTEndsInDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "cmTStartsInDays": "{days, plural, =1{Starts tomorrow} other{Starts in {days} days}}",
+  "@cmTStartsInDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "cmParticipants": "{n} taking part",
+  "@cmParticipants": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "cmJoined": "You're in",
+  "cmTournamentsEmpty": "No tournaments right now. We announce them in seasons like Ramadan and Dhul Hijjah.",
+  "cmJoinTournament": "Join the tournament",
+  "cmTournamentAck": "I agree to show my name, picture, level and points in this tournament.",
+  "cmLeaveTournament": "Leave the tournament",
+  "cmLeaveTournamentBody": "You'll disappear from the tournament standings at once.",
+  "cmJoinClosed": "Joining has closed",
+  "cmBadgeLabel": "Badge: {label}",
+  "@cmBadgeLabel": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "cmTournamentPoints": "{points} points in the tournament",
+  "@cmTournamentPoints": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "cmLeaderboardTitle": "Level board",
+  "cmWorld": "World",
+  "cmYourRank": "Your rank {rank}",
+  "@cmYourRank": {
+    "placeholders": {
+      "rank": {
+        "type": "String"
+      }
+    }
+  },
+  "cmRankAfterSnapshot": "Your rank appears after tonight's update",
+  "cmShowMe": "Show me on the board",
+  "cmShowMeBody": "You appear with your name, picture and level only.",
+  "cmShowMeCountry": "Show me on my country's board",
+  "cmShowMeCountryBody": "You appear with your name, picture and level only, on your country's board.",
+  "cmCountryUnknown": "Choose your city in prayer settings to see your country's board.",
+  "cmCountryTooSmall": "Your country's board appears once at least 20 people take part.",
+  "cmVisibilityTitle": "Showing in competitions",
+  "cmSwitchLeague": "Weekly league",
+  "cmSwitchLeaderboard": "Level board",
+  "cmSwitchCountry": "My country's board",
+  "cmActiveTournaments": "Your live tournaments",
+  "cmBlocked": "Blocked",
+  "cmUnblock": "Unblock",
+  "cmBlockedEmpty": "You haven't blocked anyone.",
+  "cmReportTitle": "Report the name or picture",
+  "cmReportName": "Inappropriate name",
+  "cmReportPhoto": "Inappropriate picture",
+  "cmReportOther": "Another reason",
+  "cmBlockUser": "Block {name}",
+  "@cmBlockUser": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "cmBlockBody": "You won't see each other in competitions.",
+  "cmReportThanks": "Thank you — support will review it.",
+  "cmBlockedToast": "Blocked.",
+  "cmReportLimit": "You've reached today's report limit.",
+  "cmErrAttestation": "Confirm your age to join.",
+  "cmErrNameRequired": "Enter a display name.",
+  "cmErrInvalidName": "Use a name of 1 to 40 characters, without links or symbols.",
+  "cmErrNameLocked": "Support hid this name. Contact us to review it.",
+  "cmErrTournamentNotOpen": "Joining this tournament has closed.",
+  "cmErrAck": "Agree to appear in the tournament to join.",
+  "cmErrGeneric": "Couldn't join. Try again.",
+  "hmChipSemantics": "{name}, level {n} · {levelName}, {percent}%",
+  "@hmChipSemantics": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "n": {
+        "type": "String"
+      },
+      "levelName": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "hmChipGuest": "{name}, open your profile",
+  "@hmChipGuest": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "obProfileTitle": "Your Yaqeen profile",
+  "obProfileSub": "Pick a picture and a name. Your level grows with your points.",
+  "obYourPhoto": "Your picture",
+  "obFromPhotos": "From your photos",
+  "obFilterAll": "All",
+  "obFilterMen": "Men",
+  "obFilterWomen": "Women",
+  "obYourName": "Your name",
+  "obNameHint": "The name others see",
+  "obNameHelper": "Shown only in competitions and on your card, if you choose.",
+  "obLevelsCard": "Levels and competitions",
+  "obLevelsLine": "Your level rises with challenge points, across 6 levels.",
+  "obLeagueLine": "A weekly league in groups of about 30: the top move up a division.",
+  "obTournamentsLine": "Seasonal tournaments like Ramadan and Dhul Hijjah, with badges as prizes.",
+  "obJoinLeague": "Join the weekly league",
+  "obJoinLeagueDetail": "Others see only your name, picture, level and the week's points.",
+  "obAttest": "I am 18 or older, or I have my guardian's consent",
+  "obPrivacyNote": "No one sees your prayers, azkar or tasks. Leave any time.",
+  "obTerms": "Competition terms",
+  "obSignInToJoin": "Sign in to join the league",
+  "obNeedsConnection": "You need a connection to join",
+  "obJoinFailed": "Couldn't join right now. You can join later from your profile.",
+  "obContinue": "Continue",
+  "obSkip": "Skip",
+  "qsModeRead": "Read",
+  "qsModeListen": "Listen",
+  "qsModeMemorise": "Memorise",
+  "qsModeRecite": "Recite",
+  "qsBackToRecitation": "Back to the recitation",
+  "qsPageAnnounce": "Page {page}",
+  "@qsPageAnnounce": {
+    "placeholders": {
+      "page": {
+        "type": "String"
+      }
+    }
+  },
+  "qsRepeated": "I repeated it",
+  "qsFromHere": "From here",
+  "qsToHere": "To here",
+  "qsListenFromHere": "Listen from here",
+  "qsMemoriseFromHere": "Memorise from here",
+  "qsReciteFromHere": "Recite from here",
+  "qsNoAudio": "No recitation on this phone",
+  "qsDownloadSurah": "Download the surah",
+  "qsSkipToRepeat": "Skip to repeating",
+  "qsStartWird": "Start your wird",
+  "qsWirdPlan": "{pages} pages from p. {page} · about {minutes} min",
+  "@qsWirdPlan": {
+    "placeholders": {
+      "pages": {
+        "type": "String"
+      },
+      "page": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "qsWithAudio": "With recitation",
+  "qsSessionDone": "Session complete",
+  "qsNext": "Next: {step}",
+  "@qsNext": {
+    "placeholders": {
+      "step": {
+        "type": "String"
+      }
+    }
+  },
+  "qsReviewDue": "Review due",
+  "qsResume": "Continue your session · p. {page}",
+  "@qsResume": {
+    "placeholders": {
+      "page": {
+        "type": "String"
+      }
+    }
+  },
+  "qsReciteSummary": "{ayat} ayat · {notes} notes",
+  "@qsReciteSummary": {
+    "placeholders": {
+      "ayat": {
+        "type": "String"
+      },
+      "notes": {
+        "type": "String"
+      }
+    }
+  },
+  "qsSuggestion": "Suggested: {grade}",
+  "@qsSuggestion": {
+    "placeholders": {
+      "grade": {
+        "type": "String"
+      }
+    }
+  },
+  "qsConfirm": "Confirm",
+  "qsStartHalaqa": "Start the session",
+  "qsContinueHalaqa": "Continue the session",
+  "qsReview": "Review",
+  "qsListenPortion": "Listen to today's portion",
+  "qsReplacePlaybackTitle": "Replace what's playing?",
+  "qsReplace": "Replace",
+  "qsShowAll": "Show all",
+  "qsHideAll": "Hide all",
+  "qsAyat": "Ayat",
+  "qsWordByWord": "Word by word",
+  "qsOpenInMushaf": "Open in the mushaf",
+  "qsListenTimes": "Listen ×{n}",
+  "@qsListenTimes": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "qsRepeatTimes": "Repeat ×{n}",
+  "@qsRepeatTimes": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "qsRoundOf": "×{n} / {total}",
+  "@qsRoundOf": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "qsSessionProgress": "{done} / {goal}",
+  "@qsSessionProgress": {
+    "placeholders": {
+      "done": {
+        "type": "String"
+      },
+      "goal": {
+        "type": "String"
+      }
+    }
+  },
+  "qsTest": "Test",
+  "qsNote": "Note",
+  "qsFinished": "Done",
+  "qsChangeReciter": "Change reciter",
+  "qsSpeed": "Speed",
+  "qsSleepTimer": "Sleep timer",
+  "qsRepeatSheet": "Repeat",
+  "qsPassagePicker": "Choose the passage",
+  "qsClosePlayer": "Close the player",
+  "qsOpenPlayer": "Open the player",
+  "skWorking": "Working",
+  "skLoading": "Loading"
 }

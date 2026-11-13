@@ -605,7 +605,7 @@
     }
   },
   "listenNowPlaying": "يُشغَّل الآن",
-  "listenBack": "رجوع إلى المصحف",
+  "listenBack": "رجوع",
   "listenDownloadSurah": "تنزيل السورة",
   "listenSurahMeta": "السورة {n} · {type} · {count} آيات",
   "@listenSurahMeta": {
@@ -1223,7 +1223,7 @@
   "welcomeError": "تعذّر تسجيل الدخول، حاول مرة أخرى",
   "welcomeOffline": "يلزم اتصال لتسجيل الدخول",
   "languageOther": "English",
-  "stepOf": "الخطوة {n} من 5",
+  "stepOf": "الخطوة {n} من 6",
   "@stepOf": {
     "placeholders": {
       "n": {
@@ -1231,7 +1231,7 @@
       }
     }
   },
-  "stepEyebrow": "0{n} / 05",
+  "stepEyebrow": "0{n} / 06",
   "@stepEyebrow": {
     "placeholders": {
       "n": {
@@ -1898,7 +1898,7 @@
   "pageTurnSlide": "انزلاق",
   "readerAutoNight": "الوضع الليلي تلقائياً بعد المغرب",
   "readerImmersive": "إخفاء شريط الحالة أثناء القراءة",
-  "readerMemorise": "حفظ",
+  "readerMemorise": "تحفيظ",
   "memoriseTitle": "وضع الحفظ",
   "memoriseOff": "إيقاف",
   "memoriseAyat": "إخفاء الآيات",
@@ -2264,5 +2264,649 @@
   "mushafCredit": "خط المصحف: مجمع الملك فهد لطباعة المصحف الشريف (QCF V2) · تخطيط الصفحات: Quran.com",
   "readerFallbackHint": "نزّل الصفحة لتظهر كما في الطبعة",
   "readerNextPage": "الصفحة التالية",
-  "readerPreviousPage": "الصفحة السابقة"
+  "readerPreviousPage": "الصفحة السابقة",
+  "avM01": "طاقية بيضاء",
+  "avM02": "غترة وعقال",
+  "avM03": "عمامة",
+  "avM04": "لحية مشذّبة",
+  "avM05": "طاقية ذهبية",
+  "avM06": "شاب",
+  "avM07": "شيخ وقور",
+  "avM08": "عمامة كحلية",
+  "avF01": "حجاب كحلي",
+  "avF02": "حجاب سماوي",
+  "avF03": "خمار",
+  "avF04": "نقاب",
+  "avF05": "شيلة ذهبية",
+  "avF06": "حجاب أبيض",
+  "avF07": "فتاة",
+  "avF08": "سيدة وقورة",
+  "avSemantics": "صورة {name}",
+  "@avSemantics": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "avInitialSemantics": "الحرف الأول من اسم {name}",
+  "@avInitialSemantics": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "avHiddenName": "عضو يقين",
+  "divBronze": "برونز",
+  "divSilver": "فضة",
+  "divGold": "ذهب",
+  "divEmerald": "زمرّد",
+  "divRuby": "ياقوت",
+  "divDiamond": "ألماس",
+  "badgeStreak": "{days, plural, =1{يوم متتالٍ} =2{يومان متتاليان} few{{days} أيام متتالية} other{{days} يوماً متتالية}}",
+  "@badgeStreak": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "badgeLevel": "بلوغ مستوى {level}",
+  "@badgeLevel": {
+    "placeholders": {
+      "level": {
+        "type": "String"
+      }
+    }
+  },
+  "badgeLeagueFirst": "المركز الأول في المجموعة",
+  "badgeLeagueTop3": "بين الثلاثة الأوائل",
+  "badgeLeaguePromoted": "صعود إلى {division}",
+  "@badgeLeaguePromoted": {
+    "placeholders": {
+      "division": {
+        "type": "String"
+      }
+    }
+  },
+  "badgeDivision": "بلوغ قسم {division}",
+  "@badgeDivision": {
+    "placeholders": {
+      "division": {
+        "type": "String"
+      }
+    }
+  },
+  "badgeTournamentPodium": "منصّة {title}",
+  "@badgeTournamentPodium": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "badgeTournamentTop10": "أعلى 10% · {title}",
+  "@badgeTournamentTop10": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "badgeTournamentFinisher": "إتمام {title}",
+  "@badgeTournamentFinisher": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "badgeSemantics": "شارة: {label}، {date}",
+  "@badgeSemantics": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "lvlRingSemantics": "المستوى {n} · {name}، {percent}%",
+  "@lvlRingSemantics": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "lvlReached": "بلغت مستوى {name}",
+  "@lvlReached": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "lvlCaption": "المستوى {n} · {name}",
+  "@lvlCaption": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "lvlNumeral": "المستوى {n}",
+  "@lvlNumeral": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "pfEditPhoto": "تغيير الصورة",
+  "pfHandleSuffix": " · @{handle}",
+  "@pfHandleSuffix": {
+    "placeholders": {
+      "handle": {
+        "type": "String"
+      }
+    }
+  },
+  "pfGuestNote": "مستواك ورحلتك يُحفظان حين تسجّل الدخول",
+  "pfGuestCta": "سجّل الدخول لحفظ نقاطك",
+  "pfPendingSync": "تُحفظ تغييراتك حين يعود الاتصال",
+  "pfLevel": "المستوى",
+  "pfToNext": "{n} للمستوى التالي",
+  "@pfToNext": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "pfTopLevel": "أعلى مستوى",
+  "pfLadderTitle": "المستويات",
+  "pfLadderFrom": "من {points} نقطة",
+  "@pfLadderFrom": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "pfLadderNote": "المستوى يُحسب من كل النقاط التي كسبتها، ولا ينقص حين تستبدلها.",
+  "pfLadderCurrent": "مستواك الآن",
+  "pfBalance": "الرصيد",
+  "pfThisWeek": "هذا الأسبوع",
+  "pfLeague": "الدوري",
+  "pfLeagueJoin": "انضم",
+  "pfRankOf": "{rank} من {size}",
+  "@pfRankOf": {
+    "placeholders": {
+      "rank": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "pfNoRank": "—",
+  "pfBadges": "الشارات",
+  "pfBadgesAll": "الكل",
+  "pfBadgesEmpty": "تظهر شاراتك هنا حين تكسبها.",
+  "pfBadgeUnit": "شارة",
+  "pfBadgesLeague": "الدوري",
+  "pfBadgesTournaments": "البطولات",
+  "pfBadgesJourney": "المسيرة",
+  "pfBadgesError": "تعذّر تحميل الشارات.",
+  "pfCompetition": "المنافسة",
+  "pfWeeklyLeague": "الدوري الأسبوعي",
+  "pfTournaments": "البطولات",
+  "pfLeaderboard": "لوحة المستويات",
+  "pfVisibility": "الظهور في المنافسات",
+  "pfCardRow": "بطاقة يقين",
+  "pfCardPublished": "منشورة · {n} زيارة",
+  "@pfCardPublished": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "pfCardUnpublished": "غير منشورة",
+  "pfRewards": "المكافآت",
+  "pfSettings": "الإعدادات",
+  "pfAccount": "الحساب",
+  "pfApp": "التطبيق",
+  "pfYourName": "اسمك",
+  "pfYourPhoto": "صورتك",
+  "pfAvatarTitle": "صورتك",
+  "pfFilterAll": "الكل",
+  "pfFilterMen": "رجال",
+  "pfFilterWomen": "نساء",
+  "pfTakePhoto": "التقاط صورة",
+  "pfFromAlbum": "من الألبوم",
+  "pfRemovePhoto": "إزالة الصورة",
+  "pfUseInitial": "الحرف الأول من اسمك",
+  "pfSelected": "محدّدة",
+  "pfAvatarNote": "لا يرى صورتك غيرك إلا في بطاقتك أو في المنافسات التي تنضم إليها.",
+  "pfAvatarGuestNote": "تبقى صورتك على هذا الجهاز حتى تسجّل الدخول.",
+  "pfAvatarAttestNote": "يرى الآخرون صورة من المجموعة حتى تؤكد عمرك.",
+  "pfAttest": "عمري 18 عاماً أو أكثر، أو لديّ موافقة وليّ أمري",
+  "pfAvatarHidden": "أخفى فريق الدعم صورتك. اختر صورة من المجموعة.",
+  "pfUploadFailed": "تعذّر رفع الصورة. حاول مرة أخرى.",
+  "pfPhotoTooLarge": "الصورة كبيرة جداً. اختر صورة أصغر.",
+  "pfPhotoRateLimited": "رفعت صوراً كثيرة. حاول بعد ساعة.",
+  "pfPhotoUnreadable": "تعذّر قراءة الصورة. اختر صورة أخرى.",
+  "pfCardAttest": "لإظهار صورتك في البطاقة",
+  "pfNameTitle": "اسمك",
+  "pfNameHint": "الاسم الذي يراه الآخرون",
+  "pfNameHelper": "من 1 إلى 40 حرفاً",
+  "pfNameInvalid": "اكتب اسماً من 1 إلى 40 حرفاً بلا روابط أو رموز.",
+  "pfNameLocked": "أخفى فريق الدعم هذا الاسم. راسلنا لمراجعته.",
+  "pfNameReverted": "لم يُقبل الاسم، فأعدناه كما كان.",
+  "pfSave": "حفظ",
+  "cmSincerity": "تنافسٌ لطيف على الخير. لا نقاط إضافية هنا، والشارات تذكارٌ فقط.",
+  "cmPrivacy": "يرى المشاركون اسمك وصورتك ومستواك ونقاط الفترة فقط، لا صلواتك ولا أذكارك ولا مهامك.",
+  "cmSnapshotLine": "يُحدَّث الترتيب كل ليلة.",
+  "cmTerms": "شروط المنافسات",
+  "cmAttest": "عمري 18 عاماً أو أكثر، أو لديّ موافقة وليّ أمري",
+  "cmNeedsConnection": "تحتاج اتصالاً للانضمام",
+  "cmNoValue": "—",
+  "cmYou": "أنت",
+  "cmJoin": "انضم",
+  "cmNotNow": "ليس الآن",
+  "cmLeave": "غادر",
+  "cmClose": "حسناً",
+  "cmGuest": "سجّل الدخول لتنضم إلى المنافسات",
+  "cmBanned": "أُوقفت مشاركتك في المنافسات. راسلنا لمراجعتها.",
+  "cmFeatureOff": "هذه المنافسة غير متاحة الآن.",
+  "cmLeagueTitle": "الدوري الأسبوعي",
+  "cmEndsInDays": "{days, plural, =1{ينتهي غداً} =2{ينتهي بعد يومين} few{ينتهي بعد {days} أيام} other{ينتهي بعد {days} يوماً}}",
+  "@cmEndsInDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "cmEndsTonight": "ينتهي الليلة",
+  "cmWeekPoints": "{points} نقطة هذا الأسبوع",
+  "@cmWeekPoints": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "cmRankOf": "{rank} من {size}",
+  "@cmRankOf": {
+    "placeholders": {
+      "rank": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "cmPromoteZone": "يصعدون إلى {division}",
+  "@cmPromoteZone": {
+    "placeholders": {
+      "division": {
+        "type": "String"
+      }
+    }
+  },
+  "cmDemoteZone": "يبدأون الأسبوع القادم في {division}",
+  "@cmDemoteZone": {
+    "placeholders": {
+      "division": {
+        "type": "String"
+      }
+    }
+  },
+  "cmPastWeeks": "الأسابيع السابقة",
+  "cmHistoryRank": "المركز {rank} من {size}",
+  "@cmHistoryRank": {
+    "placeholders": {
+      "rank": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "cmOutcomeUp": "صعود",
+  "cmOutcomeStay": "بقاء",
+  "cmOutcomeDown": "القسم السابق",
+  "cmLeaveLeague": "مغادرة الدوري",
+  "cmLeaveLeagueBody": "ستختفي من ترتيب هذا الأسبوع فوراً، ويمكنك العودة متى شئت.",
+  "cmClosing": "نحسب نتائج الأسبوع… عُد بعد قليل",
+  "cmJoinLeagueTitle": "انضم إلى الدوري الأسبوعي",
+  "cmJoinLeagueBody": "كل أسبوع تُوضع مع نحو 30 مشاركاً في قسمك. الأعلى نقاطاً يصعدون، ويبدأ الأقل في القسم السابق.",
+  "cmDisplayName": "الاسم الظاهر",
+  "cmWeekEnded": "انتهى الأسبوع",
+  "cmMovedUp": "صعدت إلى {division}",
+  "@cmMovedUp": {
+    "placeholders": {
+      "division": {
+        "type": "String"
+      }
+    }
+  },
+  "cmStayed": "تبقى في {division}",
+  "@cmStayed": {
+    "placeholders": {
+      "division": {
+        "type": "String"
+      }
+    }
+  },
+  "cmStartsIn": "تبدأ هذا الأسبوع في {division}",
+  "@cmStartsIn": {
+    "placeholders": {
+      "division": {
+        "type": "String"
+      }
+    }
+  },
+  "cmTournaments": "البطولات",
+  "cmLive": "جارية",
+  "cmUpcoming": "قادمة",
+  "cmEnded": "انتهت",
+  "cmTEndsInDays": "{days, plural, =1{تنتهي غداً} =2{تنتهي بعد يومين} few{تنتهي بعد {days} أيام} other{تنتهي بعد {days} يوماً}}",
+  "@cmTEndsInDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "cmTStartsInDays": "{days, plural, =1{تبدأ غداً} =2{تبدأ بعد يومين} few{تبدأ بعد {days} أيام} other{تبدأ بعد {days} يوماً}}",
+  "@cmTStartsInDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "cmParticipants": "{n} مشارك",
+  "@cmParticipants": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "cmJoined": "أنت مشارك",
+  "cmTournamentsEmpty": "لا بطولات الآن. نُعلن عنها في مواسم مثل رمضان وذي الحجة.",
+  "cmJoinTournament": "انضم إلى البطولة",
+  "cmTournamentAck": "أوافق على ظهور اسمي وصورتي ومستواي ونقاطي في هذه البطولة.",
+  "cmLeaveTournament": "مغادرة البطولة",
+  "cmLeaveTournamentBody": "ستختفي من ترتيب البطولة فوراً.",
+  "cmJoinClosed": "انتهى الانضمام",
+  "cmBadgeLabel": "الشارة: {label}",
+  "@cmBadgeLabel": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "cmTournamentPoints": "{points} نقطة في البطولة",
+  "@cmTournamentPoints": {
+    "placeholders": {
+      "points": {
+        "type": "String"
+      }
+    }
+  },
+  "cmLeaderboardTitle": "لوحة المستويات",
+  "cmWorld": "العالم",
+  "cmYourRank": "ترتيبك {rank}",
+  "@cmYourRank": {
+    "placeholders": {
+      "rank": {
+        "type": "String"
+      }
+    }
+  },
+  "cmRankAfterSnapshot": "يظهر ترتيبك بعد التحديث الليلي",
+  "cmShowMe": "أظهرني في اللوحة",
+  "cmShowMeBody": "تظهر باسمك وصورتك ومستواك فقط.",
+  "cmShowMeCountry": "أظهرني في لوحة بلدي",
+  "cmShowMeCountryBody": "تظهر باسمك وصورتك ومستواك فقط، وتظهر في لوحة بلدك.",
+  "cmCountryUnknown": "اختر مدينتك في إعدادات الصلاة لترى ترتيب بلدك.",
+  "cmCountryTooSmall": "لوحة بلدك تظهر حين يشارك فيها 20 شخصاً على الأقل.",
+  "cmVisibilityTitle": "الظهور في المنافسات",
+  "cmSwitchLeague": "الدوري الأسبوعي",
+  "cmSwitchLeaderboard": "لوحة المستويات",
+  "cmSwitchCountry": "لوحة بلدي",
+  "cmActiveTournaments": "بطولاتك الجارية",
+  "cmBlocked": "المحظورون",
+  "cmUnblock": "إلغاء الحظر",
+  "cmBlockedEmpty": "لم تحظر أحداً.",
+  "cmReportTitle": "إبلاغ عن الاسم أو الصورة",
+  "cmReportName": "اسم غير لائق",
+  "cmReportPhoto": "صورة غير لائقة",
+  "cmReportOther": "سبب آخر",
+  "cmBlockUser": "حظر {name}",
+  "@cmBlockUser": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "cmBlockBody": "لن تراه ولن يراك في المنافسات.",
+  "cmReportThanks": "شكراً، سيراجعه فريق الدعم.",
+  "cmBlockedToast": "تم الحظر.",
+  "cmReportLimit": "بلغت حدّ البلاغات اليوم.",
+  "cmErrAttestation": "أكّد عمرك للانضمام.",
+  "cmErrNameRequired": "اكتب الاسم الظاهر.",
+  "cmErrInvalidName": "اكتب اسماً من 1 إلى 40 حرفاً بلا روابط أو رموز.",
+  "cmErrNameLocked": "أخفى فريق الدعم هذا الاسم. راسلنا لمراجعته.",
+  "cmErrTournamentNotOpen": "انتهى الانضمام إلى هذه البطولة.",
+  "cmErrAck": "وافق على الظهور في البطولة للانضمام.",
+  "cmErrGeneric": "تعذّر الانضمام. حاول مرة أخرى.",
+  "hmChipSemantics": "{name}، المستوى {n} · {levelName}، {percent}%",
+  "@hmChipSemantics": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "n": {
+        "type": "String"
+      },
+      "levelName": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "hmChipGuest": "{name}، افتح ملفّك",
+  "@hmChipGuest": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "obProfileTitle": "ملفّك في يقين",
+  "obProfileSub": "اختر صورة واسماً. مستواك يكبر مع نقاطك.",
+  "obYourPhoto": "صورتك",
+  "obFromPhotos": "من صورك",
+  "obFilterAll": "الكل",
+  "obFilterMen": "رجال",
+  "obFilterWomen": "نساء",
+  "obYourName": "اسمك",
+  "obNameHint": "الاسم الذي يراه الآخرون",
+  "obNameHelper": "يظهر في المنافسات وبطاقتك فقط إن اخترت ذلك.",
+  "obLevelsCard": "المستويات والمنافسات",
+  "obLevelsLine": "مستواك يرتفع مع نقاط التحدي، عبر 6 مستويات.",
+  "obLeagueLine": "دوري أسبوعي في مجموعات من نحو 30: الأعلى يصعد قسماً.",
+  "obTournamentsLine": "بطولات موسمية مثل رمضان وذي الحجة، وجوائزها شارات.",
+  "obJoinLeague": "انضم إلى الدوري الأسبوعي",
+  "obJoinLeagueDetail": "يرى المشاركون اسمك وصورتك ومستواك ونقاط الأسبوع فقط.",
+  "obAttest": "عمري 18 عاماً أو أكثر، أو لديّ موافقة وليّ أمري",
+  "obPrivacyNote": "لا يرى أحد صلواتك ولا أذكارك ولا مهامك. تغادر متى شئت.",
+  "obTerms": "شروط المنافسات",
+  "obSignInToJoin": "سجّل الدخول لتنضم إلى الدوري",
+  "obNeedsConnection": "تحتاج اتصالاً للانضمام",
+  "obJoinFailed": "تعذّر الانضمام الآن. يمكنك الانضمام لاحقاً من ملفّك.",
+  "obContinue": "متابعة",
+  "obSkip": "تخطٍّ",
+  "qsModeRead": "قراءة",
+  "qsModeListen": "استماع",
+  "qsModeMemorise": "تحفيظ",
+  "qsModeRecite": "تسميع",
+  "qsBackToRecitation": "عُد إلى موضع التلاوة",
+  "qsPageAnnounce": "صفحة {page}",
+  "@qsPageAnnounce": {
+    "placeholders": {
+      "page": {
+        "type": "String"
+      }
+    }
+  },
+  "qsRepeated": "كرّرت",
+  "qsFromHere": "من هنا",
+  "qsToHere": "إلى هنا",
+  "qsListenFromHere": "استمع من هنا",
+  "qsMemoriseFromHere": "احفظ من هنا",
+  "qsReciteFromHere": "سمّع من هنا",
+  "qsNoAudio": "لا تلاوة على الجهاز",
+  "qsDownloadSurah": "تنزيل السورة",
+  "qsSkipToRepeat": "تخطَّ إلى التكرار",
+  "qsStartWird": "ابدأ وردك",
+  "qsWirdPlan": "{pages} صفحات من ص {page} · نحو {minutes} د",
+  "@qsWirdPlan": {
+    "placeholders": {
+      "pages": {
+        "type": "String"
+      },
+      "page": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "qsWithAudio": "مع التلاوة",
+  "qsSessionDone": "أتممت جلستك",
+  "qsNext": "التالي: {step}",
+  "@qsNext": {
+    "placeholders": {
+      "step": {
+        "type": "String"
+      }
+    }
+  },
+  "qsReviewDue": "مراجعة مستحقّة",
+  "qsResume": "أكمل جلستك · ص {page}",
+  "@qsResume": {
+    "placeholders": {
+      "page": {
+        "type": "String"
+      }
+    }
+  },
+  "qsReciteSummary": "{ayat} آيات · {notes} ملاحظات",
+  "@qsReciteSummary": {
+    "placeholders": {
+      "ayat": {
+        "type": "String"
+      },
+      "notes": {
+        "type": "String"
+      }
+    }
+  },
+  "qsSuggestion": "اقتراح: {grade}",
+  "@qsSuggestion": {
+    "placeholders": {
+      "grade": {
+        "type": "String"
+      }
+    }
+  },
+  "qsConfirm": "تأكيد",
+  "qsStartHalaqa": "ابدأ الحلقة",
+  "qsContinueHalaqa": "أكمل الحلقة",
+  "qsReview": "راجع",
+  "qsListenPortion": "استمع إلى الحصّة",
+  "qsReplacePlaybackTitle": "استبدال التشغيل الحالي؟",
+  "qsReplace": "استبدال",
+  "qsShowAll": "إظهار الكل",
+  "qsHideAll": "إخفاء الكل",
+  "qsAyat": "الآيات",
+  "qsWordByWord": "كلمة وكلمة",
+  "qsOpenInMushaf": "افتح في المصحف",
+  "qsListenTimes": "استماع ×{n}",
+  "@qsListenTimes": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "qsRepeatTimes": "تكرار ×{n}",
+  "@qsRepeatTimes": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      }
+    }
+  },
+  "qsRoundOf": "×{n} / {total}",
+  "@qsRoundOf": {
+    "placeholders": {
+      "n": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "qsSessionProgress": "{done} / {goal}",
+  "@qsSessionProgress": {
+    "placeholders": {
+      "done": {
+        "type": "String"
+      },
+      "goal": {
+        "type": "String"
+      }
+    }
+  },
+  "qsTest": "اختبار",
+  "qsNote": "تنبيه",
+  "qsFinished": "انتهيت",
+  "qsChangeReciter": "تغيير القارئ",
+  "qsSpeed": "السرعة",
+  "qsSleepTimer": "مؤقّت النوم",
+  "qsRepeatSheet": "التكرار",
+  "qsPassagePicker": "اختر المقطع",
+  "qsClosePlayer": "إغلاق المشغّل",
+  "qsOpenPlayer": "فتح المشغّل",
+  "skWorking": "جارٍ التنفيذ",
+  "skLoading": "جارٍ التحميل"
 }
