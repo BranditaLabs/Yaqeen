@@ -6,9 +6,11 @@
 /// `YqSkeletonMushafPage`) — inside **one** [YqSkeleton], the single RTL-aware shimmer for the
 /// whole region (never one shimmer per row). Determinate progress (downloads, installs, steps) is a
 /// `YqRing`. A working button keeps its label and shimmers it (`YqButton(loading: true)`).
-/// `CircularProgressIndicator`, `LinearProgressIndicator` and `RefreshProgressIndicator` are not
-/// used anywhere in `lib/`; `test/core/no_spinner_test.dart` fails the build if one appears outside
-/// this file.
+/// `CircularProgressIndicator`, `LinearProgressIndicator` and `RefreshProgressIndicator` are never
+/// named in `lib/`; `test/core/no_spinner_test.dart` fails the build if one appears outside this
+/// file. The one recorded exception is pull-to-refresh: Material's `RefreshIndicator` (in
+/// `YqStage`'s `onRefresh` and on Home) paints its own pull cue while the content underneath stays
+/// on screen, so it is not a loading state; the guard pins it to those two files.
 library;
 
 import 'dart:async';

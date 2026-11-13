@@ -64,7 +64,8 @@ touching user privacy.
   - No bare spinners: loading is shaped like the content (`YqSkeletonOrbs`, `YqSkeletonRows`, `YqSkeletonText`, `YqSkeletonCard`,
     `YqSkeletonAvatarRows`, `YqSkeletonMushafPage`, `YqSkeletonBox.circle`) under one `YqSkeleton`; determinate progress is a
     `YqRing`; `YqButton(loading: true)` keeps and shimmers its label. `test/core/no_spinner_test.dart` fails on any
-    `Circular/Linear/RefreshProgressIndicator` outside `core/widgets/yq_states.dart`.
+    `Circular/Linear/RefreshProgressIndicator` outside `core/widgets/yq_states.dart`; pull-to-refresh's `RefreshIndicator`
+    is the one exception, allowed only in `core/widgets/yq_stage.dart` and `features/home/home_screen.dart`.
 - **Public card (بطاقة يقين):** opt-in; shows only switched-on fields and never worship detail (CLAUDE.md rules 1–2). Server page in `services/api/src/web/profile-page.ts` (escape every user string; https links only); app in `features/card` (journey: `journey_widgets.dart`, Profile tab `JourneySection`); physical medals/cards: `services/tags.service.ts`, `routes/admin/tags.routes.ts`, `/t/:code` in `profile.routes.ts`, app «ميدالياتي» sheet in `card_screen.dart` (the app does not write NFC); admin programme in `routes/admin/cards.routes.ts` + `services/{cards-settings,card-stats}.service.ts`, pages `apps/admin/src/app/(dash)/{cards,tags}`.
   - Tests pin the sky with the harness `skyClock:` so goldens are deterministic.
 - **Agent tooling** (Claude Code project skills in `.claude/skills`, vendored as published; MIT/Apache licences inside):

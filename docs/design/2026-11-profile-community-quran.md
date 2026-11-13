@@ -616,7 +616,7 @@ As in revision 1: `ListenController.open(..., {int? times})` honours `times`; sa
 ---
 
 ## 10. Shimmer and skeleton sweep
-Rule: never a bare spinner; loading is a shaped skeleton inside **one** `YqSkeleton`; determinate progress is a `YqRing`.
+Rule: never a bare spinner; loading is a shaped skeleton inside **one** `YqSkeleton`; determinate progress is a `YqRing`. Exception: pull-to-refresh keeps Material's `RefreshIndicator` pull cue (`core/widgets/yq_stage.dart`, `features/home/home_screen.dart`) — the content stays on screen while it runs, so it is not a loading state; the guard allows it in those two files only.
 
 | # | Location | Fix | Stream |
 |---|---|---|---|
@@ -697,7 +697,7 @@ Profile chip at the start of the header; semantics «{name}، المستوى {n}
 - Copy: «قراءة», «استماع», «تحفيظ», «تسميع», «عُد إلى موضع التلاوة», «صفحة {page}», «كرّرت», «من هنا», «إلى هنا», «استمع من هنا», «احفظ من هنا», «سمّع من هنا», «لا تلاوة على الجهاز», «تنزيل السورة», «تخطَّ إلى التكرار», «ابدأ وردك», «{pages} صفحات من ص {page} · نحو {minutes} د», «مع التلاوة», «أتممت جلستك», «التالي: {step}», «مراجعة مستحقّة», «أكمل جلستك · ص {page}», «{ayat} آيات · {notes} ملاحظات», «اقتراح: {grade}», «تأكيد», «ابدأ الحلقة», «أكمل الحلقة», «راجع», «استمع إلى الحصّة», «استبدال التشغيل الحالي؟», «استبدال», «إظهار الكل», «إخفاء الكل», «الآيات», «كلمة وكلمة», «افتح في المصحف», «استماع ×3», «تكرار ×10», «اختبار», «تنبيه», «انتهيت», back label «رجوع».
 
 ### 12.8 §2 / §6 loading rule
-«No bare spinners. Loading is a shaped skeleton under one shimmer; determinate progress is a `YqRing`; buttons keep their label and shimmer it.» Enforced by `no_spinner_test.dart`.
+«No bare spinners. Loading is a shaped skeleton under one shimmer; determinate progress is a `YqRing`; buttons keep their label and shimmer it.» Enforced by `no_spinner_test.dart`. Pull-to-refresh is the one exception (see §10): its `RefreshIndicator` cue is allowed in `yq_stage.dart` and `home_screen.dart` only.
 
 ### 12.9 §7.1 / §7.2 / §8 / §9 and other docs
 - §7.1/§7.2 rows for «07 · المسابقات»; §8 lists §3.3/§3.4; §9 lists §2. DATA_MODEL.md, API.md, SECURITY_PRIVACY.md (photo processing, snapshots, visibility, attestation, blocks, export/erasure, retention, CSP note) updated.
