@@ -20,6 +20,9 @@ const FEATURE_LABEL: Record<string, string> = {
   publicCards: 'البطاقات العامة (بطاقة يقين)',
   medalActivation: 'تفعيل الميداليات من التطبيق',
   serverConversions: 'إرسال المشتريات للمنصات الإعلانية (بالموافقة فقط)',
+  leagues: 'الدوري الأسبوعي',
+  tournaments: 'البطولات الموسمية',
+  leaderboard: 'لوحة المستويات',
 };
 const ROLLOUT_FLAGS = ['recite'];
 
