@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/config_controller.dart';
+import '../../../core/config/remote_config.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/format.dart';
 import '../../../core/settings/settings_controller.dart';
@@ -46,7 +48,7 @@ class KhatmaScreen extends ConsumerWidget {
             children: [
               YqStageBar(title: t.khatmaTitle, subtitle: t.khatmaSubtitle, back: true, large: true),
               const SizedBox(height: YqSpace.xl),
-              if (plan.isLoading) const SizedBox(height: 180) else _Moment(plan: k),
+              if (plan.isLoading) const _MomentSkeleton() else _Moment(plan: k),
             ],
           ),
         ),
@@ -54,7 +56,10 @@ class KhatmaScreen extends ConsumerWidget {
           if (active) ...[
             _TodayCard(plan: k),
             const SizedBox(height: YqSpace.l),
-          ] else if (!plan.isLoading) ...[
+          ] else if (plan.isLoading) ...[
+            const YqSkeleton(child: YqSkeletonRows(rows: 2)),
+            const SizedBox(height: YqSpace.l),
+          ] else ...[
             LiquidGlass(
               child: YqEmptyState(
                 icon: YqIcons.quran,
@@ -123,6 +128,24 @@ int _readToday(Khatma k, String today) => k.readOn(today);
 DateTime _date(String iso) {
   final p = iso.split('-').map(int.parse).toList();
   return DateTime(p[0], p[1], p[2]);
+}
+
+/// The stage while the plan loads: the ring and its caption, shimmering.
+class _MomentSkeleton extends StatelessWidget {
+  const _MomentSkeleton();
+
+  @override
+  Widget build(BuildContext context) => const YqSkeleton(
+        child: Column(
+          children: [
+            YqSkeletonBox.circle(140),
+            SizedBox(height: YqSpace.m),
+            YqSkeletonLine(widthFactor: 0.6),
+            SizedBox(height: YqSpace.xs),
+            YqSkeletonLine(widthFactor: 0.4),
+          ],
+        ),
+      );
 }
 
 class _Moment extends ConsumerWidget {
@@ -219,7 +242,16 @@ class _TodayCard extends ConsumerWidget {
           const SizedBox(height: YqSpace.m),
           Text(status, style: TextStyle(fontSize: 13, color: balance >= 0 ? YqColors.success : YqColors.goldText)),
           const SizedBox(height: YqSpace.m),
-          YqButton(label: t.khatmaReadNow, onPressed: () => context.push('/quran/read/$from')),
+          YqButton(label: t.khatmaReadNow, onPressed: () => context.push('/quran/read/$from?session=khatma')),
+          if (ref.watch(remoteConfigProvider).isOn(Flags.listen)) ...[
+            const SizedBox(height: YqSpace.s),
+            // The portion by ear: the reader follows the recitation from the portion's first page.
+            YqButton.secondary(
+              label: t.qsListenPortion,
+              icon: const YqIcon(YqIcons.listen, size: 18),
+              onPressed: () => context.push('/quran/read/$from?session=khatma&mode=listen&player=open'),
+            ),
+          ],
         ],
       ),
     );
@@ -234,7 +266,7 @@ class _WeekCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
     final stats = ref.watch(readingStatsProvider).valueOrNull;
-    if (stats == null) return const SizedBox.shrink();
+    if (stats == null) return const YqSkeleton(child: YqSkeletonBox(height: 120, radius: YqRadii.card));
     final s = ref.watch(settingsProvider);
     final today = Zoned.today(s.placeOrDefault.timezone, ref.watch(clockProvider)());
     final week = stats.week(today);
@@ -317,7 +349,9 @@ class _History extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
-    final list = ref.watch(khatmaHistoryProvider).valueOrNull ?? const <KhatmaRecord>[];
+    final history = ref.watch(khatmaHistoryProvider);
+    if (history.isLoading) return const YqSkeleton(child: YqSkeletonRows(rows: 2));
+    final list = history.valueOrNull ?? const <KhatmaRecord>[];
     if (list.isEmpty) return const SizedBox.shrink();
     final locale = ref.watch(settingsProvider.select((s) => s.locale));
     return Column(

@@ -35,6 +35,7 @@ import '../domain/annotations.dart';
 import '../domain/mushaf_layout.dart';
 import '../domain/passage.dart';
 import '../domain/quran_data.dart';
+import '../domain/quran_session.dart';
 import '../domain/reading_stats.dart';
 import '../domain/wird.dart';
 import 'ayah_sheet.dart';
@@ -45,14 +46,18 @@ import 'note_sheet.dart';
 import 'page_curl.dart';
 import 'quran_index_screen.dart';
 import 'quran_providers.dart';
+import 'session/active_session.dart';
 import 'session/follow_audio.dart';
 import 'session/listen_strip.dart';
 import 'session/memorise_strip.dart';
 import 'session/mode_dock.dart';
 import 'session/passage_picker_sheet.dart';
+import 'session/quran_entry.dart';
 import 'session/quran_session_controller.dart';
 import 'session/read_strip.dart';
 import 'session/recite_strip.dart';
+import 'session/session_end_card.dart';
+import 'session/session_line.dart';
 
 export 'session/read_strip.dart' show todayWirdProvider;
 
@@ -125,6 +130,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
   late final ProviderContainer _c;
 
   QuranSessionController get _layers => ref.read(quranSessionControllerProvider.notifier);
+  ActiveSessionController get _sessions => ref.read(activeSessionProvider.notifier);
+
+  /// The session's end card was shown (once per reader).
+  bool _endShown = false;
 
   @override
   void initState() {
@@ -143,7 +152,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
       // The app-wide mini player steps aside while a reader is open.
       ref.read(readerPresenceProvider.notifier).enter();
       _layers.init(passage: widget.passage);
-      if (widget.mode != QuranMode.read) await _setMode(widget.mode, ask: false);
+      final session = await _openSession();
+      if (!mounted) return;
+      if (session != null) {
+        await _applySession(session);
+      } else if (widget.mode != QuranMode.read) {
+        await _setMode(widget.mode, ask: false);
+      }
       if (widget.openPlayer && mounted) _openPlayer();
     });
   }
@@ -205,6 +220,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     _pager.dispose();
     final presence = _c.read(readerPresenceProvider.notifier);
     Future.microtask(presence.leave);
+    // The session stays saved for «أكمل جلستك»; it is simply no longer on screen.
+    final sessions = _c.read(activeSessionProvider.notifier);
+    Future.microtask(sessions.detach);
     _c.read(deviceServicesProvider).keepAwake(false);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
@@ -233,6 +251,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
       _selected = null;
     });
     _layers.pageChanged();
+    _sessions.update((s) => s.withPage(page));
     if (manual && _isFollowing) {
       // A look ahead while listening: following waits 8 s, with the way back on a chip.
       _guard.hold();
@@ -394,6 +413,130 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     if (mounted) _scheduleHide();
   }
 
+  /// `?session=`: resumes the saved session (`resume`, or the same kind on the same passage when it is
+  /// still today's), else starts one of that kind here. Null: free reading without a session.
+  Future<QuranSession?> _openSession() async {
+    final raw = widget.session;
+    if (raw == null) return null;
+    final saved = await loadValidSession(ref.read);
+    if (!mounted) return null;
+    if (raw == 'resume') {
+      if (saved != null) await _sessions.begin(saved);
+      return saved;
+    }
+    final kind = QuranSessionKind.tryParse(raw);
+    if (kind == null) return null;
+    if (saved != null && saved.kind == kind && (widget.passage == null || saved.passage == widget.passage)) {
+      await _sessions.begin(saved);
+      return saved;
+    }
+    final q = await ref.read(quranDataProvider.future);
+    final passage = widget.passage ?? await _sessionPassage(q, kind);
+    final planKey = await sessionPlanKey(ref.read, kind);
+    if (!mounted) return null;
+    final s = QuranSession.start(
+      kind,
+      passage,
+      now: ref.read(clockProvider)(),
+      day: sessionToday(ref.read),
+      mode: widget.mode,
+      page: _page,
+      planKey: planKey,
+      portion: switch (kind) {
+        QuranSessionKind.review => widget.portion,
+        QuranSessionKind.hifz => passage.toString(),
+        _ => null,
+      },
+    );
+    await _sessions.begin(s);
+    return s;
+  }
+
+  /// What a session started without `surah/from/to` covers: the khatma portion from this page, else
+  /// the page's own passage.
+  Future<Passage> _sessionPassage(QuranData q, QuranSessionKind kind) async {
+    if (kind == QuranSessionKind.khatma) {
+      final k = await ref.read(readingRepositoryProvider).khatma();
+      if (k != null && !k.finished) {
+        final today = sessionToday(ref.read);
+        final left = k.dailyTarget(today, readToday: k.readOn(today)) - k.readOn(today);
+        return Passage.ofKhatma(q, _page, _page + (left < 1 ? 1 : left) - 1);
+      }
+    }
+    return Passage.ofPage(q, _page);
+  }
+
+  /// Puts a (resumed) session on screen: its page, its passage, its layer.
+  Future<void> _applySession(QuranSession s) async {
+    // Reading sessions start somewhere; only memorising and the guided ones work on their passage.
+    if (s.kind == QuranSessionKind.free || s.kind.guided) _layers.setPassage(s.passage);
+    final page = s.page;
+    if (widget.session == 'resume' && page != null && page != _page) _goTo(page);
+    if (s.stage == SessionStage.reading) {
+      final mode = widget.mode != QuranMode.read ? widget.mode : s.mode;
+      if (mode != QuranMode.read) await _setMode(mode, ask: false);
+      if (mode == QuranMode.memorise && s.reveals.isNotEmpty) _layers.revealAll(s.reveals);
+    }
+  }
+
+  /// A passage chosen by hand («احفظ من هنا», «إلى هنا», the picker) is a free session: kept on the
+  /// device so a kill comes back to it.
+  void _choosePassage(Passage p, QuranMode mode) {
+    _layers.setPassage(p);
+    if (ref.read(activeSessionProvider) != null) {
+      _sessions.update((s) => s.withPassage(p));
+      return;
+    }
+    _sessions
+        .begin(
+          QuranSession.start(
+            QuranSessionKind.free,
+            p,
+            now: ref.read(clockProvider)(),
+            day: sessionToday(ref.read),
+            mode: mode,
+            page: _page,
+          ),
+        )
+        .ignore();
+  }
+
+  /// A reading session reached its goal: «أتممت جلستك» (gold), then what is next.
+  Future<void> _sessionMet(({int done, int goal}) p) async {
+    if (_endShown) return;
+    _endShown = true;
+    final next = await _nextStep();
+    _sessions.update((s) => s.finish());
+    await _sessions.end();
+    if (!mounted) return;
+    final router = GoRouter.maybeOf(context);
+    final go = await showSessionEndCard(context, met: true, done: p.done, goal: p.goal, next: next?.$1);
+    if (go == true && next != null && mounted) router?.push(next.$2).ignore();
+  }
+
+  /// After a session: a due review first, then today's hifz passage.
+  Future<(SessionNext, String)?> _nextStep() async {
+    final plan = await ref.read(hifzRepositoryProvider).load();
+    final q = ref.read(quranDataProvider).valueOrNull;
+    if (plan == null || q == null) return null;
+    final n = ref.read(clockProvider)().toLocal();
+    final today = DateTime(n.year, n.month, n.day);
+    final due = plan.due(today).firstOrNull;
+    if (due != null) {
+      final page = q.pageOf(AyahRef(due.surah, due.from));
+      return (
+        SessionNext.review,
+        '/quran/read/$page?session=review&surah=${due.surah}&from=${due.from}&to=${due.to}&portion=${Uri.encodeQueryComponent(due.id)}',
+      );
+    }
+    final t = plan.memorisedToday(today) ? null : plan.today(q);
+    if (t != null) {
+      final page = q.pageOf(AyahRef(t.surah, t.from));
+      return (SessionNext.hifz, '/quran/read/$page?session=hifz&surah=${t.surah}&from=${t.from}&to=${t.to}');
+    }
+    return null;
+  }
+
   /// Switches the layer over the page. [ask]: confirm before taking over another surah's audio.
   Future<void> _setMode(QuranMode mode, {bool ask = true}) async {
     // A layer this build doesn't offer (recite without the flag or a model) opens as reading. The
@@ -408,6 +551,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     if (mode == QuranMode.recite) await ref.read(listenControllerProvider.notifier).pause();
     if (!mounted) return;
     _layers.setMode(mode);
+    _sessions.update((s) => s.withMode(mode));
     _hideTimer?.cancel();
     // Reading and listening fold their tools away after 4 s; memorising and reciting keep them.
     if (mode == QuranMode.read || mode == QuranMode.listen) {
@@ -447,23 +591,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     return true;
   }
 
-  Future<bool?> _confirmReplace() {
-    final t = AppLocalizations.of(context);
-    return showYqSheet<bool>(
-      context,
-      builder: (c) => Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(t.qsReplacePlaybackTitle, style: Theme.of(c).textTheme.titleLarge),
-          const SizedBox(height: YqSpace.l),
-          YqButton(label: t.qsReplace, onPressed: () => Navigator.of(c).pop(true)),
-          const SizedBox(height: YqSpace.s),
-          YqButton.secondary(label: t.cancel, onPressed: () => Navigator.of(c).pop(false)),
-        ],
-      ),
-    );
-  }
+  Future<bool?> _confirmReplace() => confirmReplacePlayback(context);
 
   /// The page follows the recitation (see [FollowAudio]).
   void _follow(ListenState? prev, ListenState next) {
@@ -534,7 +662,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     final picked = await showPassagePicker(context, quran: q, initial: _fromHere(q, r));
     if (picked == null || !mounted) return;
     _pendingFrom = null;
-    _layers.setPassage(picked);
+    _choosePassage(picked, mode);
     await _setMode(mode);
   }
 
@@ -542,7 +670,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     final pending = _pendingFrom;
     if (pending == null) return;
     _pendingFrom = null;
-    _layers.setPassage(Passage(r.surah, pending.from.ayah, r.ayah));
+    _choosePassage(Passage(r.surah, pending.from.ayah, r.ayah), pending.mode);
     _setMode(pending.mode);
   }
 
@@ -570,7 +698,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
   Future<void> _pickPassage(QuranData q, Passage current) async {
     final picked = await showPassagePicker(context, quran: q, initial: current);
     if (picked == null || !mounted) return;
-    _layers.setPassage(picked);
+    _choosePassage(picked, ref.read(quranSessionControllerProvider).mode);
     if (!_visible(_page).contains(q.pageOf(picked.first))) _goTo(q.pageOf(picked.first));
   }
 
@@ -587,6 +715,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
         QuranMode.recite => ReciteStrip(quran: q, passage: layers.passage ?? Passage.ofPage(q, _page)),
       };
 
+  /// The running session over the strip.
+  Widget _sessionLine(QuranSession s) => SessionLine(session: s);
+
   /// Night pages from Maghrib until sunrise when «تلقائياً» is on.
   MushafTheme _effectiveTheme(AppSettings s, DateTime now) {
     if (!s.autoNight) return s.mushafTheme;
@@ -602,6 +733,18 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     // «إبقاء الشاشة مضاءة» takes effect while reading, not only on the next open.
     ref.listen(settingsProvider.select((s) => s.keepAwake), (_, on) => ref.read(deviceServicesProvider).keepAwake(on));
     ref.listen<ListenState>(listenControllerProvider, _follow);
+    // A reading session meeting its goal ends with its card.
+    ref.listen(sessionProgressProvider, (prev, next) {
+      final s = ref.read(activeSessionProvider);
+      if (s == null || s.kind.guided || next == null || next.goal <= 0 || next.done < next.goal) return;
+      if (prev != null && prev.done >= prev.goal) return;
+      _sessionMet(next);
+    });
+    // Reveals made while memorising come back after a kill.
+    ref.listen(quranSessionControllerProvider.select((l) => l.revealed), (_, revealed) {
+      if (revealed.isNotEmpty) _sessions.update((s) => s.reveal(revealed));
+    });
+    final session = ref.watch(activeSessionProvider);
     // Only what the pages draw: other settings writes (e.g. readerHintSeen, wird counters) must not
     // rebuild the reader and its pre-built neighbour pages.
     final look0 = ref.watch(
@@ -632,7 +775,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     _spread = spreadLayout(MediaQuery.sizeOf(context));
     final spread = _spread;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final pinned = layers.mode == QuranMode.memorise || layers.mode == QuranMode.recite;
+    // Memorising, reciting and guided hifz keep their tools on screen; reading and listening fold
+    // them away after 4 s.
+    final pinned = layers.mode == QuranMode.memorise || layers.mode == QuranMode.recite || (session?.kind.guided ?? false);
     final dockVisible = _chrome || pinned;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -745,7 +890,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
                             mode: layers.mode,
                             night: night,
                             onChanged: _setMode,
-                            strip: _strip(q, layers),
+                            strip: session == null
+                                ? _strip(q, layers)
+                                : Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [_sessionLine(session), _strip(q, layers)],
+                                  ),
                           ),
                         ),
                       ),

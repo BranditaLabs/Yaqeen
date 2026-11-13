@@ -18,6 +18,7 @@ import '../../../core/widgets/yq_orb.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../prayer/domain/qibla.dart';
+import '../../quran/presentation/session/quran_entry.dart';
 import '../data/tasbeeh_controller.dart';
 import '../../../core/widgets/liquid_orb.dart';
 
@@ -332,7 +333,8 @@ class TasbeehOrb extends ConsumerWidget {
   }
 }
 
-/// Wird complication: liquid that fills as today's pages are read. Tap → the Quran.
+/// Wird complication: liquid that fills as today's pages are read. Tap → «ابدأ وردك» (or today's
+/// wird session resumes) in the reader.
 class WirdOrb extends ConsumerWidget {
   const WirdOrb({super.key, required this.done, required this.goal});
   final int done;
@@ -344,7 +346,7 @@ class WirdOrb extends ConsumerWidget {
     final shown = done.clamp(0, goal);
     final complete = goal > 0 && done >= goal;
     return GlassTap(
-      onTap: () => context.go('/quran'),
+      onTap: () => startWirdSession(context, ref),
       semanticLabel: '${t.dailyWird}، ${t.pagesOf(shown, goal)}',
       child: YqOrb(
         title: t.dailyWird,
