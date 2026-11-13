@@ -4,11 +4,15 @@ import '../../core/theme/tokens.dart';
 import '../../core/widgets/ambient_background.dart';
 import '../../core/widgets/controls.dart';
 import '../../core/widgets/liquid_glass.dart';
+import '../../core/widgets/yq_avatar.dart';
 import '../../core/widgets/yq_button.dart';
 import '../../core/widgets/yq_countdown.dart';
 import '../../core/widgets/yq_icon.dart';
 import '../../core/widgets/yq_layout.dart';
+import '../../core/widgets/yq_skeleton_mushaf.dart';
 import '../../core/widgets/yq_states.dart';
+import '../profile/domain/avatar.dart';
+import '../profile/domain/level.dart';
 
 /// Debug-only component gallery (spec YQ-01): every core widget in one scroll, for design QA
 /// and the RTL/LTR golden tests. Strings here are sample copy for QA, not user-facing UI.
@@ -40,6 +44,9 @@ class GalleryScreen extends StatelessWidget {
                   YqButton.text(label: s('المتابعة كضيف', 'Continue as guest'), onPressed: () {}),
                 ],
               ),
+              const SizedBox(height: YqSpace.m),
+              // Working: the label stays (same size) and shimmers — never a spinner.
+              YqButton.secondary(label: s('جارٍ الحفظ', 'Saving'), onPressed: () {}, loading: true),
               const SizedBox(height: YqSpace.l),
               YqSection(
                 title: s('الإعدادات', 'Settings'),
@@ -105,6 +112,51 @@ class GalleryScreen extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: YqSpace.l),
+              // Avatars: the initial, two presets; then the level ring — lapis, achieved gold, guest.
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  YqAvatar(avatar: const InitialAvatar(), size: 48, name: s('أحمد', 'Ahmed')),
+                  const YqAvatar(avatar: PresetAvatar('m03'), size: 48),
+                  const YqAvatar(avatar: PresetAvatar('f02'), size: 48),
+                ],
+              ),
+              const SizedBox(height: YqSpace.l),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  YqLevelAvatar(
+                    avatar: const PresetAvatar('m03'),
+                    level: 3,
+                    progress: 0.62,
+                    size: 64,
+                    showLevel: true,
+                    levelName: ar ? cardLevels[2].$2 : cardLevels[2].$3,
+                  ),
+                  YqLevelAvatar(
+                    avatar: const PresetAvatar('f02'),
+                    level: 6,
+                    progress: 1,
+                    size: 64,
+                    achieved: true,
+                    showLevel: true,
+                    levelName: ar ? cardLevels[5].$2 : cardLevels[5].$3,
+                  ),
+                  YqLevelAvatar(
+                    avatar: const InitialAvatar(),
+                    level: 1,
+                    progress: 0,
+                    size: 64,
+                    ring: false,
+                    name: s('ضيف', 'Guest'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: YqSpace.l),
+              const YqSkeleton(child: YqSkeletonAvatarRows(rows: 3)),
+              const SizedBox(height: YqSpace.l),
+              const SizedBox(height: 300, child: YqSkeletonMushafPage(header: true)),
             ],
           ),
         ),
