@@ -23,7 +23,11 @@ import '../../../l10n/gen/app_localizations.dart';
 import '../data/reading_repository.dart';
 import '../domain/quran_data.dart';
 import '../../home/widgets/orbs.dart';
-import '../../listen/presentation/now_playing_screen.dart';
+import '../../listen/presentation/listen_controller.dart';
+import '../domain/passage.dart';
+import 'session/listen_strip.dart';
+import 'session/mode_dock.dart';
+import 'session/quran_entry.dart';
 import 'reader_screen.dart';
 import '../domain/ayah_search.dart';
 import 'ayah_results.dart';
@@ -143,7 +147,13 @@ class _QuranIndexScreenState extends ConsumerState<QuranIndexScreen> {
                     itemCount: q.surahs.length,
                     itemBuilder: (context, i) {
                       final s = q.surahs[i];
-                      return _SurahRow(surah: s, locale: locale, divider: i > 0, onTap: () => _openPage(s.startPage));
+                      return _SurahRow(
+                        surah: s,
+                        locale: locale,
+                        divider: i > 0,
+                        onTap: () => _openPage(s.startPage),
+                        onLongPress: () => showSurahModesSheet(context, s, locale),
+                      );
                     },
                   ),
                 ),
@@ -156,7 +166,12 @@ class _QuranIndexScreenState extends ConsumerState<QuranIndexScreen> {
                   children: [
                     for (final h in hits.take(30))
                       switch (h) {
-                        SurahHit(:final surah) => _SurahRow(surah: surah, locale: locale, onTap: () => _openPage(surah.startPage)),
+                        SurahHit(:final surah) => _SurahRow(
+                            surah: surah,
+                            locale: locale,
+                            onTap: () => _openPage(surah.startPage),
+                            onLongPress: () => showSurahModesSheet(context, surah, locale),
+                          ),
                         AyahHit(:final surah, :final ref, :final page) => YqListRow(
                             dense: true,
                             title: '${t.quranSurahName(surah.nameAr)} · ${t.quranAyahN(ref.ayah)}',
@@ -174,7 +189,7 @@ class _QuranIndexScreenState extends ConsumerState<QuranIndexScreen> {
             ] else ...[
               _Orbs(q: q, listen: config.isOn(Flags.listen)),
               const SizedBox(height: YqSpace.xl),
-              _SavedCards(q: q, locale: locale, onOpen: _openPage),
+              _SavedCards(q: q, locale: locale, onOpen: _openPage, onOpenAyah: _openAyah),
               Semantics(
                 label: t.quranBrowse,
                 child: YqSegmented<_Browse>(
@@ -233,7 +248,8 @@ class _QuranIndexScreenState extends ConsumerState<QuranIndexScreen> {
 }
 
 /// The stage's moment: where you are in the mushaf — the surah in large type (tap to resume),
-/// page and juz, and the khatma's progress through the 604 pages. Friday suggests al-Kahf.
+/// page and juz, and the khatma's progress through the 604 pages. A session left open today comes
+/// first: «أكمل جلستك · ص {page}».
 class _Resume extends ConsumerWidget {
   const _Resume({required this.q, required this.locale, required this.onOpen});
   final QuranData q;
@@ -244,15 +260,21 @@ class _Resume extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
     final last = ref.watch(lastReadProvider).valueOrNull;
-    final page = last?.page ?? 1;
+    final resume = ref.watch(quranResumeProvider).valueOrNull;
+    final page = resume != null ? sessionPage(resume) : (last?.page ?? 1);
     final first = q.firstOfPage(page);
     final name = q.surah(first.surah).name(locale);
     final meta = t.homeReadingMeta(name, page, q.juzOf(first));
+    final eyebrow = resume != null
+        ? t.qsResume(YqFormat.number(page))
+        : last == null
+            ? t.homeStartReading
+            : t.continueReading;
     return GlassTap(
-      onTap: () => onOpen(page),
-      semanticLabel: '${last == null ? t.homeStartReading : t.continueReading}، $meta',
+      onTap: () => resume != null ? context.push(resumeLocation(resume, mode: resume.mode)) : onOpen(page),
+      semanticLabel: '$eyebrow، $meta',
       child: YqMoment(
-        eyebrow: last == null ? t.homeStartReading : t.continueReading,
+        eyebrow: eyebrow,
         value: Text(
           name,
           // The brand display face is Arabic-only; Latin names use Amiri.
@@ -267,7 +289,7 @@ class _Resume extends ConsumerWidget {
             const SizedBox(height: YqSpace.s),
             SizedBox(
               width: 180,
-              child: YqProgressLine(value: page / QuranData.pageCount, color: YqColors.gold, track: const Color(0x33C6A867)),
+              child: YqProgressLine(value: page / QuranData.pageCount, color: YqColors.gold, track: YqColors.gold.withValues(alpha: 0x33 / 255)),
             ),
           ],
         ),
@@ -293,7 +315,7 @@ class _SearchField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final border =
-        OutlineInputBorder(borderRadius: BorderRadius.circular(YqRadii.pill), borderSide: const BorderSide(color: Color(0xF2FFFFFF)));
+        OutlineInputBorder(borderRadius: BorderRadius.circular(YqRadii.pill), borderSide: BorderSide(color: YqColors.white.withValues(alpha: 0xF2 / 255)));
     return TextField(
       controller: controller,
       focusNode: focusNode,
@@ -313,7 +335,7 @@ class _SearchField extends StatelessWidget {
               )
             : null,
         filled: true,
-        fillColor: const Color(0xCCFFFFFF),
+        fillColor: YqColors.white.withValues(alpha: 0xCC / 255),
         border: border,
         enabledBorder: border,
       ),
@@ -336,6 +358,13 @@ class _Orbs extends ConsumerWidget {
     final done = wird != null && wird.date == Zoned.isoDate(today) ? wird.count : 0;
     final last = ref.watch(lastReadProvider).valueOrNull;
     final surah = last == null ? 1 : q.firstOfPage(last.page).surah;
+    // Recitation loaded (not a reciter sample): the orb is its player — the surah, play / pause in
+    // the progress ring; elsewhere on the orb opens the reader listening.
+    final loaded = ref.watch(
+      listenControllerProvider.select((l) => l.status == ListenStatus.ready && l.sampleOf == null ? l.surah : null),
+    );
+    final shown = loaded ?? surah;
+    final name = t.quranSurahName(q.surah(shown).name(s.locale));
     return YqOrbRow(
       orbs: [
         WirdOrb(done: done, goal: s.wirdGoalPages),
@@ -343,16 +372,18 @@ class _Orbs extends ConsumerWidget {
         if (listen)
           YqOrb(
             title: t.quranListen,
-            status: t.quranSurahName(q.surah(surah).name(s.locale)),
-            semanticLabel: '${t.quranListen}، ${t.quranSurahName(q.surah(surah).name(s.locale))}',
-            onTap: () => pushListen(context, ref, surah),
+            status: name,
+            semanticLabel: '${t.quranListen}، $name',
+            onTap: () => openQuranListen(context, ref, fallbackSurah: surah),
             disc: Center(
-              child: Container(
-                width: 52,
-                height: 52,
-                decoration: const BoxDecoration(color: YqColors.navy, shape: BoxShape.circle),
-                child: const Icon(Icons.play_arrow_rounded, color: YqColors.goldLight, size: 30),
-              ),
+              child: loaded != null
+                  ? const ListenPlayButton(size: 56)
+                  : Container(
+                      width: 52,
+                      height: 52,
+                      decoration: const BoxDecoration(color: YqColors.navy, shape: BoxShape.circle),
+                      child: const Icon(Icons.play_arrow_rounded, color: YqColors.goldLight, size: 30),
+                    ),
             ),
           )
         else
@@ -377,11 +408,55 @@ class _Medallion extends StatelessWidget {
       );
 }
 
+/// Long-press on a surah: open it in any layer the build offers («قراءة · استماع · تحفيظ · تسميع»).
+Future<void> showSurahModesSheet(BuildContext context, Surah surah, String locale) {
+  final router = GoRouter.of(context);
+  return showYqSheet<void>(
+    context,
+    builder: (c) => Consumer(
+      builder: (c, ref, _) {
+        final t = AppLocalizations.of(c);
+        final modes = ref.watch(quranModesProvider);
+        final page = surah.startPage;
+        String location(QuranMode m) => switch (m) {
+              QuranMode.read => '/quran/read/$page',
+              QuranMode.listen => '/quran/read/$page?mode=listen&ayah=${surah.number}:1&player=open',
+              _ => '/quran/read/$page?mode=${m.name}',
+            };
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(t.quranSurahName(surah.name(locale)), style: Theme.of(c).textTheme.titleLarge),
+            const SizedBox(height: YqSpace.m),
+            YqGroup(
+              children: [
+                for (final m in modes)
+                  YqListRow(
+                    leading: YqIconTile(quranModeIcon(m)),
+                    title: quranModeLabel(t, m),
+                    onTap: () {
+                      Navigator.of(c).pop();
+                      router.push(location(m));
+                    },
+                  ),
+              ],
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
+
 class _SurahRow extends StatelessWidget {
-  const _SurahRow({required this.surah, required this.locale, required this.onTap, this.divider = false});
+  const _SurahRow({required this.surah, required this.locale, required this.onTap, this.onLongPress, this.divider = false});
   final Surah surah;
   final String locale;
   final VoidCallback onTap;
+
+  /// The modes sheet.
+  final VoidCallback? onLongPress;
 
   /// A hairline above (rows inside the lazy glass card).
   final bool divider;
@@ -397,16 +472,20 @@ class _SurahRow extends StatelessWidget {
       trailing: Text(YqFormat.number(surah.startPage), style: YqText.numberSmall),
       onTap: onTap,
     );
-    return divider ? Column(children: [const YqDivider(), row]) : row;
+    final held = onLongPress == null ? row : Semantics(onLongPress: onLongPress, child: GestureDetector(onLongPress: onLongPress, child: row));
+    return divider ? Column(children: [const YqDivider(), held]) : held;
   }
 }
 
 /// Bookmarks as a gold strip above the browser (when there are any).
 class _SavedCards extends ConsumerWidget {
-  const _SavedCards({required this.q, required this.locale, required this.onOpen});
+  const _SavedCards({required this.q, required this.locale, required this.onOpen, required this.onOpenAyah});
   final QuranData q;
   final String locale;
   final ValueChanged<int> onOpen;
+
+  /// An ayah bookmark opens with that ayah lit.
+  final void Function(AyahRef ref, int page) onOpenAyah;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -419,7 +498,7 @@ class _SavedCards extends ConsumerWidget {
           title: t.quranSurahName(q.surah(b.ref?.surah ?? q.firstOfPage(b.page).surah).name(locale)),
           subtitle: '${b.ref != null ? t.quranAyahN(b.ref!.ayah) : t.quranPageN(b.page)} · ${t.quranSavedMark}',
           gold: true,
-          onTap: () => onOpen(b.page),
+          onTap: () => b.ref == null ? onOpen(b.page) : onOpenAyah(b.ref!, b.page),
         ),
     ];
     return Padding(
@@ -578,7 +657,7 @@ class _BookmarksState extends ConsumerState<_Bookmarks> {
         ),
         const SizedBox(height: YqSpace.m),
         if (marks.isLoading)
-          const SizedBox.shrink()
+          const YqSkeleton(child: YqSkeletonRows(rows: 4))
         else if (rows.isEmpty)
           LiquidGlass(child: YqEmptyState(icon: YqIcons.bookmark, title: emptyTitle, hint: emptyHint))
         else
@@ -617,7 +696,7 @@ final _cardDecoration = BoxDecoration(
     colors: [YqColors.white.withAlpha(168), YqColors.white.withAlpha(148)],
   ),
   // No shadow: under the translucent fill it would show through as a grey patch.
-  border: Border.all(color: const Color(0xE6FFFFFF)),
+  border: Border.all(color: YqColors.white.withValues(alpha: 0xE6 / 255)),
 );
 
 /// Empty state once the ayah index has answered with nothing.

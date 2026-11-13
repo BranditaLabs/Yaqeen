@@ -30,7 +30,12 @@ class _MushafDownloadSectionState extends ConsumerState<MushafDownloadSection> {
   }
 
   Future<void> _refresh() async {
-    final n = await ref.read(mushafFontsProvider).downloadedCount();
+    int n;
+    try {
+      n = await ref.read(mushafFontsProvider).downloadedCount();
+    } on Exception {
+      n = 0; // the folder can't be read: nothing usable on the device
+    }
     if (mounted) setState(() => _onDevice = n);
   }
 
@@ -66,10 +71,14 @@ class _MushafDownloadSectionState extends ConsumerState<MushafDownloadSection> {
             const SizedBox(height: YqSpace.xs),
             Text(t.mushafPagesHint, style: text.bodySmall),
             const SizedBox(height: YqSpace.s),
-            Text(
-              all ? t.mushafPagesAll : t.mushafPagesStatus(YqFormat.number(done)),
-              style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
-            ),
+            // Still counting the pages on the device: their line, shimmering.
+            if (bulk == null && _onDevice == null)
+              const YqSkeleton(child: YqSkeletonLine(widthFactor: 0.5, height: 14))
+            else
+              Text(
+                all ? t.mushafPagesAll : t.mushafPagesStatus(YqFormat.number(done)),
+                style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+              ),
             if (running) ...[
               const SizedBox(height: YqSpace.s),
               YqProgressLine(value: done / MushafFonts.pageCount),

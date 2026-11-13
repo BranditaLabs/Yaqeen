@@ -181,13 +181,13 @@ class _QiblaOrbitPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.2
-        ..color = const Color(0x331F3F94),
+        ..color = YqColors.lapis.withValues(alpha: 0x33 / 255),
     );
     // Quarter ticks.
     final tick = Paint()
       ..strokeWidth = 1.2
       ..strokeCap = StrokeCap.round
-      ..color = const Color(0x4D1F3F94);
+      ..color = YqColors.lapis.withValues(alpha: 0x4D / 255);
     for (var i = 1; i < 4; i++) {
       final a = i * math.pi / 2 - math.pi / 2;
       final d = Offset(math.cos(a), math.sin(a));
@@ -207,7 +207,7 @@ class _QiblaOrbitPainter extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeWidth = 3
           ..strokeCap = StrokeCap.round
-          ..color = const Color(0x401F3F94),
+          ..color = YqColors.lapis.withValues(alpha: 0x40 / 255),
       );
     }
 
@@ -242,7 +242,7 @@ class _QiblaOrbitPainter extends CustomPainter {
         k,
         16,
         Paint()
-          ..shader = const RadialGradient(colors: [Color(0xB3E9D49E), Color(0x00E9D49E)])
+          ..shader = RadialGradient(colors: [YqColors.goldLight.withValues(alpha: 0xB3 / 255), YqColors.goldLight.withValues(alpha: 0)])
               .createShader(Rect.fromCircle(center: k, radius: 16)),
       );
     }

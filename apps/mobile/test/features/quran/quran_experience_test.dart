@@ -198,6 +198,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('حصّة اليوم'), findsOneWidget);
     expect(find.text('من الصفحة 1 إلى 21'), findsOneWidget);
+    expect(find.text('استمع إلى الحصّة'), findsOneWidget, reason: 'the khatma portion by ear');
     final plan = await ReadingRepository(LocalStore(kv)).khatma();
     expect(plan, isA<Khatma>());
     expect(plan!.targetDate, '2026-11-18');

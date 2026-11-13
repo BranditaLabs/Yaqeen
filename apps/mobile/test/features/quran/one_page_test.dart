@@ -177,9 +177,12 @@ void main() {
     final listen = FakeListen(reciting);
     await open(tester, const ReaderScreen(initialPage: 582, mode: QuranMode.listen), listen);
     showReaderSettings(tester.element(find.byType(ReaderScreen)), page: 582);
-    await tester.pumpAndSettle();
+    // (The sheet's mushaf-download line shimmers while it counts the pages on the device.)
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
     listen.set(reciting.copyWith(ayah: 31));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
     expect(shown(tester), 582);
     await leave(tester);
   });
