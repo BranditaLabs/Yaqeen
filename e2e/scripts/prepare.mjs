@@ -124,8 +124,8 @@ async function seedCompetitions() {
     return p.id;
   };
 
-  // The competitor: preset m03, 600 earned points (level 2), card published so /u/<handle> draws the ring.
-  const runner = { handle: 'e2e-runner', name: 'عمر المتسابق' };
+  // Card handles follow PROFILE_HANDLE (letters, digits, _ and .). The competitor: preset m03, 600 earned points (level 2), card published so /u/<handle> draws the ring.
+  const runner = { handle: 'e2e_runner', name: 'عمر المتسابق' };
   runner.id = await member({ ...runner, mail: 'runner@example.com', published: true, preset: 'm03' });
   for (let i = 1; i <= 6; i++) {
     await db.query(`insert into points_ledger (user_id, delta, reason, ref_key, created_at) values ($1, 100, 'task', $2, now() - make_interval(days => $3))`, [
@@ -137,13 +137,13 @@ async function seedCompetitions() {
   await db.query(`update user_point_totals set public_lifetime = lifetime_earned, public_day = $2::date where user_id = $1`, [runner.id, today]);
 
   // Support removed this member's photo yesterday (restorable for 7 days).
-  const removed = { handle: 'e2e-removed', name: 'ليلى' };
+  const removed = { handle: 'e2e_removed', name: 'ليلى' };
   removed.id = await member({ ...removed, mail: 'removed@example.com', published: false, preset: 'f02' });
   removed.photoId = await photo(removed.id, { status: 'removed', removedAt: new Date(Date.now() - 86_400_000), removedBy: boss.id, reason: 'e2e: صورة غير لائقة' });
   await db.query(`update users set photo_locked_at = now() - interval '1 day' where id = $1`, [removed.id]);
 
   // A published card with an active, attested photo, and one open report against it.
-  const pictured = { handle: 'e2e-photo', name: 'هدى' };
+  const pictured = { handle: 'e2e_photo', name: 'هدى' };
   pictured.id = await member({ ...pictured, mail: 'photo@example.com', published: true });
   pictured.photoId = await photo(pictured.id, { status: 'active' });
   await db.query(`update users set avatar_kind = 'photo', avatar_photo_id = $2 where id = $1`, [pictured.id, pictured.photoId]);
