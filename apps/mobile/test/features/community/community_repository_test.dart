@@ -46,7 +46,7 @@ void main() {
         'GET /v1/leaderboard': (req) => req.url.queryParameters['scope'] == 'country'
             ? errorResponse(409, 'country_too_small')
             : errorResponse(409, 'country_unknown'),
-      });
+      },);
       final repo = repoOf(r);
       await expectLater(
         repo.leagueCurrent(),
@@ -79,7 +79,7 @@ void main() {
         'GET /v1/leaderboard': (_) => jsonResponse(fixture('leaderboard.json')),
         'GET /v1/community/blocks': (_) => jsonResponse(fixture('blocks.json')),
         'GET /v1/tournaments/${(list[1] as Map)['id']}/standings': (_) => jsonResponse(fixture('standings.json')),
-      });
+      },);
       final repo = repoOf(r);
       final ts = (await repo.tournaments()).value;
       expect(ts.map((x) => x.phase), [TournamentPhase.upcoming, TournamentPhase.live, TournamentPhase.ended]);
@@ -152,7 +152,7 @@ void main() {
               ],
             }),
         'DELETE /v1/tournaments/$id/join': (_) => offline(),
-      });
+      },);
       final repo = repoOf(r);
       await repo.tournaments();
       await repo.standings(id);
@@ -200,7 +200,7 @@ void main() {
         'GET /v1/tournaments/t1/standings': (_) => jsonResponse(fixture('standings.json')),
         'POST /v1/community/blocks': (_) => jsonResponse(fixture('blocks.json')),
         'DELETE /v1/community/blocks/omar-5521': (_) => jsonResponse(null, 204),
-      });
+      },);
       final repo = repoOf(r);
       await repo.leagueCurrent();
       await repo.leaderboard(LeaderboardScope.global);

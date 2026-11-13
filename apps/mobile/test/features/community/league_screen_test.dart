@@ -66,7 +66,7 @@ void main() {
         'GET /v1/me/profile': (_) => jsonResponse(profile ?? profileJson()),
         'GET /v1/leagues/current': (_) => jsonResponse(leagueJoined()),
         'GET /v1/leagues/history': (_) => jsonResponse(history),
-      });
+      },);
 
   testWidgets('joined: stage, zones, «أنت», «—» for null/0, snapshot line, sincerity and privacy', (tester) async {
     final rig = joinedRig();
@@ -120,7 +120,7 @@ void main() {
       'GET /v1/leagues/current': (_) => jsonResponse(fixture('league_current_off.json')),
       'GET /v1/leagues/history': (_) => jsonResponse(const []),
       'PUT /v1/me/community': (_) => jsonResponse(settingsAfterJoin()),
-    });
+    },);
     await pumpLeague(tester, rig);
     expect(find.text('انضم إلى الدوري الأسبوعي'), findsOneWidget);
 
@@ -148,7 +148,7 @@ void main() {
       'GET /v1/me/profile': (_) => jsonResponse(profileJson(leagues: false)),
       'GET /v1/leagues/current': (_) => jsonResponse(fixture('league_current_off.json')),
       'PUT /v1/me/community': (_) => offline(),
-    });
+    },);
     await pumpLeague(tester, rig);
     await tester.tap(find.text('انضم'));
     await tester.pumpAndSettle();
@@ -165,7 +165,7 @@ void main() {
       'GET /v1/me/profile': (_) => jsonResponse(profileJson(leagues: false)),
       'GET /v1/leagues/current': (_) => jsonResponse(fixture('league_current_off.json')),
       'PUT /v1/me/community': (_) => errorResponse(409, 'name_locked'),
-    });
+    },);
     await pumpLeague(tester, rig);
     await tester.tap(find.text('انضم'));
     await tester.pumpAndSettle();
@@ -208,7 +208,7 @@ void main() {
     final rig = CommunityRig(routes: {
       'GET /v1/me/profile': (_) => jsonResponse(profileJson()),
       'GET /v1/leagues/current': (_) => jsonResponse(fixture('league_current_closing.json')),
-    });
+    },);
     await seedProfile(rig, {...profileJson(), 'league': null});
     await pumpLeague(tester, rig);
     expect(find.text('نحسب نتائج الأسبوع… عُد بعد قليل'), findsOneWidget);
@@ -218,7 +218,7 @@ void main() {
     final rig = CommunityRig(routes: {
       'GET /v1/me/profile': (_) => jsonResponse(profileJson(banned: true)),
       'GET /v1/leagues/current': (_) => jsonResponse(leagueJoined()),
-    });
+    },);
     await seedProfile(rig, profileJson(banned: true));
     await pumpLeague(tester, rig);
     expect(find.text('أُوقفت مشاركتك في المنافسات. راسلنا لمراجعتها.'), findsOneWidget);
