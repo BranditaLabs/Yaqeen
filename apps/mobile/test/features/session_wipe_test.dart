@@ -13,6 +13,7 @@ import 'package:yaqeen/features/onboarding/data/auth_repository.dart';
 import 'package:yaqeen/features/onboarding/data/consent_repository.dart';
 import 'package:yaqeen/features/onboarding/presentation/session_controller.dart';
 import 'package:yaqeen/features/profile/data/profile_repository.dart';
+import 'package:yaqeen/features/profile/presentation/me_profile_controller.dart';
 import 'package:yaqeen/features/quran/data/session_store.dart';
 
 http.Response json(Object? body, [int status = 200]) =>
@@ -113,6 +114,52 @@ void main() {
     expect(c.read(consentRepositoryProvider).granted(ConsentKind.community), isFalse);
     expect(Directory('${dir.path}${Platform.pathSeparator}profile').existsSync(), isFalse);
     expect(kv.data[QuranSessionStore.kvKey], '{"page":3}'); // on-device Quran data stays
+  });
+
+  test("the next account is never compared with the previous account's level (no false level-up)", () async {
+    Map<String, dynamic> profileAt(int points) => (jsonDecode(fixture('me_profile.json')) as Map).cast<String, dynamic>()
+      ..remove('level')
+      ..['lifetimePoints'] = points;
+    var serverPoints = 800; // level 2
+    final c = container(
+      google,
+      (req) async {
+        if (req.url.path == '/v1/auth/sign-in') {
+          return json({
+            'accessToken': 'a2',
+            'refreshToken': 'r2',
+            'user': {'id': 'u2', 'displayName': 'Sara Ali'},
+          });
+        }
+        if (req.method == 'GET' && req.url.path == '/v1/me/profile') return json(profileAt(serverPoints));
+        return http.Response('', 204);
+      },
+      social: FakeSocialAuth(credential: const SocialCredential(idToken: 'id')),
+    );
+    await kv.write(ProfileRepository.meKey, jsonEncode(profileAt(800)));
+    await kv.write(ProfileRepository.lastSeenLevelKey, '2');
+    final sub = c.listen(levelUpProvider, (_, __) {});
+    addTearDown(sub.close);
+    await pumpEventQueue(times: 50);
+    expect(c.read(meProfileProvider).valueOrNull?.level.level, 2);
+    expect(c.read(levelUpProvider).pending, isFalse);
+
+    await c.read(sessionProvider.notifier).signOut();
+    await pumpEventQueue(times: 50);
+    serverPoints = 6000; // the next account is level 4
+    final outcome = await c.read(sessionProvider.notifier).signInWith(SignInProvider.google);
+    expect(outcome, SignInOutcome.signedIn);
+    await pumpEventQueue(times: 100);
+
+    expect(c.read(meProfileProvider).valueOrNull?.level.level, 4);
+    expect(c.read(levelUpProvider).pending, isFalse);
+    expect(kv.data[ProfileRepository.lastSeenLevelKey], '4');
+
+    // A real level-up of the new account is still a moment.
+    serverPoints = 13000; // level 5
+    await c.read(meProfileProvider.notifier).refresh();
+    await pumpEventQueue(times: 20);
+    expect(c.read(levelUpProvider).pending, isTrue);
   });
 
   test('a guest who links an account pushes the name they chose on this phone', () async {

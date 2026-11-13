@@ -12,6 +12,8 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../core/widgets/yq_avatar.dart';
 import '../../backup/data/backup_engine.dart';
 import '../../profile/data/profile_repository.dart';
+import '../../profile/domain/me_profile.dart';
+import '../../profile/presentation/me_profile_controller.dart';
 import '../../quran/data/session_store.dart';
 import '../data/auth_repository.dart';
 import '../data/consent_repository.dart';
@@ -33,12 +35,26 @@ class SessionController extends Notifier<Session> {
     await ref.read(settingsRepositoryProvider).save(s);
     // The name and picture a guest chose on this phone reach the account (only what they changed;
     // the server's values win otherwise). Never fails sign-in: offline keeps the flags for later.
+    MeProfile? profile;
     try {
-      await ref.read(profileRepositoryProvider).pushAfterSignIn();
+      profile = await ref.read(profileRepositoryProvider).pushAfterSignIn();
     } on Object {
       // best effort
     }
+    // Signing in is not a level-up: the account's level becomes the last one seen on this phone.
+    await _rebaseLevel(profile?.level.level);
     ref.read(outboxSyncProvider).flush().ignore();
+  }
+
+  /// A new account is about to replace the session: until its own level is known, the level-up
+  /// moment neither remembers the placeholder profile nor owes anything.
+  void _holdLevelUp() {
+    if (ref.exists(levelUpProvider)) ref.read(levelUpProvider.notifier).reset(hold: true);
+  }
+
+  Future<void> _rebaseLevel(int? level) async {
+    if (ref.exists(levelUpProvider)) ref.read(levelUpProvider.notifier).rebase(level);
+    if (level != null) await ref.read(kvStoreProvider).write(ProfileRepository.lastSeenLevelKey, '$level');
   }
 
   /// Google or Apple. A cancelled native sheet is not an error (spec §5.3).
@@ -47,7 +63,9 @@ class SessionController extends Notifier<Session> {
     try {
       final cred = provider == SignInProvider.apple ? await social.apple() : await social.google();
       if (cred == null) return SignInOutcome.cancelled;
-      state = await _repo.signIn(provider, idToken: cred.idToken, displayName: cred.displayName, locale: _locale);
+      final session = await _repo.signIn(provider, idToken: cred.idToken, displayName: cred.displayName, locale: _locale);
+      _holdLevelUp();
+      state = session;
       // Consent isn't decided yet during onboarding → queued, sent only if ads are allowed.
       await ref.read(analyticsProvider).logOrQueue(AdEvent.signUp);
       unawaited(ref.read(productAnalyticsProvider).track(ProductEvent.signIn, {'provider': provider.name}));
@@ -90,9 +108,11 @@ class SessionController extends Notifier<Session> {
       await ensureServerAccount();
       final cred = provider == SignInProvider.apple ? await social.apple() : await social.google();
       if (cred == null) return SignInOutcome.cancelled;
-      state = state.userId == null
+      final session = state.userId == null
           ? await _repo.signIn(provider, idToken: cred.idToken, displayName: cred.displayName, locale: _locale)
           : await _repo.link(provider, idToken: cred.idToken, displayName: cred.displayName);
+      _holdLevelUp();
+      state = session;
       await ref.read(analyticsProvider).log(AdEvent.signUp);
       await _afterSignIn();
       return SignInOutcome.signedIn;
@@ -155,6 +175,8 @@ class SessionController extends Notifier<Session> {
       await kv.delete(key);
     }
     YqAvatar.clearMemoryCache();
+    // The last-seen level also lives in memory: the next account must not be compared with it.
+    if (ref.exists(levelUpProvider)) ref.read(levelUpProvider.notifier).reset();
     await ref.read(consentRepositoryProvider).adopt(ConsentKind.community, false);
     final files = ref.read(profileRepositoryProvider).wipe();
     if (awaitFiles) {

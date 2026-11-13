@@ -144,6 +144,9 @@ class _ProfileStepState extends ConsumerState<ProfileStep> {
       final ok = await showSignInSheet(context, title: t.obSignInToJoin);
       if (!mounted) return;
       if (!ok || !ref.read(sessionProvider).canEarnPoints) return;
+      // Signed in just now: an empty, untouched field takes the account's first name (never the
+      // full Google/Apple name; the league shows what is in this field).
+      if (!_nameTouched && _name.text.trim().isEmpty) _name.text = _initialName();
     }
     setState(() {
       _join = true;
@@ -169,6 +172,13 @@ class _ProfileStepState extends ConsumerState<ProfileStep> {
     final attested = profile?.community.attestedAdult ?? false;
     final leagues = ref.read(remoteConfigProvider).isOn(Flags.leagues);
     final join = _join && leagues;
+    final name = _name.text.trim();
+    // The league shows the name in this field: never let the server fall back to the account's
+    // full name.
+    if (join && name.isEmpty) {
+      setState(() => _error = t.cmErrNameRequired);
+      return;
+    }
     if (join && !attested && !_attest) {
       setState(() => _error = t.cmErrAttestation);
       return;
@@ -178,7 +188,6 @@ class _ProfileStepState extends ConsumerState<ProfileStep> {
       _error = null;
     });
     final me = ref.read(meProfileProvider.notifier);
-    final name = _name.text.trim();
     if (name.isNotEmpty && name != (profile?.displayName?.trim() ?? '')) await me.setName(name);
     final picked = _picked;
     if (picked != null && picked != profile?.avatar) await me.setAvatar(picked);
@@ -186,7 +195,7 @@ class _ProfileStepState extends ConsumerState<ProfileStep> {
       final r = await me.join(
         CommunityUpdate(
           leagues: true,
-          displayName: name.isEmpty ? null : name,
+          displayName: name,
           attestAdult: true,
           source: CommunitySource.onboarding,
         ),

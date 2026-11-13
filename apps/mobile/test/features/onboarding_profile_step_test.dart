@@ -16,6 +16,7 @@ import 'package:yaqeen/core/network/api_client.dart';
 import 'package:yaqeen/core/offline/outbox.dart';
 import 'package:yaqeen/core/platform/device_services.dart';
 import 'package:yaqeen/core/platform/photo_picker.dart';
+import 'package:yaqeen/core/platform/social_auth.dart';
 import 'package:yaqeen/core/settings/app_settings.dart';
 import 'package:yaqeen/core/settings/settings_controller.dart';
 import 'package:yaqeen/core/storage/kv_store.dart';
@@ -84,6 +85,7 @@ void main() {
     RemoteConfig? config,
     PhotoPicker picker = const NoopPhotoPicker(),
     String locale = 'ar',
+    SocialAuth? social,
   }) {
     final router = GoRouter(
       initialLocation: '/onboarding/profile',
@@ -105,6 +107,7 @@ void main() {
         photoPickerProvider.overrideWithValue(picker),
         deviceServicesProvider.overrideWithValue(device),
         filesDirProvider.overrideWithValue(() async => dir),
+        if (social != null) socialAuthProvider.overrideWithValue(social),
         apiClientProvider.overrideWith(
           (ref) => ApiClient(
             baseUrl: 'https://api.test',
@@ -150,7 +153,8 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Finder toggle(String label) => find.byWidgetPredicate((w) => w is Semantics && w.properties.label == label && w.properties.toggled != null);
+  Finder toggle(String label) =>
+      find.byWidgetPredicate((w) => w is Semantics && w.properties.label == label && w.properties.toggled != null);
   bool toggled(WidgetTester tester, String label) => tester.widget<Semantics>(toggle(label)).properties.toggled!;
 
   const joinLabel = 'انضم إلى الدوري الأسبوعي';
@@ -208,6 +212,61 @@ void main() {
     expect(toggled(tester, joinLabel), isFalse);
     expect(toggle(attestLabel), findsNothing);
     expect(calls.where((c) => c.contains('/v1/me/') || c.contains('/v1/auth/')), isEmpty);
+  });
+
+  testWidgets('guest who signs in from the switch: the field takes the first name and the join sends it', (tester) async {
+    await TokenStore(secure).save(access: 'g-a', refresh: 'g-r');
+    handler = (req) async {
+      if (req.method == 'POST' && req.url.path == '/v1/auth/link') {
+        return json({
+          'accessToken': 'a2',
+          'refreshToken': 'r2',
+          'user': {'id': 'g1', 'displayName': 'Ahmed Hamdy'},
+        });
+      }
+      if (req.method == 'PUT' && req.url.path == '/v1/me/community') {
+        return json({'leagues': true, 'leaderboard': false, 'leaderboardCountry': false, 'banned': false, 'attestedAdult': true});
+      }
+      if (req.method == 'GET' && req.url.path == '/v1/me/profile') return http.Response('', 503);
+      return http.Response('', 204);
+    };
+    await open(tester, app(social: FakeSocialAuth(credential: const SocialCredential(idToken: 'id'))));
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, isEmpty);
+
+    await tester.tap(toggle(joinLabel));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('المتابعة باستخدام Google'));
+    await settle(tester);
+    await settle(tester);
+
+    expect(toggled(tester, joinLabel), isTrue);
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, 'Ahmed'); // never 'Ahmed Hamdy'
+    await tester.tap(toggle(attestLabel));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('متابعة'));
+    await settle(tester);
+
+    expect(find.text('DOWNLOAD'), findsOneWidget);
+    final put = calls.indexOf('PUT /v1/me/community');
+    expect(put, isNot(-1));
+    expect((bodies[put]! as Map)['displayName'], 'Ahmed');
+  });
+
+  testWidgets('joining with an empty name asks for one and sends nothing', (tester) async {
+    await TokenStore(secure).save(access: 'a1', refresh: 'r1');
+    await open(tester, app(session: google));
+    await tester.enterText(find.byType(TextField), '   ');
+    await tester.pump();
+    await tester.tap(toggle(joinLabel));
+    await tester.pumpAndSettle();
+    await tester.tap(toggle(attestLabel));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('متابعة'));
+    await settle(tester);
+
+    expect(find.text('اكتب الاسم الظاهر.'), findsOneWidget);
+    expect(calls.where((c) => c == 'PUT /v1/me/community'), isEmpty);
+    expect(find.text('DOWNLOAD'), findsNothing);
   });
 
   testWidgets('signed in: the first name is prefilled; joining needs the attestation and is a direct PUT', (tester) async {
