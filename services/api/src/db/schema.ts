@@ -10,9 +10,12 @@
  */
 import { sql } from 'drizzle-orm';
 import {
+  type AnyPgColumn,
   bigint,
   bigserial,
   boolean,
+  check,
+  customType,
   date,
   index,
   integer,
@@ -39,6 +42,7 @@ export const consentKind = pgEnum('consent_kind', [
   'ads_measurement',
   'product_analytics',
   'cloud_backup',
+  'community',
 ]);
 export const taskKey = pgEnum('task_key', [
   'wird',
@@ -97,9 +101,32 @@ export const users = pgTable('users', {
   /** When the PDPL erasure request was made; the purge job anonymises 30 days later. */
   deletionRequestedAt: ts('deletion_requested_at'),
   lastSeenAt: ts('last_seen_at'),
+  /** ISO-3166 alpha-2 of the chosen city (sent by the app). Used only for the opt-in country board. */
+  country: text('country'),
+  /** `initial` | `preset` | `photo` (contracts `Avatar`). */
+  avatarKind: text('avatar_kind').notNull().default('initial'),
+  /** One of contracts `AVATAR_PRESETS`; required for `preset`, kept as the fallback for `photo`. */
+  avatarPreset: text('avatar_preset'),
+  /** The active photo (FK added after `avatar_photos` exists, migration 0017). */
+  avatarPhotoId: uuid('avatar_photo_id').references((): AnyPgColumn => avatarPhotos.id, { onDelete: 'set null' }),
+  /** Support hid the name (audited): the public name is null and renaming is locked. */
+  nameHiddenAt: ts('name_hidden_at'),
+  nameHiddenReason: text('name_hidden_reason'),
+  /** Support removed a photo (audited): uploads are refused with `photo_locked` until restored. */
+  photoLockedAt: ts('photo_locked_at'),
+  /** The 18+ (or guardian consent) attestation, set by any community join that carries `attestAdult`. */
+  adultAttestedAt: ts('adult_attested_at'),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
-});
+}, (t) => [
+  check('users_country_ck', sql`${t.country} ~ '^[A-Z]{2}$'`),
+  check('users_avatar_kind_ck', sql`${t.avatarKind} in ('initial', 'preset', 'photo')`),
+  check(
+    'users_avatar_preset_ck',
+    sql`${t.avatarPreset} in ('m01','m02','m03','m04','m05','m06','m07','m08','f01','f02','f03','f04','f05','f06','f07','f08')`,
+  ),
+  check('users_avatar_preset_required_ck', sql`${t.avatarKind} <> 'preset' or ${t.avatarPreset} is not null`),
+]);
 
 export const authIdentities = pgTable(
   'auth_identities',
@@ -337,8 +364,11 @@ export const consentEvents = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     kind: consentKind('kind').notNull(),
     granted: boolean('granted').notNull(),
+    /** contracts `ConsentEventSource`: onboarding, settings, system_prompt, system (job), support, erasure. */
     source: text('source').notNull(),
     policyVersion: text('policy_version').notNull(),
+    /** true on the `community` row written by a join that carried the 18+ attestation. */
+    attestedAdult: boolean('attested_adult'),
     createdAt: createdAt(),
   },
   (t) => [index('consent_events_user_idx').on(t.userId, t.createdAt)],
@@ -725,4 +755,314 @@ export const auditLog = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index('audit_log_created_idx').on(t.createdAt), index('audit_log_target_idx').on(t.targetType, t.targetId)],
+);
+
+/* ------------------------------------------------------- profile & community */
+/*
+ * docs/design/2026-11-profile-community-quran.md §2, APP_SPEC §5.24 / §5.31. Others see only the
+ * name/@handle, avatar, the public level ring and snapshot period points — never worship detail and
+ * never anything live. Competitions never write `points_ledger`; badges live in `user_badges`.
+ * `points_earned_daily` and `user_point_totals` are derived caches kept by the `yq_points_rollup`
+ * trigger (migration 0017) and rebuildable with `select yq_rebuild_points_rollups();` — not balances.
+ */
+
+const bytea = customType<{ data: Buffer }>({ dataType: () => 'bytea' });
+
+/** Re-encoded profile photos (sharp → WebP, EXIF stripped), ≈ 30 KB per user. New id per upload. */
+export const avatarPhotos = pgTable(
+  'avatar_photos',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** sha256 of each size — the per-size ETag. */
+    shaSmall: text('sha_small').notNull(),
+    shaLarge: text('sha_large').notNull(),
+    /** 96-px WebP. */
+    small: bytea('small').notNull(),
+    /** 256-px WebP. */
+    large: bytea('large').notNull(),
+    bytes: integer('bytes').notNull(),
+    status: text('status').notNull().default('active'),
+    createdAt: createdAt(),
+    removedAt: ts('removed_at'),
+    /** Support removal (audited); null when the owner removed or replaced it. */
+    removedBy: uuid('removed_by').references(() => adminUsers.id),
+    removedReason: text('removed_reason'),
+  },
+  (t) => [
+    // Also serves the 10-uploads-per-hour rate limit, counted in the database.
+    index('avatar_photos_user_idx').on(t.userId, t.createdAt.desc()),
+    index('avatar_photos_status_idx').on(t.status, t.createdAt.desc()),
+    check('avatar_photos_status_ck', sql`${t.status} in ('active', 'replaced', 'removed')`),
+  ],
+);
+
+/** Opt-in switches. The `community` consent is granted while leagues, leaderboard or a live tournament entry holds. */
+export const communityMembers = pgTable(
+  'community_members',
+  {
+    userId: uuid('user_id')
+      .primaryKey()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    leagues: boolean('leagues').notNull().default(false),
+    leaderboard: boolean('leaderboard').notNull().default(false),
+    /** Refines `leaderboard` (country board); never grants the consent alone. */
+    leaderboardCountry: boolean('leaderboard_country').notNull().default(false),
+    division: smallint('division').notNull().default(1),
+    bannedAt: ts('banned_at'),
+    bannedReason: text('banned_reason'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [check('community_members_division_ck', sql`${t.division} between 1 and 6`)],
+);
+
+/** A block hides each user from the other's views (both directions, display only). */
+export const communityBlocks = pgTable(
+  'community_blocks',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    blockedUserId: uuid('blocked_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.blockedUserId] }),
+    index('community_blocks_blocked_idx').on(t.blockedUserId),
+    check('community_blocks_not_self_ck', sql`${t.userId} <> ${t.blockedUserId}`),
+  ],
+);
+
+/** Derived: points earned (contracts `EARNED_REASONS`) per Africa/Cairo day. No time-of-day column. */
+export const pointsEarnedDaily = pgTable(
+  'points_earned_daily',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    day: date('day', { mode: 'string' }).notNull(),
+    earned: integer('earned').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.day] }), index('points_earned_daily_day_idx').on(t.day, t.userId)],
+);
+
+/** Derived: lifetime earned (contracts `LEVEL_REASONS`, delta > 0) and its nightly public snapshot. */
+export const userPointTotals = pgTable(
+  'user_point_totals',
+  {
+    userId: uuid('user_id')
+      .primaryKey()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    lifetimeEarned: integer('lifetime_earned').notNull().default(0),
+    /** Every public level ring reads this (refreshed once per Cairo day). */
+    publicLifetime: integer('public_lifetime').notNull().default(0),
+    publicDay: date('public_day', { mode: 'string' }),
+  },
+  (t) => [index('user_point_totals_public_idx').on(t.publicLifetime.desc())],
+);
+
+/** Saturday 00:00 → Saturday 00:00, Africa/Cairo. */
+export const leagueWeeks = pgTable(
+  'league_weeks',
+  {
+    startsOn: date('starts_on', { mode: 'string' }).primaryKey(),
+    startsAt: ts('starts_at').notNull(),
+    endsAt: ts('ends_at').notNull(),
+    /** The contracts `LeagueSettings` in force for this week; filled when the week starts, never changed after. */
+    settings: jsonb('settings'),
+    status: text('status').notNull().default('open'),
+    closedAt: ts('closed_at'),
+  },
+  (t) => [check('league_weeks_status_ck', sql`${t.status} in ('open', 'closed')`)],
+);
+
+export const leagueGroups = pgTable(
+  'league_groups',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    startsOn: date('starts_on', { mode: 'string' })
+      .notNull()
+      .references(() => leagueWeeks.startsOn),
+    division: smallint('division').notNull(),
+    size: smallint('size').notNull().default(0),
+    /** Set when the close step claimed and finished this group (resumable close). */
+    closedAt: ts('closed_at'),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index('league_groups_fill_idx').on(t.startsOn, t.division, t.size),
+    index('league_groups_open_idx').on(t.startsOn).where(sql`${t.closedAt} is null`),
+    check('league_groups_division_ck', sql`${t.division} between 1 and 6`),
+  ],
+);
+
+export const leagueMembers = pgTable(
+  'league_members',
+  {
+    startsOn: date('starts_on', { mode: 'string' })
+      .notNull()
+      .references(() => leagueWeeks.startsOn),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => leagueGroups.id),
+    division: smallint('division').notNull(),
+    joinedAt: ts('joined_at').notNull().defaultNow(),
+    leftAt: ts('left_at'),
+    /** Nightly snapshot (earned days starts_on..yesterday). */
+    snapshotPoints: integer('snapshot_points'),
+    snapshotRank: smallint('snapshot_rank'),
+    finalPoints: integer('final_points'),
+    finalRank: smallint('final_rank'),
+    outcome: text('outcome'),
+  },
+  (t) => [
+    primaryKey({ columns: [t.startsOn, t.userId] }),
+    index('league_members_group_rank_idx').on(t.groupId, t.snapshotRank),
+    check('league_members_division_ck', sql`${t.division} between 1 and 6`),
+    check('league_members_outcome_ck', sql`${t.outcome} in ('up', 'stay', 'down')`),
+  ],
+);
+
+/** Admin seasonal tournaments: windows of whole Cairo days (instants are Cairo 00:00; ends/join exclusive). */
+export const tournaments = pgTable(
+  'tournaments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    slug: text('slug').notNull(),
+    titleAr: text('title_ar').notNull(),
+    titleEn: text('title_en').notNull(),
+    bodyAr: text('body_ar').notNull().default(''),
+    bodyEn: text('body_en').notNull().default(''),
+    startsAt: ts('starts_at').notNull(),
+    endsAt: ts('ends_at').notNull(),
+    joinUntil: ts('join_until').notNull(),
+    badgeAr: text('badge_ar').notNull(),
+    badgeEn: text('badge_en').notNull(),
+    minPoints: integer('min_points').notNull().default(1),
+    status: text('status').notNull().default('draft'),
+    finalizingAt: ts('finalizing_at'),
+    closedAt: ts('closed_at'),
+    createdBy: uuid('created_by').references(() => adminUsers.id),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex('tournaments_slug_uq').on(t.slug),
+    check('tournaments_slug_ck', sql`${t.slug} ~ '^[a-z0-9-]{3,40}$'`),
+    check('tournaments_titles_ck', sql`char_length(${t.titleAr}) <= 60 and char_length(${t.titleEn}) <= 60`),
+    check('tournaments_bodies_ck', sql`char_length(${t.bodyAr}) <= 280 and char_length(${t.bodyEn}) <= 280`),
+    check('tournaments_badges_ck', sql`char_length(${t.badgeAr}) <= 40 and char_length(${t.badgeEn}) <= 40`),
+    check('tournaments_status_ck', sql`${t.status} in ('draft', 'published', 'cancelled')`),
+    check('tournaments_window_ck', sql`${t.startsAt} < ${t.endsAt} and ${t.joinUntil} <= ${t.endsAt}`),
+    check('tournaments_window_len_ck', sql`${t.endsAt} - ${t.startsAt} <= interval '90 days'`),
+    check('tournaments_min_points_ck', sql`${t.minPoints} >= 1`),
+  ],
+);
+
+export const tournamentEntries = pgTable(
+  'tournament_entries',
+  {
+    tournamentId: uuid('tournament_id')
+      .notNull()
+      .references(() => tournaments.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    joinedAt: ts('joined_at').notNull().defaultNow(),
+    leftAt: ts('left_at'),
+    snapshotPoints: integer('snapshot_points'),
+    snapshotRank: integer('snapshot_rank'),
+    finalPoints: integer('final_points'),
+    finalRank: integer('final_rank'),
+  },
+  (t) => [
+    primaryKey({ columns: [t.tournamentId, t.userId] }),
+    index('tournament_entries_snapshot_idx').on(t.tournamentId, t.snapshotRank),
+    index('tournament_entries_final_idx').on(t.tournamentId, t.finalRank),
+  ],
+);
+
+/** Level board ranks (nightly). `country` is '' for the global scope. */
+export const leaderboardSnapshot = pgTable(
+  'leaderboard_snapshot',
+  {
+    scope: text('scope').notNull(),
+    country: text('country').notNull().default(''),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    rank: integer('rank').notNull(),
+    lifetime: integer('lifetime').notNull(),
+    day: date('day', { mode: 'string' }).notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.scope, t.country, t.userId] }),
+    index('leaderboard_snapshot_rank_idx').on(t.scope, t.country, t.rank),
+    check('leaderboard_snapshot_scope_ck', sql`${t.scope} in ('global', 'country')`),
+  ],
+);
+
+/** Marks that the nightly snapshot for that Cairo day ran. */
+export const communitySnapshotDays = pgTable('community_snapshot_days', {
+  day: date('day', { mode: 'string' }).primaryKey(),
+  takenAt: ts('taken_at').notNull().defaultNow(),
+});
+
+/**
+ * Append-only badges (contracts `BADGE_KINDS`; streak and level badges stay derived). Unique
+ * `(user_id, ref_key)`: `league:<startsOn>`, `division:<n>`, `tournament:<id>`. Never points.
+ */
+export const userBadges = pgTable(
+  'user_badges',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    refKey: text('ref_key').notNull(),
+    /** {startsOn?, division?, rank?, size?, tournamentId?, titleAr?, titleEn?, labelAr?, labelEn?} */
+    meta: jsonb('meta').notNull().default({}),
+    awardedAt: ts('awarded_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('user_badges_user_ref_uq').on(t.userId, t.refKey),
+    check(
+      'user_badges_kind_ck',
+      sql`${t.kind} in ('league_first','league_top3','league_promoted','division_reached','tournament_podium','tournament_top10','tournament_finisher')`,
+    ),
+  ],
+);
+
+/** Reports of a competitor's name or photo (support queue). 20 per reporter per rolling 24 h, counted here. */
+export const communityReports = pgTable(
+  'community_reports',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    reporterId: uuid('reporter_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    targetUserId: uuid('target_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    reason: text('reason').notNull(),
+    createdAt: createdAt(),
+    resolvedAt: ts('resolved_at'),
+    resolvedBy: uuid('resolved_by').references(() => adminUsers.id),
+    resolution: text('resolution'),
+  },
+  (t) => [
+    uniqueIndex('community_reports_open_uq').on(t.reporterId, t.targetUserId).where(sql`${t.resolvedAt} is null`),
+    index('community_reports_reporter_idx').on(t.reporterId, t.createdAt.desc()),
+    check('community_reports_reason_ck', sql`${t.reason} in ('name', 'photo', 'other')`),
+    check('community_reports_resolution_ck', sql`${t.resolution} in ('dismissed', 'actioned')`),
+  ],
 );
