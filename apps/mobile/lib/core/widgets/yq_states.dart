@@ -1,3 +1,16 @@
+/// Loading, empty, error and offline states (spec §2.5, docs/DESIGN_SYSTEM.md).
+///
+/// **Loading rule (spec §2 / §6, «no bare spinners»).** Loading is a skeleton shaped like the real
+/// content — [YqSkeletonBox], [YqSkeletonLine], [YqSkeletonOrbs], [YqSkeletonRows],
+/// [YqSkeletonText], [YqSkeletonCard] and the prefabs beside them (`YqSkeletonAvatarRows`,
+/// `YqSkeletonMushafPage`) — inside **one** [YqSkeleton], the single RTL-aware shimmer for the
+/// whole region (never one shimmer per row). Determinate progress (downloads, installs, steps) is a
+/// `YqRing`. A working button keeps its label and shimmers it (`YqButton(loading: true)`).
+/// `CircularProgressIndicator`, `LinearProgressIndicator` and `RefreshProgressIndicator` are not
+/// used anywhere in `lib/`; `test/core/no_spinner_test.dart` fails the build if one appears outside
+/// this file.
+library;
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -100,7 +113,7 @@ class YqOfflineBanner extends StatelessWidget {
   }
 }
 
-/// Skeleton of the real layout: glass blocks with a 1.2 s shimmer (never a bare spinner on first paint).
+/// Skeleton of the real layout: glass blocks under one 1.6 s shimmer (never a bare spinner on first paint).
 class YqSkeleton extends StatefulWidget {
   const YqSkeleton({super.key, required this.child});
 
@@ -140,7 +153,8 @@ class _YqSkeletonState extends State<YqSkeleton> with SingleTickerProviderStateM
     // and lingers rather than ticking across at constant speed.
     final rtl = Directionality.of(context) == TextDirection.rtl;
     return Semantics(
-      label: MaterialLocalizations.of(context).refreshIndicatorSemanticLabel,
+      label: Localizations.of<AppLocalizations>(context, AppLocalizations)?.skLoading ??
+          MaterialLocalizations.of(context).refreshIndicatorSemanticLabel,
       child: ExcludeSemantics(
         child: RepaintBoundary(
           child: AnimatedBuilder(
@@ -194,6 +208,24 @@ class YqSkeletonBox extends StatelessWidget {
           color: fill,
           shape: circle ? BoxShape.circle : BoxShape.rectangle,
           borderRadius: circle ? null : BorderRadius.circular(radius),
+        ),
+      );
+}
+
+/// A glass-shaped card placeholder of [height] (a hero card, a chart, a preview), the same glass as
+/// [YqSkeletonRows]. Put it inside one [YqSkeleton].
+class YqSkeletonCard extends StatelessWidget {
+  const YqSkeletonCard({super.key, this.height = 120, this.radius = YqRadii.card});
+  final double height;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        height: height,
+        decoration: BoxDecoration(
+          color: YqSkeletonBox.fill,
+          borderRadius: BorderRadius.circular(radius),
+          border: Border.all(color: const Color(0xB3FFFFFF)),
         ),
       );
 }
