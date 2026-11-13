@@ -29,7 +29,7 @@ export default async function NewTournamentPage() {
           <TournamentForm mode="create" initial={EMPTY_TOURNAMENT} presets={presets} action={createTournament} />
         </Card>
         <div className="space-y-4">
-          <Notice tone="gold">العنوان والوصف نص تسويقي فقط: لا آيات ولا أحاديث ولا أدعية. الترتيب العام يُحدَّث كل ليلة، والشارات تُمنح عند الإغلاق.</Notice>
+          <Notice tone="blue">العنوان والوصف نص تسويقي فقط: لا آيات ولا أحاديث ولا أدعية. الترتيب العام يُحدَّث كل ليلة، والشارات تُمنح عند الإغلاق.</Notice>
           <Notice tone="blue">تواريخ «رمضان» و«العشر من ذي الحجة» من التقويم الهجري بتعديل مصر المعتمد في الإعدادات — راجعها قبل النشر.</Notice>
         </div>
       </div>

@@ -17,6 +17,21 @@ export const CONTENT_STATUS: Record<ContentStatus, { label: string; tone: 'green
 
 /* -------------------------------------------------------------- competitions */
 
+/** Stable API codes of the competitions endpoints → what the admin reads (design §3.4). */
+export const COMPETITION_ERROR: Record<string, string> = {
+  tournament_dates: 'تواريخ غير صالحة — الأيام كاملة بتوقيت القاهرة',
+  slug_taken: 'المعرّف مستخدم',
+  tournament_not_editable: 'لا يمكن تعديل هذه البطولة الآن',
+  tournament_closed: 'انتهت البطولة',
+  settings_invalid: 'إعدادات غير صالحة',
+  nothing_to_restore: 'لا شيء لاستعادته',
+  reason_required: 'اكتب السبب',
+  report_resolved: 'عولج هذا البلاغ من قبل',
+  role_not_allowed: 'لا تملك صلاحية هذا الإجراء',
+  validation: 'تحقق من الحقول',
+  not_found: 'غير موجود',
+};
+
 /** What the admin sees for a tournament: its stored status, or the phase of a published one. */
 export type TournamentDisplay = 'draft' | 'upcoming' | 'live' | 'ended' | 'cancelled';
 

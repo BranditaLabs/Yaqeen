@@ -4,23 +4,11 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { AdminTournamentBase, AdminTournamentCreate, AdminTournamentPatch, CompetitorAction, LeagueSettings, ResolveReport, type AdminTournamentRow } from '@yaqeen/contracts';
 import { tryApi } from '@/lib/api';
+import { COMPETITION_ERROR } from '@/lib/labels';
 
 export type S = { error: string | null; ok?: boolean };
 
-/** Stable API codes → what the admin reads (design §3.4). */
-const CODE: Record<string, string> = {
-  tournament_dates: 'تواريخ غير صالحة — الأيام كاملة بتوقيت القاهرة',
-  slug_taken: 'المعرّف مستخدم',
-  tournament_not_editable: 'لا يمكن تعديل هذه البطولة الآن',
-  tournament_closed: 'انتهت البطولة',
-  settings_invalid: 'إعدادات غير صالحة',
-  nothing_to_restore: 'لا شيء لاستعادته',
-  reason_required: 'اكتب السبب',
-  report_resolved: 'عولج هذا البلاغ من قبل',
-  role_not_allowed: 'لا تملك صلاحية هذا الإجراء',
-  validation: 'تحقق من الحقول',
-  not_found: 'غير موجود',
-};
+const CODE = COMPETITION_ERROR;
 
 const fail = (r: { error: string | null; code: string | null }): S => ({ error: (r.code && CODE[r.code]) || r.error || 'تعذّر الحفظ' });
 
@@ -77,8 +65,9 @@ export async function createTournament(_prev: S, form: FormData): Promise<S> {
   if (form.get('intent') === 'publish') {
     const pub = await tryApi(`/admin/competitions/tournaments/${created.data.id}/publish`, { method: 'POST' });
     if (pub.error) {
+      // The draft exists now: continue from it (a second press here would only hit slug_taken).
       revalidatePath('/competitions');
-      return { error: `حُفظت مسودة، ولم تُنشر: ${fail(pub).error}` };
+      redirect(`/competitions/tournaments/${created.data.id}?publishError=${encodeURIComponent(pub.code ?? 'error')}`);
     }
   }
   revalidatePath('/competitions');
@@ -100,8 +89,10 @@ export async function updateTournament(id: string, mode: 'draft' | 'scheduled' |
   } else {
     const parsed = AdminTournamentCreate.safeParse(tournamentFields(form));
     if (!parsed.success) return { error: fieldError(parsed.error.issues) };
-    const { slug, ...rest } = parsed.data;
-    body = mode === 'draft' ? parsed.data : rest;
+    // A blank «آخر يوم للانضمام» means «until the last day»: send it, or the API keeps an old cutoff.
+    const fields = { ...parsed.data, joinLastDay: parsed.data.joinLastDay ?? parsed.data.lastDay };
+    const { slug, ...rest } = fields;
+    body = mode === 'draft' ? fields : rest;
   }
   const r = await tryApi(`/admin/competitions/tournaments/${id}`, { method: 'PATCH', body: AdminTournamentPatch.parse(body) });
   if (r.error) return fail(r);
