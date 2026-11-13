@@ -14,7 +14,13 @@ import 'package:yaqeen/core/widgets/liquid_glass.dart';
 import 'package:yaqeen/features/hifz/presentation/hifz_screen.dart';
 import 'package:yaqeen/features/quran/domain/quran_data.dart';
 import 'package:yaqeen/features/recite/presentation/recite_available.dart';
-import 'package:yaqeen/features/recite/presentation/recite_screen.dart';
+import 'package:yaqeen/core/settings/app_settings.dart';
+import 'package:yaqeen/features/listen/presentation/listen_controller.dart';
+import 'package:yaqeen/features/quran/domain/passage.dart';
+import 'package:yaqeen/features/quran/presentation/mushaf_page.dart';
+import 'package:yaqeen/features/quran/presentation/quran_providers.dart';
+import 'package:yaqeen/features/quran/presentation/reader_screen.dart';
+import 'quran/one_page_fakes.dart';
 
 import '../helpers/fonts.dart';
 import '../helpers/harness.dart';
@@ -85,43 +91,80 @@ void main() {
     expect(find.text('بعد 3 أيام'), findsOneWidget);
   });
 
-  testWidgets('recite: unavailable model shows the notice', (tester) async {
-    phone(tester);
-    await tester.pumpWidget(harness(const ReciteScreen(surah: 1), overrides: [...base(recite: true)].cast()));
-    await tester.pumpAndSettle();
-    expect(find.text('نموذج التسميع غير متاح بعد على هذا الجهاز'), findsOneWidget);
-  });
+  group('recite layer', () {
+    final printed = loadQuran();
 
-  testWidgets('recite: rationale once, progressive reveal, ok count and a warning', (tester) async {
-    phone(tester);
-    final engine = ScriptedRecitationEngine();
-    await tester.pumpWidget(
-      harness(
-        const ReciteScreen(surah: 1, from: 1, to: 3),
-        overrides: [...base(recite: true), recitationEngineProvider.overrideWithValue(engine)].cast(),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byType(YqSwitch));
-    await tester.pump();
-    // Hidden ayat: only the markers.
-    expect(find.textContaining('ٱلرَّحِيمِ'), findsNothing);
+    List<Override> reader(FakeListen listen, RecitationEngine engine) => [
+          clockProvider.overrideWithValue(() => now),
+          quranDataProvider.overrideWith((_) async => printed),
+          mushafLayoutProvider.overrideWith((_) async => null),
+          listenControllerProvider.overrideWith(() => listen),
+          recitationEngineProvider.overrideWithValue(engine),
+          initialSettingsProvider.overrideWithValue(const AppSettings(readerHintSeen: true)),
+          initialConfigProvider.overrideWithValue(const RemoteConfig(features: {...RemoteConfig.defaultFeatures, Flags.recite: true})),
+        ];
 
-    await tester.tap(find.bySemanticsLabel('ابدأ التسميع').first);
-    await tester.pumpAndSettle();
-    expect(find.text('نستمع لتلاوتك على جهازك فقط'), findsOneWidget);
-    await tester.tap(find.widgetWithText(YqButton, 'ابدأ التسميع'));
-    await tester.pumpAndSettle();
-    expect(engine.listening, isTrue);
+    Future<void> leave(WidgetTester tester) async {
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 1));
+    }
 
-    expect(engine.listening, isTrue);
-    engine.emit('بسم الله الرحمن الرحيم الحمد لله رب الناس');
-    await tester.pump(const Duration(milliseconds: 50));
-    await tester.pump();
-    expect(find.text('آيتان صحيحتان'), findsNothing); // ayah 2 has a warning
-    expect(find.text('آية واحدة صحيحة'), findsOneWidget);
-    expect(find.textContaining('تنبيه:'), findsOneWidget);
-    expect(find.textContaining('خطأ'), findsNothing);
+    testWidgets('no model on the device: no «تسميع» layer at all', (tester) async {
+      phone(tester);
+      await tester.pumpWidget(
+        harness(const ReaderScreen(initialPage: 40, mode: QuranMode.recite), overrides: reader(FakeListen(), const UnavailableRecitationEngine())),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('تسميع'), findsNothing);
+      expect(tester.widget<MushafPage>(find.byType(MushafPage).first).marks, isEmpty);
+      await leave(tester);
+    });
+
+    testWidgets('recite where I am: page 40, listening paused first, rationale once, notes, a note plays once', (tester) async {
+      phone(tester);
+      final engine = ScriptedRecitationEngine();
+      final listen = FakeListen(const ListenState(status: ListenStatus.ready, surah: 2, ayah: 250, playing: true, synced: true));
+      final kv = MemoryKvStore();
+      await tester.pumpWidget(harness(const ReaderScreen(initialPage: 40, mode: QuranMode.recite), kv: kv, overrides: reader(listen, engine)));
+      await tester.pumpAndSettle();
+      expect(listen.pauses, greaterThanOrEqualTo(1), reason: 'recitation pauses before the microphone');
+      final passage = Passage.ofPage(printed, 40);
+      expect(tester.widget<MushafPage>(find.byType(MushafPage).first).passage, passage);
+
+      await tester.tap(find.bySemanticsLabel('ابدأ التسميع').first);
+      await tester.pumpAndSettle();
+      expect(find.text('نستمع لتلاوتك على جهازك فقط'), findsOneWidget);
+      await tester.tap(find.widgetWithText(YqButton, 'ابدأ التسميع'));
+      await tester.pumpAndSettle();
+      expect(engine.listening, isTrue);
+      expect(kv.data['recite.rationaleSeen'], '1');
+
+      // The first ayah as written, the second with one word heard differently.
+      final a1 = printed.text(passage.first);
+      final a2 = printed.text(AyahRef(passage.surah, passage.from + 1)).split(' ');
+      a2[1] = 'كلمة';
+      engine.emit('$a1 ${a2.join(' ')}');
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump();
+      expect(find.text('2 آيات · 1 ملاحظات'), findsOneWidget);
+      expect(find.textContaining('تنبيه:'), findsOneWidget);
+      expect(find.textContaining('خطأ'), findsNothing);
+      final page = tester.widget<MushafPage>(find.byType(MushafPage).first);
+      expect(page.marks, {AyahRef(passage.surah, passage.from + 1): {2}});
+
+      // A note plays its ayah once.
+      await tester.tap(find.textContaining('تنبيه:'));
+      await tester.pump();
+      expect(listen.passages.last, (passage.surah, passage.from + 1, passage.from + 1, 1));
+
+      // «إظهار الآيات» off: the passage hides, the recited ayat stay revealed.
+      await tester.tap(find.byType(YqSwitch));
+      await tester.pump();
+      final hidden = tester.widget<MushafPage>(find.byType(MushafPage).first);
+      expect(hidden.memorise, MemoriseMode.ayat);
+      expect(hidden.revealed, {passage.first, AyahRef(passage.surah, passage.from + 1)});
+      await leave(tester);
+    });
   });
 
   test('recite entries show only with the flag on and a model on the device', () async {

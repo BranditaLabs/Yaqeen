@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/config_controller.dart';
+import '../../../core/config/remote_config.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/format.dart';
 import '../../../core/settings/app_settings.dart';
@@ -27,6 +29,7 @@ import '../../listen/presentation/mini_player.dart';
 import '../../listen/presentation/player_sheet.dart';
 import '../../notifications/presentation/reminders_controller.dart';
 import '../../onboarding/presentation/session_controller.dart';
+import '../../recite/presentation/recite_controller.dart';
 import '../data/reading_repository.dart';
 import '../domain/annotations.dart';
 import '../domain/mushaf_layout.dart';
@@ -49,6 +52,7 @@ import 'session/mode_dock.dart';
 import 'session/passage_picker_sheet.dart';
 import 'session/quran_session_controller.dart';
 import 'session/read_strip.dart';
+import 'session/recite_strip.dart';
 
 export 'session/read_strip.dart' show todayWirdProvider;
 
@@ -392,9 +396,16 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
 
   /// Switches the layer over the page. [ask]: confirm before taking over another surah's audio.
   Future<void> _setMode(QuranMode mode, {bool ask = true}) async {
-    // A layer this build doesn't offer (recite without the flag or a model) opens as reading.
-    if (!ref.read(quranModesProvider).contains(mode)) mode = QuranMode.read;
+    // A layer this build doesn't offer (recite without the flag or a model) opens as reading. The
+    // model check is asked directly: a deep link may arrive before the dock has its answer.
+    final offered = mode == QuranMode.recite
+        ? ref.read(remoteConfigProvider).isOn(Flags.recite) && await ref.read(recitationEngineProvider).isAvailable()
+        : ref.read(quranModesProvider).contains(mode);
+    if (!mounted) return;
+    if (!offered) mode = QuranMode.read;
     if (mode == QuranMode.listen && !await _startListening(ask: ask)) return;
+    // Reciting is the reader's own voice: recitation playing pauses first.
+    if (mode == QuranMode.recite) await ref.read(listenControllerProvider.notifier).pause();
     if (!mounted) return;
     _layers.setMode(mode);
     _hideTimer?.cancel();
@@ -489,14 +500,68 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     if (mounted && ref.read(quranSessionControllerProvider).mode == QuranMode.listen) _scheduleHide();
   }
 
-  /// A tap on an ayah, per layer: reveal it (memorise), play from it (listen).
-  ValueChanged<AyahRef>? _ayahTap(ReaderLayers layers) => switch (layers.mode) {
+  /// A tap on an ayah, per layer: reveal it (memorise), play from it (listen), hear a noted ayah
+  /// once (recite).
+  ValueChanged<AyahRef>? _ayahTap(ReaderLayers layers, ReciteState? recite) => switch (layers.mode) {
         QuranMode.memorise => (r) {
             if (layers.passage == null || layers.passage!.contains(r)) _layers.toggleReveal(r);
           },
         QuranMode.listen => (r) => ref.read(listenControllerProvider.notifier).open(r.surah, ayah: r.ayah),
+        QuranMode.recite => (r) {
+            if (recite?.marks.containsKey(r) ?? false) playAyahOnce(ref, r);
+          },
         _ => null,
       };
+
+  /// «من هنا» waiting for its «إلى هنا»: the ayah and the layer it starts.
+  ({AyahRef from, QuranMode mode})? _pendingFrom;
+
+  /// The rest of [r]'s surah on the pages on screen: a first guess for «من هنا».
+  Passage _fromHere(QuranData q, AyahRef r) {
+    var to = r.ayah;
+    final onScreen = _visible(_page);
+    final n = q.surah(r.surah).ayahCount;
+    while (to < n && onScreen.contains(q.pageOf(AyahRef(r.surah, to + 1)))) {
+      to++;
+    }
+    return Passage(r.surah, r.ayah, to);
+  }
+
+  /// «احفظ من هنا» / «سمّع من هنا»: the passage starts here; the picker sets its end (or a later
+  /// «إلى هنا» on another ayah does).
+  Future<void> _layerFrom(QuranMode mode, AyahRef r, QuranData q) async {
+    _pendingFrom = (from: r, mode: mode);
+    final picked = await showPassagePicker(context, quran: q, initial: _fromHere(q, r));
+    if (picked == null || !mounted) return;
+    _pendingFrom = null;
+    _layers.setPassage(picked);
+    await _setMode(mode);
+  }
+
+  void _toHere(AyahRef r) {
+    final pending = _pendingFrom;
+    if (pending == null) return;
+    _pendingFrom = null;
+    _layers.setPassage(Passage(r.surah, pending.from.ayah, r.ayah));
+    _setMode(pending.mode);
+  }
+
+  /// «استمع من هنا».
+  Future<void> _listenFrom(AyahRef r) async {
+    await ref.read(listenControllerProvider.notifier).open(r.surah, ayah: r.ayah);
+    if (mounted) await _setMode(QuranMode.listen, ask: false);
+  }
+
+  AyahLayerActions _sheetLayers(QuranData q, AyahRef r) {
+    final modes = ref.read(quranModesProvider);
+    final pending = _pendingFrom;
+    return AyahLayerActions(
+      listenFrom: modes.contains(QuranMode.listen) ? () => _listenFrom(r) : null,
+      memoriseFrom: () => _layerFrom(QuranMode.memorise, r, q),
+      reciteFrom: modes.contains(QuranMode.recite) ? () => _layerFrom(QuranMode.recite, r, q) : null,
+      toHere: pending != null && pending.from.surah == r.surah && r.ayah >= pending.from.ayah ? () => _toHere(r) : null,
+    );
+  }
 
   /// What the memorise layer covers: the chosen passage, or every ayah on screen.
   Iterable<AyahRef> _memoriseScope(QuranData q, ReaderLayers layers) =>
@@ -519,7 +584,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
             onPickPassage: () => _pickPassage(q, layers.passage ?? Passage.ofPage(q, _page)),
             onListen3: () => ref.read(listenControllerProvider.notifier).playPassage(layers.passage ?? Passage.ofPage(q, _page), times: 3),
           ),
-        QuranMode.recite => const SizedBox.shrink(),
+        QuranMode.recite => ReciteStrip(quran: q, passage: layers.passage ?? Passage.ofPage(q, _page)),
       };
 
   /// Night pages from Maghrib until sunrise when «تلقائياً» is on.
@@ -557,6 +622,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     final layout = ref.watch(mushafLayoutProvider).valueOrNull;
     final annotations = ref.watch(annotationsProvider).valueOrNull ?? Annotations.empty;
     final layers = ref.watch(quranSessionControllerProvider);
+    // The microphone lives only while the recite layer is on (leaving it stops listening).
+    final recite = layers.mode == QuranMode.recite ? ref.watch(reciteControllerProvider) : null;
     final colors = MushafColors.of(look.theme);
     final night = look.theme == MushafTheme.night;
     // The ayah being recited is lit while recitation plays (spec §5.13), in every layer.
@@ -584,7 +651,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
             final first = q.firstOfPage(_page);
             final recitedPage = playing == null ? null : q.pageOf(playing);
             final showBack = layers.mode == QuranMode.listen && _guard.active && recitedPage != null && !_visible(_page).contains(recitedPage);
-            final layerPassage = layers.mode == QuranMode.read ? null : layers.passage;
+            // Reciting with «إظهار الآيات» off hides the passage and reveals each ayah as it is recited.
+            final reciting = recite != null;
+            final layerPassage = layers.mode == QuranMode.read
+                ? null
+                : reciting
+                    ? (recite.passage ?? layers.passage ?? Passage.ofPage(q, _page))
+                    : layers.passage;
             Widget frame(int page) => _PageFrame(
                   quran: q,
                   layout: layout,
@@ -596,18 +669,18 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
                   onBackgroundTap: _onPageTap,
                   onOpenSettings: () => showReaderSettings(context, page: _page),
                   annotations: annotations,
-                  memorise: layers.hiding,
-                  revealed: layers.revealed,
+                  memorise: reciting ? (recite.showAyat ? MemoriseMode.off : MemoriseMode.ayat) : layers.hiding,
+                  revealed: reciting ? recite.recitedAyat.toSet() : layers.revealed,
                   passage: layerPassage,
-                  marks: layers.mode == QuranMode.recite ? layers.marks : const {},
-                  onAyahTap: _locked ? null : _ayahTap(layers),
+                  marks: reciting ? recite.marks : const {},
+                  onAyahTap: _locked ? null : _ayahTap(layers, recite),
                   onNoteTap: (r) => showNoteSheet(context, quran: q, ref: r),
                   onAyahLongPress: _locked
                       ? null
                       : (ref0) async {
                           HapticFeedback.mediumImpact();
                           setState(() => _selected = ref0);
-                          await showAyahSheet(context, quran: q, ref: ref0);
+                          await showAyahSheet(context, quran: q, ref: ref0, layers: _sheetLayers(q, ref0));
                           if (mounted) setState(() => _selected = null);
                         },
                 );

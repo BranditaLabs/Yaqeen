@@ -184,6 +184,46 @@ void main() {
     await leave(tester);
   });
 
+  testWidgets('the ayah sheet starts a layer «من هنا» and closes the passage «إلى هنا»', (tester) async {
+    final listen = FakeListen();
+    await open(tester, const ReaderScreen(initialPage: 1), listen);
+    MushafPage page() => tester.widget<MushafPage>(find.byType(MushafPage).first);
+
+    page().onAyahLongPress!(const AyahRef(1, 2));
+    await tester.pumpAndSettle();
+    expect(find.text('استمع من هنا'), findsOneWidget);
+    expect(find.text('سمّع من هنا'), findsNothing); // no recite model in this build
+    await tester.tap(find.text('احفظ من هنا'));
+    await tester.pumpAndSettle();
+    expect(find.text('اختر المقطع'), findsOneWidget);
+    await tester.tap(find.text('تأكيد'));
+    await tester.pumpAndSettle();
+    expect(layers(tester).mode, QuranMode.memorise);
+    expect(page().passage, const Passage(1, 2, 7));
+
+    // «من هنا» at 1:3, picker closed without choosing; «إلى هنا» at 1:5 closes the passage.
+    page().onAyahLongPress!(const AyahRef(1, 3));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('احفظ من هنا'));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(20, 40)); // outside the picker
+    await tester.pumpAndSettle();
+    page().onAyahLongPress!(const AyahRef(1, 5));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('إلى هنا'));
+    await tester.pumpAndSettle();
+    expect(page().passage, const Passage(1, 3, 5));
+
+    // «استمع من هنا» plays from that ayah and turns the listen layer on.
+    page().onAyahLongPress!(const AyahRef(1, 6));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('استمع من هنا'));
+    await tester.pumpAndSettle();
+    expect(listen.opened.first, const AyahRef(1, 6));
+    expect(layers(tester).mode, QuranMode.listen);
+    await leave(tester);
+  });
+
   testWidgets('memorising a chosen passage hides only its ayat; a tap reveals one', (tester) async {
     final listen = FakeListen();
     await open(tester, const ReaderScreen(initialPage: 1, mode: QuranMode.memorise, passage: Passage(1, 2, 4)), listen);
