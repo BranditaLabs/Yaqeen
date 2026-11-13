@@ -11,6 +11,7 @@ import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../content/presentation/pack_row.dart';
+import '../../listen/domain/audio_models.dart';
 import 'profile_providers.dart';
 
 /// «التنزيلات دون اتصال» (`/profile/downloads`) — storage per reciter; deleting reclaims it
@@ -25,6 +26,10 @@ class DownloadsScreen extends ConsumerStatefulWidget {
 class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
   Map<String, int>? _sizes;
   int _packBytes = 0;
+
+  /// The reciters with audio on this phone, read once per [_load] with the sizes (a rebuild never
+  /// re-reads them, so the list never flashes back to its skeleton).
+  List<Reciter> _reciters = const [];
 
   @override
   void initState() {
@@ -44,6 +49,10 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
     if (mounted) {
       setState(() {
         _sizes = sizes;
+        _reciters = [
+          for (final r in reciters)
+            if (sizes.containsKey(r.id)) r,
+        ];
         _packBytes = packBytes;
       });
     }
@@ -95,32 +104,25 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> {
           else if (_sizes!.isEmpty)
             LiquidGlass(child: YqEmptyState(icon: YqIcons.download, title: t.downloadsNone))
           else
-            FutureBuilder(
-              future: ref.read(reciterRepositoryProvider).cached(),
-              builder: (context, snap) => snap.connectionState != ConnectionState.done
-                  // The reciter names are on the device; a shaped skeleton until they are read.
-                  ? YqSkeleton(child: YqSkeletonRows(rows: _sizes!.length.clamp(1, 4), leading: 0, trailing: true))
-                  : LiquidGlass(
-                      padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
-                      child: Column(
-                        children: [
-                          for (final r in snap.data ?? const [])
-                            if (_sizes!.containsKey(r.id))
-                              YqListRow(
-                                title: r.name(locale),
-                                subtitle: megabytes(t, _sizes![r.id]!),
-                                trailing: TextButton(
-                                  onPressed: () async {
-                                    await ref.read(audioDownloadsProvider).delete(r.id);
-                                    ref.invalidate(downloadsBytesProvider);
-                                    await _load();
-                                  },
-                                  child: Text(t.delete),
-                                ),
-                              ),
-                        ],
+            LiquidGlass(
+              padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
+              child: Column(
+                children: [
+                  for (final r in _reciters)
+                    YqListRow(
+                      title: r.name(locale),
+                      subtitle: megabytes(t, _sizes![r.id]!),
+                      trailing: TextButton(
+                        onPressed: () async {
+                          await ref.read(audioDownloadsProvider).delete(r.id);
+                          ref.invalidate(downloadsBytesProvider);
+                          await _load();
+                        },
+                        child: Text(t.delete),
                       ),
                     ),
+                ],
+              ),
             ),
         ],
       ),
