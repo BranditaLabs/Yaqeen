@@ -128,6 +128,33 @@ Roles: `super_admin` (always allowed), `content_editor`, `religious_reviewer`, `
 | DELETE | `/admin/tags/batches/:batch/encode-sessions/:id` | marketing | Revoke at once (204), audited `tags.encode_session.revoke` |
 | POST | `/admin/users/:id/public-profile/unpublish` | support | Hide a user's public card (`{reason}`), audited. The user detail includes `publicProfile {handle, published, views, url}` |
 
+## Profile & community (design `docs/design/2026-11-profile-community-quran.md` §3)
+
+Contracts: `packages/contracts/src/community.ts`. Competition endpoints answer `403 feature_off` while their flag is off (`leagues`, `tournaments`, `leaderboard`). Every public projection carries only name/@handle, avatar (a photo only when the owner is visible and attested 18+), the public level ring (nightly snapshot) and snapshot period points; visibility (active, not deletion-requested, switched on, not banned, not left, not blocked either way) is applied at read time.
+
+| Method & path | Body → response | Errors |
+| --- | --- | --- |
+| GET `/v1/me/profile` | → `MeProfile` (own avatar as authed paths; live level and week points, self only) | — |
+| PATCH `/v1/me/profile` | `UpdateProfileRequest` (`displayName`, preset/initial `avatar`) → `MeProfile` | 403 `account_required`, 400 `invalid_name`, 409 `name_locked` |
+| PUT `/v1/me/avatar/photo` | raw `image/jpeg\|png\|webp` ≤ 3 MB → `Avatar` (re-encoded 96/256 WebP, EXIF stripped) | 403 `account_required`, 409 `photo_locked`, 413 `photo_too_large`, 415 `photo_type`, 422 `photo_unreadable`, 429 `rate_limited` (10/h) |
+| DELETE `/v1/me/avatar/photo` | → `Avatar` (preset if set, else initial) | — |
+| GET `/v1/me/avatar/photo/:size` | own active photo, 96 or 256, per-size ETag | 404 |
+| POST `/v1/me/attestation` | `AttestRequest` → `CommunitySettings` (audited `user.attest_adult`) | 403 `account_required` |
+| GET/PUT `/v1/me/community` | `CommunityUpdate` → `CommunitySettings` (one transaction: switches, attestation, consent recompute, draft card + handle, leave on off) | 403 `account_required` · `community_banned` · `feature_off`, 400 `attestation_required` · `name_required` · `invalid_name`, 409 `name_locked` |
+| PUT `/v1/me/consents` | `{kind:'community', granted:false}` leaves everything; granting is refused | 403 `use_community_settings` |
+| GET `/v1/me/badges` | → `Badge[]` newest first | — |
+| GET `/v1/leagues/current` · `/v1/leagues/history` | → `LeagueCurrent` (`off` · `closing` · `joined`) · `LeagueHistoryItem[]` (12 weeks) | 403 `feature_off` |
+| GET `/v1/tournaments` · `/v1/tournaments/:id` | → `Tournament[]` · `Tournament` | 404 |
+| POST/DELETE `/v1/tournaments/:id/join` | `JoinTournamentRequest` → `Tournament` | 403 `account_required` · `community_banned`, 409 `tournament_not_open`, 400 `ack_required` · `attestation_required` · `name_required` |
+| GET `/v1/tournaments/:id/standings?cursor=` | → `TournamentStandings` (pages of 100) | 404 |
+| GET `/v1/leaderboard?scope=global\|country` | → `LeaderboardView` (top 100 + me) | 409 `country_unknown` · `country_too_small` |
+| POST `/v1/community/reports` | `ReportRequest` → 204 | 404, 429 `rate_limited` (20 / 24 h) |
+| GET/POST `/v1/community/blocks`, DELETE `/v1/community/blocks/:handle` | `BlockRequest` → `BlockedUser[]` / 204 | 404 |
+| GET `/v1/public/avatars/:photoId/:size.webp` | public photo (`max-age=300`) only when visible + attested | 404 |
+| GET `/u/assets/avatars/:id.webp` | preset art, immutable | 404 |
+
+**Admin** (`/admin/competitions`, guards read = marketing·support, writes per role; every write audited and bumps the `community` cache): tournaments (CRUD, publish, close, cancel — `AdminTournamentCreate/Patch`, Cairo days), `/leagues/settings` (applies from the next week), `/leagues/stats`, `/leagues/groups/:id`, `/leagues/rollover` (super admin), `/leaderboard`, `/competitors` (+ `:userId`, `:userId/photos/:photoId/:size` — any status within 7 days, `private, no-store`), `POST /competitors/:userId/:action` (`hide-name` · `restore-name` · `hide-photo` · `restore-photo` · `ban` · `unban`, `AdminReason`), `/reports` + resolve, `/badges`. Admin errors: `tournament_dates`, `slug_taken`, `tournament_not_editable`, `tournament_closed`, `settings_invalid`, `nothing_to_restore`, `reason_required`.
+
 ## Cloud backup
 
 Opt-in (consent `cloud_backup`, off by default, signed-in accounts only) copy of the user's device-first progress — spec §6.13, docs/SECURITY_PRIVACY.md rule 8.

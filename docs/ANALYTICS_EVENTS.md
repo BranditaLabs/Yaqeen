@@ -96,7 +96,7 @@ Source of truth: `PRODUCT_EVENTS` in `packages/contracts/src/events.ts`; Dart mi
 | Event | Props | Where |
 | --- | --- | --- |
 | `app_open` | — | after the first frame |
-| `onboarding_step` | `step`: welcome · language · prayer · consent · goal · routine · download | router (once per session) |
+| `onboarding_step` | `step`: welcome · language · prayer · consent · goal · routine · profile · download | router (once per session) |
 | `onboarding_complete` | — | last onboarding step |
 | `sign_in` | `provider`: google · apple · guest | session controller |
 | `tab_view` | `tab`: home · challenge · profile | router — **Quran and Prayer tabs are never tracked** |
@@ -118,6 +118,8 @@ person profiles). Withdrawing consent deletes the queue and the install id on th
 
 The admin overview keeps its server-side aggregates (DAU/MAU from `users.last_seen_at`, habit
 percentages across participants) independently of this consent.
+
+No event is added for profiles, avatars, leagues, tournaments, the level board, badges, blocks, reports or Quran sessions (design 2026-11 §1.1 rule 1): none of it reaches product analytics or any ad sink. `profile` above is only the onboarding screen name.
 
 ## MMP (open decision)
 

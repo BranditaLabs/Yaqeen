@@ -15,6 +15,18 @@ erDiagram
   users ||--o{ redemptions : redeems
   users ||--o| public_profiles : "public card"
   users ||--o{ user_backups : "opt-in cloud backup"
+  users ||--o{ avatar_photos : "profile photo"
+  users ||--o| community_members : "opt-in community"
+  users ||--o{ community_blocks : blocks
+  users ||--o{ points_earned_daily : "derived (trigger)"
+  users ||--o| user_point_totals : "derived (trigger)"
+  league_weeks ||--o{ league_groups : has
+  league_groups ||--o{ league_members : has
+  users ||--o{ league_members : "plays in"
+  tournaments ||--o{ tournament_entries : has
+  users ||--o{ tournament_entries : joins
+  users ||--o{ user_badges : earns
+  users ||--o{ community_reports : files
   rewards ||--o{ redemptions : "issued as"
   campaigns ||--o{ campaign_deliveries : "sent to"
   users ||--o{ campaign_deliveries : receives
@@ -49,6 +61,33 @@ erDiagram
 | `app_config` | Remote config by key (features, minVersion, maintenance, splashVerse). |
 | `hijri_adjustments` | Regional offsets effective from a Hijri month. |
 | `admin_users` / `audit_log` | RBAC roles; every admin write is audited in the same transaction. |
+
+### Profile identity and community (migration `0017_community`)
+
+Design: `docs/design/2026-11-profile-community-quran.md` §2; APP_SPEC §5.24, §5.31. Others see only name/@handle, avatar (a photo only after the 18+ attestation), the level ring from the nightly public snapshot and period points from the nightly snapshot — never worship detail, never anything live. Competitions never write `points_ledger`.
+
+| Table / column | Notes |
+| --- | --- |
+| `users.country` | ISO-3166 alpha-2 of the chosen city (check `^[A-Z]{2}$`), sent by the app; only for the opt-in country board. Nulled on erasure. |
+| `users.avatar_kind` / `avatar_preset` / `avatar_photo_id` | `initial` · `preset` · `photo`; the preset (one of 16) is required for `preset` and kept as the fallback for `photo`; `avatar_photo_id` → `avatar_photos` (FK added after both tables exist, on delete set null). |
+| `users.name_hidden_at` / `name_hidden_reason` · `photo_locked_at` | Support moderation (audited): a hidden name renders «عضو يقين» and locks renaming; a locked photo refuses uploads. |
+| `users.adult_attested_at` | The 18+ (or guardian consent) attestation; set by any join carrying `attestAdult` or `POST /v1/me/attestation`. A photo is publicly servable only when set. |
+| `consent_events.attested_adult` | true on the `community` event written by a join that carried the attestation. `consent_kind` gains `community` (derived: granted while in a league, on the level board or in a live tournament); `source` also takes `system` (job), `support`, `erasure`. |
+| `avatar_photos` | Re-encoded photos (sharp → WebP, EXIF stripped): `small` 96 px and `large` 256 px as `bytea` (≈ 30 KB per user), `sha_small`/`sha_large` (per-size ETags), `bytes`, `status` active·replaced·removed, `removed_by` (admin, null when the owner removed it), `removed_reason`. Index `(user_id, created_at desc)` also counts the 10-per-hour upload limit; replaced/removed rows are deleted after 7 days. |
+| `community_members` | PK `user_id`; switches `leagues`, `leaderboard`, `leaderboard_country` (refines the board, never grants consent alone), `division` 1–6, `banned_at`/`banned_reason`. |
+| `community_blocks` | PK `(user_id, blocked_user_id)`, index on `blocked_user_id`, no self-block. Hides both users from each other's views (display only). |
+| `points_earned_daily` | **Derived** by the `yq_points_rollup` trigger: per user and Africa/Cairo day, the sum of positive `EARNED_REASONS` rows (task, qada, bonus, milestone). No time-of-day column. |
+| `user_point_totals` | **Derived**: `lifetime_earned` (positive `LEVEL_REASONS` rows: + grant, admin_adjustment; reversals excluded) and the nightly public snapshot `public_lifetime` / `public_day` that every public level ring reads. `select yq_rebuild_points_rollups();` recomputes both tables from the ledger (daily rows follow `users.merged_into`). These are caches, not balances. |
+| `league_weeks` | PK `starts_on` (a Saturday); `starts_at`/`ends_at` Saturday 00:00 → Saturday 00:00 Cairo; `settings` jsonb (the `LeagueSettings` in force, frozen when the week starts); `status` open·closed. |
+| `league_groups` | `starts_on`, `division`, `size`, `closed_at` (resumable per-group close). Indexes `(starts_on, division, size)` and open groups. |
+| `league_members` | PK `(starts_on, user_id)`; `group_id`, `division`, `left_at`, nightly `snapshot_points`/`snapshot_rank`, `final_points`/`final_rank`, `outcome` up·stay·down. |
+| `tournaments` / `tournament_entries` | Admin windows of whole Cairo days (`starts_at`, exclusive `ends_at` and `join_until`, ≤ 90 days), slug, titles ≤ 60, bodies ≤ 280, badge labels ≤ 40, `min_points`, status draft·published·cancelled, `finalizing_at`, `closed_at`. Entries: PK `(tournament_id, user_id)`, `left_at`, snapshot and final points/rank. |
+| `leaderboard_snapshot` | Nightly level-board ranks: PK `(scope, country, user_id)` (`country` '' for global), `rank`, `lifetime`, `day`. A country board exists only with ≥ 20 participants. |
+| `community_snapshot_days` | One row per Cairo day the nightly snapshot ran. |
+| `user_badges` | **Append-only** keepsakes (never points): unique `(user_id, ref_key)` — `league:<startsOn>`, `division:<n>`, `tournament:<id>`; `kind` from `BADGE_KINDS`; `meta` jsonb. Streak and level badges stay derived. |
+| `community_reports` | Name/photo reports: one open report per reporter and target; index `(reporter_id, created_at desc)` counts 20 per rolling 24 h; resolved reports deleted after 180 days. |
+
+All 0017 tables with a user FK are emptied for a user by the erasure purge at tombstone time (users are tombstoned, so cascades never fire).
 
 ## Points rules — defaults
 

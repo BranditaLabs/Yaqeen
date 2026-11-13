@@ -206,7 +206,8 @@ silhouettes as decoration. Shape comes from glass, light and type.
 - **Timeline** (`YqTimeline`): a rail of stops (done = gold check, a highlighted stop, a «now» marker).
 - **Group** (`YqGroup`): glass rows separated by hairlines.
 - **Dock** (`FloatingTabBar`): a floating porcelain-glass capsule with five equal slots (Home, Quran,
-  Prayer, Challenge, Profile — the person's initial on a gold disc is the Profile icon). A 24-pt icon over
+  Prayer, Challenge, Profile — the person's avatar is the Profile icon, with a lapis rim when active and a
+  white rim otherwise; no gold disc). A 24-pt icon over
   an always-visible 11-pt label; the active slot is lapis and bold over a soft lapis glass pill that glides
   on a spring (it jumps with reduce-motion). No ornament, no indicator lines. Scrolling content clears it
   through the bottom safe area (`YqInsets.bottom`).

@@ -94,6 +94,9 @@ Answer for the build being submitted. The ad SDKs (Firebase Analytics for Google
 | Diagnostics → Crash data, Performance data | Yes (Sentry, scrubbed) | No | No | App functionality |
 | Location | **No** (computed on device; the city name picked is a setting) | — | — | — |
 | User content | Yes, only if the user publishes a card (name, avatar, chosen fields) | Yes | No | App functionality |
+| User content → Photos or Videos (profile photo, re-encoded on our server without metadata) | Yes, only if the user sets a photo | Yes | No | App functionality |
+| Contact info → Name (display name shown in competitions the user joins) | Yes | Yes | No | App functionality |
+| User content → Other User Content (community: display name, avatar, level and period points shown to other participants; reports and blocks) | Yes, only if the user joins a league, tournament or the level board (off by default) | Yes | No | App functionality |
 | User content → Other user content (Quran notes, highlights, bookmarks — opt-in cloud backup) | Yes, only with «نسخ احتياطي سحابي» (signed-in, off by default) | Yes | No | App functionality |
 | Sensitive info (religious practice: reading progress, hifz, azkar counts, Ramadan log, routine — opt-in cloud backup) | Yes, only with «نسخ احتياطي سحابي» | Yes | No | App functionality |
 
@@ -124,6 +127,9 @@ The app asks for ATT only after the in-app consent (already built), declares `NS
 | Personal info → Religious or political beliefs (the same backup reveals religious practice) | Yes, only with «نسخ احتياطي سحابي» | No | Yes | App functionality |
 | App activity → App interactions | Yes | No | Yes (consent) | Analytics |
 | App info & performance → Crash logs, Diagnostics | Yes | No | No | App functionality, Analytics |
+| Photos and videos → Photos (profile photo) | Yes, only if the user sets one | Shared with other users only by user choice (a published card or a competition they join, after the 18+ attestation) | Yes | App functionality |
+| Personal info → Name (display name in competitions) | Yes | Shared with other users only by user choice (competitions they join) | Yes | App functionality |
+| Messages / User-generated content → Other user-generated content (community profile: name, avatar, level, period points; reports, blocks) | Yes, only when the user joins (off by default) | Shared with other users only by user choice | Yes | App functionality |
 | Device or other IDs → push token (Firebase Cloud Messaging) | Yes | No | No | App functionality |
 | Location | **No** | — | — | — |
 | Device or other IDs → advertising ID | **Yes** in a build with ad SDK values (Google/Meta), else No | **Yes** (Google, Meta) | Yes (`ads_measurement`, off by default) | Advertising or marketing, Analytics |
@@ -131,6 +137,10 @@ The app asks for ATT only after the in-app consent (already built), declares `NS
 | Financial info → Purchase history (store order total + currency, with a salted pseudonymous id) | Yes, once the `serverConversions` flag is on | **Yes** (Meta, Google, TikTok — sent from our server) | Yes (`ads_measurement`) | Advertising or marketing, Analytics |
 
 The manifest declares `com.google.android.gms.permission.AD_ID` (Firebase and Meta merge it in anyway): in Play Console › App content › **Advertising ID**, answer *Yes*, purposes *Advertising or marketing* and *Analytics*. If a release ships without ad SDK values, the permission is still declared but never used.
+
+Profile photos, names and community data are deletable: remove the photo or leave a competition at any time in the app, and everything is deleted with the account. "Shared with other users" is by user choice only — nothing is shared with third parties.
+
+**User-generated content moderation (App Store 1.2 / Play UGC policy).** Community content is limited to a display name and a profile photo. Every list offers **report** («إبلاغ عن الاسم أو الصورة») and **block** («حظر» — both users stop seeing each other); names are **filtered** (no links, control or invisible characters, reserved or brand names, profanity); photos are re-encoded and can be hidden by support; the **terms** («المنافسات والسلوك», `/terms#community`) forbid abusive names or photos and impersonation; support reviews reports (20 per user per day), can hide a name or photo or suspend participation, and every action is audited. Competitions are opt-in, off by default, and need the 18+ (or guardian consent) attestation.
 
 Service providers that process data on our behalf (Shopify, Sentry, PostHog EU, hosting) are not "sharing" under Play's definition. The cloud backup is linked to the account, encrypted at rest, never shared, never used for analytics or ads, and deleted when the user turns it off or deletes the account.
 

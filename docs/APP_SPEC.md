@@ -118,9 +118,11 @@ Scale (pt): display 30/1.4 · title-L 19 · title-M 15 · body-L 16/1.75 · body
 | `GlassIconButton` | ✅ | 44×44 circle glass, tooltip = a11y label |
 | `YqIcon` | ✅ | 20 icons × 4 tones (`active, idle, gold, light`) on a 24 grid, 1.5 stroke, one gold accent |
 | `YqLogo` | ✅ | `mark | stacked | horizontal | arabic` × `onLight | onDark`; min widths 24 / 96 |
-| `FloatingTabBar` | ✅ | Floating glass capsule (64 pt, gutter to gutter, max 520), 5 equal tabs: الرئيسية · القرآن · الصلاة · التحدي · حسابي (avatar); icon + label, lapis pill under the active tab |
+| `FloatingTabBar` | ✅ | Floating glass capsule (64 pt, gutter to gutter, max 520), 5 equal tabs: الرئيسية · القرآن · الصلاة · التحدي · حسابي (the person's avatar in a 24-pt circle, lapis rim when active, white otherwise — no gold disc); icon + label, lapis pill under the active tab |
 | `YqSwitch`, `YqSegmented`, `YqProgressLine` | ✅ | Lapis on, porcelain track |
 | `AmbientBackground` | ✅ | Porcelain lit by the **living sky** (tint + glow under the sun, follows the time of day; DESIGN_SYSTEM §2); `lights:` adds accents (`goldLights`) |
+| `YqAvatar` / `YqLevelAvatar` / `YqSkeletonAvatarRows` | ✅ | Profile picture (preset · photo · initial in ink on ice, white rim, skeleton circle until the first frame); the same inside the level ring (lapis; gold + one 600 ms glint only when achieved; level numeral at the bottom end); people-list skeleton rows (§5.24, §5.31) |
+| `QuranModeDock` / `MiniPlayer` / `YqSkeletonMushafPage` | 🟡 | Reader layers «قراءة · استماع · تحفيظ · تسميع», the app-wide mini player above the dock, the page-shaped reader skeleton (§5.11, §5.13) |
 | `YqCanvas` / `YqStage` / `YqOrb` / `YqRing` / `YqTimeline` / `YqGroup` | ✅ | The living-canvas screen kit — every screen is stage → complications → journey (DESIGN_SYSTEM §3–4) |
 | **Built** | ✅ | `YqButton`, `YqListRow`, `YqSection`, `YqGroup`, `YqEmptyState`, `YqErrorState`, `YqOfflineBanner`, sheets, `YqChip`, `YqStepper`, `YqCountdown`, `YqToast`, shaped skeletons (`YqSkeletonOrbs/Rows/Text`) and `OuterShadow` |
 
@@ -128,7 +130,7 @@ Scale (pt): display 30/1.4 · title-L 19 · title-M 15 · body-L 16/1.75 · body
 
 | State | Pattern |
 | --- | --- |
-| Loading | Skeleton of the real layout (glass blocks shimmer 1.2 s), never a bare spinner on first paint |
+| Loading | No bare spinners. Loading is a shaped skeleton under one shimmer; determinate progress is a `YqRing`; buttons keep their label and shimmer it. Enforced by `test/core/no_spinner_test.dart` |
 | Empty | `YqEmptyState`: icon (idle tone) + 1-line title + 1-line hint + optional action (texts given per screen) |
 | Error | `YqErrorState`: «تعذّر التحميل. تحقق من الاتصال.» + «إعادة المحاولة» |
 | Offline | Thin banner «أنت غير متصل · نعمل بما على جهازك» on screens that need network; local features silently work |
@@ -178,13 +180,14 @@ hifz intervals, challenge model parsing/optimistic updates, splash uses artwork 
 | `/onboarding/consent` | Notifications & privacy | 04·ب | — |
 | `/onboarding/goal` | Daily goal & challenge | 05 | — |
 | `/onboarding/routine` | Daily routine «متى يناسبك؟» | 05·ب | — |
+| `/onboarding/profile` | Your profile «ملفّك في يقين» | 05·ج | — |
 | `/onboarding/download` | Offline mushaf | 06 | — |
 | `/home` | Home | 07 · Home | الرئيسية |
 | `/home/azkar` · `/home/duas` · `/home/inbox` | Azkar · Duas · Inbox | 16 · 17 · 15·ب | الرئيسية |
 | `/quran` | Quran index | 08 | القرآن |
-| `/quran/read/:page` | Reading mode | 09 | (full-screen, no tab bar) |
-| `/quran/recite/:surah` | Recitation check | 10 | (full-screen) |
-| `/quran/listen/:surah` | Now playing | 11 | (full-screen) |
+| `/quran/read/:page[?mode=listen\|memorise\|recite&surah&from&to&session&portion&player=open]` | Reading mode — the one Quran surface (layers, sessions) | 09 | (full-screen, no tab bar) |
+| `/quran/recite/:surah` | redirect → the reader at `pageOf(surah:from)`, `mode=recite` | 10 | (full-screen) |
+| `/quran/listen/:surah` | redirect → the reader at `pageOf(surah:ayah)`, `mode=listen&player=open` | 11 | (full-screen) |
 | `/quran/reciters` | Choose a reciter | 12 | |
 | `/quran/hifz` | Hifz plan | 22 | القرآن |
 | `/prayer` | Prayer times | 13 | الصلاة |
@@ -193,7 +196,14 @@ hifz intervals, challenge model parsing/optimistic updates, splash uses artwork 
 | `/challenge` | 365 challenge | 19 | التحدي |
 | `/challenge/calendar` | Calendar of Yaqeen | 18 | |
 | `/challenge/redeem` | Redeem reward | 20 | |
-| `/profile` | Profile & settings | 21 | حسابي |
+| `/profile` | Profile | 21 | حسابي |
+| `/profile/settings` | Settings | 21·ج | |
+| `/profile/badges` | Badges | 21 | |
+| `/profile/card` | Yaqeen card | 21·ب | |
+| `/profile/leagues` | Weekly league (flag `leagues`) | 25 | |
+| `/profile/tournaments` · `/profile/tournaments/:id` | Tournaments (flag `tournaments`) | 25 | |
+| `/profile/leaderboard` | Level board (flag `leaderboard`) | 25 | |
+| `/profile/community` | «الظهور في المنافسات» | 25 | |
 
 **Rules**
 - First launch: `/splash → /onboarding/welcome …`. Later launches: `/splash → /home` (or the deep link).
@@ -222,12 +232,13 @@ Push payload: `data.link`, `data.campaignId` (opened → `POST /v1/me/campaigns/
 | 04·ب | Notifications & privacy | `/onboarding/consent` | ✅ | — |
 | 05 | Daily goal & challenge | `/onboarding/goal` | ✅ | — |
 | 05·ب | Daily routine | `/onboarding/routine` | ✅ | — |
+| 05·ج | Your profile | `/onboarding/profile` | 🟡 building | counsel review of the age-attestation wording (§13) |
 | 06 | Offline mushaf | `/onboarding/download` | ✅ | tafsir pack licence (§10); the pack manager installs it once published |
 | 07 | Home | `/home` | ✅ | — |
 | 08 | Quran index | `/quran` | ✅ | — |
 | 09 | Reading mode | `/quran/read/:page` | ✅ | KFGQPC page fonts licence (Amiri Quran until then) |
-| 10 | Recitation check | `/quran/recite/:surah` | 🟡 beta flag | on-device ASR model passing the ship gate (§6.8) |
-| 11 | Now playing | `/quran/listen/:surah` | ✅ | licensed recitations + timing files in the catalogue |
+| 10 | Recitation check (reader layer; route redirects) | `/quran/recite/:surah` | 🟡 beta flag | on-device ASR model passing the ship gate (§6.8) |
+| 11 | Listen (reader layer + mini player; route redirects) | `/quran/listen/:surah` | 🟡 building | licensed recitations + timing files in the catalogue |
 | 12 | Choose a reciter | `/quran/reciters` | ✅ | same |
 | 13 | Prayer times | `/prayer` | ✅ | — |
 | 14 | Qibla | `/prayer/qibla` | ✅ | — |
@@ -238,11 +249,13 @@ Push payload: `data.link`, `data.campaignId` (opened → `POST /v1/me/campaigns/
 | 18 | Calendar of Yaqeen | `/challenge/calendar` | ✅ | — |
 | 19 | 365 challenge | `/challenge` | ✅ | — |
 | 20 | Redeem reward | `/challenge/redeem` | ✅ | Shopify credentials |
-| 21 | Profile & settings | `/profile` | ✅ | — |
+| 21 | Profile (rebuilt) | `/profile` | 🟡 building | — |
+| 21·ج | Settings | `/profile/settings` | 🟡 building | — |
 | 21·ب | Yaqeen card (NFC/QR) | `/profile/card` | ✅ | §5.26 |
 | 22 | Hifz plan | `/quran/hifz` | ✅ | — |
 | 23 | Ramadan | `/prayer/ramadan` | ✅ flag `ramadan` | Ramadan bonus values (seeded off) |
 | 24 | Khatma | `/quran/khatma` | ✅ | — |
+| 25 | Community: weekly league · tournaments · level board · visibility | `/profile/leagues` · `/profile/tournaments` · `/profile/leaderboard` · `/profile/community` | 🟡 building, flags `leagues` / `tournaments` / `leaderboard` off | counsel review of the age-attestation and community terms wording (§13) |
 | — | Home-screen widgets | Android / iOS | ✅ | App Group + widget profile in the Apple account |
 | — | Website | `/`, `/privacy`, `/terms`, `/support`, `/delete-account` | ✅ | legal entity, DPO, support email, counsel review |
 
@@ -305,7 +318,7 @@ notifications · Acceptance**. Arabic strings are the real UI copy (put them in 
 
 ### 5.4 `03 · Language & mushaf` — `/onboarding/language` ✅
 
-**Layout** Header: back · stepper «الخطوة 1 من 4» (4 dashes, lapis filled) · «تخطي». Eyebrow «01 / 04», H1 «لغتك ومصحفك», sub «يمكنك تغيير ذلك لاحقاً من الإعدادات.»
+**Layout** Header: back · stepper «الخطوة 1 من 6» (6 dashes, lapis filled) · «تخطي». Eyebrow «01 / 06» (muted), H1 «لغتك ومصحفك», sub «يمكنك تغيير ذلك لاحقاً من الإعدادات.»
 Sections (glass cards):
 - **لغة التطبيق**: segmented «العربية | الإنجليزية».
 - **رسم المصحف**: two radio cards — «الرسم العثماني · مصحف المدينة النبوية» / «الرسم الهندي · شائع في جنوب آسيا»; live preview line «بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ» in the chosen script.
@@ -322,7 +335,7 @@ CTA dark pill «متابعة».
 
 ### 5.5 `04 · Prayer setup` — `/onboarding/prayer` ✅
 
-**Layout** Stepper 2/4. H1 «مواقيت دقيقة لمكانك», sub «نستخدم موقعك لحساب الصلاة والقبلة فقط، ويُحفظ على جهازك.»
+**Layout** Stepper «الخطوة 2 من 6». H1 «مواقيت دقيقة لمكانك», sub «نستخدم موقعك لحساب الصلاة والقبلة فقط، ويُحفظ على جهازك.»
 - **Location card**: «القاهرة، مصر» · «تم تحديد موقعك تلقائياً» · «تغيير» (opens city search sheet).
 - **طريقة الحساب**: radio list — «الهيئة المصرية العامة للمساحة · الموصى بها لموقعك» (default in Egypt) · «رابطة العالم الإسلامي · الفجر 18° · العشاء 17°» · «أم القرى · المملكة العربية السعودية».
 - **مذهب العصر**: segmented «الجمهور | الحنفي».
@@ -340,7 +353,7 @@ CTA «متابعة».
 
 ### 5.6 `04·ب · Notifications & privacy consent` — `/onboarding/consent` 🟡
 
-**Layout** Stepper 3/4. Eyebrow «03 / 04», H1 «تنبيهات تهمّك\nوخصوصيتك محفوظة», sub «اختر ما يصلك. يمكنك تغيير ذلك في أي وقت من الإعدادات.»
+**Layout** Stepper «الخطوة 3 من 6». Eyebrow «03 / 06», H1 «تنبيهات تهمّك\nوخصوصيتك محفوظة», sub «اختر ما يصلك. يمكنك تغيير ذلك في أي وقت من الإعدادات.»
 Glass card with 5 switch rows (40 pt icon tile + title + 11 pt description):
 
 | Bucket | Title | Description | Default |
@@ -365,7 +378,7 @@ CTA «متابعة» + caption «سيطلب هاتفك بعدها إذن الإ�
 
 ### 5.7 `05 · Daily goal & challenge` — `/onboarding/goal` ✅
 
-**Layout** Stepper 4/5. H1 «وِردك اليومي», sub «قليلٌ دائم خيرٌ من كثيرٍ منقطع. اختر ما يناسب يومك.»
+**Layout** Stepper «الخطوة 4 من 6». H1 «وِردك اليومي», sub «قليلٌ دائم خيرٌ من كثيرٍ منقطع. اختر ما يناسب يومك.»
 - Goal chips (single select): صفحة · **صفحتان** (default) · 4 صفحات · جزء.
 - **Challenge card** (gold glass): eyebrow «تحدٍّ سنوي», title «365 يوماً من اليقين», switch «الانضمام إلى التحدي» (default ON), body «أكمل وردك وأذكارك وصلواتك كل يوم، واجمع النقاط لتستبدلها بخصومات حصرية في متجر يقين.», two stats «100 نقطة يومياً» · «1,000 نقطة = مكافأة» (values from remote config `points.dailyTotal` and the cheapest reward).
 CTA «ابدأ رحلتي».
@@ -383,7 +396,7 @@ CTA «ابدأ رحلتي».
 **Purpose** The user anchors their habits to their day, so Home's «يومك» timeline and the reminders
 follow their life, not a fixed clock.
 
-**Layout** Stepper 5/5. H1 «متى يناسبك؟», sub «اختر وقتاً لكل عادة، وسنرتّب يومك على مواقيت الصلاة ونذكّرك في وقتها.»
+**Layout** Stepper «الخطوة 5 من 6». H1 «متى يناسبك؟», sub «اختر وقتاً لكل عادة، وسنرتّب يومك على مواقيت الصلاة ونذكّرك في وقتها.»
 One glass card per habit with chips «بعد الفجر · بعد الظهر · بعد العصر · بعد المغرب · بعد العشاء · وقت محدد · لا»
 and today's real time as a preview («بعد الفجر · 5:48 ص»):
 - **قراءة القرآن** (required; default 15 min after Fajr),
@@ -401,6 +414,26 @@ CTA «رتّب يومي».
 
 **Acceptance** [ ] Choice previews today's real time · [ ] Reminders and timeline follow the choice · [ ] Nothing
 routine-related reaches the API.
+
+---
+
+### 5.7·ج `05·ج · Your profile` — `/onboarding/profile` 🟡
+
+**Layout** Stepper «الخطوة 6 من 6», eyebrow «06 / 06» (muted). Title «ملفّك في يقين», sub «اختر صورة واسماً. مستواك يكبر مع نقاطك.»
+- Live preview: `YqLevelAvatar(112, stroke 4, progress 0)` + the name + «بداية الطريق».
+- «صورتك»: «من صورك» tile first (only when the photo picker is available), the 16 presets (filter «الكل · رجال · نساء», lapis ring + check on the selected one, skeleton circles while decoding).
+- «اسمك»: 40 characters max, prefilled with the **first name only** from Google/Apple, hint «الاسم الذي يراه الآخرون», helper «يظهر في المنافسات وبطاقتك فقط إن اخترت ذلك.»
+- Neutral glass card «المستويات والمنافسات»: «مستواك يرتفع مع نقاط التحدي، عبر 6 مستويات.» · «دوري أسبوعي في مجموعات من نحو 30: الأعلى يصعد قسماً.» · «بطولات موسمية مثل رمضان وذي الحجة، وجوائزها شارات.»
+- Switch «انضم إلى الدوري الأسبوعي» (default **off**), detail «يرى المشاركون اسمك وصورتك ومستواك ونقاط الأسبوع فقط.» When on, the required switch «عمري 18 عاماً أو أكثر، أو لديّ موافقة وليّ أمري» appears. Green note «لا يرى أحد صلواتك ولا أذكارك ولا مهامك. تغادر متى شئت.» Link «شروط المنافسات».
+- CTA «متابعة», skip «تخطٍّ».
+
+**Rules**
+- The league switch is off by default; guests must sign in (tap → sign-in sheet «سجّل الدخول لتنضم إلى الدوري»; on only after a successful sign-in); joining needs the attestation and a connection («تحتاج اتصالاً للانضمام» — the user may continue with the switch off). Flag `leagues` off → the switch and the weekly line are hidden.
+- «متابعة»: save the name → the avatar or photo → when the switch is on, a **direct** join (`PUT /v1/me/community`, source `onboarding`, `attestAdult`) → download step. Skip keeps the defaults.
+- Guests' choices stay on the device until they link an account (then only the changed fields are pushed; the server wins otherwise).
+- Resume by route name (`AppSettings.onboardingRoute`); settings saved before this release resume through the frozen v1 list (an old step 6 still resumes at download). Back goes to routine.
+
+**Acceptance** [ ] Switch off by default · [ ] Guest switch → sign-in, stays off on «لاحقاً» · [ ] Join is direct with source `onboarding` (nothing queued) · [ ] Offline join shows the copy and lets the user continue · [ ] Resume by route and by the legacy index.
 
 ---
 
@@ -456,8 +489,10 @@ Footer verse «وَرَتِّلِ ٱلْقُرْءَانَ تَرْتِيلًا�
 
 **States** Prayers and the timeline never load (local). No challenge data offline → last cached values, no error.
 
+**Profile chip (2026-11)** A 48-pt chip at the start of the header row: `[ProfileChip] · [greeting/name/Hijri] · search · bell` — `YqLevelAvatar(48, stroke 2.5, showLevel)` with a lapis level ring and the level numeral; gold only during the level-up glint or at «منارة». Tap → light haptic + `/profile`. Semantics «{name}، المستوى {n} · {levelName}، {percent}%»; guest: no ring, «{name}، افتح ملفّك». Data from the cached profile only (Home never waits on the network; a skeleton circle only with no value at all). **One-time moments** after the first frame, from cached data, at most one per open, sheet first: the week result («انتهى الأسبوع», §5.31.1), else the level-up toast «بلغت مستوى {name}» with one glint on the chip. Challenge card while signed in and loading with no value: a card-shaped skeleton, not the join CTA.
+
 **Acceptance** [ ] Countdown correct across midnight and DST change (Egypt) · [ ] All taps route as listed ·
-[ ] VoiceOver reads the stage as one element · [ ] Timeline order follows the real times incl. the routine.
+[ ] VoiceOver reads the stage as one element · [ ] Timeline order follows the real times incl. the routine · [ ] The chip paints from cache with no network · [ ] The level-up moment shows once (Home or Profile).
 
 ---
 
@@ -519,7 +554,13 @@ Footer verse «وَرَتِّلِ ٱلْقُرْءَانَ تَرْتِيلًا�
 
 **A11y** Each ayah is a semantics node: «سورة الفاتحة، الآية 2. اضغط مطولاً للخيارات». Mushaf font size not affected by system text scale (own control); chrome text is.
 
-**Acceptance** [ ] 60 fps page turns on a 2021 mid Android · [ ] Page/juz/hizb correct for all 604 pages (golden test vs metadata) · [ ] Wird tick happens once per day · [ ] Night theme meets AA.
+**One Page (2026-11)** The printed page is the **only** Quran surface. A mode dock (`QuranModeDock`, ≤ 640 pt, lapis thumb on the dock spring) switches four layers over a shared passage — «قراءة · استماع · تحفيظ · تسميع» (listen with flag `listen`, recite with flag `recite`; no segmented control when only «قراءة» remains); switching never pushes a route. The dock auto-hides after 4 s in free reading and is pinned only in guided hifz/review sessions. **Follow audio**: in listen mode the page follows the recitation only when the ayah timings are synced (else at surah boundaries), curl or cross-fade under reduce-motion, announcing «صفحة {page}»; in a spread it turns only when the ayah leaves both pages; never while a sheet is open or the screen is locked; a manual turn pauses following for 8 s with the chip «عُد إلى موضع التلاوة». Playing ayah: lapis wash ≈ 8 % + 2-pt rail. The **wird timer** pauses only when a full-screen route covers the reader; bottom sheets and dialogs do not pause it. Optional sessions (wird · khatma · hifz · review · free) add a goal line «{done} / {goal}», auto-ticks and kill-safe resume (device-only KV `quran.session.v1`); «أتممت جلستك» with gold only when the goal is met. Loading is `YqSkeletonMushafPage`.
+
+**Session acceptance** [ ] Kill-safe resume · [ ] Stale sessions dropped after midnight, a plan edit, or when the portion is no longer today's · [ ] «استبدال التشغيل الحالي؟» before taking over another surah's audio · [ ] Device-only: never in backup, export, profile, competitions, admin, analytics or ads; wiped on account deletion, kept on sign-out.
+
+**Copy** «قراءة», «استماع», «تحفيظ», «تسميع», «عُد إلى موضع التلاوة», «صفحة {page}», «كرّرت», «من هنا», «إلى هنا», «استمع من هنا», «احفظ من هنا», «سمّع من هنا», «لا تلاوة على الجهاز», «تنزيل السورة», «تخطَّ إلى التكرار», «ابدأ وردك», «{pages} صفحات من ص {page} · نحو {minutes} د», «مع التلاوة», «أتممت جلستك», «التالي: {step}», «مراجعة مستحقّة», «أكمل جلستك · ص {page}», «{ayat} آيات · {notes} ملاحظات», «اقتراح: {grade}», «تأكيد», «ابدأ الحلقة», «أكمل الحلقة», «راجع», «استمع إلى الحصّة», «استبدال التشغيل الحالي؟», «استبدال», «إظهار الكل», «إخفاء الكل», «الآيات», «كلمة وكلمة», «افتح في المصحف», «استماع ×3», «تكرار ×10», «اختبار», «تنبيه», «انتهيت», back «رجوع».
+
+**Acceptance** [ ] 60 fps page turns on a 2021 mid Android · [ ] Page/juz/hizb correct for all 604 pages (golden test vs metadata) · [ ] Wird tick happens once per day · [ ] Night theme meets AA · [ ] A mode switch pushes no route · [ ] A modal sheet does not pause the wird timer.
 
 ---
 
@@ -534,6 +575,8 @@ Result strip: «3 آيات صحيحة» (success tone) · «تنبيه واحد:
 - Microphone permission requested on first tap with rationale sheet «نستمع لتلاوتك على جهازك فقط».
 - Results feed Hifz review quality (§6.14) when started from the Hifz screen.
 
+**One Page (2026-11)** Recite is a reader layer (§5.11): it tests `Passage.ofPage(page)` or the session's passage and pauses listening first; notes are a muted dotted «تنبيه» underline; tapping a note plays that ayah once; summary «{ayat} آيات · {notes} ملاحظات». `/quran/recite/:surah[?from&to&hifz]` **redirects** into the reader at `pageOf(surah:from)` (`mode=recite`) — from the bundled surah→page table when `QuranData` is not loaded yet.
+
 **Acceptance** [ ] Works offline after model download · [ ] No audio leaves the device · [ ] Flag OFF hides the tab everywhere.
 
 ---
@@ -543,6 +586,8 @@ Result strip: «3 آيات صحيحة» (success tone) · «تنبيه واحد:
 **Layout** Back «رجوع إلى المصحف» · download button «تنزيل السورة». Eyebrow «يُشغَّل الآن», surah card «السورة 18 · مكية · 110 آيات» with name «الكهف» in display face, reciter «مشاري راشد العفاسي». Current ayah card (glass) with ayah text and number + collapsible tafsir line. Progress bar «4:12 / 23:40» (seek). Controls «التحكم في التشغيل»: repeat ayah · previous ayah · play/pause (64 dark pill) · next ayah · speed (0.75/1/1.25/1.5). Bottom chips «تغيير القارئ» (→ 12) · «مؤقت النوم» (sheet: 15/30/45/60 min, end of surah).
 
 **Rules (§6.7)** `just_audio` + `audio_service`: background playback, lock-screen + notification controls, Bluetooth buttons, interruption handling (pause on call, resume after). Ayah sync from per-ayah timings (Quran Foundation verse timestamps, resolved per surah by `GET /v1/content/reciters/:id/surahs/:n` and kept on the device; a full download also saves `timings.json`); current ayah also highlighted if the reader is open. The tafsir line uses the same source as the reader (§6.6) and credits it. Streaming when online; downloaded files preferred. Repeat modes: ayah ×N, range A–B, surah. Listening ≥ 5 minutes in a day ticks challenge task `listen`.
+
+**One Page (2026-11)** Listening is a reader layer with an expanded **player sheet** (orbit scrubber, repeat sheet, speed, sleep, «تغيير القارئ», jump picker, tafsir line) and an app-wide **mini player** above the dock (surah, step label, `YqRing` progress around play/pause, close = pause + dismiss; tap → `/quran/read/<pageOf(ref)>?mode=listen`; hidden while the reader is on top and during reciter samples; no live blur). The shell adds its height to the bottom inset so every screen clears it. `/quran/listen/:surah[?ayah&to]` **redirects** into the reader with `player=open`.
 
 **Acceptance** [ ] Continues with screen off · [ ] Highlight within 150 ms of ayah boundaries · [ ] Resumes position after app kill.
 
@@ -662,11 +707,34 @@ Selected-day sheet: date line, task list (الورد · أذكار الصباح 
 
 ---
 
-### 5.24 `21 · Profile & settings` — `/profile` ✅
+### 5.24 `21 · Profile` — `/profile` 🟡 (rebuilt 2026-11)
 
-**Layout** Avatar initial «أ» · name «أحمد» · «مرتبط بحساب Google · مزامنة مفعّلة». Points card «رصيد النقاط 3,240» · «سجل النقاط» (ledger list: date, reason label, ±points) · «760 نقطة حتى المكافأة التالية». «مكافآت متجر يقين» row of reward cards + «زيارة المتجر». Settings list «الإعدادات»: «اللغة والمصحف · العربية · العثماني» · «مواقيت الصلاة والتنبيهات · الهيئة المصرية» · «الخصوصية والموافقات» (4 consent switches as on 04·ب) · «التنزيلات دون اتصال · 43 MB» · «أكوادي» · «عن يقين / الشروط / الخصوصية / تواصل معنا» · «تصدير بياناتي» · «حذف الحساب» · «تسجيل الخروج».
+**Purpose** Who I am in Yaqeen: avatar, name, level, points, league — calm and premium («not all these colours»). Palette porcelain + ink + lapis; gold only for achievement.
 
-**Rules** Guest: header «ضيف» + «سجّل الدخول لحفظ نقاطك» (links guest → account, keeping points: `POST /v1/auth/link`, new §8.2). Delete account: 2-step confirm, `DELETE /v1/me` (PDPL, §6.17); local data wiped. Sign-out keeps on-device Quran data, wipes tokens and synced caches.
+**Layout**
+- **Stage** (`YqStage`, not gold): `YqStageBar(large, «حسابي», settings → /profile/settings)`. Moment: `YqLevelAvatar(120, stroke 4)` (achieved = the top level or a pending level-up) with a 32-pt glass edit badge «تغيير الصورة» → avatar sheet (tapping the avatar too). Name in ink (`YqMoment.display`, 28) → name sheet; hidden by support → «عضو يقين» muted + lock glyph. Caption (muted 13) «المستوى {n} · {levelName}» + « · @{handle}». Pending sync: a muted line with the sync glyph.
+- **Orbs** (three, ink and lapis, working in place): **Level** (lapis ring + ink numeral; «{n} للمستوى التالي» / «أعلى مستوى»; tap → level ladder: six rows, current lapis, gold dot on reached, note «المستوى يُحسب من كل النقاط التي كسبتها، ولا ينقص حين تستبدلها.») · **Points** (rewards flag + signed in, else a Language orb; «الرصيد», tap flips to «هذا الأسبوع» — self only; long-press → ledger) · **League** (flag `leagues`: division name + «{rank} من {size}» from the nightly snapshot, «—» before the first snapshot → `/profile/leagues`; not joined «الدوري» / «انضم»; flag off → a Downloads orb). The orb set depends only on flags and session, so it never swaps while loading.
+- **Body**: «الشارات» strip (the only gold block; «الكل» → `/profile/badges`; empty «تظهر شاراتك هنا حين تكسبها.») · the journey (restyled) · «المنافسة» group per flag («الدوري الأسبوعي», «البطولات», «لوحة المستويات», «الظهور في المنافسات») · «بطاقة يقين» row («منشورة · {n} زيارة» / «غير منشورة») · rewards group (not gold). Everything else is in Settings (§5.24·ب).
+- **Guest**: ring at 0; «مستواك ورحلتك يُحفظان حين تسجّل الدخول»; ink pill «سجّل الدخول لحفظ نقاطك» → sign-in sheet (links guest → account keeping points, `POST /v1/auth/link`).
+- **Avatar sheet** «صورتك»: «الكل · رجال · نساء»; 4-column grid of the 16 presets (selected = 2-pt lapis ring + check); «التقاط صورة» / «من الألبوم» (when the picker is available); «إزالة الصورة» when a photo is set; «الحرف الأول من اسمك». Note «لا يرى صورتك غيرك إلا في بطاقتك أو في المنافسات التي تنضم إليها.»; guest «تبقى صورتك على هذا الجهاز حتى تسجّل الدخول.»; photo set + visible + not attested: «يرى الآخرون صورة من المجموعة حتى تؤكد عمرك.» with the switch «عمري 18 عاماً أو أكثر، أو لديّ موافقة وليّ أمري». Hidden by support: «أخفى فريق الدعم صورتك. اختر صورة من المجموعة.» (photo actions disabled). Upload: shimmering ring on the stage avatar; toasts «تعذّر رفع الصورة. حاول مرة أخرى.» / «الصورة كبيرة جداً. اختر صورة أصغر.» / «رفعت صوراً كثيرة. حاول بعد ساعة.»
+- **Name sheet** «اسمك»: 40 max, hint «الاسم الذي يراه الآخرون», helper «من 1 إلى 40 حرفاً», invalid «اكتب اسماً من 1 إلى 40 حرفاً بلا روابط أو رموز.», locked «أخفى فريق الدعم هذا الاسم. راسلنا لمراجعته.», «حفظ».
+- **Badges** `/profile/badges`: compact stage «{n}» / «شارة»; sections «الدوري», «البطولات», «المسيرة»; 3-column grid of earned medals only (gold rim, label, muted date).
+
+**Data** `GET /v1/me/profile` (`MeProfile`, cached `profile.me.v1`), `GET /v1/me/badges`, journey (`/v1/me/journey`), challenge summary. Name/avatar: local first, Outbox `PATCH /v1/me/profile`; photo: direct `PUT /v1/me/avatar/photo` (the server re-encodes to 96/256 WebP and strips EXIF), the caller's own copy from `GET /v1/me/avatar/photo/256`.
+
+**Rules** Gold only for earned badges, level-reached dots and the level-up glint. Never shows which prayers or azkar. Avatar and name are saved locally first. Delete is a two-step confirm (`DELETE /v1/me`, §6.17). Sign-out keeps on-device Quran data, wipes tokens and synced caches.
+
+**States** Cold start without cache: stage skeleton (circle 120 + two lines) + `YqSkeletonOrbs(3)`; error with cache → toast, without → `YqErrorState`; offline → `YqOfflineBanner`; pull-to-refresh refreshes profile, journey, challenge and downloads.
+
+**Acceptance** [ ] No orb swap while loading · [ ] The stage skeleton only on a cold start without cache · [ ] Avatar change works offline · [ ] A hidden photo falls back with «أخفى فريق الدعم صورتك. اختر صورة من المجموعة.» · [ ] The level-up moment shows once (Home or Profile).
+
+---
+
+### 5.24·ب `21·ج · Settings` — `/profile/settings` 🟡
+
+**Layout** Compact stage + back «الإعدادات». Groups: **account** («اسمك», «صورتك», «الظهور في المنافسات» → `/profile/community`); **app** («اللغة والمصحف · العربية · العثماني», «مواقيت الصلاة والتنبيهات», «الخصوصية والموافقات», «التنزيلات دون اتصال»); «عن يقين / الشروط / الخصوصية / تواصل معنا»; «تصدير بياناتي»; «حذف الحساب» (ink row; `YqColors.error` only on the destructive confirm); «تسجيل الخروج». Avatar sheet and name sheet copy as §5.24.
+
+**Rules** Existing behaviours unchanged (language sheet, export, two-step delete, sign-out).
 
 ---
 
@@ -676,6 +744,8 @@ Selected-day sheet: date line, task list (الورد · أذكار الصباح 
 Plan sheet «خطتي»: goals «جزء عمّ · 37 سورة · 564 آية» · «جزء تبارك · 11 سورة · 431 آية» · «سورة الكهف · 110 آيات» · «القرآن كاملاً · 6236 آية»; «مقدار الحفظ الجديد يومياً» stepper (N آيات يومياً) → finish estimate; «حفظ الخطة».
 
 **Rules** Existing `ReviewScheduler` (first intervals 1 / 3 / 14 days by rating, then growing — §6.14). All hifz data **local only** (optional encrypted backup later). Due review → local notification (setting in 15).
+
+**Guided hifz (2026-11)** «ابدأ الحلقة / أكمل الحلقة» opens the reader (§5.11) with `session=hifz&surah&from&to`: stages «استماع ×3» → «تكرار ×10» (echo, or the «كرّرت» counter) → «اختبار»; each step auto-ticks (idempotent; a manual untick still works). The grade sheet pre-selects a suggested grade («اقتراح: {grade}») which the user confirms, then today's portion is marked memorised with one gold glint. A due review («راجع») opens at the test stage; «انتهيت» or leaving → grade sheet. No audio on the phone → «تنزيل السورة» or «تخطَّ إلى التكرار».
 
 ---
 
@@ -700,9 +770,15 @@ badges and member-since. It is also Yaqeen's front door for whoever scans it.
   the timeline thread draws while its dots pop, links rise, the CTA has a slow sheen, sparkles
   twinkle; scroll-driven reveal where `animation-timeline` is supported. App: numbers count up, the
   rail draws itself, looks cross-fade. All of it off with reduced motion.
-- **Levels** come from lifetime points (sum of positive ledger rows) — spending never lowers a level;
+- **Levels** come from lifetime **earned** points — spending never lowers a level;
   names describe the journey: بداية الطريق · على الطريق · مواظب · ثابت · راسخ · منارة
-  (0 · 500 · 2,000 · 5,000 · 12,000 · 25,000). No leaderboard, no change to points economics.
+  (0 · 500 · 2,000 · 5,000 · 12,000 · 25,000). Leagues, tournaments and the level leaderboard are
+  opt-in (§5.31). Levels are computed from lifetime earned points: task, qada, bonus, milestone, grant
+  and positive admin adjustments, excluding reversals. Public level rings use the nightly snapshot.
+  No change to points economics.
+- **Avatar** (2026-11): the card preview and `/u/<handle>` draw the avatar inside the (public) level
+  ring; a photo shows publicly only after the age attestation («لإظهار صورتك في البطاقة» switch in the
+  editor), otherwise the preset or initial.
 - **Physical tags — Yaqeen key medals and cards** (sold in the Yaqeen store; only the staff encoder
   below writes chips). Each piece carries a **permanent code** minted by marketing in admin batches (8 characters,
   no look-alikes, printed `XXXX-XXXX`): the NFC chip holds one NDEF URI record
@@ -792,6 +868,29 @@ Served by the API on the cards host: landing `/`, `/privacy`, `/terms`, `/suppor
 **Screen** Gold stage: progress ring (% · «N من 604 صفحة»), due date and days left (or the projected finish at a fixed pace). «حصّة اليوم»: from the first unread page, today's target (what's left ÷ days left, today's pages included), a liquid orb of today's read/target, status «على الخطة · متقدّم N · متأخّر N — اقرأ أكثر قليلاً اليوم», «اقرأ الآن» → the reader on that page. «هذا الأسبوع»: seven bars, pages · minutes · reading days, streak. «ختمات سابقة». Edit / end plan (confirmed).
 
 **Rules** A page counts once it has been visible ≥ 20 s (the wird rule), in any order; reading all 604 finishes the plan (toast «تمّت الختمة — تقبّل الله منك», moved to history). The routine's daily Quran reminder becomes «حصّتك من الختمة» while a plan runs (deep link `yaqeen://khatma`). The Quran index's khatma orb shows plan % and today's progress. Device only; stored as page ranges.
+
+### 5.31 `25 · Community` — leagues, tournaments, level board 🟡 · flags `leagues` · `tournaments` · `leaderboard` (off by default)
+
+**Common rules**
+- Opt-in, off by default, signed-in (non-guest) only; joining needs the attestation «عمري 18 عاماً أو أكثر، أو لديّ موافقة وليّ أمري» and a connection («تحتاج اتصالاً للانضمام»); leaving works offline (Outbox) and hides the user at once.
+- Consent `community` is granted while the user is in a weekly league, on the level board or in a live tournament; recomputed on every path (join, leave, the privacy screen, support actions, the job, erasure). Withdrawing `community` from the privacy screen leaves everything.
+- Others see **only** the name/@handle (or «عضو يقين» when hidden), the avatar (a photo only after the attestation), the level ring from the nightly public snapshot and the period's points from the nightly snapshot. Never worship detail, never anything live.
+- Public standings update **once a night** («يُحدَّث الترتيب كل ليلة.»); ties share a rank (1, 1, 3), display order inside a tie by handle; 0 points → «—».
+- Block and report on every list. Terms link «شروط المنافسات» (`/terms#community`). Sincerity line «تنافسٌ لطيف على الخير. لا نقاط إضافية هنا، والشارات تذكارٌ فقط.» and privacy line «يرى المشاركون اسمك وصورتك ومستواك ونقاط الفترة فقط، لا صلواتك ولا أذكارك ولا مهامك.» on every competition screen. Rewards are **badges only**; competitions never write the points ledger. Results in-app, never by push.
+
+**5.31.1 Weekly league** (flag `leagues`, `/profile/leagues`) — six divisions برونز، فضة، ذهب، زمرّد، ياقوت، ألماس (admin may rename; changes apply from the next week; monochrome — «ذهب» never gets gold styling); groups of about 30; Saturday 00:00 to Saturday 00:00 Cairo; points earned that week (task, qada, bonus, milestone; qada counts in the week it is claimed; a late claim never changes closed results); top 5 up, bottom 5 down, each capped at a third of the group; groups under 5 neither promote nor demote; division 6 never promotes, division 1 never demotes; up needs points above 0; leaving keeps your division with no result. Badges «المركز الأول في المجموعة», «بين الثلاثة الأوائل», «صعود إلى {division}», «بلوغ قسم {division}». Copy: «الدوري الأسبوعي», «ينتهي بعد {days} أيام», «ينتهي الليلة», «{points} نقطة هذا الأسبوع», «{rank} من {size}», «يصعدون إلى {division}», «يبدأون الأسبوع القادم في {division}», «أنت», «الأسابيع السابقة», «مغادرة الدوري», «ستختفي من ترتيب هذا الأسبوع فوراً، ويمكنك العودة متى شئت.», «غادر», «انتهى الأسبوع», «صعدت إلى {division}», «تبقى في {division}», «تبدأ هذا الأسبوع في {division}», «نحسب نتائج الأسبوع… عُد بعد قليل». Join sheet «انضم إلى الدوري الأسبوعي»: «كل أسبوع تُوضع مع نحو 30 مشاركاً في قسمك. الأعلى نقاطاً يصعدون، ويبدأ الأقل في القسم السابق.», «الاسم الظاهر» prefilled with the first name, attestation, privacy line, terms, «انضم» / «ليس الآن». The week result sheet shows once per finished week (Home after the first frame, or the league screen).
+
+**5.31.2 Tournaments** (flag `tournaments`, `/profile/tournaments`, `/profile/tournaments/:id`) — admin-created windows of whole Cairo days; ranked by points earned in the window; join until the last join day; leave any time. One badge per joiner at close: «منصّة {title}» (ranks 1–3, at least 10 joiners), «أعلى 10% · {title}», «إتمام {title}» (each needs at least `minPoints`). Copy: «البطولات», «جارية», «قادمة», «انتهت», «تبدأ بعد {days} أيام», «تنتهي بعد {days} أيام», «{n} مشارك», «انضم إلى البطولة», «أنت مشارك», «مغادرة البطولة», «انتهى الانضمام», «الشارة: {label}», «{points} نقطة في البطولة», «أوافق على ظهور اسمي وصورتي ومستواي ونقاطي في هذه البطولة.», «لا بطولات الآن. نُعلن عنها في مواسم مثل رمضان وذي الحجة.» Titles and descriptions are marketing copy: never Quran, hadith or dua.
+
+**5.31.3 Level board** (flag `leaderboard`, `/profile/leaderboard`) — global, plus a country board that is its own switch and exists only with at least 20 participants; level ring only, no points. Copy: «لوحة المستويات», «العالم», «ترتيبك {rank}», «يظهر ترتيبك بعد التحديث الليلي», «أظهرني في اللوحة», «تظهر باسمك وصورتك ومستواك فقط.», «أظهرني في لوحة بلدي», «تظهر باسمك وصورتك ومستواك فقط، وتظهر في لوحة بلدك.», «اختر مدينتك في إعدادات الصلاة لترى ترتيب بلدك.», «لوحة بلدك تظهر حين يشارك فيها 20 شخصاً على الأقل.»
+
+**5.31.4 Badges** (`/profile/badges`): «الشارات», «{n} يوماً متتالية», «بلوغ مستوى {level}», «تظهر شاراتك هنا حين تكسبها.» Gold only on earned badges and podium ranks 1–3 after a period closes.
+
+**5.31.5 Visibility and safety** `/profile/community`: «الظهور في المنافسات», switches «الدوري الأسبوعي», «لوحة المستويات», «لوحة بلدي» (each per flag; on = direct join with the attestation; off = queued leave), active tournament entries with leave, the name row, «المحظورون» with «إلغاء الحظر», privacy line, sincerity line. Report «إبلاغ عن الاسم أو الصورة» («اسم غير لائق», «صورة غير لائقة», «سبب آخر», «شكراً، سيراجعه فريق الدعم.», «بلغت حدّ البلاغات اليوم.» — 20 per 24 h), block «حظر {name}», «لن تراه ولن يراك في المنافسات.», «تم الحظر.», banned «أُوقفت مشاركتك في المنافسات. راسلنا لمراجعتها.», name fallback «عضو يقين».
+
+**States** Loading: stage skeleton + `YqSkeletonAvatarRows`; offline: the last cached view + `YqOfflineBanner`; error: `YqErrorState`; guest: «سجّل الدخول لتنضم إلى المنافسات».
+
+**Acceptance (all)** [ ] Off by default · [ ] Guests cannot join · [ ] The attestation is required · [ ] Leaving removes the user at once · [ ] Nothing public is live (a new point never moves a public list before the nightly snapshot) · [ ] No worship detail · [ ] No ledger rows written by competitions · [ ] Results in-app, never by push · [ ] Offline shows the last cached view with the banner · [ ] Blocked users disappear for both · [ ] Withdrawing `community` from the privacy screen leaves everything.
 
 ## 6. Cross-cutting functions
 
@@ -887,7 +986,7 @@ Each function: **what · where in code · rules · tests**. Pure logic goes in `
 ### 6.14 Hifz ✅
 
 - `ReviewScheduler` (existing, `features/hifz/domain`): `hard → 1 d` · `good → max(3, previous×2)` · `easy → max(14, previous×2.5)`, capped at 120 d; new portions per plan rate. Plan estimate = remaining ayat ÷ rate.
-- Recitation results (6.8) suggest a rating; the user confirms.
+- Recitation results (6.8) and memorise reveals suggest a grade («اقتراح: {grade}»); the user confirms. The grade lives in hifz state (`HifzController.rate` / `memoriseToday`, already a cloud-backup kind); raw session data (passage, reveals, raw recite results) stays on the device (`quran.session.v1`).
 
 ### 6.15 Remote config, maintenance, min-version ✅ (API)
 
@@ -936,8 +1035,8 @@ Every write shows a toast and is written to `audit_log` in the same transaction 
 | `super_admin` «مدير عام» | everything incl. team, settings |
 | `content_editor` «محرر محتوى» | create/edit content, daily tasks; submit for review |
 | `religious_reviewer` «مراجع شرعي» | approve/request changes (not own items); approve splash verse |
-| `marketing` «تسويق» | campaigns, reward catalogue (not points economics) |
-| `support` «دعم» | users list, ledger view, manual adjustments with reason, export |
+| `marketing` «تسويق» | campaigns, reward catalogue (not points economics), tournaments and league settings |
+| `support` «دعم» | users list, ledger view, manual adjustments with reason, export; competition moderation (hide name/photo, ban, reports) and the admin photo route |
 
 ### 7.2 Screens — built vs design
 
@@ -948,6 +1047,7 @@ Every write shows a toast and is written to `audit_log` in the same transaction 
 | 03 · Content | `/content` | duas/azkar editor, submit/review workflow, daily-task schedule | role-preview toggle «تعرض كـ» (dev only) · English translation field · history line «آخر تعديل» |
 | 04 · Campaigns | `/campaigns`, `/campaigns/new` | kind, segment, timing (now/smart/scheduled), guardrails list, reach estimate, lock-screen preview, cancel, stats | **«إرسال تجريبي لجهازي»** (`POST /admin/campaigns/test`, new: sends to the admin's registered test devices only, bypasses audience but not content validation) · deep-link target select (rewards / challenge / calendar / store) · open-rate column |
 | 05 · Rewards | `/rewards` (5 tabs) | program & tasks (sum = dailyTotal), milestones & bonuses, catalogue, grants (preview → confirm), redemptions | **Shopify connection status pill** «متصل · yaqin-brand.com» (`GET /admin/rewards/shopify/status`, new) · "+ مكافأة من منتجات Shopify" product/collection picker (`GET /admin/rewards/shopify/collections`, new) · KPI row (granted / redeemed / used rate / sales from codes) |
+| 07 · المسابقات | `/competitions` (`?tab=`) | 🟡 building | «البطولات» (create/publish/close/cancel with Cairo-day pickers; marketing copy only — no ayat, hadith or duas), «الدوري الأسبوعي» (settings from the next week, stats, rollover — super admin), «لوحة المستويات» (snapshot), «الإشراف» (reports, hide name/photo, ban — support, audited, reason required), «الشارات» (catalogue, counts suppressed under 20). Roles: super_admin all; marketing tournaments + league settings; support moderation; content_editor / religious_reviewer 403. Snapshot data and aggregates only, never worship detail |
 | 06 · Settings | `/settings` | Hijri offset preview/apply, feature flags, min versions, maintenance, team, audit | **Splash verse editor** (text + reference; save creates a `pending_review` change; goes live only after a reviewer approves — reuse content workflow with `type=splash_verse`) · flag set aligned to app: `recite` (with % rollout), `hifz`, `rewards`, `ramadan`, `tafsirFull`, `challenge`, `listen`, `bonuses` |
 
 ### 7.3 Admin acceptance (all screens)
@@ -1003,6 +1103,23 @@ Every write shows a toast and is written to `audit_log` in the same transaction 
 | GET | `/admin/rewards/shopify/status` · `/shopify/collections` | rewards | shop name, scopes, last error |
 | PUT | `/admin/settings/splash-verse` | settings | creates pending change → reviewer approves |
 
+**Profile & community (2026-11, design `docs/design/2026-11-profile-community-quran.md` §3.3–§3.4)**
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET/PATCH | `/v1/me/profile` | `MeProfile` / `UpdateProfileRequest` (name, preset avatar) |
+| PUT/DELETE | `/v1/me/avatar/photo` | raw JPEG/PNG/WebP ≤ 3 MB → re-encoded 96/256 WebP (EXIF stripped); 10 per hour |
+| GET | `/v1/me/avatar/photo/:size` | the caller's own active photo |
+| POST | `/v1/me/attestation` | 18+ (or guardian consent) attestation |
+| GET/PUT | `/v1/me/community` | switches; join is direct, `attestAdult` required the first time |
+| GET | `/v1/me/badges` | badges (awarded ∪ derived streak/level) |
+| GET | `/v1/leagues/current` · `/v1/leagues/history` | snapshot standings, self live points |
+| GET/POST/DELETE | `/v1/tournaments[/:id[/join\|/standings]]` | list, detail, join (ack + attestation), leave, paged snapshot standings |
+| GET | `/v1/leaderboard?scope=global\|country` | top 100 + me from the snapshot |
+| POST · GET/POST/DELETE | `/v1/community/reports` · `/v1/community/blocks[/:handle]` | report (20 per 24 h), block/unblock |
+| GET | `/v1/public/avatars/:photoId/:size.webp` · `/u/assets/avatars/:id.webp` | public photo (visible + attested only) · preset art |
+| * | `/admin/competitions/*` | tournaments, league settings/stats/rollover, leaderboard, competitors + actions, reports, badges, admin photo route (audited) |
+
 **Contract changes**: `RemoteConfig.points` add `dailyTotal` (used by 05); `features` defaults add `recite:false, ramadan:false, tafsirFull:false`; `recite` rollout `%` → `featureRollout: Record<string, number>` with stable bucketing by user id hash.
 
 ### 8.3 Conventions
@@ -1027,6 +1144,7 @@ Errors `{error: {code, message}}` with stable snake_case codes (`insufficient_po
 | `admin_users.test_device_ids text[]` | campaign test send |
 | `users.merged_into uuid null` | guest link |
 | materialised view `daily_active_agg(date, dau)` + `challenge_funnel_agg` | overview charts without row-level worship access |
+| Migration `0017_community`: `users` (country, avatar_*, name_hidden_*, photo_locked_at, adult_attested_at), `consent_events.attested_adult`, `consent_kind` + `community`, `avatar_photos` (bytea), `community_members`, `community_blocks`, `points_earned_daily` + `user_point_totals` (derived by the `yq_points_rollup` trigger; `yq_rebuild_points_rollups()`), `league_weeks`, `league_groups`, `league_members`, `tournaments`, `tournament_entries`, `leaderboard_snapshot`, `community_snapshot_days`, `user_badges`, `community_reports` | profile identity + community (§5.24, §5.31; docs/DATA_MODEL.md) |
 
 ### 9.3 On-device stores
 
@@ -1186,6 +1304,7 @@ IDs are referenced in commits (`YQ-12: …`).
 6. Brand fonts licences (ZEYADA Arabic 1, Canela Text) — app uses Amiri/Tajawal until then.
 7. Reward catalogue at launch (50 ج.م / 15 % rugs / free shipping / package) and monthly budget.
 8. Ramadan 1448 (≈ Feb 2027): mode built (§5.27); decide the Ramadan bonus values and switch them on, and turn the `ramadan` flag on in Sha'ban.
+9. [Counsel review: the age-attestation wording «عمري 18 عاماً أو أكثر، أو لديّ موافقة وليّ أمري» and the community terms «المنافسات والسلوك» (`/terms#community`) before turning on `leagues`, `tournaments` or `leaderboard`.]
 
 ---
 

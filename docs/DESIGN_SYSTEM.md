@@ -95,12 +95,16 @@ Content rises in once (`YqRise`, staggered 70 ms). Screen readers get it at once
 
 | Screen | Stage moment | Complications | Journey / body |
 | --- | --- | --- | --- |
-| Home | next prayer · countdown · day arc | Qibla orbit · misbaha · liquid wird | «Your day» |
+| Home | next prayer · countdown · day arc; profile chip (avatar in the lapis level ring) at the start of the header | Qibla orbit · misbaha · liquid wird | «Your day» |
 | Prayer | next prayer · countdown · day arc | Qibla · daylight (liquid) · alerts (ring) | six prayers with bells |
 | Qibla | turn guidance | the full-screen orbit | calibrate · camera |
-| Quran | continue reading + khatma line + search | wird · khatma ring · listen | saved strip · lazy surahs |
+| Quran | continue reading + khatma line + search | wird · khatma ring · listen (playing surah + ring) | saved strip · lazy surahs |
+| Reader | the printed page (exception) | mode dock «قراءة · استماع · تحفيظ · تسميع» (layers, never a route) | strips per layer; session line «{done} / {goal}» |
 | Challenge | gold ring: day N, points | today · streak · make-up | tasks with gold checks |
-| Profile | identity medallion | balance · rewards ring / language · downloads | settings groups |
+| Profile | avatar in the level ring (120), name in ink, «المستوى {n} · {name}» (not gold) | level ring · balance/this week (or language) · league (or downloads) | badges strip (the only gold) · journey · «المنافسة» · card row · rewards; settings at `/profile/settings` |
+| League | division · my snapshot rank · «{points} نقطة هذا الأسبوع» | — | lazy rows (rank, `YqLevelAvatar` 36, name, snapshot points), zone separators, «يُحدَّث الترتيب كل ليلة.» |
+| Tournament(s) | my rank or «انضم» · «{points} نقطة في البطولة» | — | «جارية · قادمة · انتهت» glass cards; paged snapshot standings |
+| Level board | «العالم · {country}» | — | rings + level names only (no points); «ترتيبك {rank}» pinned |
 | Calendar | Hijri month, stepping | journey ring · streak · balance | luminous day discs; day sheet timeline |
 | Redeem | balance | — | rewards with affordability rings |
 | Azkar | set tabs | the misbaha (beads = count) | the rest of the set |
@@ -128,9 +132,11 @@ Content rises in once (`YqRise`, staggered 70 ms). Screen readers get it at once
 | `YqGroup` | core/widgets/yq_layout.dart | A glass group of rows with hairlines. |
 | `DayArc` / `dayArcAt` | core/design/living_sky.dart | The day's arc with the sun at its real position. |
 | `LiquidGlass` / `GlassTap` | core/widgets | The content surface; live blur only on fixed chrome. |
-| `FloatingTabBar` / `YqTab` | core/widgets/floating_tab_bar.dart | The **dock**: a floating porcelain-glass capsule (64 pt, max 520 wide, centred) with five equal slots — Home, Quran, Prayer, Challenge, and Profile with the person's initial on a gold disc as its icon (`YqTab.avatar`). Each slot is a 24-pt icon over an 11-pt label, always shown (lapis + bold when active, muted otherwise). A soft lapis glass pill sits under the active slot and glides on a spring (jumps with reduce-motion). Press scales to 0.92 with a light haptic; tapping the open tab returns it to its first screen. It steps aside while the keyboard is up. |
+| `FloatingTabBar` / `YqTab` | core/widgets/floating_tab_bar.dart | The **dock**: a floating porcelain-glass capsule (64 pt, max 520 wide, centred) with five equal slots — Home, Quran, Prayer, Challenge, and Profile with the person's avatar as its icon (`YqTab.avatar(avatar: MeAvatar(size: 24))`: lapis rim when active, white otherwise; their initial in ink on ice until the avatar paints — no gold disc). Each slot is a 24-pt icon over an 11-pt label, always shown (lapis + bold when active, muted otherwise). A soft lapis glass pill sits under the active slot and glides on a spring (jumps with reduce-motion). Press scales to 0.92 with a light haptic; tapping the open tab returns it to its first screen. It steps aside while the keyboard is up. |
 | `YqInsets` | core/widgets/yq_layout.dart | Shared geometry: `page` (the directional gutter) and `bottom(context)` — the one bottom inset for scrolling screens. Inside a tab the shell counts the dock as bottom safe area (`FloatingTabBar.clearanceFor`), so content always clears it. |
 | `HabitSlotCard` | features/routine/presentation | Picks a habit's time. |
+| `YqAvatar` / `YqLevelAvatar` / `YqSkeletonAvatarRows` | core/widgets/yq_avatar.dart | A profile picture (preset art, photo, or the initial in ink on ice; white rim; skeleton circle until the first frame); the same inside the level ring (lapis on a soft lapis track; gold + one 600 ms glint only when achieved, skipped under reduce-motion; level numeral at the bottom end); skeleton rows for people lists. `MeAvatar` is the caller's own. |
+| `QuranModeDock` / `MiniPlayer` / `YqSkeletonMushafPage` | features/quran, features/listen, core/widgets | Reader layers (glass pill ≤ 640 pt, lapis thumb on the dock spring, icons only when 1.3× text would overflow); the app-wide mini player above the dock (no live blur; the shell adds its height to the bottom inset); the page-shaped reader skeleton. |
 
 ## 5. Motion
 
