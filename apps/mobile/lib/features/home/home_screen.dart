@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -18,12 +20,14 @@ import '../../core/widgets/yq_states.dart';
 import '../../l10n/gen/app_localizations.dart';
 import '../calendar/data/hijri_today.dart';
 import '../challenge/presentation/challenge_controller.dart';
+import '../community/presentation/week_result_sheet.dart';
 import '../hifz/presentation/hifz_controller.dart';
 import '../notifications/presentation/inbox_screen.dart';
 import '../onboarding/presentation/session_controller.dart';
 import '../prayer/domain/prayer_calculator.dart';
 import '../prayer/domain/prayer_clock.dart';
 import '../prayer/presentation/prayer_labels.dart';
+import '../profile/presentation/me_profile_controller.dart';
 import '../quran/presentation/quran_index_screen.dart';
 import '../quran/presentation/reader_screen.dart';
 import '../ramadan/domain/ramadan.dart';
@@ -32,6 +36,7 @@ import '../routine/domain/routine.dart';
 import '../routine/presentation/habit_picker.dart';
 import 'widgets/continue_reading.dart';
 import 'widgets/orbs.dart';
+import 'widgets/profile_chip.dart';
 import '../../core/design/living_sky.dart';
 import '../../core/widgets/ambient_background.dart';
 import '../../core/widgets/yq_rise.dart';
@@ -52,11 +57,92 @@ import '../../core/widgets/yq_timeline.dart';
 ///
 /// Everything but the challenge numbers is local, so the screen never waits on the network.
 /// Sections rise in once, staggered, on first open (not on tab switches; skipped with reduced motion).
-class HomeScreen extends ConsumerWidget {
+///
+/// After the first frame Home owes at most one one-time moment per app open (design §7), from
+/// cached data only: the «انتهى الأسبوع» sheet first; otherwise, when a level was reached, the
+/// profile chip glints once and a quiet toast «بلغت مستوى {name}» shows.
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+/// Shows the week result once per finished week and says whether it did (the competitions
+/// stream's `maybeShowWeekResult`); a provider so tests can stand in for it.
+final homeWeekResultProvider = Provider<Future<bool> Function(BuildContext, WidgetRef)>((_) => maybeShowWeekResult);
+
+/// One per app open (the provider scope lives as long as the app): whether Home has already
+/// decided its one-time moment, and whether it showed one.
+final _homeMomentsProvider = Provider<_HomeMoments>((_) => _HomeMoments());
+
+class _HomeMoments {
+  bool started = false;
+  bool shown = false;
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  ProviderSubscription<LevelUp>? _levelUp;
+
+  @override
+  void initState() {
+    super.initState();
+    // Never before the first frame, and never waiting on it.
+    WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_oneTimeMoment()));
+  }
+
+  @override
+  void dispose() {
+    _levelUp?.close();
+    super.dispose();
+  }
+
+  Future<void> _oneTimeMoment() async {
+    final moments = ref.read(_homeMomentsProvider);
+    if (!mounted || moments.started) return;
+    moments.started = true;
+    // The cached profile (a local read); the background refresh never holds this up.
+    try {
+      await ref.read(meProfileProvider.future);
+    } on Object {
+      // No profile: no week result, and the level-up check below simply never fires.
+    }
+    if (!mounted) return;
+    bool shown;
+    try {
+      shown = await ref.read(homeWeekResultProvider)(context, ref);
+    } on Object {
+      shown = false;
+    }
+    if (shown) moments.shown = true;
+    if (!mounted || moments.shown) return;
+    // A level reached (known from the cache now, or from the background refresh a moment later).
+    _levelUp = ref.listenManual<LevelUp>(levelUpProvider, (_, next) => _showLevelUp(next), fireImmediately: true);
+  }
+
+  void _showLevelUp(LevelUp up) {
+    final moments = ref.read(_homeMomentsProvider);
+    final level = up.level;
+    if (!up.pending || level == null || moments.shown || !mounted) return;
+    moments.shown = true;
+    _levelUp?.close();
+    _levelUp = null;
+    final t = AppLocalizations.of(context);
+    final glint = ref.read(profileChipGlintProvider.notifier)..state = true;
+    YqToast.show(context, t.lvlReached(level.name(Localizations.localeOf(context).languageCode)));
+    unawaited(ref.read(levelUpProvider.notifier).markSeen());
+    // The ring's glint runs once (600 ms); the gold leaves with it — even if Home is gone by then.
+    Timer(const Duration(milliseconds: 900), () {
+      try {
+        glint.state = false;
+      } on StateError {
+        // the app's provider scope is gone
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
     return AmbientBackground(
       child: RefreshIndicator(
@@ -106,6 +192,7 @@ class _SectionTitle extends StatelessWidget {
       );
 }
 
+/// `[profile chip] · [greeting / name / Hijri] · search · inbox` — no extra band or line.
 class _Header extends ConsumerWidget {
   const _Header({required this.now});
 
@@ -124,11 +211,19 @@ class _Header extends ConsumerWidget {
     final morning = now.toUtc().isBefore(dhuhr);
     final hijri = ref.watch(hijriTodayProvider);
     final unread = ref.watch(unreadCountProvider).valueOrNull ?? 0;
-    final name = (session.displayName?.trim().isNotEmpty ?? false) && !session.isGuest ? session.displayName! : t.guestName;
+    // The profile name (chosen in onboarding or Profile, cached), else the account's, else «ضيف».
+    final profileName = ref.watch(meProfileProvider.select((p) => p.valueOrNull?.displayName))?.trim() ?? '';
+    final name = profileName.isNotEmpty
+        ? profileName
+        : (session.displayName?.trim().isNotEmpty ?? false) && !session.isGuest
+            ? session.displayName!
+            : t.guestName;
     final place = s.placeOrDefault.name(s.locale);
 
     return Row(
       children: [
+        const ProfileChip(),
+        const SizedBox(width: YqSpace.s),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -458,7 +553,13 @@ class _ChallengeCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
     final session = ref.watch(sessionProvider);
-    final summary = ref.watch(challengeControllerProvider).valueOrNull;
+    final challenge = ref.watch(challengeControllerProvider);
+    final summary = challenge.valueOrNull;
+    // An account whose summary is still loading (nothing cached yet): a shaped skeleton, never a
+    // join CTA that would flip to the card a moment later.
+    if (session.canEarnPoints && challenge.isLoading && !challenge.hasValue) {
+      return const YqSkeleton(child: YqSkeletonBox(height: 72, radius: YqRadii.card));
+    }
     // Guests and the not-yet-enrolled get the join CTA (spec §5.9); offline keeps the last cached values.
     final join = !session.canEarnPoints || summary == null || !summary.enrolled;
     return GlassTap(

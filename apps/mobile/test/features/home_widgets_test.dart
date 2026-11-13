@@ -3,9 +3,24 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:yaqeen/core/di/providers.dart';
+import 'package:yaqeen/core/network/api_client.dart';
+import 'package:yaqeen/core/theme/theme.dart';
+import 'package:yaqeen/core/widgets/yq_avatar.dart';
+import 'package:yaqeen/core/widgets/yq_states.dart';
+import 'package:yaqeen/features/challenge/domain/challenge_models.dart';
+import 'package:yaqeen/features/challenge/presentation/challenge_controller.dart';
+import 'package:yaqeen/features/home/widgets/profile_chip.dart';
+import 'package:yaqeen/features/onboarding/data/auth_repository.dart';
+import 'package:yaqeen/features/profile/data/profile_repository.dart';
+import 'package:yaqeen/features/profile/presentation/me_profile_controller.dart';
+import 'package:yaqeen/l10n/gen/app_localizations.dart';
 import 'package:yaqeen/core/platform/location_service.dart';
 import 'package:yaqeen/core/settings/app_settings.dart';
 import 'package:yaqeen/core/storage/kv_store.dart';
@@ -21,6 +36,12 @@ import 'package:yaqeen/features/quran/domain/quran_data.dart';
 
 import '../helpers/fonts.dart';
 import '../helpers/harness.dart';
+
+/// The challenge summary that never arrives (an account's first load with nothing cached).
+class _PendingChallenge extends ChallengeController {
+  @override
+  Future<ChallengeSummary> build() => Completer<ChallengeSummary>().future;
+}
 
 void main() {
   final q = QuranData.fromJson(jsonDecode(File('assets/quran/quran.json').readAsStringSync()) as Map<String, dynamic>);
@@ -144,6 +165,249 @@ void main() {
     test('the sun x is mirrored in RTL', () {
       expect(skyX(0.25, rtl: false), closeTo(-0.5, 1e-9));
       expect(skyX(0.25, rtl: true), closeTo(0.5, 1e-9));
+    });
+  });
+
+  group('profile chip and one-time moments (§5.9)', () {
+    const google = Session(provider: SignInProvider.google, userId: 'u1', displayName: 'Ahmed Hamdy');
+    const guest = Session(provider: SignInProvider.guest, userId: 'g1');
+    final profileJson = File('test/fixtures/community/me_profile.json').readAsStringSync(); // «أحمد», level 3 · مواظب, 40%
+    late List<String> calls;
+
+    setUp(() => calls = []);
+
+    /// Home inside a router (so the chip can go to /profile), with an API that is always offline.
+    Widget home({
+      required MemoryKvStore kv,
+      Session session = google,
+      List<Override> extra = const [],
+      GoRouter? router,
+    }) {
+      final r = router ??
+          GoRouter(
+            initialLocation: '/home',
+            routes: [
+              GoRoute(path: '/home', builder: (_, __) => const Scaffold(body: HomeScreen())),
+              GoRoute(path: '/profile', builder: (_, __) => const Scaffold(body: Text('PROFILE'))),
+            ],
+          );
+      return ProviderScope(
+        overrides: [
+          kvStoreProvider.overrideWithValue(kv),
+          secureStoreProvider.overrideWithValue(MemoryKvStore()),
+          skyClockProvider.overrideWithValue(fixedSkyClock),
+          clockProvider.overrideWithValue(fixedSkyClock),
+          initialSettingsProvider.overrideWithValue(const AppSettings(place: Place.cairo)),
+          initialSessionProvider.overrideWithValue(session),
+          quranDataProvider.overrideWith((_) async => q),
+          apiClientProvider.overrideWith(
+            (ref) => ApiClient(
+              baseUrl: 'https://api.test',
+              tokens: ref.watch(tokenStoreProvider),
+              client: MockClient((req) async {
+                calls.add('${req.method} ${req.url.path}');
+                throw http.ClientException('offline');
+              }),
+            ),
+          ),
+          ...extra,
+        ],
+        child: MaterialApp.router(
+          debugShowCheckedModeBanner: false,
+          theme: YqTheme.light(),
+          locale: const Locale('ar'),
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          routerConfig: r,
+        ),
+      );
+    }
+
+    Future<void> open(WidgetTester tester, Widget app) async {
+      tester.view.physicalSize = const Size(390 * 3, 1300 * 3);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(app);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    Future<void> close(WidgetTester tester) async {
+      await tester.pump(const Duration(seconds: 3)); // toasts and the glint finish
+      await tester.pumpWidget(const SizedBox());
+    }
+
+    Finder chip(String label) =>
+        find.descendant(of: find.byType(ProfileChip), matching: find.bySemanticsLabel(label));
+
+    testWidgets('the chip paints from the cached profile while the API is offline', (tester) async {
+      final kv = MemoryKvStore()..data[ProfileRepository.meKey] = profileJson;
+      await open(tester, home(kv: kv));
+      expect(chip('أحمد، المستوى 3 · مواظب، 40%'), findsOneWidget);
+      final ring = tester.widget<YqLevelAvatar>(find.descendant(of: find.byType(ProfileChip), matching: find.byType(YqLevelAvatar)));
+      expect(ring.level, 3);
+      expect(ring.size, 48);
+      expect(ring.showLevel, isTrue);
+      expect(ring.achieved, isFalse); // lapis: gold only for the glint or the top level
+      expect(find.text('أحمد'), findsWidgets); // the header greets with the profile name
+      expect(calls, contains('GET /v1/me/profile')); // tried in the background, never awaited
+      await close(tester);
+    });
+
+    testWidgets('tapping the chip opens /profile', (tester) async {
+      final kv = MemoryKvStore()..data[ProfileRepository.meKey] = profileJson;
+      await open(tester, home(kv: kv));
+      await tester.tap(find.byType(ProfileChip));
+      await tester.pumpAndSettle();
+      expect(find.text('PROFILE'), findsOneWidget);
+      await close(tester);
+    });
+
+    testWidgets('a guest gets the avatar without a ring and «افتح ملفّك»', (tester) async {
+      await open(tester, home(kv: MemoryKvStore(), session: guest));
+      expect(chip('ضيف، افتح ملفّك'), findsOneWidget);
+      expect(find.descendant(of: find.byType(ProfileChip), matching: find.byType(YqLevelAvatar)), findsNothing);
+      expect(find.descendant(of: find.byType(ProfileChip), matching: find.byType(YqAvatar)), findsOneWidget);
+      await close(tester);
+    });
+
+    testWidgets('the top level («منارة») is the only resting gold ring', (tester) async {
+      final top = (jsonDecode(profileJson) as Map)
+        ..['level'] = {'level': 6, 'nameAr': 'منارة', 'nameEn': 'Beacon', 'progress': 1, 'nextAt': null};
+      final kv = MemoryKvStore()
+        ..data[ProfileRepository.meKey] = jsonEncode(top)
+        ..data[ProfileRepository.lastSeenLevelKey] = '6';
+      await open(tester, home(kv: kv));
+      final ring = tester.widget<YqLevelAvatar>(find.descendant(of: find.byType(ProfileChip), matching: find.byType(YqLevelAvatar)));
+      expect(ring.achieved, isTrue);
+      await close(tester);
+    });
+
+    testWidgets('an account whose challenge summary is still loading sees a skeleton, not the join CTA', (tester) async {
+      final kv = MemoryKvStore()..data[ProfileRepository.meKey] = profileJson;
+      await open(tester, home(kv: kv, extra: [challengeControllerProvider.overrideWith(_PendingChallenge.new)]));
+      await tester.scrollUntilVisible(find.text('خطة الحفظ'), 300, scrollable: find.byType(Scrollable).first);
+      expect(find.text('ابدأ رحلة 365 يوماً'), findsNothing);
+      expect(
+        find.byWidgetPredicate((w) => w is YqSkeletonBox && w.height == 72 && w.radius == 24),
+        findsOneWidget,
+      );
+      await close(tester);
+    });
+
+    testWidgets('the week result shows on Home once per app open, and then no level-up toast', (tester) async {
+      final kv = MemoryKvStore()
+        ..data[ProfileRepository.meKey] = profileJson
+        ..data[ProfileRepository.lastSeenLevelKey] = '2'; // a level-up is owed too
+      var asked = 0;
+      // Stands in for the competitions stream's sheet: once per finished week (KV community.seenWeek).
+      Future<bool> weekResult(BuildContext context, WidgetRef ref) async {
+        asked++;
+        final week = ref.read(meProfileProvider).valueOrNull?.league?.lastWeek;
+        final kv = ref.read(kvStoreProvider);
+        if (week == null || await kv.read('community.seenWeek') == week.startsOn) return false;
+        await kv.write('community.seenWeek', week.startsOn);
+        if (!context.mounted) return false;
+        await showYqSheet<void>(context, builder: (_) => const Text('انتهى الأسبوع'));
+        return true;
+      }
+
+      final router = GoRouter(
+        initialLocation: '/home',
+        routes: [
+          GoRoute(path: '/home', builder: (_, __) => const Scaffold(body: HomeScreen())),
+          GoRoute(path: '/profile', builder: (_, __) => const Scaffold(body: Text('PROFILE'))),
+        ],
+      );
+      await open(tester, home(kv: kv, router: router, extra: [homeWeekResultProvider.overrideWithValue(weekResult)]));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('انتهى الأسبوع'), findsOneWidget);
+      expect(asked, 1);
+      expect(find.text('بلغت مستوى مواظب'), findsNothing); // at most one moment per open
+      await tester.tapAt(const Offset(20, 40)); // dismiss the sheet
+      await tester.pump(const Duration(milliseconds: 500));
+
+      // Home again in the same app open (e.g. back from Profile): nothing more.
+      router.go('/profile');
+      await tester.pumpAndSettle();
+      router.go('/home');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('انتهى الأسبوع'), findsNothing);
+      expect(asked, 1);
+      expect(find.text('بلغت مستوى مواظب'), findsNothing);
+      expect(kv.data[ProfileRepository.lastSeenLevelKey], '2'); // still owed, for the next moment
+      await close(tester);
+    });
+
+    testWidgets('a reached level glints the chip and toasts once, then is marked seen', (tester) async {
+      final kv = MemoryKvStore()
+        ..data[ProfileRepository.meKey] = profileJson
+        ..data[ProfileRepository.lastSeenLevelKey] = '2';
+      await open(tester, home(kv: kv));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('بلغت مستوى مواظب'), findsOneWidget);
+      final ring = tester.widget<YqLevelAvatar>(find.descendant(of: find.byType(ProfileChip), matching: find.byType(YqLevelAvatar)));
+      expect(ring.achieved, isTrue); // gold during the glint
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(kv.data[ProfileRepository.lastSeenLevelKey], '3');
+      await tester.pump(const Duration(seconds: 3));
+      expect(find.text('بلغت مستوى مواظب'), findsNothing);
+      final after = tester.widget<YqLevelAvatar>(find.descendant(of: find.byType(ProfileChip), matching: find.byType(YqLevelAvatar)));
+      expect(after.achieved, isFalse); // back to lapis
+      await tester.pumpWidget(const SizedBox());
+
+      // The next app open: already seen.
+      await open(tester, home(kv: kv));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.text('بلغت مستوى مواظب'), findsNothing);
+      await close(tester);
+    });
+
+    testWidgets('neither moment holds up the first frame', (tester) async {
+      final kv = MemoryKvStore()
+        ..data[ProfileRepository.meKey] = profileJson
+        ..data[ProfileRepository.lastSeenLevelKey] = '2';
+      var asked = 0;
+      bool? homeWasLaidOut;
+      final never = Completer<bool>();
+      tester.view.physicalSize = const Size(390 * 3, 1300 * 3);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        home(
+          kv: kv,
+          extra: [
+            homeWeekResultProvider.overrideWithValue((context, __) {
+              asked++;
+              // Asked only once Home has been laid out and painted (after the first frame).
+              final box = context.findRenderObject();
+              homeWasLaidOut = box is RenderBox && box.hasSize && box.attached;
+              return never.future;
+            }),
+          ],
+        ),
+      );
+      // The first frame is Home itself: the hero is there whatever the moments do.
+      expect(find.text('مساء الخير'), findsOneWidget);
+      expect(find.text('العصر'), findsWidgets);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(asked, 1);
+      expect(homeWasLaidOut, isTrue);
+      // A sheet that never answers keeps Home usable, and no toast jumps in front of it.
+      expect(find.byType(ProfileChip), findsOneWidget);
+      await tester.tap(find.byType(ProfileChip));
+      await tester.pumpAndSettle();
+      expect(find.text('PROFILE'), findsOneWidget);
+      expect(find.text('بلغت مستوى مواظب'), findsNothing);
+      never.complete(false);
+      await close(tester);
     });
   });
 

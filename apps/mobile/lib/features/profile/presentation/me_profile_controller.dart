@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/providers.dart';
 import '../../../core/platform/photo_picker.dart';
+import '../../../core/storage/kv_store.dart';
 import '../../community/domain/community_models.dart';
 import '../../onboarding/presentation/session_controller.dart';
 import '../data/profile_repository.dart';
@@ -50,6 +51,9 @@ class MeProfileController extends AsyncNotifier<MeProfile> {
     final p = await _repo.cached();
     if (p != null) state = AsyncData(p);
   }
+
+  /// Shows the cached profile again, without the network (after the sign-in push wrote it).
+  Future<void> reload() => _reload();
 
   /// Pull-to-refresh. Keeps the cached value on failure; errors only when there is nothing to show.
   Future<void> refresh() async {
@@ -129,29 +133,43 @@ class LevelUpController extends Notifier<LevelUp> {
   bool _loaded = false;
   bool _loading = false;
 
+  /// Bumped by [reset]/[rebase]: a KV read started for the previous account is dropped.
+  int _generation = 0;
+
+  /// Between [reset] with `hold` and [rebase]: the account is changing and the profile on screen
+  /// may still be a placeholder, so no level is remembered and no moment is owed.
+  bool _held = false;
+
   @override
   LevelUp build() {
     final profile = ref.watch(meProfileProvider).valueOrNull;
     final account = ref.watch(sessionProvider).canEarnPoints;
+    if (_held) return LevelUp.none;
     if (!_loaded) {
       if (!_loading) {
         _loading = true;
-        Future.microtask(_load);
+        final kv = ref.read(kvStoreProvider);
+        final generation = _generation;
+        Future.microtask(() => _load(kv, generation));
       }
       return LevelUp.none;
     }
     return _compute(profile, account);
   }
 
-  Future<void> _load() async {
-    final raw = await ref.read(kvStoreProvider).read(ProfileRepository.lastSeenLevelKey);
+  Future<void> _load(KvStore kv, int generation) async {
+    final raw = await kv.read(ProfileRepository.lastSeenLevelKey);
+    if (generation != _generation) return; // the account changed meanwhile
     _lastSeen = int.tryParse(raw ?? '');
     _loaded = true;
-    state = _compute(ref.read(meProfileProvider).valueOrNull, ref.read(sessionProvider).canEarnPoints);
+    _loading = false;
+    // A fresh build computes the moment (no ref reads here: a dependency may have changed while
+    // the store was read, and the provider is then waiting to rebuild).
+    ref.invalidateSelf();
   }
 
   LevelUp _compute(MeProfile? p, bool account) {
-    if (p == null || !account) return LevelUp.none;
+    if (_held || p == null || !account) return LevelUp.none;
     final level = p.level.level;
     if (_lastSeen == null) {
       // First time this phone sees the level: remember it quietly, no moment.
@@ -170,6 +188,32 @@ class LevelUpController extends Notifier<LevelUp> {
     _lastSeen = level;
     state = LevelUp.none;
     await ref.read(kvStoreProvider).write(ProfileRepository.lastSeenLevelKey, '$level');
+  }
+
+  /// The account on this phone ended or is about to change (sign-out, expiry, deletion, a new
+  /// sign-in): forget the last-seen level kept in memory, so the next account is never compared
+  /// with this one's. With [hold], nothing is remembered or owed until [rebase].
+  void reset({bool hold = false}) {
+    _generation++;
+    _lastSeen = null;
+    _loaded = false;
+    _loading = false;
+    _held = hold;
+    state = LevelUp.none;
+  }
+
+  /// The signed-in account's level as the server reported it (null when it could not be fetched):
+  /// remembered quietly as the baseline — signing in is not a level-up.
+  /// The caller stores it under [ProfileRepository.lastSeenLevelKey]. Without a confirmed level
+  /// (offline) a hold stays for this run: a placeholder is never remembered as the baseline.
+  void rebase(int? level) {
+    if (level == null) return;
+    _held = false;
+    _generation++;
+    _lastSeen = level;
+    _loaded = true;
+    _loading = false;
+    state = LevelUp.none;
   }
 }
 
