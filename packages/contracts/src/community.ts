@@ -121,6 +121,12 @@ export const BADGE_KINDS = [
 export const BadgeKind = z.enum(BADGE_KINDS);
 export type BadgeKind = z.infer<typeof BadgeKind>;
 
+/**
+ * `meta` by kind — `streak`: days · `level`: level · `league_first` / `league_top3`: startsOn, the
+ * week's division, rank, size · `league_promoted` / `division_reached`: the division **reached**
+ * (+ startsOn, rank, size for league_promoted) · `tournament_*`: tournamentId, titleAr/En, rank, size.
+ * `labelAr`/`labelEn`: the admin's name in force for that division, or the tournament's badge label.
+ */
 export const Badge = z.object({
   kind: BadgeKind,
   refKey: z.string(),
