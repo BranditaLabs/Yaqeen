@@ -44,7 +44,8 @@ class _CommunitySettingsScreenState extends ConsumerState<CommunitySettingsScree
       await showJoinLeagueSheet(context);
       return;
     }
-    if (!attested) {
+    // The attestation or a shown name is still missing: the sheet asks for it.
+    if (!attested || needsDisplayName(ref.read(meProfileProvider).valueOrNull)) {
       await showJoinBoardSheet(context, country: s == _Switch.country);
       return;
     }
@@ -114,14 +115,24 @@ class _CommunitySettingsScreenState extends ConsumerState<CommunitySettingsScree
           subtitle: subtitle,
           trailing: _busy == s
               ? const YqSkeleton(child: YqSkeletonBox(width: 46, height: 28, radius: YqRadii.pill))
-              : YqSwitch(
-                  value: value,
-                  label: title,
-                  onChanged: (v) {
-                    if (_busy != null) return;
-                    if (v && !canTurnOn) return;
-                    v ? _turnOn(s, c.attestedAdult) : _turnOff(s);
-                  },
+              : Semantics(
+                  enabled: value || canTurnOn,
+                  child: IgnorePointer(
+                    // Disabled (dimmed) while it cannot be turned on; turning off always works.
+                    ignoring: !value && !canTurnOn,
+                    child: Opacity(
+                      opacity: !value && !canTurnOn ? 0.4 : 1,
+                      child: YqSwitch(
+                        value: value,
+                        label: title,
+                        onChanged: (v) {
+                          if (_busy != null) return;
+                          if (v && !canTurnOn) return;
+                          v ? _turnOn(s, c.attestedAdult) : _turnOff(s);
+                        },
+                      ),
+                    ),
+                  ),
                 ),
         );
 
@@ -133,8 +144,9 @@ class _CommunitySettingsScreenState extends ConsumerState<CommunitySettingsScree
           _Switch.country,
           t.cmSwitchCountry,
           c.leaderboardCountry,
-          subtitle: c.country == null ? t.cmCountryUnknown : null,
-          canTurnOn: c.country != null,
+          // Only on top of the level board: turning it on never publishes the person worldwide.
+          subtitle: c.country == null ? t.cmCountryUnknown : (!c.leaderboard ? t.cmCountryNeedsBoard : null),
+          canTurnOn: c.country != null && c.leaderboard,
         ),
     ];
 

@@ -2725,6 +2725,7 @@
   "cmErrGeneric": "تعذّر الانضمام. حاول مرة أخرى.",
   "cmTEndsTonight": "تنتهي الليلة",
   "cmLeagueEmpty": "لم يُنشر ترتيب هذا الأسبوع بعد.",
+  "cmCountryNeedsBoard": "شغّل «لوحة المستويات» أولاً لتظهر في لوحة بلدك.",
   "hmChipSemantics": "{name}، المستوى {n} · {levelName}، {percent}%",
   "@hmChipSemantics": {
     "placeholders": {

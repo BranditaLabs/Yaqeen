@@ -13,13 +13,22 @@ report and block. Design: `docs/design/2026-11-profile-community-quran.md` §1, 
   stage caption (`LeagueJoined.myLivePoints`, `Tournament.me.points`), never in a row.
 - **Opt-in, off by default.** Joining is a **direct** online call (offline → «تحتاج اتصالاً
   للانضمام»; typed failures inline). Every join sheet carries the attestation switch unless
-  `community.attestedAdult`, the privacy line and «شروط المنافسات» (`/terms#community`).
+  `community.attestedAdult`, the privacy line and «شروط المنافسات» (`/terms#community`). A name
+  support hid is shown read-only as «عضو يقين» and never sent (the server answers `name_locked`
+  to any name), so that person can still join.
+- **One switch, one list.** «لوحة بلدي» is offered only while «لوحة المستويات» is on (the server
+  would otherwise turn the world board on with it); the screens say so instead.
 - **Leaving works offline.** League/board leaves go through `meProfileProvider.leave` (Outbox);
   tournament leaves are direct when online, queued otherwise. Either way the person is hidden on
-  this phone at once (the screens trust the profile's switches over a stale server answer).
+  this phone at once, before any network (`leftTournamentsProvider`; the screens trust the
+  profile's switches over a stale server answer).
+- **Zones by rank.** The demote label follows the server's `outcomeFor` on the ranks shown, never
+  the list length (blocked or hidden rows cannot move it), and no label appears before the first
+  snapshot.
 - **Gentle.** No red; the bottom zone is «يبدأون الأسبوع القادم في …» in muted ink; division names
   are monochrome («ذهب» included). Gold only on an earned badge (week result) and on podium ranks
-  1–3 of a closed tournament.
+  1–3 of a tournament the nightly job has closed (`closed`, not only an ended window).
+- **No request loops.** A failed standings page stops auto-loading and shows «إعادة المحاولة».
 - **No spinners.** Loading is `YqSkeleton` + `YqSkeletonAvatarRows` and a stage skeleton.
 
 ## Layout
@@ -28,7 +37,7 @@ report and block. Design: `docs/design/2026-11-profile-community-quran.md` §1, 
 | --- | --- |
 | `domain/community_models.dart` | Models mirroring `packages/contracts/src/community.ts` (contracts stream). |
 | `data/community_repository.dart` | `CommunityRepository` + `communityRepositoryProvider`: reads with KV caches (`community.league.v1`, `community.league.history.v1`, `community.tournaments.v1` incl. first standings pages, `community.leaderboard.<scope>.v1`, `community.blocks.v1` — all in `ProfileRepository.wipedKeys`), `Fresh<T>` (`offline` flag), `CommunityException` for server codes, tournament join/leave, report, block/unblock. |
-| `presentation/community_providers.dart` | `leagueProvider`, `leagueHistoryProvider`, `tournamentsProvider`, `tournamentProvider(id)`, `standingsProvider(id)` (paged, `loadMore`), `leaderboardProvider(scope)`, `blocksProvider`, `hiddenHandlesProvider` (blocked this session), `leaveLeague`, `leaveTournament`. Cached view first, then fresh. |
+| `presentation/community_providers.dart` | `leagueProvider`, `leagueHistoryProvider`, `tournamentsProvider`, `tournamentProvider(id)`, `standingsProvider(id)` (paged, `loadMore`, `loadFailed` + `retryMore`), `leaderboardProvider(scope)`, `blocksProvider`, `hiddenHandlesProvider` (blocked this session), `leftTournamentsProvider` (left this session), `joinCommunity`, `leaveLeague`, `leaveTournament`. Cached view first, then fresh. |
 | `presentation/league_screen.dart` | `/profile/leagues`: stage (division, my snapshot rank, live week points), zones, history, leave; off/guest/closing/banned/offline/error/flag-off states; shows the week result on open. |
 | `presentation/tournaments_screen.dart` | `/profile/tournaments`: «جارية · قادمة · انتهت» cards. |
 | `presentation/tournament_screen.dart` | `/profile/tournaments/:id`: rank or «انضم» moment, badge label, paged standings, join/leave. |
@@ -48,4 +57,5 @@ Routes live in `lib/app/routes/community_routes.dart`.
 queued, block drops cached rows), league states and flows, week result, tournaments (ack +
 attestation, leave, paging), level board (country states), report/block, visibility settings,
 RTL + English with Western digits. Goldens `league_{ar,en}.png` / `tournament_{ar,en}.png` are
-generated on Linux by `.github/workflows/goldens.yml`; until then their comparisons are skipped.
+generated only on Linux by `.github/workflows/goldens.yml` (dispatch it on the branch). They are
+not committed yet: on Linux a missing file fails the test; on other hosts it is skipped.

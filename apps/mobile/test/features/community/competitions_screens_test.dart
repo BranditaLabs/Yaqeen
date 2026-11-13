@@ -1,13 +1,18 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:yaqeen/core/di/providers.dart';
+import 'package:yaqeen/core/theme/tokens.dart';
 import 'package:yaqeen/core/time/zoned.dart';
 import 'package:yaqeen/core/widgets/controls.dart';
 import 'package:yaqeen/core/widgets/liquid_glass.dart';
 import 'package:yaqeen/core/widgets/yq_layout.dart';
+import 'package:yaqeen/core/widgets/yq_states.dart';
+import 'package:yaqeen/features/community/data/community_repository.dart';
+import 'package:yaqeen/features/community/domain/community_models.dart';
 import 'package:yaqeen/features/community/presentation/community_settings_screen.dart';
 import 'package:yaqeen/features/community/presentation/leaderboard_screen.dart';
 import 'package:yaqeen/features/community/presentation/tournament_screen.dart';
@@ -66,6 +71,12 @@ Map<String, dynamic> board({String scope = 'global', bool joined = true, bool co
     'rows': [for (final r in b['rows'] as List) preset((r as Map).cast<String, dynamic>())],
   };
 }
+
+/// The gold podium marks drawn (ranks 1–3 of a closed period).
+Finder goldMarks() => find.byWidgetPredicate((w) {
+      final d = w is Container ? w.decoration : null;
+      return d is BoxDecoration && d.border is Border && (d.border! as Border).top.color == YqColors.gold;
+    });
 
 Future<void> pump(WidgetTester tester, CommunityRig rig, Widget screen, {String locale = 'ar', Map<String, dynamic>? profile}) async {
   tester.view.physicalSize = const Size(390 * 3, 2400 * 3);
@@ -242,6 +253,133 @@ void main() {
       expect(find.text('مغادرة البطولة'), findsNothing);
     });
 
+    testWidgets('closed: gold podium marks; ended but not yet closed by the job: none', (tester) async {
+      final ended = tournaments()[2];
+      final id = ended['id'] as String;
+      final rig = CommunityRig(routes: {
+        'GET /v1/tournaments/$id': (_) => jsonResponse(ended),
+        'GET /v1/tournaments/$id/standings': (_) => jsonResponse(standings()),
+      },);
+      await pump(tester, rig, TournamentScreen(id: id));
+      expect(goldMarks(), findsNWidgets(3)); // ranks 1, 1, 3
+    });
+
+    testWidgets('ended but not yet closed by the job: provisional ranks, no gold', (tester) async {
+      final provisional = {...tournaments()[2], 'closed': false};
+      final id = provisional['id'] as String;
+      final rig = CommunityRig(routes: {
+        'GET /v1/tournaments/$id': (_) => jsonResponse(provisional),
+        'GET /v1/tournaments/$id/standings': (_) => jsonResponse(standings()),
+      },);
+      await pump(tester, rig, TournamentScreen(id: id));
+      expect(find.text('Sara'), findsOneWidget);
+      expect(goldMarks(), findsNothing);
+    });
+
+    testWidgets('a failed standings page stops loading until «إعادة المحاولة»', (tester) async {
+      final live = tournaments()[1];
+      final id = live['id'] as String;
+      var fail = true;
+      final rig = CommunityRig(routes: {
+        'GET /v1/tournaments/$id': (_) => jsonResponse(live),
+        'GET /v1/tournaments/$id/standings': (req) {
+          if (req.url.queryParameters['cursor'] == null) return jsonResponse(standings(next: '100:sara-1093'));
+          if (fail) return errorResponse(503, 'unavailable');
+          return jsonResponse(standings(rows: [
+            {
+              'handle': 'yusuf-7781',
+              'name': 'يوسف',
+              'avatar': {'kind': 'preset', 'id': 'm02'},
+              'level': {'level': 2, 'progress': 0.3},
+              'points': 120,
+              'rank': 101,
+              'me': false,
+            },
+          ],),);
+        },
+      },);
+      int pages() => rig.calls.where((c) => c.contains('standings?cursor=')).length;
+      await pump(tester, rig, TournamentScreen(id: id));
+      expect(pages(), 1);
+      // Frames keep coming (scrolling at the bottom): no new request by itself.
+      for (var i = 0; i < 10; i++) {
+        await tester.drag(find.byType(Scrollable).first, const Offset(0, -40), warnIfMissed: false);
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      await tester.pumpAndSettle();
+      expect(pages(), 1);
+      expect(find.text('إعادة المحاولة'), findsOneWidget);
+
+      fail = false;
+      await tester.tap(find.text('إعادة المحاولة'));
+      await tester.pumpAndSettle();
+      expect(pages(), 2);
+      expect(find.text('يوسف'), findsOneWidget);
+      expect(find.text('إعادة المحاولة'), findsNothing);
+    });
+
+    testWidgets('cached standings paint first; the fresh page replaces them', (tester) async {
+      final live = tournaments()[1];
+      final id = live['id'] as String;
+      final fresh = standings(rows: [
+        {
+          'handle': 'yusuf-7781',
+          'name': 'يوسف',
+          'avatar': {'kind': 'preset', 'id': 'm02'},
+          'level': {'level': 2, 'progress': 0.3},
+          'points': 900,
+          'rank': 1,
+          'me': false,
+        },
+      ],);
+      final rig = CommunityRig(routes: {
+        'GET /v1/tournaments/$id': (_) => jsonResponse(live),
+        'GET /v1/tournaments/$id/standings': (_) => jsonResponse(fresh),
+      },);
+      await rig.kv.write(
+        CommunityRepository.tournamentsKey,
+        jsonEncode({
+          'list': [live],
+          'standings': {id: standings()},
+        }),
+      );
+      final gate = rig.gates['GET /v1/tournaments/$id/standings'] = Completer<void>();
+      await pump(tester, rig, TournamentScreen(id: id));
+      expect(find.text('عمر'), findsOneWidget); // cached, while the request waits
+      expect(find.text('يوسف'), findsNothing);
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(find.text('يوسف'), findsOneWidget);
+      expect(find.text('عمر'), findsNothing);
+    });
+
+    testWidgets('leave on a slow connection: hidden before the DELETE answers', (tester) async {
+      final live = tournaments()[1];
+      final id = live['id'] as String;
+      final rig = CommunityRig(routes: {
+        'GET /v1/tournaments/$id': (_) => jsonResponse(live), // the server has not seen the leave yet
+        'GET /v1/tournaments/$id/standings': (_) => jsonResponse(standings()),
+        'DELETE /v1/tournaments/$id/join': (_) => jsonResponse({...live, 'joined': false, 'me': null}),
+      },);
+      await pump(tester, rig, TournamentScreen(id: id));
+      final gate = rig.gates['DELETE /v1/tournaments/$id/join'] = Completer<void>();
+      await tester.tap(find.text('مغادرة البطولة'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('غادر'));
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(rig.calls, contains('DELETE /v1/tournaments/$id/join'));
+      expect(find.text('640 نقطة في البطولة'), findsNothing);
+      expect(find.text('مغادرة البطولة'), findsNothing);
+      expect(find.text('انضم إلى البطولة'), findsOneWidget);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(find.text('640 نقطة في البطولة'), findsNothing);
+      expect(await rig.queued(), isEmpty);
+    });
+
     testWidgets('English: Western digits', (tester) async {
       final rig = CommunityRig(routes: {'GET /v1/tournaments': (_) => jsonResponse(tournaments())});
       await pump(tester, rig, const TournamentsScreen(), locale: 'en');
@@ -320,6 +458,69 @@ void main() {
       await tester.pumpAndSettle();
       // Already on the world board: only the country switch is sent.
       expect(rig.bodies['PUT /v1/me/community'], {'leaderboardCountry': true, 'source': 'settings'});
+    });
+
+    testWidgets('offline: the cached board with the offline banner', (tester) async {
+      final rig = CommunityRig()..offlineAll = true;
+      await rig.kv.write(CommunityRepository.leaderboardKey(LeaderboardScope.global), jsonEncode(board()));
+      await pump(tester, rig, const LeaderboardScreen());
+      expect(find.text('ترتيبك 4'), findsOneWidget);
+      expect(find.text('عمر'), findsOneWidget);
+      expect(tester.widget<YqOfflineBanner>(find.byType(YqOfflineBanner)).offline, isTrue);
+      expect(find.text('أنت غير متصل · نعمل بما على جهازك'), findsOneWidget);
+    });
+
+    testWidgets('the cached board paints before the network answers', (tester) async {
+      final rig = CommunityRig(routes: {'GET /v1/leaderboard': (_) => jsonResponse(board())});
+      await rig.kv.write(CommunityRepository.leaderboardKey(LeaderboardScope.global), jsonEncode(board()));
+      final gate = rig.gates['GET /v1/leaderboard'] = Completer<void>();
+      await pump(tester, rig, const LeaderboardScreen());
+      expect(find.text('ترتيبك 4'), findsOneWidget); // from the cache, the request still waiting
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(find.text('ترتيبك 4'), findsOneWidget);
+    });
+
+    testWidgets('guest: the sign-in note, never the network', (tester) async {
+      final rig = CommunityRig(signedIn: false, routes: {'GET /v1/leaderboard': (_) => jsonResponse(board())});
+      await pump(tester, rig, const LeaderboardScreen());
+      expect(find.text('سجّل الدخول لتنضم إلى المنافسات'), findsOneWidget);
+      expect(rig.calls.where((c) => c.startsWith('GET /v1/leaderboard')), isEmpty);
+    });
+
+    testWidgets('country tab not joined (world board on): «أظهرني في لوحة بلدي» → PUT {leaderboardCountry:true}', (tester) async {
+      final rig = CommunityRig(routes: {
+        'GET /v1/leaderboard': (req) => jsonResponse(
+              req.url.queryParameters['scope'] == 'country' ? board(scope: 'country', countryJoined: false) : board(),
+            ),
+        'PUT /v1/me/community': (_) => jsonResponse(profileJson(country: true)['community']),
+      },);
+      await pump(tester, rig, const LeaderboardScreen());
+      await tester.tap(find.text('مصر'));
+      await tester.pumpAndSettle();
+      expect(find.text('تظهر باسمك وصورتك ومستواك فقط، وتظهر في لوحة بلدك.'), findsOneWidget);
+      await tester.tap(find.text('أظهرني في لوحة بلدي'));
+      await tester.pumpAndSettle();
+      expect(rig.bodies['PUT /v1/me/community'], {'leaderboardCountry': true, 'source': 'settings'});
+    });
+
+    testWidgets('country tab with the world board off: it offers the level board by name, never both at once', (tester) async {
+      final rig = CommunityRig(routes: {
+        'GET /v1/leaderboard': (req) => jsonResponse(
+              req.url.queryParameters['scope'] == 'country'
+                  ? board(scope: 'country', joined: false, countryJoined: false)
+                  : board(joined: false),
+            ),
+        'PUT /v1/me/community': (_) => jsonResponse(profileJson()['community']),
+      },);
+      await pump(tester, rig, const LeaderboardScreen(), profile: profileJson(leaderboard: false));
+      await tester.tap(find.text('مصر'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('شغّل «لوحة المستويات» أولاً لتظهر في لوحة بلدك.'), findsOneWidget);
+      expect(find.text('أظهرني في لوحة بلدي'), findsNothing);
+      await tester.tap(find.text('أظهرني في اللوحة'));
+      await tester.pumpAndSettle();
+      expect(rig.bodies['PUT /v1/me/community'], {'leaderboard': true, 'source': 'settings'});
     });
 
     testWidgets('country switch: the country board with my rank', (tester) async {
@@ -413,6 +614,35 @@ void main() {
       await tester.tap(find.text('إلغاء الحظر').last);
       await tester.pumpAndSettle();
       expect(rig.calls, contains('DELETE /v1/community/blocks/omar-5521'));
+    });
+
+    testWidgets('«لوحة بلدي» stays off until the level board is on: no call, no sheet', (tester) async {
+      final rig = CommunityRig(routes: {
+        'GET /v1/community/blocks': (_) => jsonResponse(const []),
+        'GET /v1/tournaments': (_) => jsonResponse(const []),
+        'PUT /v1/me/community': (_) => jsonResponse(profileJson(country: true)['community']),
+      },);
+      await pump(tester, rig, const CommunitySettingsScreen(), profile: profileJson(leaderboard: false));
+      expect(find.text('شغّل «لوحة المستويات» أولاً لتظهر في لوحة بلدك.'), findsOneWidget);
+      await tester.tap(
+        find.descendant(of: find.widgetWithText(YqListRow, 'لوحة بلدي'), matching: find.byType(YqSwitch)),
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+      expect(rig.calls.where((c) => c.startsWith('PUT')), isEmpty);
+      expect(find.text('عمري 18 عاماً أو أكثر، أو لديّ موافقة وليّ أمري'), findsNothing);
+    });
+
+    testWidgets('«لوحة بلدي» with the level board on: PUT {leaderboardCountry:true} only', (tester) async {
+      final rig = CommunityRig(routes: {
+        'GET /v1/community/blocks': (_) => jsonResponse(const []),
+        'GET /v1/tournaments': (_) => jsonResponse(const []),
+        'PUT /v1/me/community': (_) => jsonResponse(profileJson(country: true)['community']),
+      },);
+      await pump(tester, rig, const CommunitySettingsScreen());
+      await tester.tap(find.descendant(of: find.widgetWithText(YqListRow, 'لوحة بلدي'), matching: find.byType(YqSwitch)));
+      await tester.pumpAndSettle();
+      expect(rig.bodies['PUT /v1/me/community'], {'leaderboardCountry': true, 'source': 'settings'});
     });
 
     testWidgets('turning a board on when not attested opens the sheet with the attestation', (tester) async {

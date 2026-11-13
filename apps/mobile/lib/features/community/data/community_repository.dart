@@ -6,6 +6,7 @@ import '../../../core/di/providers.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/offline/outbox.dart';
 import '../../../core/storage/kv_store.dart';
+import '../../onboarding/data/consent_repository.dart';
 import '../domain/community_models.dart';
 
 /// A read that may come from this phone's cache: [offline] when the network could not be reached
@@ -32,6 +33,7 @@ final communityRepositoryProvider = Provider(
     api: ref.watch(apiClientProvider),
     store: ref.watch(kvStoreProvider),
     outbox: ref.watch(outboxProvider),
+    consents: ref.watch(consentRepositoryProvider),
   ),
 );
 
@@ -45,13 +47,20 @@ final communityRepositoryProvider = Provider(
 /// * Joining a tournament is a **direct** call (offline → [CommunityFailure.offline]); leaving is
 ///   direct when online and queued in the [Outbox] otherwise, and the cached views drop the caller
 ///   at once either way.
-/// * League/leaderboard joins and leaves go through `meProfileProvider` (ProfileRepository).
+/// * League/leaderboard joins and leaves go through `meProfileProvider` (ProfileRepository);
+///   [withoutQueuedLeave] keeps a stale queued leave from undoing such a join.
+/// * An active tournament entry grants the server-side `community` consent (design §1.3): joins
+///   and leaves here adopt it on this phone too.
 class CommunityRepository {
-  CommunityRepository({required this.api, required this.store, required this.outbox});
+  CommunityRepository({required this.api, required this.store, required this.outbox, this.consents});
 
   final ApiClient api;
   final KvStore store;
   final Outbox outbox;
+  final ConsentRepository? consents;
+
+  static const communityPath = '/v1/me/community';
+  static String joinPath(String id) => '/v1/tournaments/$id/join';
 
   static const leagueKey = 'community.league.v1';
   static const historyKey = 'community.league.history.v1';
@@ -193,7 +202,7 @@ class CommunityRepository {
         return t;
       }, () => _cachedTournament(id),);
 
-  Future<TournamentStandings?> _cachedStandings(String id) async {
+  Future<TournamentStandings?> cachedStandings(String id) async {
     final s = (await _tournamentsCache())['standings'];
     final page = s is Map ? s[id] : null;
     return page is Map ? TournamentStandings.fromJson(page.cast<String, dynamic>()) : null;
@@ -209,30 +218,52 @@ class CommunityRepository {
           await _writeJson(tournamentsKey, c);
         }
         return TournamentStandings.fromJson(j);
-      }, () async => cursor == null ? _cachedStandings(id) : null,);
+      }, () async => cursor == null ? cachedStandings(id) : null,);
 
   /// POST /v1/tournaments/:id/join `{acknowledge: true, attestAdult?}` — always direct.
+  ///
+  /// A leave of this tournament still waiting in the Outbox is taken out first (and put back if
+  /// the join fails), so it can never flush after the join and silently remove the person.
   Future<Result<Tournament, CommunityFailure>> joinTournament(String id, {bool attestAdult = false}) async {
+    final path = joinPath(id);
+    final stale = [for (final i in await outbox.items()) if (i.method == 'DELETE' && i.path == path) i];
+    if (stale.isNotEmpty) await outbox.removeWhere((i) => i.method == 'DELETE' && i.path == path);
+    Future<void> restore() async {
+      for (final i in stale) {
+        await outbox.add(i);
+      }
+    }
+
     try {
-      final j = await api.post('/v1/tournaments/$id/join', {'acknowledge': true, if (attestAdult) 'attestAdult': true});
+      final j = await api.post(path, {'acknowledge': true, if (attestAdult) 'attestAdult': true});
       final t = Tournament.fromJson((j as Map).cast<String, dynamic>());
       await _saveTournament(t);
+      // The entry grants the community consent on the server; mirror it here.
+      await consents?.adopt(ConsentKind.community, true);
       return Ok(t);
     } on OfflineException {
+      await restore();
       return const Err(CommunityFailure.offline);
     } on ApiException catch (e) {
+      await restore();
       return Err(failureOf(e));
     }
   }
 
   /// DELETE /v1/tournaments/:id/join — direct when online, queued otherwise. The cached tournament
   /// and its cached standings drop the caller at once. Returns the tournament as now shown.
-  Future<Tournament?> leaveTournament(String id) async {
+  ///
+  /// The `community` consent is re-adopted as the server recomputes it: still granted while
+  /// [otherCompetitionsOn] (the league or a board, from the profile) or another active entry.
+  Future<Tournament?> leaveTournament(String id, {bool otherCompetitionsOn = false}) async {
     final cached = await _cachedTournament(id);
-    Tournament? shown = cached == null ? null : _withoutMe(cached);
+    Tournament? shown = cached == null ? null : withoutMe(cached);
     if (shown != null) await _saveTournament(shown);
     await _dropMeFromStandings(id);
-    final path = '/v1/tournaments/$id/join';
+    final others = (await cachedTournaments() ?? const <Tournament>[])
+        .any((t) => t.id != id && t.joined && !t.closed && t.phase != TournamentPhase.ended);
+    await consents?.adopt(ConsentKind.community, otherCompetitionsOn || others);
+    final path = joinPath(id);
     try {
       final j = await api.delete(path);
       if (j is Map) {
@@ -247,12 +278,47 @@ class CommunityRepository {
     return shown;
   }
 
+  /// Runs a competition join ([join], the direct PUT /v1/me/community) with the keys it turns on
+  /// taken out of any community leave still waiting in the Outbox — otherwise that stale leave
+  /// would flush after the join and turn the competition off again. The keys are put back when
+  /// the join fails (the person stays left).
+  Future<R> withoutQueuedLeave<R>({
+    bool leagues = false,
+    bool leaderboard = false,
+    bool leaderboardCountry = false,
+    required Future<R> Function() join,
+    required bool Function(R result) succeeded,
+  }) async {
+    final keys = {if (leagues) 'leagues', if (leaderboard) 'leaderboard', if (leaderboardCountry) 'leaderboardCountry'};
+    bool isLeave(OutboxItem i) => i.method == 'PUT' && i.path == communityPath;
+    final queued = [for (final i in await outbox.items()) if (isLeave(i)) i];
+    final touched = queued.where((i) => (i.body ?? const {}).keys.any(keys.contains)).toList();
+    if (touched.isEmpty) return join();
+
+    await outbox.removeWhere((i) => touched.any((t) => t.id == i.id));
+    for (final i in touched) {
+      final rest = {...?i.body}..removeWhere((k, _) => keys.contains(k));
+      if (rest.keys.any((k) => k != 'source')) {
+        await outbox.add(OutboxItem(id: i.id, method: i.method, path: i.path, body: rest, createdAt: i.createdAt));
+      }
+    }
+    final r = await join();
+    if (!succeeded(r)) {
+      await outbox.removeWhere((i) => touched.any((t) => t.id == i.id));
+      for (final i in touched) {
+        await outbox.add(i);
+      }
+    }
+    return r;
+  }
+
   Future<void> _queueLeave(String path) async {
     await outbox.removeWhere((i) => i.method == 'DELETE' && i.path == path);
     await outbox.add(OutboxItem(id: Outbox.newEventId(), method: 'DELETE', path: path));
   }
 
-  static Tournament _withoutMe(Tournament t) => Tournament.fromJson({
+  /// [t] as shown once the caller left it.
+  static Tournament withoutMe(Tournament t) => Tournament.fromJson({
         ...t.toJson(),
         'joined': false,
         'me': null,
@@ -272,7 +338,7 @@ class CommunityRepository {
 
   /* -------------------------------------------------------------- leaderboard */
 
-  Future<LeaderboardView?> _cachedLeaderboard(LeaderboardScope scope) async {
+  Future<LeaderboardView?> cachedLeaderboard(LeaderboardScope scope) async {
     final j = await _readJson(leaderboardKey(scope));
     return j is Map ? LeaderboardView.fromJson(j.cast<String, dynamic>()) : null;
   }
@@ -284,7 +350,7 @@ class CommunityRepository {
         final view = LeaderboardView.fromJson(j);
         await _writeJson(leaderboardKey(scope), view.toJson());
         return view;
-      }, () => _cachedLeaderboard(scope),);
+      }, () => cachedLeaderboard(scope),);
 
   /* ------------------------------------------------------------------- safety */
 

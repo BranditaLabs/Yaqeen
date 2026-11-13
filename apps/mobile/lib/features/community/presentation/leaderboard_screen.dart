@@ -45,8 +45,10 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   String? _error;
 
   Future<void> _join({required bool country}) async {
-    final attested = ref.read(meProfileProvider).valueOrNull?.community.attestedAdult ?? false;
-    if (!attested) {
+    final profile = ref.read(meProfileProvider).valueOrNull;
+    final attested = profile?.community.attestedAdult ?? false;
+    // The attestation or a shown name is still missing: the sheet asks for it.
+    if (!attested || needsDisplayName(profile)) {
       await showJoinBoardSheet(context, country: country);
       return;
     }
@@ -118,7 +120,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
 
     final async = ref.watch(leaderboardProvider(_scope));
     final error = async.error;
-    if (error is CommunityException) {
+    final globalOn = profile?.community.leaderboard ?? false;
+    // Typed states replace the board; any other failure keeps a board already shown.
+    if (error is CommunityException && (!async.hasValue || _typed.contains(error.failure))) {
       final note = switch (error.failure) {
         CommunityFailure.featureOff => YqEmptyState(icon: YqIcons.podium, title: t.cmFeatureOff),
         CommunityFailure.countryUnknown => CommunityNote(icon: YqIcons.flag, title: t.cmCountryUnknown),
@@ -134,7 +138,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
         // A small country board grows only if people can still opt in to it.
         if (error.failure == CommunityFailure.countryTooSmall && !countryOn) ...[
           const SizedBox(height: YqSpace.m),
-          _JoinCard(country: true, busy: _busy, error: _error, onJoin: () => _join(country: true)),
+          _JoinCard(country: true, needsBoard: !globalOn, busy: _busy, error: _error, onJoin: () => _join(country: globalOn)),
         ],
       ]);
     }
@@ -160,7 +164,14 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
         segmented,
         const SizedBox(height: YqSpace.l),
         if (!joined) ...[
-          _JoinCard(country: _scope == LeaderboardScope.country, busy: _busy, error: _error, onJoin: () => _join(country: _scope == LeaderboardScope.country)),
+          _JoinCard(
+            country: _scope == LeaderboardScope.country,
+            needsBoard: _scope == LeaderboardScope.country && !globalOn,
+            busy: _busy,
+            error: _error,
+            // The country board is offered only on top of the level board (never both at once).
+            onJoin: () => _join(country: _scope == LeaderboardScope.country && globalOn),
+          ),
           const SizedBox(height: YqSpace.l),
         ],
       ],
@@ -184,6 +195,13 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     );
   }
 
+  static const _typed = {
+    CommunityFailure.featureOff,
+    CommunityFailure.countryUnknown,
+    CommunityFailure.countryTooSmall,
+    CommunityFailure.communityBanned,
+  };
+
   /// Left on this phone (queued): hidden here at once, whatever the cached board says.
   static bool _leftHere(MeProfile? p, LeaderboardScope scope) {
     if (p == null || p.handle == null) return false;
@@ -191,10 +209,12 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   }
 }
 
-/// «أظهرني في اللوحة» / «أظهرني في لوحة بلدي» with its disclosure.
+/// «أظهرني في اللوحة» / «أظهرني في لوحة بلدي» with its disclosure. While the level board is off
+/// ([needsBoard]) the country card says so and offers the level board itself, by name.
 class _JoinCard extends StatelessWidget {
-  const _JoinCard({required this.country, required this.busy, required this.error, required this.onJoin});
+  const _JoinCard({required this.country, this.needsBoard = false, required this.busy, required this.error, required this.onJoin});
   final bool country;
+  final bool needsBoard;
   final bool busy;
   final String? error;
   final VoidCallback onJoin;
@@ -208,8 +228,8 @@ class _JoinCard extends StatelessWidget {
         CommunityNote(
           icon: country ? YqIcons.flag : YqIcons.podium,
           title: country ? t.cmSwitchCountry : t.cmLeaderboardTitle,
-          body: country ? t.cmShowMeCountryBody : t.cmShowMeBody,
-          actionLabel: country ? t.cmShowMeCountry : t.cmShowMe,
+          body: needsBoard ? '${t.cmCountryNeedsBoard}\n${t.cmShowMeBody}' : (country ? t.cmShowMeCountryBody : t.cmShowMeBody),
+          actionLabel: country && !needsBoard ? t.cmShowMeCountry : t.cmShowMe,
           onAction: onJoin,
           busy: busy,
         ),

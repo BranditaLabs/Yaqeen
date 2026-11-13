@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -64,6 +65,8 @@ class CommunityRig {
         calls.add(req.url.query.isEmpty ? key : '$key?${req.url.query}');
         final isJson = req.headers['Content-Type']?.startsWith('application/json') ?? false;
         bodies[key] = isJson && req.bodyBytes.isNotEmpty ? jsonDecode(req.body) : null;
+        final gate = gates[key];
+        if (gate != null) await gate.future;
         if (offlineAll) throw http.ClientException('offline');
         final route = this.routes[key];
         if (route == null) return errorResponse(404, 'not_found');
@@ -77,6 +80,9 @@ class CommunityRig {
 
   /// Every request fails as if there were no connection.
   bool offlineAll = false;
+
+  /// A slow connection: a request to `METHOD /path` waits until its completer completes.
+  final gates = <String, Completer<void>>{};
   late final Map<String, bool> features;
   final kv = MemoryKvStore();
   late final ApiClient api;

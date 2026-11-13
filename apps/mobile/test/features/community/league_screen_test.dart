@@ -7,6 +7,7 @@ import 'package:yaqeen/core/time/zoned.dart';
 import 'package:yaqeen/core/widgets/liquid_glass.dart';
 import 'package:yaqeen/features/community/data/community_repository.dart';
 import 'package:yaqeen/features/community/domain/community_models.dart';
+import 'package:yaqeen/features/community/presentation/community_providers.dart';
 import 'package:yaqeen/features/community/presentation/league_screen.dart';
 import 'package:yaqeen/features/community/presentation/week_result_sheet.dart';
 import 'package:yaqeen/features/profile/data/profile_repository.dart';
@@ -177,6 +178,47 @@ void main() {
     expect(find.text('أخفى فريق الدعم هذا الاسم. راسلنا لمراجعته.'), findsOneWidget);
   });
 
+  testWidgets('a name hidden by support: «عضو يقين» read-only, and the join sends no name', (tester) async {
+    final hidden = {...profileJson(leagues: false, attested: false, name: 'أحمد محمود'), 'nameHidden': true};
+    final rig = CommunityRig(routes: {
+      'GET /v1/me/profile': (_) => jsonResponse(hidden),
+      'GET /v1/leagues/current': (_) => jsonResponse(fixture('league_current_off.json')),
+      'GET /v1/leagues/history': (_) => jsonResponse(const []),
+      'PUT /v1/me/community': (req) =>
+          jsonDecode(req.body) is Map && (jsonDecode(req.body) as Map).containsKey('displayName')
+              ? errorResponse(409, 'name_locked')
+              : jsonResponse(settingsAfterJoin()),
+    },);
+    await seedProfile(rig, hidden);
+    await pumpLeague(tester, rig);
+    await tester.tap(find.text('انضم'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TextField), findsNothing);
+    expect(find.text('عضو يقين'), findsOneWidget);
+    await tester.tap(find.text('عمري 18 عاماً أو أكثر، أو لديّ موافقة وليّ أمري'));
+    await tester.pump();
+    await tester.tap(find.text('انضم').last);
+    await tester.pumpAndSettle();
+    expect(rig.bodies['PUT /v1/me/community'], {'leagues': true, 'attestAdult': true, 'source': 'settings'});
+    expect(find.text('أخفى فريق الدعم هذا الاسم. راسلنا لمراجعته.'), findsNothing);
+    expect(find.text('عضو يقين'), findsNothing); // the sheet closed
+  });
+
+  testWidgets('the shown name unchanged: the join does not resend it', (tester) async {
+    final rig = CommunityRig(routes: {
+      'GET /v1/me/profile': (_) => jsonResponse(profileJson(leagues: false)),
+      'GET /v1/leagues/current': (_) => jsonResponse(fixture('league_current_off.json')),
+      'GET /v1/leagues/history': (_) => jsonResponse(const []),
+      'PUT /v1/me/community': (_) => jsonResponse(settingsAfterJoin()),
+    },);
+    await pumpLeague(tester, rig);
+    await tester.tap(find.text('انضم'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('انضم').last);
+    await tester.pumpAndSettle();
+    expect(rig.bodies['PUT /v1/me/community'], {'leagues': true, 'source': 'settings'});
+  });
+
   testWidgets('leave: confirm → queued PUT {leagues:false} and the league is gone at once', (tester) async {
     final rig = joinedRig();
     await seedProfile(rig, {...profileJson(), 'league': null});
@@ -337,6 +379,25 @@ void main() {
       expect(find.text(down), findsOneWidget);
       expect(y(tester, down), greaterThan(y(tester, 'p25')));
       expect(y(tester, down), lessThan(y(tester, 'p26')));
+    });
+
+    testWidgets('widget: a blocked row near the bottom does not move the label', (tester) async {
+      await pumpZones(tester, leagueJson([for (var r = 1; r <= 30; r++) r]));
+      final container = ProviderScope.containerOf(tester.element(find.byType(LeagueScreen)));
+      container.read(hiddenHandlesProvider.notifier).hide('p-27');
+      await tester.pumpAndSettle();
+      const down = 'يبدأون الأسبوع القادم في فضة';
+      expect(find.text('p27'), findsNothing);
+      expect(find.text(down), findsOneWidget);
+      expect(y(tester, down), greaterThan(y(tester, 'p25')));
+      expect(y(tester, down), lessThan(y(tester, 'p26')));
+    });
+
+    testWidgets('widget: before the first snapshot (every rank null) no zone label at all', (tester) async {
+      await pumpZones(tester, leagueJson([for (var i = 0; i < 30; i++) null]));
+      expect(find.text('يبدأون الأسبوع القادم في فضة'), findsNothing);
+      expect(find.textContaining('يصعدون إلى'), findsNothing);
+      expect(find.text('p30'), findsOneWidget);
     });
 
     testWidgets('widget: a tie at the boundary is not split', (tester) async {

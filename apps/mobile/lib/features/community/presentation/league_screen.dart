@@ -225,6 +225,8 @@ List<int> leaguePositions(List<PublicCompetitor> rows) {
 /// promote zone ([up] rows).
 int demoteFrom(LeagueJoined l, List<PublicCompetitor> rows, {int up = 0}) {
   if (l.demoteZone <= 0) return rows.length;
+  // Before the first snapshot no rank is known: nobody is told they will move down.
+  if (rows.every((r) => r.rank == null)) return rows.length;
   final positions = leaguePositions(rows);
   for (var i = up; i < rows.length; i++) {
     if (positions[i] > l.size - l.demoteZone) return i;

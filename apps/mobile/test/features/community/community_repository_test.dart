@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yaqeen/core/network/api_client.dart';
+import 'package:yaqeen/core/offline/outbox.dart';
 import 'package:yaqeen/features/community/data/community_repository.dart';
 import 'package:yaqeen/features/community/domain/community_models.dart';
+import 'package:yaqeen/features/onboarding/data/consent_repository.dart';
 import 'package:yaqeen/features/profile/data/profile_repository.dart';
 
 import 'community_rig.dart';
@@ -174,12 +176,112 @@ void main() {
       expect(await r.queued(), hasLength(1));
     });
 
+    test('leave offline, then join online, then flush: still joined (the stale DELETE is gone)', () async {
+      final r = CommunityRig(routes: {
+        'GET /v1/tournaments': (_) => jsonResponse(fixture('tournaments.json')),
+        'DELETE /v1/tournaments/$id/join': (_) => offline(),
+      },);
+      final repo = repoOf(r);
+      await repo.tournaments();
+      await repo.leaveTournament(id);
+      expect((await r.queued()).single.method, 'DELETE');
+
+      r.routes['POST /v1/tournaments/$id/join'] = (_) => jsonResponse(live);
+      r.routes['DELETE /v1/tournaments/$id/join'] = (_) => jsonResponse({...live, 'joined': false, 'me': null});
+      expect((await repo.joinTournament(id)).isOk, isTrue);
+      expect(await r.queued(), isEmpty);
+
+      r.calls.clear();
+      await r.outbox.flush((item) async => r.api.delete(item.path));
+      expect(r.calls.where((c) => c.startsWith('DELETE')), isEmpty);
+      expect((await repo.cachedTournaments())!.firstWhere((t) => t.id == id).joined, isTrue);
+    });
+
+    test('a failed join puts the queued leave back (the person stays left)', () async {
+      final r = CommunityRig(routes: {'DELETE /v1/tournaments/$id/join': (_) => offline()});
+      final repo = repoOf(r);
+      await repo.leaveTournament(id);
+      r.routes['POST /v1/tournaments/$id/join'] = (_) => errorResponse(409, 'tournament_not_open');
+      expect((await repo.joinTournament(id)).errorOrNull, CommunityFailure.tournamentNotOpen);
+      r.routes['POST /v1/tournaments/$id/join'] = (_) => offline();
+      expect((await repo.joinTournament(id)).errorOrNull, CommunityFailure.offline);
+      final q = await r.queued();
+      expect(q.single.method, 'DELETE');
+      expect(q.single.path, '/v1/tournaments/$id/join');
+    });
+
+    test('the community consent follows tournament entries on this phone', () async {
+      final r = CommunityRig(routes: {
+        'GET /v1/tournaments': (_) => jsonResponse([
+              for (final t in fixture('tournaments.json') as List) {...(t as Map).cast<String, dynamic>(), 'joined': false, 'me': null},
+            ]),
+        'POST /v1/tournaments/$id/join': (_) => jsonResponse(live),
+        'DELETE /v1/tournaments/$id/join': (_) => jsonResponse({...live, 'joined': false, 'me': null}),
+      },);
+      final consents = ConsentRepository(api: r.api, store: r.kv);
+      final repo = CommunityRepository(api: r.api, store: r.kv, outbox: r.outbox, consents: consents);
+      await repo.tournaments();
+      expect(consents.granted(ConsentKind.community), isFalse);
+
+      await repo.joinTournament(id);
+      expect(consents.granted(ConsentKind.community), isTrue);
+
+      // Still in the league (from the profile): the consent stays.
+      await repo.leaveTournament(id, otherCompetitionsOn: true);
+      expect(consents.granted(ConsentKind.community), isTrue);
+
+      await repo.joinTournament(id);
+      await repo.leaveTournament(id);
+      expect(consents.granted(ConsentKind.community), isFalse);
+    });
+
     test('leave online: one direct DELETE, nothing queued', () async {
       final r = CommunityRig(routes: {'DELETE /v1/tournaments/$id/join': (_) => jsonResponse({...live, 'joined': false, 'me': null})});
       final shown = await repoOf(r).leaveTournament(id);
       expect(shown!.joined, isFalse);
       expect(r.calls, ['DELETE /v1/tournaments/$id/join']);
       expect(await r.queued(), isEmpty);
+    });
+  });
+
+  group('community joins vs a queued leave', () {
+    const path = '/v1/me/community';
+
+    Future<void> queueLeave(CommunityRig r, Map<String, dynamic> body) =>
+        r.outbox.add(OutboxItem(id: 'leave-1', method: 'PUT', path: path, body: {...body, 'source': 'settings'}));
+
+    test('a successful join takes its keys out of the queued leave; the rest stays queued', () async {
+      final r = CommunityRig();
+      await queueLeave(r, {'leagues': false, 'leaderboard': false, 'leaderboardCountry': false});
+      final res = await repoOf(r).withoutQueuedLeave(leagues: true, join: () async => true, succeeded: (ok) => ok);
+      expect(res, isTrue);
+      final q = await r.queued();
+      expect(q.single.body, {'leaderboard': false, 'leaderboardCountry': false, 'source': 'settings'});
+    });
+
+    test('a leave of only the joined key disappears; leave online then flush keeps the join', () async {
+      final r = CommunityRig(routes: {'PUT $path': (_) => jsonResponse(const {})});
+      await queueLeave(r, {'leagues': false});
+      await repoOf(r).withoutQueuedLeave(leagues: true, join: () async => true, succeeded: (ok) => ok);
+      expect(await r.queued(), isEmpty);
+      await r.outbox.flush((item) async => r.api.put(item.path, item.body));
+      expect(r.calls.where((c) => c.startsWith('PUT')), isEmpty);
+    });
+
+    test('a failed join puts the queued leave back unchanged', () async {
+      final r = CommunityRig();
+      await queueLeave(r, {'leagues': false, 'leaderboard': false, 'leaderboardCountry': false});
+      await repoOf(r).withoutQueuedLeave(leaderboard: true, join: () async => false, succeeded: (ok) => ok);
+      final q = await r.queued();
+      expect(q.single.id, 'leave-1');
+      expect(q.single.body, {'leagues': false, 'leaderboard': false, 'leaderboardCountry': false, 'source': 'settings'});
+    });
+
+    test('nothing queued for those keys: the join runs untouched', () async {
+      final r = CommunityRig();
+      await queueLeave(r, {'leagues': false});
+      await repoOf(r).withoutQueuedLeave(leaderboard: true, join: () async => true, succeeded: (ok) => ok);
+      expect((await r.queued()).single.body, {'leagues': false, 'source': 'settings'});
     });
   });
 

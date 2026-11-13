@@ -14,9 +14,10 @@ import '../../helpers/harness.dart';
 import 'community_rig.dart';
 
 /// Goldens `league_{ar,en}.png` and `tournament_{ar,en}.png`. They are generated only on Linux
-/// (`.github/workflows/goldens.yml` runs `flutter test --update-goldens`); until a file exists the
-/// comparison is skipped, so other platforms never write or compare a font-dependent image.
-bool _missing(String name) => !autoUpdateGoldenFiles && !File('test/goldens/$name').existsSync();
+/// (`.github/workflows/goldens.yml` runs `flutter test --update-goldens`). On Linux (CI) a missing
+/// file fails the test, so a golden can never silently stop being checked; on other hosts a
+/// missing file is skipped, so they never write or compare a font-dependent image.
+bool _skip(String name) => !Platform.isLinux && !autoUpdateGoldenFiles && !File('test/goldens/$name').existsSync();
 
 /// Every avatar as the initial: no asset decoding, so the image is deterministic.
 Map<String, dynamic> _initials(Map<String, dynamic> row) => {
@@ -60,7 +61,7 @@ void main() {
             ]),
       },);
       await shoot(tester, rig, const LeagueScreen(), LeagueScreen, 'league_$locale.png', locale);
-    }, skip: _missing('league_$locale.png'),);
+    }, skip: _skip('league_$locale.png'),);
 
     testWidgets('tournament golden ($locale)', (tester) async {
       final t = ((fixture('tournaments.json') as List)[1] as Map).cast<String, dynamic>();
@@ -74,6 +75,6 @@ void main() {
         'GET /v1/tournaments/$id/standings': (_) => jsonResponse(st),
       },);
       await shoot(tester, rig, TournamentScreen(id: id), TournamentScreen, 'tournament_$locale.png', locale);
-    }, skip: _missing('tournament_$locale.png'),);
+    }, skip: _skip('tournament_$locale.png'),);
   }
 }

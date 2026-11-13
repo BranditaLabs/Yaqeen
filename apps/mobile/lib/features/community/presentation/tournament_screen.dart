@@ -239,27 +239,37 @@ class _Body extends ConsumerWidget {
       ];
     }
     final hidden = ref.watch(hiddenHandlesProvider);
-    final rows = [for (final r in page.rows) if (!hidden.contains(r.handle)) r];
-    final closed = x.closed || x.phase == TournamentPhase.ended;
+    // Left on this phone: the caller's own row goes at once, before the next snapshot.
+    final left = ref.watch(leftTournamentsProvider).contains(x.id);
+    final rows = [for (final r in page.rows) if (!hidden.contains(r.handle) && !(left && r.me)) r];
+    // Gold podium marks only once the period is closed by the nightly job (design §1.4) — an
+    // ended window still shows provisional snapshot ranks.
+    final podium = x.closed;
+    final notifier = ref.read(standingsProvider(x.id).notifier);
     return [
       const SliverToBoxAdapter(child: SizedBox(height: YqSpace.xl)),
       SliverList.builder(
         itemCount: rows.length,
         itemBuilder: (context, i) {
-          // Near the end of what's loaded: fetch the next snapshot page.
-          if (i >= rows.length - 5 && page.nextCursor != null && !page.loadingMore) {
-            WidgetsBinding.instance.addPostFrameCallback((_) => ref.read(standingsProvider(x.id).notifier).loadMore());
+          // Near the end of what's loaded: fetch the next snapshot page. After a failed page it
+          // waits for the retry row below — never a request per frame.
+          if (i >= rows.length - 5 && page.nextCursor != null && !page.loadingMore && !page.loadFailed) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => notifier.loadMore());
           }
           final c = rows[i];
           return CompetitorRow(
             key: ValueKey(c.handle),
             competitor: c,
-            podium: closed,
+            podium: podium,
             onLongPress: c.me ? null : () => showReportSheet(context, c),
           );
         },
       ),
       if (page.loadingMore) const SliverToBoxAdapter(child: CompetitorSkeleton(rows: 2)),
+      if (page.loadFailed)
+        SliverToBoxAdapter(
+          child: Center(child: YqButton.text(label: AppLocalizations.of(context).retry, onPressed: notifier.retryMore)),
+        ),
       const SliverToBoxAdapter(child: SnapshotLine()),
     ];
   }
