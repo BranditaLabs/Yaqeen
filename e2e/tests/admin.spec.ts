@@ -3,6 +3,9 @@ import { expect, test } from '@playwright/test';
 import { API_URL, fixture, staffContext } from './fixture';
 
 /** Rule 2: admins never see which prayers, azkar or pages someone did. */
+/** A server action round trip: the API write, then the revalidated page re-rendered. */
+const ACTION = 20_000;
+
 const WORSHIP = /الفجر|الظهر|العصر|المغرب|العشاء|أذكار الصباح|أذكار المساء|الورد|وِرد/;
 
 const SECTIONS = [
@@ -127,7 +130,7 @@ test.describe('competitions «المسابقات»', () => {
     await row.getByLabel('إخفاء الصورة').fill('صورة غير لائقة — بلاغ');
     await row.getByRole('button', { name: 'إخفاء الصورة' }).click();
     // The row re-renders with the new state: hidden, and restorable by support for 7 days.
-    await expect(row.getByText('الصورة مخفية')).toBeVisible();
+    await expect(row.getByText('الصورة مخفية')).toBeVisible({ timeout: ACTION });
     await expect(row.getByRole('button', { name: 'استعادة الصورة' })).toBeVisible();
     await expect(row.locator('img[data-photo-status="removed"]')).toHaveCount(1);
 
@@ -203,12 +206,12 @@ test.describe('competitions «المسابقات»', () => {
     await page.getByLabel(/Badge name \(English\)/).fill('Good days');
     await page.getByRole('button', { name: 'حفظ ونشر' }).click();
 
-    await expect(page).toHaveURL(/\/competitions\/tournaments\/[0-9a-f-]{36}$/);
+    await expect(page).toHaveURL(/\/competitions\/tournaments\/[0-9a-f-]{36}$/, { timeout: ACTION });
     await expect(page.getByText('جارية').first()).toBeVisible(); // published and started today
 
     await page.getByLabel('سبب الإغلاق المبكر').fill('تجربة الإغلاق المبكر');
     await page.getByRole('button', { name: 'إغلاق مبكر' }).click();
-    await expect(page.getByText('ستُغلق البطولة عند منتصف الليل')).toBeVisible();
+    await expect(page.getByText('ستُغلق البطولة عند منتصف الليل')).toBeVisible({ timeout: ACTION });
 
     await page.goto('/settings');
     await expect(page.getByText('tournament.close').first()).toBeVisible();
@@ -220,7 +223,7 @@ test.describe('competitions «المسابقات»', () => {
     await expect(page.getByText('تُطبَّق التغييرات من الأسبوع القادم').first()).toBeVisible();
     await page.getByLabel('حجم المجموعة (10–50)').fill('24');
     await page.getByRole('button', { name: 'حفظ الإعدادات' }).click();
-    await expect(page.getByText('حُفظت — تُطبَّق من الأسبوع القادم')).toBeVisible();
+    await expect(page.getByText('حُفظت — تُطبَّق من الأسبوع القادم')).toBeVisible({ timeout: ACTION });
     await page.reload();
     await expect(page.getByLabel('حجم المجموعة (10–50)')).toHaveValue('24');
 

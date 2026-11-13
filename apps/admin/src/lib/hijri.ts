@@ -1,6 +1,20 @@
 import 'server-only';
 import type { HijriDay, HijriMonthResponse } from '@yaqeen/contracts';
-import { api } from './api';
+
+const API_URL = process.env.API_URL ?? 'http://localhost:4000';
+
+/**
+ * One Gregorian month of the public calendar (no session needed). Kept for 10 minutes: month
+ * tables change only when a reviewer moves the Egypt offset, and forms scan up to 14 months.
+ */
+async function hijriMonth(year: number, month: number): Promise<HijriMonthResponse | null> {
+  try {
+    const res = await fetch(`${API_URL}/v1/calendar/hijri?year=${year}&month=${month}`, { next: { revalidate: 600 } });
+    return res.ok ? ((await res.json()) as HijriMonthResponse) : null;
+  } catch {
+    return null;
+  }
+}
 
 const cairoDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo' });
 
@@ -20,9 +34,7 @@ export function addDays(day: string, n: number): string {
 export async function hijriDays(days: string[]): Promise<Map<string, HijriDay>> {
   const months = [...new Set(days.map((d) => d.slice(0, 7)))];
   const out = new Map<string, HijriDay>();
-  const res = await Promise.all(
-    months.map((m) => api<HijriMonthResponse>(`/v1/calendar/hijri?year=${m.slice(0, 4)}&month=${Number(m.slice(5, 7))}`).catch(() => null)),
-  );
+  const res = await Promise.all(months.map((m) => hijriMonth(Number(m.slice(0, 4)), Number(m.slice(5, 7)))));
   for (const r of res) for (const d of r?.days ?? []) out.set(d.gregorian, d);
   return out;
 }
