@@ -153,10 +153,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     // after its first build, and must neither be created while the profile is still resolving nor
     // record the placeholder's level 1 as seen (the real level would then read as a level-up).
     if (profile != null) _maybeCelebrate(ref.watch(levelUpProvider));
-    // A name the server refused on replay is back to the server's: say so (design §6.4).
-    ref.listen<int>(nameRevertsProvider, (before, now) {
-      if (now > (before ?? 0)) YqToast.show(context, t.pfNameReverted);
-    });
+    // A name the server refused on replay is announced app-wide by NameRevertToaster (app shell).
 
     final rewards = signedIn && config.isOn(Flags.rewards);
     final competitions = anyCompetitionOn(config);

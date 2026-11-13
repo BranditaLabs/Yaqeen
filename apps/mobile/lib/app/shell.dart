@@ -8,6 +8,7 @@ import '../core/widgets/yq_icon.dart';
 import '../features/listen/presentation/mini_player.dart';
 import '../features/onboarding/presentation/session_controller.dart';
 import '../features/profile/presentation/me_avatar.dart';
+import '../features/profile/presentation/name_revert_toaster.dart';
 import '../l10n/gen/app_localizations.dart';
 
 /// Hosts the five tab branches and floats the dock ([FloatingTabBar]) above them.
@@ -38,75 +39,78 @@ class AppShell extends ConsumerWidget {
     final dockBottom = FloatingTabBar.gapFor(platform, media.padding.bottom);
     final reduceMotion = media.disableAnimations;
 
-    return Scaffold(
-      extendBody: true,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: MediaQuery(
-              data: media.copyWith(padding: media.padding.copyWith(bottom: clearance)),
-              child: navigationShell,
+    // Refused names are announced on every tab (design §6.4).
+    return NameRevertToaster(
+      child: Scaffold(
+        extendBody: true,
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: MediaQuery(
+                data: media.copyWith(padding: media.padding.copyWith(bottom: clearance)),
+                child: navigationShell,
+              ),
             ),
-          ),
-          // Content dissolves softly under the floating dock.
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: clearance + YqSpace.xl,
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [YqColors.porcelain.withValues(alpha: 0), YqColors.porcelain.withValues(alpha: 0.85)],
-                    stops: const [0, 0.75],
+            // Content dissolves softly under the floating dock.
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: clearance + YqSpace.xl,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [YqColors.porcelain.withValues(alpha: 0), YqColors.porcelain.withValues(alpha: 0.85)],
+                      stops: const [0, 0.75],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          if (mini)
+            if (mini)
+              PositionedDirectional(
+                start: YqSpace.gutter,
+                end: YqSpace.gutter,
+                bottom: dockBottom + FloatingTabBar.height + YqSpace.s,
+                child: Center(
+                  heightFactor: 1,
+                  child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: FloatingTabBar.maxWidth), child: const MiniPlayer()),
+                ),
+              ),
             PositionedDirectional(
               start: YqSpace.gutter,
               end: YqSpace.gutter,
-              bottom: dockBottom + FloatingTabBar.height + YqSpace.s,
-              child: Center(
-                heightFactor: 1,
-                child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: FloatingTabBar.maxWidth), child: const MiniPlayer()),
-              ),
-            ),
-          PositionedDirectional(
-            start: YqSpace.gutter,
-            end: YqSpace.gutter,
-            bottom: dockBottom,
-            child: IgnorePointer(
-              ignoring: keyboard,
-              child: AnimatedSlide(
-                offset: keyboard ? const Offset(0, 1.6) : Offset.zero,
-                duration: reduceMotion ? Duration.zero : YqMotion.base,
-                curve: YqMotion.ease,
-                child: AnimatedOpacity(
-                  opacity: keyboard ? 0 : 1,
-                  duration: reduceMotion ? Duration.zero : YqMotion.fast,
-                  child: FloatingTabBar(
-                    currentIndex: navigationShell.currentIndex,
-                    // Tapping the open tab again returns it to its first screen.
-                    onSelect: (i) => navigationShell.goBranch(i, initialLocation: i == navigationShell.currentIndex),
-                    tabs: [
-                      YqTab(icon: YqIcons.home, label: t.tabHome),
-                      YqTab(icon: YqIcons.quran, label: t.tabQuran),
-                      YqTab(icon: YqIcons.prayer, label: t.tabPrayer),
-                      YqTab(icon: YqIcons.challenge, label: t.tabChallenge),
-                      YqTab.avatar(avatar: const MeAvatar(size: 24), initial: String.fromCharCode(name.runes.first), label: t.tabProfile),
-                    ],
+              bottom: dockBottom,
+              child: IgnorePointer(
+                ignoring: keyboard,
+                child: AnimatedSlide(
+                  offset: keyboard ? const Offset(0, 1.6) : Offset.zero,
+                  duration: reduceMotion ? Duration.zero : YqMotion.base,
+                  curve: YqMotion.ease,
+                  child: AnimatedOpacity(
+                    opacity: keyboard ? 0 : 1,
+                    duration: reduceMotion ? Duration.zero : YqMotion.fast,
+                    child: FloatingTabBar(
+                      currentIndex: navigationShell.currentIndex,
+                      // Tapping the open tab again returns it to its first screen.
+                      onSelect: (i) => navigationShell.goBranch(i, initialLocation: i == navigationShell.currentIndex),
+                      tabs: [
+                        YqTab(icon: YqIcons.home, label: t.tabHome),
+                        YqTab(icon: YqIcons.quran, label: t.tabQuran),
+                        YqTab(icon: YqIcons.prayer, label: t.tabPrayer),
+                        YqTab(icon: YqIcons.challenge, label: t.tabChallenge),
+                        YqTab.avatar(avatar: const MeAvatar(size: 24), initial: String.fromCharCode(name.runes.first), label: t.tabProfile),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

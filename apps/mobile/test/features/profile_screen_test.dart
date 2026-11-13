@@ -39,6 +39,7 @@ import 'package:yaqeen/features/profile/presentation/badges_strip.dart';
 import 'package:yaqeen/features/profile/presentation/edit_name_sheet.dart';
 import 'package:yaqeen/features/profile/presentation/level_ladder_sheet.dart';
 import 'package:yaqeen/features/profile/presentation/me_profile_controller.dart';
+import 'package:yaqeen/features/profile/presentation/name_revert_toaster.dart';
 import 'package:yaqeen/features/profile/presentation/profile_screen.dart';
 import 'package:yaqeen/features/profile/presentation/profile_settings_screen.dart';
 
@@ -239,7 +240,10 @@ void main() {
   RemoteConfig flags(Map<String, bool> on) => RemoteConfig(features: {...RemoteConfig.defaultFeatures, ...on});
 
   Future<void> pumpProfile(WidgetTester tester, List<Override> overrides, {String locale = 'ar'}) async {
-    await tester.pumpWidget(harness(const Scaffold(body: ProfileScreen()), overrides: overrides, kv: kv, locale: locale));
+    // NameRevertToaster stands in for the app shell, which announces refused names on every tab.
+    await tester.pumpWidget(
+      harness(const NameRevertToaster(child: Scaffold(body: ProfileScreen())), overrides: overrides, kv: kv, locale: locale),
+    );
     await settle(tester);
   }
 
