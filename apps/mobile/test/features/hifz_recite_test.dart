@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:yaqeen/features/hifz/domain/grade_suggestion.dart';
+import 'package:yaqeen/features/hifz/domain/hifz_guide.dart';
 import 'package:yaqeen/features/hifz/domain/hifz_plan.dart';
 import 'package:yaqeen/features/hifz/domain/review_scheduler.dart';
 import 'package:yaqeen/features/quran/domain/quran_data.dart';
@@ -79,10 +81,48 @@ void main() {
       expect(back.toggleStep(2, tomorrow).stepsFor(tomorrow), {2});
     });
 
+    test('a guided stage ticks its step once; a manual untick still works', () {
+      const p = HifzPlan(goal: HifzGoal.amma, perDay: 5);
+      final once = p.completeStep(0, day);
+      expect(once.stepsFor(day), {0});
+      expect(once.completeStep(0, day), same(once), reason: 'idempotent');
+      final both = once.completeStep(1, day);
+      expect(both.stepsFor(day), {0, 1});
+      expect(both.toggleStep(1, day).stepsFor(day), {0});
+      expect(HifzGuide.started(p, day), isFalse);
+      expect(HifzGuide.started(once, day), isTrue);
+      expect(HifzGuide.halaqaLocation(q, p.today(q)!), '/quran/read/604?session=hifz&surah=114&from=1&to=5');
+    });
+
     test('round-trips through JSON', () {
       final p = const HifzPlan(goal: HifzGoal.amma, perDay: 3).memorise(q, day);
       final back = HifzPlan.tryParse(jsonDecode(jsonEncode(p.toJson())))!;
       expect([back.goal, back.perDay, back.portions.single.id, back.activeDays], [p.goal, 3, '114:1-3', p.activeDays]);
+    });
+  });
+
+  group('suggested grade', () {
+    final passage = [for (var a = 1; a <= 5; a++) (AyahRef(114, a), q.text(AyahRef(114, a)))];
+    final all = passage.map((e) => e.$2).join(' ');
+
+    test('from the recitation: all heard → easy; a slip in ten → good; much missing → hard', () {
+      expect(suggestGrade(recite: RecitationAligner.align(passage, all), ayat: 5), ReviewGrade.easy);
+      final words = all.split(' ');
+      final oneSlip = [...words]..[3] = 'كلمة';
+      final r1 = RecitationAligner.align(passage, oneSlip.join(' '));
+      expect(r1.expand((r) => r.words).where((w) => w.mark != WordMark.ok).length, 1);
+      expect(suggestGrade(recite: r1, ayat: 5), ReviewGrade.good);
+      expect(suggestGrade(recite: RecitationAligner.align(passage, all), reveals: 2, ayat: 5), ReviewGrade.hard,
+          reason: 'revealing more than a quarter of the ayat is not «good»',);
+      expect(suggestGrade(recite: RecitationAligner.align(passage, words.take(4).join(' ')), ayat: 5), ReviewGrade.hard);
+    });
+
+    test('from reveals only (no recitation): none → easy, up to a third → good, more → hard', () {
+      expect(suggestGrade(ayat: 5), ReviewGrade.easy);
+      expect(suggestGrade(reveals: 1, ayat: 5), ReviewGrade.good);
+      expect(suggestGrade(reveals: 2, ayat: 6), ReviewGrade.good);
+      expect(suggestGrade(reveals: 3, ayat: 5), ReviewGrade.hard);
+      expect(suggestGrade(recite: const [], reveals: 0, ayat: 0), ReviewGrade.easy);
     });
   });
 

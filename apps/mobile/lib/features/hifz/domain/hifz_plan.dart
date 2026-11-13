@@ -141,6 +141,13 @@ class HifzPlan {
     return HifzPlan(goal: goal, perDay: perDay, portions: portions, activeDays: activeDays, stepsOn: _iso(today), steps: current);
   }
 
+  /// Ticks [step] for today if it isn't already (a guided stage ending; repeating it changes nothing).
+  HifzPlan completeStep(int step, DateTime today) {
+    final current = stepsFor(today);
+    if (current.contains(step)) return this;
+    return HifzPlan(goal: goal, perDay: perDay, portions: portions, activeDays: activeDays, stepsOn: _iso(today), steps: {...current, step});
+  }
+
   HifzPlan memorise(QuranData q, DateTime today) {
     final t = this.today(q);
     if (t == null) return this;

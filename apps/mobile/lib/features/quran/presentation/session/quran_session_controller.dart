@@ -87,6 +87,7 @@ class QuranSessionController extends Notifier<ReaderLayers> {
 
   void countRepeat() => state = state.copyWith(repeats: state.repeats + 1);
   void resetRepeats() => state = state.copyWith(repeats: 0);
+  void setRepeats(int n) => state = state.copyWith(repeats: n < 0 ? 0 : n);
 
   void setMarks(Map<AyahRef, Set<int>> marks) => state = state.copyWith(marks: marks);
 

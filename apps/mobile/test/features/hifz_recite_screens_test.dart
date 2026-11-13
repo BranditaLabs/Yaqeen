@@ -61,10 +61,12 @@ void main() {
 
     expect(find.text('سورة الناس · الآيات 1–5'), findsOneWidget);
     expect(find.text('اكتملت مراجعة اليوم'), findsOneWidget);
+    expect(find.text('ابدأ الحلقة'), findsOneWidget);
     // A ticked step is saved with today's date, so leaving the screen (e.g. to listen) keeps it.
     await tester.tap(find.text('استمع · 3 مرات'));
     await tester.pumpAndSettle();
     expect(kv.data['db.hifz'], contains('"steps"'));
+    expect(find.text('أكمل الحلقة'), findsOneWidget, reason: 'a step ticked: the halaqa is under way');
     await tester.ensureVisible(find.text('حفظت مقطع اليوم'));
     await tester.tap(find.text('حفظت مقطع اليوم'));
     await tester.pumpAndSettle();
@@ -84,6 +86,7 @@ void main() {
     expect(find.text('مستحقة اليوم'), findsOneWidget);
     expect(find.text('حُفظت قبل يوم · آخر مراجعة قبل يوم'), findsOneWidget);
     expect(find.text('سورة الناس · الآيات 6–6'), findsOneWidget);
+    expect(find.text('راجع'), findsOneWidget, reason: 'the review in the reader, at the test');
     await tester.ensureVisible(find.text('جيدة · 3 أيام'));
     await tester.tap(find.text('جيدة · 3 أيام'));
     await tester.pumpAndSettle();
