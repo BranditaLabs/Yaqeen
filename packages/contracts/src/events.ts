@@ -35,7 +35,7 @@ export const isAdEvent = (name: string): name is AdEvent => (AD_EVENTS as readon
  */
 export const PRODUCT_EVENTS = {
   app_open: {},
-  onboarding_step: { step: ['welcome', 'language', 'prayer', 'consent', 'goal', 'routine', 'download'] },
+  onboarding_step: { step: ['welcome', 'language', 'prayer', 'consent', 'goal', 'routine', 'profile', 'download'] },
   onboarding_complete: {},
   sign_in: { provider: ['google', 'apple', 'guest'] },
   tab_view: { tab: ['home', 'challenge', 'profile'] },

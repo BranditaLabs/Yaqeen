@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { Avatar } from './community.js';
 
 /**
  * Public profile («بطاقة يقين») — an opt-in card a user can put on an NFC tag or a QR code.
@@ -72,8 +73,9 @@ export type PublicProfileSettings = z.infer<typeof PublicProfileSettings>;
 /* ------------------------------------------------------------------ levels */
 
 /**
- * Levels earned from **lifetime** points (sum of positive ledger rows), so spending points on a
- * reward never lowers a level. Names describe the journey, not anyone's faith.
+ * Levels earned from **lifetime earned** points (positive ledger rows with a `LEVEL_REASONS` reason —
+ * reversals excluded), so spending points on a reward never lowers a level. Public rings use the
+ * nightly `public_lifetime` snapshot; the caller's own level is live. Names describe the journey, not anyone's faith.
  */
 export const LEVELS = [
   { min: 0, ar: 'بداية الطريق', en: 'Setting out' },
@@ -132,6 +134,12 @@ export const PublicProfileView = z.object({
   memberSince: z.string().nullable(),
   /** Newest first, at most 12 — only when the owner switched it on. */
   timeline: z.array(z.lazy(() => JourneyEvent)).nullable(),
+  /**
+   * Drawn inside the public level ring. A photo only when it is publicly servable (owner attested 18+
+   * and visible); else the preset or initial. `level` comes from the nightly `public_lifetime` snapshot.
+   * Optional on the wire only for servers older than migration 0017; read a missing value as initial.
+   */
+  avatar: Avatar.optional(),
 });
 export type PublicProfileView = z.infer<typeof PublicProfileView>;
 
@@ -191,6 +199,8 @@ export const MyJourney = z.object({
   challengeDay: z.number().int().nullable(),
   challengeOf: z.number().int(),
   events: z.array(JourneyEvent),
+  /** The caller's own avatar (authed photo paths). Missing = initial (servers before 0017). */
+  avatar: Avatar.optional(),
 });
 export type MyJourney = z.infer<typeof MyJourney>;
 
@@ -404,6 +414,8 @@ export const AdminCardRow = z.object({
   views: z.number().int(),
   tags: z.number().int(),
   updatedAt: z.string(),
+  /** Admin photo route URLs for a photo. Missing = initial (servers before 0017). */
+  avatar: Avatar.optional(),
 });
 export type AdminCardRow = z.infer<typeof AdminCardRow>;
 

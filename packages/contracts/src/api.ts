@@ -64,6 +64,8 @@ export const UserSettings = z.object({
   prayerMethod: PrayerMethod,
   asrSchool: AsrSchool,
   hijriOffsetDays: z.number().int().min(-2).max(2),
+  /** ISO-3166 alpha-2 of the chosen city (the app sends it; null when unknown). Used only for the opt-in country board. */
+  country: z.string().regex(/^[A-Z]{2}$/).nullable().optional(),
 });
 export type UserSettings = z.infer<typeof UserSettings>;
 
@@ -91,6 +93,7 @@ export type RegisterDeviceRequest = z.infer<typeof RegisterDeviceRequest>;
 /* ------------------------------------------------------------------ config */
 
 export const RemoteConfig = z.object({
+  /** Missing flags read as their default; `FEATURE_DEFAULTS_OFF` (incl. leagues, tournaments, leaderboard) default to false. */
   features: z.record(z.string(), z.boolean()),
   /**
    * Gradual rollout per flag, 0–100. A flag that is ON is shown to a user only when

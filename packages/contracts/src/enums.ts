@@ -14,8 +14,10 @@ export type UserStatus = z.infer<typeof UserStatus>;
  * Consent buckets, recorded separately (Egypt PDPL 151/2020 requires explicit,
  * specific, revocable consent with records). `cloud_backup` is the opt-in encrypted copy of the
  * user's personal progress (signed-in accounts only; withdrawing it deletes the server copy).
+ * `community` is derived: granted while the user is in a weekly league, on the level board or in a
+ * live tournament (APP_SPEC §5.31); it is set through PUT /v1/me/community, never granted directly.
  */
-export const ConsentKind = z.enum(['worship_reminders', 'challenge_rewards', 'store_offers', 'ads_measurement', 'product_analytics', 'cloud_backup']);
+export const ConsentKind = z.enum(['worship_reminders', 'challenge_rewards', 'store_offers', 'ads_measurement', 'product_analytics', 'cloud_backup', 'community']);
 export type ConsentKind = z.infer<typeof ConsentKind>;
 
 /** The six daily challenge tasks. Point values live in the database (admin-editable). */
@@ -86,7 +88,9 @@ export const PackKind = z.enum(['tafsir', 'font', 'audio', 'translation']);
 export type PackKind = z.infer<typeof PackKind>;
 
 /** Feature flags the app reads from /v1/config. Unknown keys are ignored by the app. */
-export const FEATURE_FLAGS = ['challenge', 'rewards', 'hifz', 'listen', 'bonuses', 'recite', 'ramadan', 'tafsirFull'] as const;
+export const FEATURE_FLAGS = ['challenge', 'rewards', 'hifz', 'listen', 'bonuses', 'recite', 'ramadan', 'tafsirFull', 'leagues', 'tournaments', 'leaderboard'] as const;
+/** Off unless the admin turns them on (the app defaults every unknown flag to its own default). */
+export const FEATURE_DEFAULTS_OFF = ['bonuses', 'recite', 'ramadan', 'tafsirFull', 'leagues', 'tournaments', 'leaderboard'] as const satisfies readonly FeatureFlag[];
 export type FeatureFlag = (typeof FEATURE_FLAGS)[number];
 
 /**
