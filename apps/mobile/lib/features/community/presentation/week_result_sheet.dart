@@ -27,7 +27,18 @@ const seenWeekKey = 'community.seenWeek';
 Future<bool> maybeShowWeekResult(BuildContext context, WidgetRef ref) async {
   if (!ref.read(sessionProvider).canEarnPoints) return false;
   if (!ref.read(remoteConfigProvider).isOn(Flags.leagues)) return false;
-  final league = ref.read(meProfileProvider).valueOrNull?.league;
+  // The profile's first value is the on-device cache (never the network): wait for it if the
+  // screen opened before it was read.
+  var profile = ref.read(meProfileProvider).valueOrNull;
+  if (profile == null) {
+    try {
+      profile = await ref.read(meProfileProvider.future).timeout(const Duration(seconds: 2));
+    } on Object {
+      return false;
+    }
+    if (!context.mounted) return false;
+  }
+  final league = profile.league;
   final last = league?.lastWeek;
   if (league == null || last == null || last.outcome == null) return false;
   final kv = ref.read(kvStoreProvider);
