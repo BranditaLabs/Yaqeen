@@ -232,7 +232,7 @@ class _CardScreenState extends ConsumerState<CardScreen> {
     return Scaffold(
       body: YqCanvas(
         bottom: YqSpace.l,
-        lights: d?.theme == CardLook.gold ? const [AmbientLight(Alignment(0, -0.8), Color(0x6BE9D49E))] : null,
+        lights: d?.theme == CardLook.gold ? [AmbientLight(const Alignment(0, -0.8), YqColors.goldLight.withValues(alpha: 0.42))] : null,
         stage: YqStage(
           compact: true,
           gold: d?.theme == CardLook.gold,
@@ -683,7 +683,7 @@ class _Mono extends StatelessWidget {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: switch (kind) {
-              SocialKind.whatsapp => const [Color(0xCC2E7A55), YqColors.success],
+              SocialKind.whatsapp => [YqColors.success.withValues(alpha: 0.8), YqColors.success],
               SocialKind.website => const [YqColors.gold300, YqColors.goldText],
               _ => const [YqColors.lapis500, YqColors.navy],
             },
@@ -734,7 +734,7 @@ class _ThemeSwatch extends StatelessWidget {
                 CardLook.night => const [YqColors.midnight, YqColors.lapis],
               },
             ),
-            border: Border.all(color: selected ? YqColors.lapis : const Color(0xE6FFFFFF), width: selected ? 2 : 1),
+            border: Border.all(color: selected ? YqColors.lapis : YqColors.white.withValues(alpha: 0.9), width: selected ? 2 : 1),
           ),
           child: Row(
             children: [
@@ -805,7 +805,7 @@ class _Field extends StatelessWidget {
             prefixText: prefix,
             counterText: maxLines > 1 ? null : '',
             filled: true,
-            fillColor: const Color(0xCCFFFFFF),
+            fillColor: YqColors.white.withValues(alpha: 0.8),
             border: border,
             enabledBorder: border,
             focusedBorder: border.copyWith(borderSide: const BorderSide(color: YqColors.lapis, width: 1.4)),
@@ -1238,7 +1238,7 @@ class _PulsePainter extends CustomPainter {
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.4
-          ..color = const Color(0x331F3F94),
+          ..color = YqColors.lapis.withValues(alpha: 0.2),
       );
       return;
     }
