@@ -57,7 +57,7 @@ class _Rung extends StatelessWidget {
     return Semantics(
       container: true,
       selected: current,
-      label: [t.lvlCaption(YqFormat.number(level), name), points, if (current) t.pfLadderCurrent].join('، '),
+      label: [t.lvlCaption(YqFormat.number(level), name), points, if (current) t.pfLadderCurrent].reduce(t.pfSemanticsJoin),
       excludeSemantics: true,
       child: AnimatedContainer(
         duration: YqMotion.base,

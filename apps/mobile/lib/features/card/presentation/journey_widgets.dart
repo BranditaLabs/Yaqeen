@@ -164,7 +164,7 @@ class _Row extends StatelessWidget {
 
     return Semantics(
       container: true,
-      label: '$title، $date',
+      label: t.pfSemanticsJoin(title, date),
       excludeSemantics: true,
       child: Stack(
         clipBehavior: Clip.none,

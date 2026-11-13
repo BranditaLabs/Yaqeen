@@ -2492,6 +2492,19 @@
   "pfNameReverted": "That name wasn't accepted, so we restored the previous one.",
   "pfSave": "Save",
   "pfAttestOffline": "You need a connection to confirm your age",
+  "pfLangGlyph": "En",
+  "pfSemanticsJoin": "{a}, {b}",
+  "@pfSemanticsJoin": {
+    "description": "Joins two parts of a screen-reader label.",
+    "placeholders": {
+      "a": {
+        "type": "String"
+      },
+      "b": {
+        "type": "String"
+      }
+    }
+  },
   "cmSincerity": "A gentle race in doing good. No extra points here; badges are keepsakes only.",
   "cmPrivacy": "Others see only your name, picture, level and points for the period — never your prayers, azkar or tasks.",
   "cmSnapshotLine": "Standings update every night.",

@@ -232,7 +232,7 @@ class _PresetTile extends StatelessWidget {
       selected: selected,
       child: GlassTap(
         onTap: onTap,
-        semanticLabel: selected ? '$label، ${t.pfSelected}' : label,
+        semanticLabel: selected ? t.pfSemanticsJoin(label, t.pfSelected) : label,
         child: ExcludeSemantics(
           child: SizedBox.square(
             dimension: 72,

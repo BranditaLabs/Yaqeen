@@ -2519,6 +2519,19 @@
   "pfNameReverted": "لم يُقبل الاسم، فأعدناه كما كان.",
   "pfSave": "حفظ",
   "pfAttestOffline": "تحتاج اتصالاً لتأكيد عمرك",
+  "pfLangGlyph": "ع",
+  "pfSemanticsJoin": "{a}، {b}",
+  "@pfSemanticsJoin": {
+    "description": "Joins two parts of a screen-reader label.",
+    "placeholders": {
+      "a": {
+        "type": "String"
+      },
+      "b": {
+        "type": "String"
+      }
+    }
+  },
   "cmSincerity": "تنافسٌ لطيف على الخير. لا نقاط إضافية هنا، والشارات تذكارٌ فقط.",
   "cmPrivacy": "يرى المشاركون اسمك وصورتك ومستواك ونقاط الفترة فقط، لا صلواتك ولا أذكارك ولا مهامك.",
   "cmSnapshotLine": "يُحدَّث الترتيب كل ليلة.",
