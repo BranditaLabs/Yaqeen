@@ -6,6 +6,7 @@ import '../core/theme/tokens.dart';
 import '../core/widgets/floating_tab_bar.dart';
 import '../core/widgets/yq_icon.dart';
 import '../features/onboarding/presentation/session_controller.dart';
+import '../features/profile/presentation/me_avatar.dart';
 import '../l10n/gen/app_localizations.dart';
 
 /// Hosts the five tab branches and floats the dock ([FloatingTabBar]) above them.
@@ -82,7 +83,7 @@ class AppShell extends ConsumerWidget {
                       YqTab(icon: YqIcons.quran, label: t.tabQuran),
                       YqTab(icon: YqIcons.prayer, label: t.tabPrayer),
                       YqTab(icon: YqIcons.challenge, label: t.tabChallenge),
-                      YqTab.avatar(initial: String.fromCharCode(name.runes.first), label: t.tabProfile),
+                      YqTab.avatar(avatar: const MeAvatar(size: 24), initial: String.fromCharCode(name.runes.first), label: t.tabProfile),
                     ],
                   ),
                 ),

@@ -9,27 +9,23 @@ import '../features/content/domain/content_item.dart';
 import '../features/duas/presentation/duas_screen.dart';
 import '../features/debug/gallery_screen.dart';
 import '../features/home/home_screen.dart';
-import '../features/hifz/presentation/hifz_screen.dart';
-import '../features/listen/presentation/now_playing_screen.dart';
-import '../features/listen/presentation/reciters_screen.dart';
 import '../features/notifications/presentation/inbox_screen.dart';
 import '../features/notifications/presentation/notification_settings_screen.dart';
 import '../features/onboarding/presentation/onboarding_screens.dart';
+import '../features/onboarding/presentation/profile_step.dart';
 import '../features/onboarding/presentation/splash_gate.dart';
 import '../features/prayer/presentation/prayer_screen.dart';
 import '../features/prayer/presentation/prayer_settings_screen.dart';
-import '../features/card/presentation/card_screen.dart';
 import '../features/card/presentation/encode_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/prayer/presentation/qibla_screen.dart';
 import '../features/ramadan/presentation/ramadan_screen.dart';
 import '../features/quran/presentation/quran_index_screen.dart';
-import '../features/quran/domain/quran_data.dart';
-import '../features/quran/presentation/khatma_screen.dart';
-import '../features/quran/presentation/reader_screen.dart';
-import '../features/recite/presentation/recite_screen.dart';
 import '../features/rewards/presentation/redeem_screen.dart';
 import '../core/notifications/push_service.dart';
+import 'routes/community_routes.dart';
+import 'routes/profile_routes.dart';
+import 'routes/quran_routes.dart';
 import 'shell.dart';
 
 /// Navigator for full-screen routes (reader, recitation, player, Qibla) — above the tab bar.
@@ -67,6 +63,7 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
             GoRoute(path: 'consent', builder: (_, __) => const ConsentStep()),
             GoRoute(path: 'goal', builder: (_, __) => const GoalStep()),
             GoRoute(path: 'routine', builder: (_, __) => const RoutineStep()),
+            GoRoute(path: 'profile', builder: (_, __) => const ProfileStep()),
             GoRoute(path: 'download', builder: (_, __) => const DownloadStep()),
           ],
         ),
@@ -98,38 +95,7 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
                 GoRoute(
                   path: '/quran',
                   builder: (_, s) => QuranIndexScreen(key: ValueKey(s.uri.query), focusSearch: s.uri.queryParameters['search'] == '1'),
-                  routes: [
-                    GoRoute(path: 'hifz', builder: (_, __) => const HifzScreen()),
-                    GoRoute(path: 'khatma', builder: (_, __) => const KhatmaScreen()),
-                    GoRoute(path: 'reciters', builder: (_, __) => const RecitersScreen()),
-                    GoRoute(
-                      parentNavigatorKey: rootNavigatorKey,
-                      path: 'read/:page',
-                      builder: (_, s) => ReaderScreen(
-                        initialPage: (int.tryParse(s.pathParameters['page'] ?? '') ?? 1).clamp(1, 604),
-                        focus: parseAyahRef(s.uri.queryParameters['ayah']),
-                      ),
-                    ),
-                    GoRoute(
-                      parentNavigatorKey: rootNavigatorKey,
-                      path: 'recite/:surah',
-                      builder: (_, s) => ReciteScreen(
-                        surah: (int.tryParse(s.pathParameters['surah'] ?? '') ?? 1).clamp(1, 114),
-                        from: int.tryParse(s.uri.queryParameters['from'] ?? ''),
-                        to: int.tryParse(s.uri.queryParameters['to'] ?? ''),
-                        fromHifz: s.uri.queryParameters['hifz'] == '1',
-                      ),
-                    ),
-                    GoRoute(
-                      parentNavigatorKey: rootNavigatorKey,
-                      path: 'listen/:surah',
-                      builder: (_, s) => NowPlayingScreen(
-                        surah: (int.tryParse(s.pathParameters['surah'] ?? '') ?? 1).clamp(1, 114),
-                        ayah: int.tryParse(s.uri.queryParameters['ayah'] ?? ''),
-                        to: int.tryParse(s.uri.queryParameters['to'] ?? ''),
-                      ),
-                    ),
-                  ],
+                  routes: quranRoutes(rootNavigatorKey),
                 ),
               ],
             ),
@@ -168,12 +134,7 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
                 GoRoute(
                   path: '/profile',
                   builder: (_, __) => const ProfileScreen(),
-                  routes: [
-                    GoRoute(path: 'privacy', builder: (_, __) => const PrivacyScreen()),
-                    GoRoute(path: 'ledger', builder: (_, __) => const LedgerScreen()),
-                    GoRoute(path: 'downloads', builder: (_, __) => const DownloadsScreen()),
-                    GoRoute(path: 'card', builder: (_, state) => CardScreen(tag: state.uri.queryParameters['tag'])),
-                  ],
+                  routes: [...profileRoutes(rootNavigatorKey), ...communityRoutes(rootNavigatorKey)],
                 ),
               ],
             ),
