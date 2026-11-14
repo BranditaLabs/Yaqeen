@@ -211,8 +211,9 @@ class YqAvatarSwap extends StatelessWidget {
 ///
 /// Motion (docs/DESIGN_SYSTEM.md §5), all skipped under reduce-motion:
 /// - [drawIn]: the ring sweeps from 0 on first show (the track first); later progress eases on.
-/// - [glint] (defaults to [achieved]): one light sweeps round the ring and the picture swells
-///   softly (1.0 → 1.04 → 1.0), once — when the ring first shows gold, or when it turns gold.
+/// - [glint] (off unless asked for): one light sweeps round the ring and the picture swells
+///   softly (1.0 → 1.04 → 1.0), once — the level-up moment only (the Profile stage and the Home
+///   chip pass it for a level just reached). A top-level gold ring elsewhere stays quiet.
 /// - A new picture cross-fades in, scaling up from 0.94.
 class YqLevelAvatar extends StatelessWidget {
   const YqLevelAvatar({
@@ -229,7 +230,7 @@ class YqLevelAvatar extends StatelessWidget {
     this.levelName,
     this.semanticLabel,
     this.drawIn,
-    this.glint,
+    this.glint = false,
   });
 
   final AvatarRef avatar;
@@ -242,8 +243,8 @@ class YqLevelAvatar extends StatelessWidget {
   /// The first sweep's duration ([Motion.ringDraw], [Motion.ringDrawSmall]); null = no draw-in.
   final Duration? drawIn;
 
-  /// The one-time light sweep and pulse; defaults to [achieved].
-  final bool? glint;
+  /// The one-time light sweep and pulse of a level just reached; never implied by [achieved].
+  final bool glint;
   final bool showLevel;
   final bool ring;
   final String? name;
@@ -256,7 +257,7 @@ class YqLevelAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
     if (!ring) return YqAvatarSwap(avatar: avatar, size: size, name: name, semanticLabel: semanticLabel);
-    final glinting = glint ?? achieved;
+    final glinting = glint;
     // The ring is drawn 1 pt in from the edge; leave a clear gap between it and the picture.
     final inner = size - 2 * (stroke + 1 + (size >= 64 ? 3.0 : 2.0));
     final percent = (progress.clamp(0.0, 1.0) * 100).round();

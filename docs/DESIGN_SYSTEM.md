@@ -187,7 +187,7 @@ running** (`pumpAndSettle` completes). A toast that follows a light comes at onc
 | Primitive | Motion |
 | --- | --- |
 | `YqRing(drawIn:, glint:, change:)` | First show: the track fades in, then the arc sweeps from 0 (emphasised). Later values ease from the old value — never from 0 again. A colour change blends over 280 ms. `glint`: one comet of light (white into gold light) travels once round the ring. |
-| `YqLevelAvatar(drawIn:, glint:)` | The ring above, plus the picture swelling once (1.0 → 1.04 → 1.0, `YqPulse`) with the glint; a new picture cross-fades in from 0.94 (`YqAvatarSwap`) without redrawing the ring. |
+| `YqLevelAvatar(drawIn:, glint:)` | The ring above, plus the picture swelling once (1.0 → 1.04 → 1.0, `YqPulse`) with the glint; a new picture cross-fades in from 0.94 (`YqAvatarSwap`) without redrawing the ring. `glint` is off by default (a top-level gold ring is quiet): only the Profile stage and the Home chip pass it, for a level just reached. |
 | `YqRollingNumber` | Digits roll up 0.9 em into place, 90 ms apart, 900 ms, `Cubic(0.2, 0.9, 0.25, 1.15)` — the public card's rolling digits. Later changes roll only the digits that changed (up for more, down for less). Tabular figures. |
 | `CountUp` | Counts to the value on first show and glides between values; tabular figures; the final text reserves its width, so nothing moves around it. |
 | `YqFlip` | Two faces of a disc turning about the vertical axis (perspective 0.001, 450 ms, with the reading direction). |

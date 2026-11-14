@@ -93,8 +93,10 @@ void main() {
       handle.dispose();
     });
 
-    testWidgets('achieved = gold with a one-shot glint and pulse; reduce-motion skips both', (tester) async {
-      await tester.pumpWidget(harness(const Center(child: YqLevelAvatar(avatar: InitialAvatar(), level: 6, progress: 1, achieved: true))));
+    testWidgets('a level just reached: gold with a one-shot glint and pulse; reduce-motion skips both', (tester) async {
+      await tester.pumpWidget(
+        harness(const Center(child: YqLevelAvatar(avatar: InitialAvatar(), level: 6, progress: 1, achieved: true, glint: true))),
+      );
       final ring = tester.widget<YqRing>(find.byType(YqRing));
       expect(ring.color, YqColors.gold);
       expect(ring.glint, isTrue);
@@ -109,7 +111,7 @@ void main() {
           Builder(
             builder: (context) => MediaQuery(
               data: MediaQuery.of(context).copyWith(disableAnimations: true),
-              child: const Center(child: YqLevelAvatar(avatar: InitialAvatar(), level: 6, progress: 1, achieved: true)),
+              child: const Center(child: YqLevelAvatar(avatar: InitialAvatar(), level: 6, progress: 1, achieved: true, glint: true)),
             ),
           ),
         ),
@@ -118,12 +120,14 @@ void main() {
       expect(tester.binding.transientCallbackCount, 0);
     });
 
-    testWidgets('glint: false keeps the top-level gold quiet', (tester) async {
+    testWidgets('by default a top-level gold ring stays quiet (no glint, no pulse on every visit)', (tester) async {
       await tester.pumpWidget(
-        harness(const Center(child: YqLevelAvatar(avatar: InitialAvatar(), level: 6, progress: 1, achieved: true, glint: false))),
+        harness(const Center(child: YqLevelAvatar(avatar: InitialAvatar(), level: 6, progress: 1, achieved: true))),
       );
       await tester.pump();
       expect(tester.widget<YqRing>(find.byType(YqRing)).color, YqColors.gold);
+      expect(tester.widget<YqRing>(find.byType(YqRing)).glint, isFalse);
+      expect(tester.widget<YqPulse>(find.byType(YqPulse)).active, isFalse);
       expect(find.descendant(of: find.byType(YqRing), matching: find.byType(CustomPaint)), findsOneWidget);
     });
 
