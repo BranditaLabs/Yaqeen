@@ -3,9 +3,11 @@
  *
  * A faithful port of the app's `RecitationAligner` (apps/mobile/lib/features/recite/domain/recitation.dart)
  * and `ArabicText.normalize` (apps/mobile/lib/core/text/arabic.dart): the same normalisation, the
- * dagger-alef rule, word Levenshtein with one-edit tolerance for words of 4+ letters, and the same
- * backtrace (ties prefer «not heard» over «heard differently»). The port additionally records which
- * heard word each expected word aligned to, for the karaoke word timings.
+ * dagger-alef rule, word Levenshtein with one-edit tolerance for words of 4+ letters, the same
+ * backtrace (ties prefer «not heard» over «heard differently») and the same opening rule (the
+ * isti'adha, and the Basmala when the passage does not begin with it, are dropped from the start of
+ * what is heard — `RecitationAligner.opening`). The port additionally records which heard word each
+ * expected word aligned to, for the karaoke word timings.
  *
  * Shared rules and test vectors: packages/contracts/fixtures/recitation-match/*.json — this module's
  * tests and the Dart test run the same files, so both sides provably agree. Thresholds: contracts
@@ -68,6 +70,39 @@ export function sameWord(a: string, b: string): boolean {
   if (x === y) return true;
   if (x.length < RECITATION_MATCH.fuzzyMinLetters || y.length < RECITATION_MATCH.fuzzyMinLetters) return false;
   return editDistance(x, y) <= 1;
+}
+
+const ISTI = ['أعوذ', 'بالله', 'من', 'الشيطان', 'الرجيم'];
+const BASMALA = ['بسم', 'الله', 'الرحمن', 'الرحيم'];
+
+/**
+ * `RecitationAligner.opening`: how many words at the start of `heard` are the isti'adha / Basmala
+ * (`drop`; the Basmala only when `expected` does not begin with it), and whether what is heard so far
+ * could still be one of them being said (`open`). Heard words compare by their exact key; whether the
+ * passage begins with the Basmala uses `sameWord`.
+ */
+export function opening(heard: string[], expected: string[]): { drop: number; open: boolean } {
+  const eq = (a: string, b: string) => normWord(a) === normWord(b);
+  const startsWith = (list: string[], at: number, phrase: string[], cmp = eq) => list.length - at >= phrase.length && phrase.every((p, k) => cmp(list[at + k]!, p));
+  // The mushaf writes «ٱلرَّحۡمَٰنِ» with a dagger alef (key «الرحمان»): the passage check uses `sameWord`.
+  const basmalaFirst = startsWith(expected, 0, BASMALA, sameWord);
+  let at = 0;
+  for (const phrase of basmalaFirst ? [ISTI] : [ISTI, BASMALA]) {
+    if (startsWith(heard, at, phrase)) {
+      at += phrase.length;
+      continue;
+    }
+    const rest = heard.length - at;
+    if (rest > 0 && rest < phrase.length && Array.from({ length: rest }, (_, k) => eq(heard[at + k]!, phrase[k]!)).every(Boolean)) {
+      return { drop: at, open: true };
+    }
+  }
+  return { drop: at, open: false };
+}
+
+/** `RecitationAligner.stripOpening`: `heard` without its isti'adha / Basmala prefix. */
+export function stripOpening(heard: string[], expected: string[]): string[] {
+  return heard.slice(opening(heard, expected).drop);
 }
 
 export interface ExpectedAyah {
@@ -146,8 +181,10 @@ export interface MatchInput {
 export interface MatchResult {
   /** `ok` expected words ÷ expected words. */
   coverage: number;
-  /** Heard words aligned to no expected word ÷ heard words (0 when nothing was heard). */
+  /** Heard words aligned to no expected word ÷ heard words, after the opening (0 when nothing was heard). */
   extraRatio: number;
+  /** Words dropped from the start of what was heard as the isti'adha / Basmala (not part of the passage). */
+  openingWords: number;
   /** Speech ÷ duration. */
   speech: number;
   verdict: MatchVerdict;
@@ -163,12 +200,18 @@ const round = (x: number) => Math.round(x * 10_000) / 10_000;
 export function matchRecitation(input: MatchInput): MatchResult {
   const T = RECITATION_MATCH;
   // A heard entry may hold several words (a recogniser segment): split, sharing its time span.
-  const heard: HeardWord[] = input.heard.flatMap((h) => {
+  const all: HeardWord[] = input.heard.flatMap((h) => {
     const parts = splitWords(h.text);
     if (parts.length <= 1) return parts.map((text) => ({ ...h, text }));
     const span = Math.max(0, h.endMs - h.startMs) / parts.length;
     return parts.map((text, k) => ({ text, startMs: Math.round(h.startMs + k * span), endMs: Math.round(h.startMs + (k + 1) * span) }));
   });
+  // The isti'adha / Basmala said before the passage is neither an extra word nor part of it.
+  const openingWords = opening(
+    all.map((h) => h.text),
+    input.expected.flatMap((e) => splitWords(e.text)),
+  ).drop;
+  const heard = all.slice(openingWords);
   const aligned = align(
     input.expected,
     heard.map((h) => h.text),
@@ -204,5 +247,5 @@ export function matchRecitation(input: MatchInput): MatchResult {
       return { ayah: a.ayah, index: a.index, startMs: Math.max(0, Math.round(h.startMs)), endMs: Math.max(0, Math.round(h.endMs)) };
     });
 
-  return { coverage: round(coverage), extraRatio: round(extraRatio), speech: round(speech), verdict, rejectReason, marks: aligned.map((a) => a.mark), words };
+  return { coverage: round(coverage), extraRatio: round(extraRatio), openingWords, speech: round(speech), verdict, rejectReason, marks: aligned.map((a) => a.mark), words };
 }

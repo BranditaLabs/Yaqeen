@@ -14,7 +14,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { RECITATION_MATCH, type MatchVerdict } from '@yaqeen/contracts';
-import { type ExpectedAyah, type HeardWord, matchRecitation, normalizeArabic, normWord, sameWord, splitWords } from '../src/domain/recitation-match.js';
+import { type ExpectedAyah, type HeardWord, matchRecitation, normalizeArabic, normWord, opening, sameWord, splitWords } from '../src/domain/recitation-match.js';
 
 const quran = JSON.parse(readFileSync(fileURLToPath(new URL('../../../apps/mobile/assets/quran/quran.json', import.meta.url)), 'utf8')) as {
   ayat: string[][];
@@ -42,6 +42,12 @@ interface CaseDef {
 }
 
 const ikhlas = heardOf(112, 1, 4);
+/**
+ * The isti'adha and the Basmala in everyday spelling, as a recogniser writes them — exactly the words
+ * `RecitationAligner.opening` (and the TS `opening`) recognise.
+ */
+const ISTI = ['أعوذ', 'بالله', 'من', 'الشيطان', 'الرجيم'];
+const BASMALA = ['بسم', 'الله', 'الرحمن', 'الرحيم'];
 const fatiha24 = heardOf(1, 1, 3);
 const kursi = heardOf(2, 255, 255);
 
@@ -130,6 +136,51 @@ const cases: CaseDef[] = [
     speechMs: 3400,
     designed: 'approve',
   },
+
+  {
+    name: 'istiadha_and_basmala_first',
+    note: "The isti'adha and the Basmala before Al-Ikhlas (which does not begin with it): dropped, not extra words.",
+    surah: 112,
+    fromAyah: 1,
+    toAyah: 4,
+    heard: timed([...ISTI, ...BASMALA, ...ikhlas]),
+    durationMs: 14000,
+    speechMs: 11000,
+    designed: 'approve',
+  },
+  {
+    name: 'istiadha_before_fatiha',
+    note: "The isti'adha before Al-Fatiha 1–4: dropped; the Basmala (written «الرحمن», the mushaf has a dagger alef) is ayah 1 here, so it is matched, not dropped.",
+    surah: 1,
+    fromAyah: 1,
+    toAyah: 4,
+    heard: timed([...ISTI, ...BASMALA, ...heardOf(1, 2, 4)]),
+    durationMs: 10000,
+    speechMs: 8000,
+    designed: 'approve',
+  },
+  {
+    name: 'istiadha_mid_recitation',
+    note: "The isti'adha said in the middle is not an opening: its words count as extra.",
+    surah: 112,
+    fromAyah: 1,
+    toAyah: 4,
+    heard: timed([...ikhlas.slice(0, 4), ...ISTI, ...ikhlas.slice(4)]),
+    durationMs: 14000,
+    speechMs: 11000,
+    designed: 'approve',
+  },
+  {
+    name: 'opening_only',
+    note: "Only the isti'adha and the Basmala, then silence: nothing of the passage was heard → unclear.",
+    surah: 112,
+    fromAyah: 1,
+    toAyah: 4,
+    heard: timed([...ISTI, ...BASMALA]),
+    durationMs: 8000,
+    speechMs: 4500,
+    designed: 'reject',
+  },
 ];
 
 const built = cases.map((c) => {
@@ -159,6 +210,19 @@ const SAME: [string, string][] = [
   ['الله', 'اللة'],
   ['هو', 'هم'],
 ];
+const ikhlasWords = ayat(112, 1, 4).flatMap((a) => splitWords(a.text));
+const fatihaWords = ayat(1, 1, 4).flatMap((a) => splitWords(a.text));
+/** `RecitationAligner.opening` vectors: what is dropped, and whether the opening may still be going on. */
+const OPENING: { note: string; heard: string[]; expected: string[] }[] = [
+  { note: "isti'adha in progress: wait", heard: ISTI.slice(0, 2), expected: ikhlasWords },
+  { note: "isti'adha done, Basmala in progress: drop 5, wait", heard: [...ISTI, ...BASMALA.slice(0, 2)], expected: ikhlasWords },
+  { note: "both, then the passage: drop 9", heard: [...ISTI, ...BASMALA, ...ikhlas.slice(0, 2)], expected: ikhlasWords },
+  { note: 'Basmala only, then the passage: drop 4', heard: [...BASMALA, ...ikhlas.slice(0, 3)], expected: ikhlasWords },
+  { note: "passage begins with the Basmala: only the isti'adha is dropped", heard: [...ISTI, ...BASMALA], expected: fatihaWords },
+  { note: 'the passage straight away: nothing dropped', heard: ikhlas.slice(0, 3), expected: ikhlasWords },
+  { note: 'nothing heard yet', heard: [], expected: ikhlasWords },
+];
+
 const NORMALIZE = [text(1, 1), text(1, 2), text(112, 1), 'أإآٱ ة ى ؤ ئ ـ ١٢٣ ABC'];
 
 const files: Record<string, unknown> = {
@@ -171,17 +235,19 @@ const files: Record<string, unknown> = {
     words: 'Split on whitespace; drop tokens made only of U+06D6–U+06ED, U+06DD, U+06DE, ٠–٩, U+FD3E, U+FD3F, 0–9 (ayah-end and pause marks). A word index counts the rest.',
     wordKey: 'Replace U+0670 (dagger alef) with ا, normalise, keep only U+0621–U+064A.',
     same: `Keys equal, or both at least ${RECITATION_MATCH.fuzzyMinLetters} letters and Levenshtein distance ≤ 1.`,
+    opening:
+      "Before aligning, drop from the start of what is heard the isti'adha (أعوذ بالله من الشيطان الرجيم) and then the Basmala (بسم الله الرحمن الرحيم) unless the passage itself begins with the Basmala (checked with `same`: the mushaf writes الرحمن with a dagger alef); heard words compare by exact key. A partial phrase at the end of what is heard is 'open' (live following waits) and is not dropped. Dropped words are neither heard nor extra (`openingWords`).",
     align:
       'Word-level Levenshtein (substitution cost 0 when same, else 1; deletion = expected word not heard; insertion = extra heard word). Backtrace from the end: same and diagonal equal → ok; else up (+1) → skipped; else diagonal (+1) → warn; else left (extra heard word).',
     scores: {
       coverage: 'ok marks ÷ expected words',
-      extraRatio: 'heard words paired with no expected word (not ok/warn) ÷ heard words; 0 when nothing heard',
+      extraRatio: 'heard words (after the opening) paired with no expected word (not ok/warn) ÷ heard words; 0 when nothing heard',
       speech: 'min(1, speechMs ÷ durationMs)',
       segments: 'A heard entry with several words is split; its span is shared equally between them.',
     },
     verdict: [
       `speech < ${RECITATION_MATCH.silenceSpeech} → reject silence`,
-      'no heard words → reject unclear',
+      'no heard words (after the opening) → reject unclear',
       `coverage < ${RECITATION_MATCH.rejectCoverage} → reject not_matching`,
       `coverage ≥ ${RECITATION_MATCH.approveCoverage} and speech ≥ ${RECITATION_MATCH.approveSpeech} and extraRatio ≤ ${RECITATION_MATCH.maxExtraRatio} → approve`,
       'otherwise → needs_review',
@@ -191,6 +257,7 @@ const files: Record<string, unknown> = {
   },
   'normalize.json': NORMALIZE.map((input) => ({ input, output: normalizeArabic(input), keys: splitWords(input).map(normWord) })),
   'same.json': SAME.map(([a, b]) => ({ a, b, same: sameWord(a, b) })),
+  'opening.json': OPENING.map((o) => ({ ...o, ...opening(o.heard, o.expected) })),
   'cases.json': built,
 };
 

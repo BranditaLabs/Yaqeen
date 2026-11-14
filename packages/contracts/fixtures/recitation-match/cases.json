@@ -95,6 +95,7 @@
     "result": {
       "coverage": 1,
       "extraRatio": 0,
+      "openingWords": 0,
       "speech": 0.8,
       "verdict": "approve",
       "rejectReason": null,
@@ -262,6 +263,7 @@
     "result": {
       "coverage": 0.7,
       "extraRatio": 0,
+      "openingWords": 0,
       "speech": 0.7,
       "verdict": "needs_review",
       "rejectReason": null,
@@ -412,6 +414,7 @@
     "result": {
       "coverage": 1,
       "extraRatio": 0,
+      "openingWords": 0,
       "speech": 0.7778,
       "verdict": "approve",
       "rejectReason": null,
@@ -535,6 +538,7 @@
     "result": {
       "coverage": 0,
       "extraRatio": 0,
+      "openingWords": 0,
       "speech": 0.06,
       "verdict": "reject",
       "rejectReason": "silence",
@@ -588,6 +592,7 @@
     "result": {
       "coverage": 0,
       "extraRatio": 0,
+      "openingWords": 0,
       "speech": 0.6,
       "verdict": "reject",
       "rejectReason": "unclear",
@@ -757,6 +762,7 @@
     "result": {
       "coverage": 0.0667,
       "extraRatio": 0.3478,
+      "openingWords": 0,
       "speech": 0.7857,
       "verdict": "reject",
       "rejectReason": "not_matching",
@@ -1030,6 +1036,7 @@
     "result": {
       "coverage": 0.56,
       "extraRatio": 0,
+      "openingWords": 0,
       "speech": 0.7333,
       "verdict": "needs_review",
       "rejectReason": null,
@@ -1383,6 +1390,7 @@
     "result": {
       "coverage": 1,
       "extraRatio": 0.2105,
+      "openingWords": 0,
       "speech": 0.75,
       "verdict": "approve",
       "rejectReason": null,
@@ -1818,6 +1826,7 @@
     "result": {
       "coverage": 1,
       "extraRatio": 0.7414,
+      "openingWords": 0,
       "speech": 0.8667,
       "verdict": "needs_review",
       "rejectReason": null,
@@ -2009,6 +2018,7 @@
     "result": {
       "coverage": 1,
       "extraRatio": 0,
+      "openingWords": 0,
       "speech": 0.25,
       "verdict": "needs_review",
       "rejectReason": null,
@@ -2121,6 +2131,7 @@
     "result": {
       "coverage": 1,
       "extraRatio": 0,
+      "openingWords": 0,
       "speech": 0.7556,
       "verdict": "approve",
       "rejectReason": null,
@@ -2170,6 +2181,840 @@
           "endMs": 3600
         }
       ]
+    }
+  },
+  {
+    "name": "istiadha_and_basmala_first",
+    "note": "The isti'adha and the Basmala before Al-Ikhlas (which does not begin with it): dropped, not extra words.",
+    "surah": 112,
+    "fromAyah": 1,
+    "toAyah": 4,
+    "expected": [
+      {
+        "ayah": 1,
+        "text": "قُلۡ هُوَ ٱللَّهُ أَحَدٌ"
+      },
+      {
+        "ayah": 2,
+        "text": "ٱللَّهُ ٱلصَّمَدُ"
+      },
+      {
+        "ayah": 3,
+        "text": "لَمۡ يَلِدۡ وَلَمۡ يُولَدۡ"
+      },
+      {
+        "ayah": 4,
+        "text": "وَلَمۡ يَكُن لَّهُۥ كُفُوًا أَحَدُۢ"
+      }
+    ],
+    "heard": [
+      {
+        "text": "أعوذ",
+        "startMs": 300,
+        "endMs": 720
+      },
+      {
+        "text": "بالله",
+        "startMs": 780,
+        "endMs": 1200
+      },
+      {
+        "text": "من",
+        "startMs": 1260,
+        "endMs": 1680
+      },
+      {
+        "text": "الشيطان",
+        "startMs": 1740,
+        "endMs": 2160
+      },
+      {
+        "text": "الرجيم",
+        "startMs": 2220,
+        "endMs": 2640
+      },
+      {
+        "text": "بسم",
+        "startMs": 2700,
+        "endMs": 3120
+      },
+      {
+        "text": "الله",
+        "startMs": 3180,
+        "endMs": 3600
+      },
+      {
+        "text": "الرحمن",
+        "startMs": 3660,
+        "endMs": 4080
+      },
+      {
+        "text": "الرحيم",
+        "startMs": 4140,
+        "endMs": 4560
+      },
+      {
+        "text": "قل",
+        "startMs": 4620,
+        "endMs": 5040
+      },
+      {
+        "text": "هو",
+        "startMs": 5100,
+        "endMs": 5520
+      },
+      {
+        "text": "ٱلله",
+        "startMs": 5580,
+        "endMs": 6000
+      },
+      {
+        "text": "أحد",
+        "startMs": 6060,
+        "endMs": 6480
+      },
+      {
+        "text": "ٱلله",
+        "startMs": 6540,
+        "endMs": 6960
+      },
+      {
+        "text": "ٱلصمد",
+        "startMs": 7020,
+        "endMs": 7440
+      },
+      {
+        "text": "لم",
+        "startMs": 7500,
+        "endMs": 7920
+      },
+      {
+        "text": "يلد",
+        "startMs": 7980,
+        "endMs": 8400
+      },
+      {
+        "text": "ولم",
+        "startMs": 8460,
+        "endMs": 8880
+      },
+      {
+        "text": "يولد",
+        "startMs": 8940,
+        "endMs": 9360
+      },
+      {
+        "text": "ولم",
+        "startMs": 9420,
+        "endMs": 9840
+      },
+      {
+        "text": "يكن",
+        "startMs": 9900,
+        "endMs": 10320
+      },
+      {
+        "text": "له",
+        "startMs": 10380,
+        "endMs": 10800
+      },
+      {
+        "text": "كفوا",
+        "startMs": 10860,
+        "endMs": 11280
+      },
+      {
+        "text": "أحد",
+        "startMs": 11340,
+        "endMs": 11760
+      }
+    ],
+    "durationMs": 14000,
+    "speechMs": 11000,
+    "result": {
+      "coverage": 1,
+      "extraRatio": 0,
+      "openingWords": 9,
+      "speech": 0.7857,
+      "verdict": "approve",
+      "rejectReason": null,
+      "marks": [
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok"
+      ],
+      "words": [
+        {
+          "ayah": 1,
+          "index": 0,
+          "startMs": 4620,
+          "endMs": 5040
+        },
+        {
+          "ayah": 1,
+          "index": 1,
+          "startMs": 5100,
+          "endMs": 5520
+        },
+        {
+          "ayah": 1,
+          "index": 2,
+          "startMs": 5580,
+          "endMs": 6000
+        },
+        {
+          "ayah": 1,
+          "index": 3,
+          "startMs": 6060,
+          "endMs": 6480
+        },
+        {
+          "ayah": 2,
+          "index": 0,
+          "startMs": 6540,
+          "endMs": 6960
+        },
+        {
+          "ayah": 2,
+          "index": 1,
+          "startMs": 7020,
+          "endMs": 7440
+        },
+        {
+          "ayah": 3,
+          "index": 0,
+          "startMs": 7500,
+          "endMs": 7920
+        },
+        {
+          "ayah": 3,
+          "index": 1,
+          "startMs": 7980,
+          "endMs": 8400
+        },
+        {
+          "ayah": 3,
+          "index": 2,
+          "startMs": 8460,
+          "endMs": 8880
+        },
+        {
+          "ayah": 3,
+          "index": 3,
+          "startMs": 8940,
+          "endMs": 9360
+        },
+        {
+          "ayah": 4,
+          "index": 0,
+          "startMs": 9420,
+          "endMs": 9840
+        },
+        {
+          "ayah": 4,
+          "index": 1,
+          "startMs": 9900,
+          "endMs": 10320
+        },
+        {
+          "ayah": 4,
+          "index": 2,
+          "startMs": 10380,
+          "endMs": 10800
+        },
+        {
+          "ayah": 4,
+          "index": 3,
+          "startMs": 10860,
+          "endMs": 11280
+        },
+        {
+          "ayah": 4,
+          "index": 4,
+          "startMs": 11340,
+          "endMs": 11760
+        }
+      ]
+    }
+  },
+  {
+    "name": "istiadha_before_fatiha",
+    "note": "The isti'adha before Al-Fatiha 1–4: dropped; the Basmala (written «الرحمن», the mushaf has a dagger alef) is ayah 1 here, so it is matched, not dropped.",
+    "surah": 1,
+    "fromAyah": 1,
+    "toAyah": 4,
+    "expected": [
+      {
+        "ayah": 1,
+        "text": "بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ"
+      },
+      {
+        "ayah": 2,
+        "text": "ٱلۡحَمۡدُ لِلَّهِ رَبِّ ٱلۡعَٰلَمِينَ"
+      },
+      {
+        "ayah": 3,
+        "text": "ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ"
+      },
+      {
+        "ayah": 4,
+        "text": "مَٰلِكِ يَوۡمِ ٱلدِّينِ"
+      }
+    ],
+    "heard": [
+      {
+        "text": "أعوذ",
+        "startMs": 300,
+        "endMs": 720
+      },
+      {
+        "text": "بالله",
+        "startMs": 780,
+        "endMs": 1200
+      },
+      {
+        "text": "من",
+        "startMs": 1260,
+        "endMs": 1680
+      },
+      {
+        "text": "الشيطان",
+        "startMs": 1740,
+        "endMs": 2160
+      },
+      {
+        "text": "الرجيم",
+        "startMs": 2220,
+        "endMs": 2640
+      },
+      {
+        "text": "بسم",
+        "startMs": 2700,
+        "endMs": 3120
+      },
+      {
+        "text": "الله",
+        "startMs": 3180,
+        "endMs": 3600
+      },
+      {
+        "text": "الرحمن",
+        "startMs": 3660,
+        "endMs": 4080
+      },
+      {
+        "text": "الرحيم",
+        "startMs": 4140,
+        "endMs": 4560
+      },
+      {
+        "text": "ٱلحمد",
+        "startMs": 4620,
+        "endMs": 5040
+      },
+      {
+        "text": "لله",
+        "startMs": 5100,
+        "endMs": 5520
+      },
+      {
+        "text": "رب",
+        "startMs": 5580,
+        "endMs": 6000
+      },
+      {
+        "text": "ٱلعالمين",
+        "startMs": 6060,
+        "endMs": 6480
+      },
+      {
+        "text": "ٱلرحمان",
+        "startMs": 6540,
+        "endMs": 6960
+      },
+      {
+        "text": "ٱلرحيم",
+        "startMs": 7020,
+        "endMs": 7440
+      },
+      {
+        "text": "مالك",
+        "startMs": 7500,
+        "endMs": 7920
+      },
+      {
+        "text": "يوم",
+        "startMs": 7980,
+        "endMs": 8400
+      },
+      {
+        "text": "ٱلدين",
+        "startMs": 8460,
+        "endMs": 8880
+      }
+    ],
+    "durationMs": 10000,
+    "speechMs": 8000,
+    "result": {
+      "coverage": 1,
+      "extraRatio": 0,
+      "openingWords": 5,
+      "speech": 0.8,
+      "verdict": "approve",
+      "rejectReason": null,
+      "marks": [
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok"
+      ],
+      "words": [
+        {
+          "ayah": 1,
+          "index": 0,
+          "startMs": 2700,
+          "endMs": 3120
+        },
+        {
+          "ayah": 1,
+          "index": 1,
+          "startMs": 3180,
+          "endMs": 3600
+        },
+        {
+          "ayah": 1,
+          "index": 2,
+          "startMs": 3660,
+          "endMs": 4080
+        },
+        {
+          "ayah": 1,
+          "index": 3,
+          "startMs": 4140,
+          "endMs": 4560
+        },
+        {
+          "ayah": 2,
+          "index": 0,
+          "startMs": 4620,
+          "endMs": 5040
+        },
+        {
+          "ayah": 2,
+          "index": 1,
+          "startMs": 5100,
+          "endMs": 5520
+        },
+        {
+          "ayah": 2,
+          "index": 2,
+          "startMs": 5580,
+          "endMs": 6000
+        },
+        {
+          "ayah": 2,
+          "index": 3,
+          "startMs": 6060,
+          "endMs": 6480
+        },
+        {
+          "ayah": 3,
+          "index": 0,
+          "startMs": 6540,
+          "endMs": 6960
+        },
+        {
+          "ayah": 3,
+          "index": 1,
+          "startMs": 7020,
+          "endMs": 7440
+        },
+        {
+          "ayah": 4,
+          "index": 0,
+          "startMs": 7500,
+          "endMs": 7920
+        },
+        {
+          "ayah": 4,
+          "index": 1,
+          "startMs": 7980,
+          "endMs": 8400
+        },
+        {
+          "ayah": 4,
+          "index": 2,
+          "startMs": 8460,
+          "endMs": 8880
+        }
+      ]
+    }
+  },
+  {
+    "name": "istiadha_mid_recitation",
+    "note": "The isti'adha said in the middle is not an opening: its words count as extra.",
+    "surah": 112,
+    "fromAyah": 1,
+    "toAyah": 4,
+    "expected": [
+      {
+        "ayah": 1,
+        "text": "قُلۡ هُوَ ٱللَّهُ أَحَدٌ"
+      },
+      {
+        "ayah": 2,
+        "text": "ٱللَّهُ ٱلصَّمَدُ"
+      },
+      {
+        "ayah": 3,
+        "text": "لَمۡ يَلِدۡ وَلَمۡ يُولَدۡ"
+      },
+      {
+        "ayah": 4,
+        "text": "وَلَمۡ يَكُن لَّهُۥ كُفُوًا أَحَدُۢ"
+      }
+    ],
+    "heard": [
+      {
+        "text": "قل",
+        "startMs": 300,
+        "endMs": 720
+      },
+      {
+        "text": "هو",
+        "startMs": 780,
+        "endMs": 1200
+      },
+      {
+        "text": "ٱلله",
+        "startMs": 1260,
+        "endMs": 1680
+      },
+      {
+        "text": "أحد",
+        "startMs": 1740,
+        "endMs": 2160
+      },
+      {
+        "text": "أعوذ",
+        "startMs": 2220,
+        "endMs": 2640
+      },
+      {
+        "text": "بالله",
+        "startMs": 2700,
+        "endMs": 3120
+      },
+      {
+        "text": "من",
+        "startMs": 3180,
+        "endMs": 3600
+      },
+      {
+        "text": "الشيطان",
+        "startMs": 3660,
+        "endMs": 4080
+      },
+      {
+        "text": "الرجيم",
+        "startMs": 4140,
+        "endMs": 4560
+      },
+      {
+        "text": "ٱلله",
+        "startMs": 4620,
+        "endMs": 5040
+      },
+      {
+        "text": "ٱلصمد",
+        "startMs": 5100,
+        "endMs": 5520
+      },
+      {
+        "text": "لم",
+        "startMs": 5580,
+        "endMs": 6000
+      },
+      {
+        "text": "يلد",
+        "startMs": 6060,
+        "endMs": 6480
+      },
+      {
+        "text": "ولم",
+        "startMs": 6540,
+        "endMs": 6960
+      },
+      {
+        "text": "يولد",
+        "startMs": 7020,
+        "endMs": 7440
+      },
+      {
+        "text": "ولم",
+        "startMs": 7500,
+        "endMs": 7920
+      },
+      {
+        "text": "يكن",
+        "startMs": 7980,
+        "endMs": 8400
+      },
+      {
+        "text": "له",
+        "startMs": 8460,
+        "endMs": 8880
+      },
+      {
+        "text": "كفوا",
+        "startMs": 8940,
+        "endMs": 9360
+      },
+      {
+        "text": "أحد",
+        "startMs": 9420,
+        "endMs": 9840
+      }
+    ],
+    "durationMs": 14000,
+    "speechMs": 11000,
+    "result": {
+      "coverage": 1,
+      "extraRatio": 0.25,
+      "openingWords": 0,
+      "speech": 0.7857,
+      "verdict": "approve",
+      "rejectReason": null,
+      "marks": [
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok"
+      ],
+      "words": [
+        {
+          "ayah": 1,
+          "index": 0,
+          "startMs": 300,
+          "endMs": 720
+        },
+        {
+          "ayah": 1,
+          "index": 1,
+          "startMs": 780,
+          "endMs": 1200
+        },
+        {
+          "ayah": 1,
+          "index": 2,
+          "startMs": 1260,
+          "endMs": 1680
+        },
+        {
+          "ayah": 1,
+          "index": 3,
+          "startMs": 1740,
+          "endMs": 2160
+        },
+        {
+          "ayah": 2,
+          "index": 0,
+          "startMs": 4620,
+          "endMs": 5040
+        },
+        {
+          "ayah": 2,
+          "index": 1,
+          "startMs": 5100,
+          "endMs": 5520
+        },
+        {
+          "ayah": 3,
+          "index": 0,
+          "startMs": 5580,
+          "endMs": 6000
+        },
+        {
+          "ayah": 3,
+          "index": 1,
+          "startMs": 6060,
+          "endMs": 6480
+        },
+        {
+          "ayah": 3,
+          "index": 2,
+          "startMs": 6540,
+          "endMs": 6960
+        },
+        {
+          "ayah": 3,
+          "index": 3,
+          "startMs": 7020,
+          "endMs": 7440
+        },
+        {
+          "ayah": 4,
+          "index": 0,
+          "startMs": 7500,
+          "endMs": 7920
+        },
+        {
+          "ayah": 4,
+          "index": 1,
+          "startMs": 7980,
+          "endMs": 8400
+        },
+        {
+          "ayah": 4,
+          "index": 2,
+          "startMs": 8460,
+          "endMs": 8880
+        },
+        {
+          "ayah": 4,
+          "index": 3,
+          "startMs": 8940,
+          "endMs": 9360
+        },
+        {
+          "ayah": 4,
+          "index": 4,
+          "startMs": 9420,
+          "endMs": 9840
+        }
+      ]
+    }
+  },
+  {
+    "name": "opening_only",
+    "note": "Only the isti'adha and the Basmala, then silence: nothing of the passage was heard → unclear.",
+    "surah": 112,
+    "fromAyah": 1,
+    "toAyah": 4,
+    "expected": [
+      {
+        "ayah": 1,
+        "text": "قُلۡ هُوَ ٱللَّهُ أَحَدٌ"
+      },
+      {
+        "ayah": 2,
+        "text": "ٱللَّهُ ٱلصَّمَدُ"
+      },
+      {
+        "ayah": 3,
+        "text": "لَمۡ يَلِدۡ وَلَمۡ يُولَدۡ"
+      },
+      {
+        "ayah": 4,
+        "text": "وَلَمۡ يَكُن لَّهُۥ كُفُوًا أَحَدُۢ"
+      }
+    ],
+    "heard": [
+      {
+        "text": "أعوذ",
+        "startMs": 300,
+        "endMs": 720
+      },
+      {
+        "text": "بالله",
+        "startMs": 780,
+        "endMs": 1200
+      },
+      {
+        "text": "من",
+        "startMs": 1260,
+        "endMs": 1680
+      },
+      {
+        "text": "الشيطان",
+        "startMs": 1740,
+        "endMs": 2160
+      },
+      {
+        "text": "الرجيم",
+        "startMs": 2220,
+        "endMs": 2640
+      },
+      {
+        "text": "بسم",
+        "startMs": 2700,
+        "endMs": 3120
+      },
+      {
+        "text": "الله",
+        "startMs": 3180,
+        "endMs": 3600
+      },
+      {
+        "text": "الرحمن",
+        "startMs": 3660,
+        "endMs": 4080
+      },
+      {
+        "text": "الرحيم",
+        "startMs": 4140,
+        "endMs": 4560
+      }
+    ],
+    "durationMs": 8000,
+    "speechMs": 4500,
+    "result": {
+      "coverage": 0,
+      "extraRatio": 0,
+      "openingWords": 9,
+      "speech": 0.5625,
+      "verdict": "reject",
+      "rejectReason": "unclear",
+      "marks": [
+        "skipped",
+        "skipped",
+        "skipped",
+        "skipped",
+        "skipped",
+        "skipped",
+        "skipped",
+        "skipped",
+        "skipped",
+        "skipped",
+        "skipped",
+        "skipped",
+        "skipped",
+        "skipped",
+        "skipped"
+      ],
+      "words": []
     }
   }
 ]

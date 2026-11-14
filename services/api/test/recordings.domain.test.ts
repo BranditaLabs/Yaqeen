@@ -9,7 +9,7 @@ import { RECITATION_MATCH } from '@yaqeen/contracts';
 import { checkComment, foldTokens, hasBlockedWord, hasLink, hasPhone, parseBlocklist } from '../src/domain/comments.js';
 import { inspectM4a, matchesRecordingFormat } from '../src/domain/m4a.js';
 import { expectedAyat, validRange } from '../src/domain/quran-words.js';
-import { align, matchRecitation, normalizeArabic, normWord, sameWord, splitWords } from '../src/domain/recitation-match.js';
+import { align, matchRecitation, normalizeArabic, normWord, opening, sameWord, splitWords } from '../src/domain/recitation-match.js';
 import { buildM4a } from './helpers/m4a.js';
 
 const dir = new URL('../../../packages/contracts/fixtures/recitation-match/', import.meta.url);
@@ -41,6 +41,10 @@ describe('recitation match — shared vectors', () => {
 
   for (const v of load<{ a: string; b: string; same: boolean }[]>('same.json')) {
     it(`same(${v.a}, ${v.b}) = ${v.same}`, () => expect(sameWord(v.a, v.b)).toBe(v.same));
+  }
+
+  for (const v of load<{ note: string; heard: string[]; expected: string[]; drop: number; open: boolean }[]>('opening.json')) {
+    it(`opening: ${v.note}`, () => expect(opening(v.heard, v.expected)).toEqual({ drop: v.drop, open: v.open }));
   }
 
   for (const c of load<Case[]>('cases.json')) {
