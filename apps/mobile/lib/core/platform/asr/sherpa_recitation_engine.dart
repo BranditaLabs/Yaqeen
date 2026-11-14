@@ -17,6 +17,10 @@ import 'pcm.dart';
 /// The real «تسميع» engine (spec §6.8): the microphone through `record` (16 kHz mono PCM, in memory
 /// only), Silero VAD on this isolate, and Whisper (sherpa-onnx, ONNX int8) on a background isolate,
 /// tied together by [LiveTranscriber]. Nothing is written to disk and nothing leaves the phone.
+///
+/// Lifecycle: the model loads on the first recitation and leaves memory [idleRelease] after the
+/// last one (or at once on [release], e.g. when the model is deleted). A start that is still
+/// setting up when [stop] arrives never opens the microphone afterwards.
 class SherpaRecitationEngine extends RecitationEngine {
   SherpaRecitationEngine({required this.store, required this.kv});
 
@@ -39,6 +43,9 @@ class SherpaRecitationEngine extends RecitationEngine {
 
   static bool get _platform => Platform.isAndroid || Platform.isIOS;
 
+  /// The model leaves memory this long after the last recitation (it holds ~50–100 MB of RAM).
+  static const idleRelease = Duration(minutes: 2);
+
   _WhisperWorker? _worker;
   SpeechActivity? _vad;
   AudioRecorder? _recorder;
@@ -46,6 +53,11 @@ class SherpaRecitationEngine extends RecitationEngine {
   StreamSubscription<Float32List>? _external;
   LiveTranscriber? _session;
   final _level = StreamController<double>.broadcast();
+  Timer? _idle;
+
+  /// Moves with every start and [stop]: a start still setting up when the user stops (or the app
+  /// leaves the foreground, or a newer start begins) gives up instead of opening the microphone.
+  int _generation = 0;
 
   @override
   AsrModelInfo? get modelInfo => store.manifest.info;
@@ -61,7 +73,7 @@ class SherpaRecitationEngine extends RecitationEngine {
 
   Future<_WhisperWorker> _decoder() async {
     final w = _worker;
-    if (w != null) return w;
+    if (w != null && !w.dead) return w;
     return _worker = await _WhisperWorker.spawn(
       encoder: await store.pathOf(AsrFileRole.encoder),
       decoder: await store.pathOf(AsrFileRole.decoder),
@@ -81,23 +93,43 @@ class SherpaRecitationEngine extends RecitationEngine {
   @override
   Future<LiveSupport> liveSupport() async {
     if (!await isAvailable()) return LiveSupport.unknown;
-    return LiveSupportProbe.resolve(kv, store.manifest.id, _decoder);
+    _idle?.cancel();
+    try {
+      return await LiveSupportProbe.resolve(kv, store.manifest.id, _decoder);
+    } finally {
+      if (_session == null) _scheduleRelease();
+    }
   }
 
   Future<LiveTranscriber> _begin(bool live) async {
     await _end(cancel: true);
+    _idle?.cancel();
     if (!await isAvailable()) throw StateError('recitation model not ready');
     return _session = LiveTranscriber(decoder: await _decoder(), activity: await _activity(), live: live);
+  }
+
+  /// A start that lost the race to [stop] (or to a newer start): its session ends unused.
+  Future<void> _abandon(LiveTranscriber? t, StreamController<RecognitionUpdate> out) async {
+    if (t != null) {
+      if (identical(_session, t)) _session = null;
+      await t.cancel();
+    }
+    if (_session == null) _scheduleRelease();
+    await out.close();
   }
 
   @override
   Stream<RecognitionUpdate> listen({bool live = true}) {
     final out = StreamController<RecognitionUpdate>();
+    final gen = ++_generation;
     () async {
+      LiveTranscriber? t;
       try {
         final recorder = _recorder ??= AudioRecorder();
         if (!await recorder.hasPermission()) throw const MicrophoneDenied();
-        final t = await _begin(live);
+        if (gen != _generation) return await _abandon(null, out);
+        t = await _begin(live);
+        if (gen != _generation) return await _abandon(t, out);
         t.updates.listen(out.add, onError: out.addError, onDone: out.close);
         final pcm = Pcm16Decoder();
         final bytes = await recorder.startStream(
@@ -110,14 +142,23 @@ class SherpaRecitationEngine extends RecitationEngine {
             androidConfig: AndroidRecordConfig(audioSource: AndroidAudioSource.voiceRecognition),
           ),
         );
+        if (gen != _generation) {
+          // Stopped while the microphone was opening: it closes again at once.
+          if (_mic == null && await recorder.isRecording()) await recorder.stop();
+          return await _abandon(t, out);
+        }
+        final session = t;
         _mic = bytes.listen((chunk) {
           final s = pcm.convert(chunk);
           _level.add(levelOf(s));
-          t.add(s);
+          session.add(s);
         });
       } on Object catch (e, st) {
-        out.addError(e, st);
-        await out.close();
+        if (t != null && identical(_session, t) && gen == _generation) await _end(cancel: true);
+        if (!out.isClosed) {
+          out.addError(e, st);
+          await out.close();
+        }
       }
     }();
     return out.stream;
@@ -126,9 +167,11 @@ class SherpaRecitationEngine extends RecitationEngine {
   @override
   Stream<RecognitionUpdate> startFromPcm(Stream<Float32List> pcm, {bool live = true}) {
     final out = StreamController<RecognitionUpdate>();
+    final gen = ++_generation;
     () async {
       try {
         final t = await _begin(live);
+        if (gen != _generation) return await _abandon(t, out);
         t.updates.listen(out.add, onError: out.addError, onDone: out.close);
         _external = pcm.listen(
           (s) {
@@ -138,8 +181,10 @@ class SherpaRecitationEngine extends RecitationEngine {
           onDone: () => stop(),
         );
       } on Object catch (e, st) {
-        out.addError(e, st);
-        await out.close();
+        if (!out.isClosed) {
+          out.addError(e, st);
+          await out.close();
+        }
       }
     }();
     return out.stream;
@@ -149,6 +194,7 @@ class SherpaRecitationEngine extends RecitationEngine {
   Future<RecognitionUpdate> transcribeFile(String path) async {
     final wav = readWav(await File(path).readAsBytes());
     final samples = wav.sampleRate == asrSampleRate ? wav.samples : _resample(wav.samples, wav.sampleRate);
+    _generation++;
     final t = await _begin(false);
     final last = t.updates.last;
     const step = asrSampleRate ~/ 10;
@@ -156,7 +202,8 @@ class SherpaRecitationEngine extends RecitationEngine {
       t.add(Float32List.sublistView(samples, i, i + step > samples.length ? samples.length : i + step));
     }
     await t.finish();
-    _session = null;
+    if (identical(_session, t)) _session = null;
+    _scheduleRelease();
     return last;
   }
 
@@ -183,21 +230,48 @@ class SherpaRecitationEngine extends RecitationEngine {
     if (r != null && await r.isRecording()) await r.stop();
     final s = _session;
     _session = null;
-    if (s != null) await (cancel ? s.cancel() : s.finish());
+    if (s != null) {
+      await (cancel ? s.cancel() : s.finish());
+      _scheduleRelease();
+    }
   }
 
   @override
-  Future<void> stop() => _end();
+  Future<void> stop() {
+    _generation++;
+    return _end();
+  }
 
-  /// Frees the model (the app is leaving; the next session loads it again).
-  Future<void> dispose() async {
-    await _end(cancel: true);
-    await _recorder?.dispose();
-    _recorder = null;
+  void _scheduleRelease() {
+    _idle?.cancel();
+    _idle = Timer(idleRelease, () {
+      if (_session == null) _releaseModel().ignore();
+    });
+  }
+
+  Future<void> _releaseModel() async {
+    _idle?.cancel();
+    _idle = null;
     _vad?.dispose();
     _vad = null;
-    await _worker?.dispose();
+    final w = _worker;
     _worker = null;
+    await w?.dispose();
+  }
+
+  /// The model leaves memory now (it was deleted); the next recitation loads it again.
+  @override
+  Future<void> release() async {
+    _generation++;
+    await _end(cancel: true);
+    await _releaseModel();
+  }
+
+  /// Frees the model and the microphone (the app is leaving).
+  Future<void> dispose() async {
+    await release();
+    await _recorder?.dispose();
+    _recorder = null;
   }
 }
 
@@ -235,23 +309,28 @@ class _SileroActivity implements SpeechActivity {
 
 /// Whisper on its own isolate: the UI never waits for a decode.
 class _WhisperWorker implements SpeechDecoder {
-  _WhisperWorker._(this._isolate, this._send, this._replies);
+  _WhisperWorker._(this._send, this._replies, this._exits);
 
-  final Isolate _isolate;
   final SendPort _send;
   final ReceivePort _replies;
+  final ReceivePort _exits;
   final _waiting = <int, Completer<List<RecognizedWord>>>{};
   int _next = 0;
 
+  /// The isolate is gone (a model that failed to load, a crash, [dispose]): the next session
+  /// spawns a new one.
+  bool dead = false;
+
   static Future<_WhisperWorker> spawn({required String encoder, required String decoder, required String tokens}) async {
     final replies = ReceivePort();
+    final exits = ReceivePort();
     final ready = Completer<SendPort>();
-    late _WhisperWorker worker;
+    _WhisperWorker? worker;
     replies.listen((m) {
       if (m is SendPort) {
-        ready.complete(m);
+        if (!ready.isCompleted) ready.complete(m);
       } else if (m is List && m.length == 2) {
-        final c = worker._waiting.remove(m[0] as int);
+        final c = worker?._waiting.remove(m[0] as int);
         final r = m[1];
         if (r is String) {
           c?.completeError(StateError(r));
@@ -260,28 +339,48 @@ class _WhisperWorker implements SpeechDecoder {
         }
       }
     });
-    final isolate = await Isolate.spawn(_main, (replies.sendPort, encoder, decoder, tokens));
-    worker = _WhisperWorker._(isolate, await ready.future, replies);
-    return worker;
+    // An uncaught error (a model that does not load) or the isolate ending never leaves anyone
+    // waiting: the start fails, pending decodes fail, and the next session spawns a new isolate.
+    exits.listen((m) {
+      final error = StateError(m == null ? 'recognizer exited' : 'recognizer failed: $m');
+      if (!ready.isCompleted) ready.completeError(error);
+      worker?._fail(error);
+    });
+    try {
+      await Isolate.spawn(_main, (replies.sendPort, encoder, decoder, tokens), onError: exits.sendPort, onExit: exits.sendPort);
+      return worker = _WhisperWorker._(await ready.future, replies, exits);
+    } on Object {
+      replies.close();
+      exits.close();
+      rethrow;
+    }
+  }
+
+  void _fail(Object error) {
+    dead = true;
+    for (final c in _waiting.values) {
+      c.completeError(error);
+    }
+    _waiting.clear();
+    _replies.close();
+    _exits.close();
   }
 
   @override
   Future<List<RecognizedWord>> decode(Float32List samples) {
+    if (dead) return Future.error(StateError('recognizer gone'));
     final id = _next++;
     final c = _waiting[id] = Completer<List<RecognizedWord>>();
     _send.send((id, TransferableTypedData.fromList([samples])));
     return c.future;
   }
 
+  /// Asks the isolate to free the recognizer's native memory and end by itself (killing it
+  /// would leave that memory behind).
   @override
   Future<void> dispose() async {
-    _send.send(null);
-    _replies.close();
-    _isolate.kill(priority: Isolate.beforeNextEvent);
-    for (final c in _waiting.values) {
-      c.completeError(StateError('disposed'));
-    }
-    _waiting.clear();
+    if (!dead) _send.send(null);
+    _fail(StateError('disposed'));
   }
 
   static void _main((SendPort, String, String, String) args) {

@@ -96,6 +96,10 @@ abstract class RecitationEngine {
   /// Whether this phone keeps up live (measured once, then remembered).
   Future<LiveSupport> liveSupport() async => LiveSupport.unknown;
 
+  /// Stops any session and frees the loaded model now (the model was deleted); the next session
+  /// loads it again.
+  Future<void> release() => stop();
+
   /// Stops the microphone; a non-live session then delivers its final update.
   Future<void> stop();
 }

@@ -88,6 +88,8 @@ class AsrModelController extends Notifier<AsrModelState> {
   }
 
   Future<void> delete() async {
+    // Out of memory first (a loaded model keeps its files' contents alive), then off the disk.
+    await ref.read(recitationEngineProvider).release();
     await ref.read(asrModelStoreProvider).delete();
     await refresh();
   }
