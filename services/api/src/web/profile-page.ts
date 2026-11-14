@@ -9,6 +9,7 @@
  */
 import { LEVELS, socialUrl, type JourneyEvent, type PublicProfileView, type SocialKind } from '@yaqeen/contracts';
 import { BRAND_PNG } from './brand-assets.js';
+import { type CardRecitation, RECITATIONS_CSS, renderRecitations } from './recitations-player.js';
 
 export type PageLang = 'ar' | 'en';
 
@@ -184,7 +185,7 @@ function shell(lang: PageLang, opts: { title: string; description: string; theme
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@700&family=Jost:wght@300;400;500&family=Tajawal:wght@400;500;700&display=swap">
-<style>${CSS}</style>
+<style>${CSS}${RECITATIONS_CSS}</style>
 </head>
 <body class="theme-${escapeHtml(opts.theme)}">
 <div class="sky" aria-hidden="true"><i class="glow"></i><i class="glow two"></i><b class="spark s1"></b><b class="spark s2"></b><b class="spark s3"></b><b class="spark s4"></b></div>
@@ -207,7 +208,8 @@ function cta(lang: PageLang, links: PageLinks): string {
 </section>`;
 }
 
-export function renderProfilePage(view: PublicProfileView, lang: PageLang, links: PageLinks): string {
+/** `recitations`: the owner's public, approved «تلاواتي» (empty or omitted = no section). */
+export function renderProfilePage(view: PublicProfileView, lang: PageLang, links: PageLinks, recitations: CardRecitation[] = []): string {
   const t = COPY[lang];
   const name = escapeHtml(view.displayName);
   const initial = escapeHtml(Array.from(view.displayName.trim())[0] ?? '·');
@@ -265,6 +267,7 @@ ${view.memberSince ? `<p class="since">${escapeHtml(t.since(monthYear(view.membe
 ${stats.length ? `<section class="stats rise" style="--d:2">${stats.join('')}</section>` : ''}
 ${badges}
 ${timeline}
+${renderRecitations(recitations, lang, links.getApp)}
 ${linkItems ? `<nav class="links rise" style="--d:5" aria-label="${t.links}">${linkItems}</nav>` : ''}
 ${cta(lang, links)}
 <footer class="rise" style="--d:7"><span>${t.footer}</span><a href="${escapeHtml(links.getApp)}">${t.footerMake}</a></footer>`;

@@ -2,7 +2,7 @@
  * PDPL erasure — run daily:  pnpm --filter @yaqeen/api job:purge
  *
  * Accounts whose deletion was requested more than DELETION_GRACE_DAYS ago are anonymised:
- * identities, sessions, devices, consents, worship records, activity, the opt-in cloud backup and the
+ * identities, sessions, devices, consents, worship records, activity, the opt-in cloud backup, voice recordings and the
  * public card (handle, name, bio, links) are deleted; their medal tags are unlinked and stay switched off; the user
  * row stays as an anonymous tombstone so the append-only points ledger and redemptions still
  * add up for accounting. Consent events (the legal record of what was agreed) are kept.
@@ -30,6 +30,7 @@ import { runJob } from '../lib/observability.js';
 import { RETENTION_DAYS, purgeOld } from '../services/product-analytics.service.js';
 import { expireDue } from '../services/rewards.service.js';
 import { wipe as wipeBackups } from '../services/backup.service.js';
+import { eraseAll as eraseRecordings } from '../services/recordings.service.js';
 import { withJobLock } from './lock.js';
 
 export async function purgeDeleted(db: Db, now: Date): Promise<number> {
@@ -46,6 +47,8 @@ export async function purgeDeleted(db: Db, now: Date): Promise<number> {
     }
     // The user row is a tombstone (no cascade), so the backup goes explicitly.
     await wipeBackups(tx, ids);
+    // Already deleted at the erasure request; again here in case anything arrived since.
+    for (const id of ids) await eraseRecordings(tx, id);
     await tx
       .update(profileTags)
       .set({ userId: null, linkedAt: null, disabledAt: sql`coalesce(${profileTags.disabledAt}, ${now})` })

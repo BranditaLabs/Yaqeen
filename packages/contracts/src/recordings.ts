@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { PublicCompetitor } from './community.js';
+import { SURAH_NAMES } from './surahs.js';
 
 /**
  * «تلاواتي» — users' own recorded recitations on their profile (design doc §16, APP_SPEC §5.24 / §5.26
@@ -275,6 +276,15 @@ export const RECORDING_ERROR_CODES = [
   'not_found',
 ] as const;
 export type RecordingErrorCode = (typeof RECORDING_ERROR_CODES)[number];
+
+/** «سورة الفاتحة · الآيات 1–4» / "Al-Fatihah · Ayat 1–4" (Western digits; one ayah: «الآية 5» / "Ayah 5"). */
+export function verseRef(surah: number, fromAyah: number, toAyah: number, lang: 'ar' | 'en'): string {
+  const name = SURAH_NAMES[surah - 1];
+  if (!name) return '';
+  const range = fromAyah === toAyah ? String(fromAyah) : `${fromAyah}–${toAyah}`;
+  if (lang === 'ar') return `سورة ${name[0]} · ${fromAyah === toAyah ? 'الآية' : 'الآيات'} ${range}`;
+  return `${name[1]} · ${fromAyah === toAyah ? 'Ayah' : 'Ayat'} ${range}`;
+}
 
 /* --------------------------------------------------------------------- ASR */
 

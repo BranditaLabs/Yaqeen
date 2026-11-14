@@ -16,6 +16,7 @@ import { notFound } from '../../lib/errors.js';
 import * as profile from '../../services/profile.service.js';
 import * as tags from '../../services/tags.service.js';
 import * as cardStats from '../../services/card-stats.service.js';
+import * as recordings from '../../services/recordings.service.js';
 import { cardFeatureOn, readCardsSettings, storeUrl } from '../../services/cards-settings.service.js';
 import { BRAND_PNG } from '../../web/brand-assets.js';
 import { type PageLang, pickLang, renderActivatePage, renderNotFoundPage, renderProfilePage, type PageLinks } from '../../web/profile-page.js';
@@ -70,7 +71,9 @@ export const profileRoutes: FastifyPluginAsync = async (app) => {
     }
     // Short cache: an edit or unpublish shows within a minute even behind a CDN.
     reply.header('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
-    return reply.code(200).send(renderProfilePage(view, lang, await links(view.handle, lang, 'card')));
+    // «تلاواتي»: public + approved recordings only (empty when the flag is off).
+    const recs = JSON.parse(await ctx.cache.getJson('profile', `recs:${String(view.handle).toLowerCase()}`, 60, () => recordings.forCard(ctx, view.handle)));
+    return reply.code(200).send(renderProfilePage(view, lang, await links(view.handle, lang, 'card'), recs));
   });
 
   /**

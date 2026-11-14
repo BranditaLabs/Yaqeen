@@ -36,9 +36,10 @@ import * as profile from '../../services/profile.service.js';
 import * as tags from '../../services/tags.service.js';
 import * as analytics from '../../services/product-analytics.service.js';
 import * as backup from '../../services/backup.service.js';
+import * as recordings from '../../services/recordings.service.js';
 
 /** Bump when the privacy policy text changes; stored with every consent event. */
-export const POLICY_VERSION = '2026-10-01';
+export const POLICY_VERSION = '2026-11-14';
 
 /** Days between an erasure request and the purge job anonymising the account. */
 export const DELETION_GRACE_DAYS = 30;
@@ -244,6 +245,8 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
       ...(await exportUser(db, uid, { includeWorship: true })),
       // The opt-in cloud backup, opened — only here, never in the admin export.
       backups: await backup.exportFor(app.ctx, uid),
+      // «تلاواتي»: the user's recordings (with the audio), reactions, comments and reports — only here.
+      recitations: await recordings.exportFor(app.ctx, uid),
     };
   });
 
@@ -260,6 +263,8 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
       await tx.update(devices).set({ invalidatedAt: now }).where(and(eq(devices.userId, uid), isNull(devices.invalidatedAt)));
       await tx.update(publicProfiles).set({ published: false, updatedAt: now }).where(eq(publicProfiles.userId, uid));
       await tags.disableAllFor(tx, uid, now);
+      // Voice recordings, reactions and comments go at once (not after the grace period).
+      await recordings.eraseAll(tx, uid);
     });
     await app.ctx.cache.bumpNamespace('profile'); // the public card disappears at once
     return reply.status(202).send({ status: 'deletion_requested', graceDays: DELETION_GRACE_DAYS });

@@ -22,6 +22,7 @@ import { adminTagsRoutes } from './routes/admin/tags.routes.js';
 import { adminCardsRoutes } from './routes/admin/cards.routes.js';
 import { adminAnalyticsRoutes } from './routes/admin/analytics.routes.js';
 import { adminUsersRoutes } from './routes/admin/users.routes.js';
+import { adminRecordingsRoutes } from './routes/admin/recordings.routes.js';
 import { appRoutes } from './routes/public/app.routes.js';
 import { quranContentRoutes } from './routes/public/quran-content.routes.js';
 import { authRoutes } from './routes/public/auth.routes.js';
@@ -29,6 +30,8 @@ import { encodeRoutes } from './routes/public/encode.routes.js';
 import { redactEncodeToken } from './services/tag-encoding.service.js';
 import { meRoutes } from './routes/public/me.routes.js';
 import { profileRoutes } from './routes/public/profile.routes.js';
+import { recordingsRoutes } from './routes/public/recordings.routes.js';
+import { asrFromEnv } from './integrations/asr.js';
 import { siteRoutes } from './routes/public/site.routes.js';
 import { shopifyWebhookRoutes } from './routes/webhooks/shopify.routes.js';
 
@@ -42,7 +45,12 @@ const INVALIDATES: [string, CacheNamespace[]][] = [
 export async function buildApp(
   input: Omit<AppContext, 'cache' | 'qf'> & { cache?: ResponseCache; qf?: QuranFoundationClient },
 ): Promise<FastifyInstance> {
-  const ctx: AppContext = { ...input, cache: input.cache ?? new ResponseCache(input.redis), qf: input.qf ?? quranFoundationFromEnv(input.env) };
+  const ctx: AppContext = {
+    ...input,
+    cache: input.cache ?? new ResponseCache(input.redis),
+    qf: input.qf ?? quranFoundationFromEnv(input.env),
+    asr: input.asr === undefined ? asrFromEnv(input.env) : input.asr,
+  };
   const app = Fastify({
     // Correlate logs across the load balancer, API and jobs.
     requestIdHeader: 'x-request-id',
@@ -137,6 +145,7 @@ export async function buildApp(
   await app.register(appRoutes, { prefix: '/v1' });
   await app.register(quranContentRoutes, { prefix: '/v1/content' });
   await app.register(profileRoutes);
+  await app.register(recordingsRoutes);
   await app.register(siteRoutes);
   await app.register(shopifyWebhookRoutes, { prefix: '/webhooks/shopify' });
 
@@ -151,6 +160,7 @@ export async function buildApp(
   await app.register(adminTagsRoutes, { prefix: '/admin/tags' });
   await app.register(adminCardsRoutes, { prefix: '/admin/cards' });
   await app.register(adminAnalyticsRoutes, { prefix: '/admin/analytics' });
+  await app.register(adminRecordingsRoutes, { prefix: '/admin/recordings' });
 
   return app;
 }
