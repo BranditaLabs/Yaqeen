@@ -6,6 +6,7 @@ import '../../../core/format.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/liquid_glass.dart';
+import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../domain/ayah_search.dart';
 import '../domain/quran_data.dart';
@@ -45,9 +46,18 @@ class _AyahResultsState extends ConsumerState<AyahResults> {
     if (AyahSearchIndex.terms(widget.query).isEmpty) return const SizedBox.shrink();
     final index = ref.watch(ayahSearchIndexProvider);
     return index.when(
-      loading: () => Padding(
-        padding: const EdgeInsets.symmetric(vertical: YqSpace.m),
-        child: Text(t.quranSearching, textAlign: TextAlign.center, style: const TextStyle(color: YqColors.muted)),
+      // The count line and the result cards, shimmering, while the ayah index is built.
+      loading: () => Semantics(
+        label: t.quranSearching,
+        child: const Padding(
+          padding: EdgeInsets.only(top: YqSpace.l),
+          child: YqSkeleton(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [YqSkeletonLine(widthFactor: 0.3), SizedBox(height: YqSpace.m), YqSkeletonRows(rows: 3, leading: 0)],
+            ),
+          ),
+        ),
       ),
       error: (_, __) => const SizedBox.shrink(),
       data: (ix) {
@@ -91,7 +101,7 @@ class _AyahResultCard extends StatelessWidget {
       spans.add(
         TextSpan(
           text: text.substring(s, e),
-          style: const TextStyle(color: YqColors.goldDeep, backgroundColor: Color(0x66E9D49E)),
+          style: TextStyle(color: YqColors.goldDeep, backgroundColor: YqColors.goldLight.withValues(alpha: 0x66 / 255)),
         ),
       );
       at = e;

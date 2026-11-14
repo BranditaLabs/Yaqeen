@@ -118,7 +118,15 @@ describe.skipIf(!url)('product analytics (Postgres)', () => {
         method: 'POST',
         url: '/v1/me/events',
         headers: auth(yes.token),
-        payload: batch(anon(i), [{ name: 'app_open' }, { name: 'onboarding_step', props: { step: 'welcome' } }, ...(i < 20 ? [{ name: 'onboarding_complete' }] : [])]),
+        // Steps sent out of order: the funnel lists them in the app's order, profile between routine and download.
+        payload: batch(anon(i), [
+          { name: 'app_open' },
+          { name: 'onboarding_step', props: { step: 'download' } },
+          { name: 'onboarding_step', props: { step: 'welcome' } },
+          { name: 'onboarding_step', props: { step: 'profile' } },
+          { name: 'onboarding_step', props: { step: 'routine' } },
+          ...(i < 20 ? [{ name: 'onboarding_complete' }] : []),
+        ]),
       });
     }
     const [a] = await db.insert(s.adminUsers).values({ name: 'M', email: 'm@example.com', role: 'marketing', passwordHash: 'x', totpSecret: 'x' }).returning();
@@ -128,6 +136,9 @@ describe.skipIf(!url)('product analytics (Postgres)', () => {
     expect(rep.events.find((e: { name: string }) => e.name === 'app_open')).toMatchObject({ total: 26, installs: 26 });
     expect(rep.onboardingFunnel).toEqual([
       { step: 'welcome', installs: 25 },
+      { step: 'routine', installs: 25 },
+      { step: 'profile', installs: 25 },
+      { step: 'download', installs: 25 },
       { step: 'complete', installs: null }, // 10 < 20: withheld
     ]);
     expect(rep.events.find((e: { name: string }) => e.name === 'tab_view').total).toBeNull();

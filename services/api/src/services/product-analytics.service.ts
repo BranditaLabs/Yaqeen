@@ -20,7 +20,8 @@ import { externalCalls, productEventsIngested } from '../lib/metrics.js';
 export const RETENTION_DAYS = 180;
 export const K_MIN = 20;
 
-const ONBOARDING_ORDER = ['welcome', 'language', 'prayer', 'consent', 'goal', 'routine', 'download'];
+// Mirrors the app's step order (contracts PRODUCT_EVENTS.onboarding_step); `profile` is step 05·ج.
+const ONBOARDING_ORDER = ['welcome', 'language', 'prayer', 'consent', 'goal', 'routine', 'profile', 'download'];
 
 export async function hasConsent(ctx: AppContext, uid: string): Promise<boolean> {
   const [row] = await ctx.db

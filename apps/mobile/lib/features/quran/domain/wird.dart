@@ -23,6 +23,39 @@ class WirdDay {
       );
 }
 
+/// How long the page on screen has really been read: it runs only while the reader is in the
+/// foreground ([foreground]) and not covered by a full-screen page ([covered]). A sheet over the page
+/// does not cover it. [sync] applies a change of either flag.
+class WirdClock {
+  WirdClock({DateTime Function()? now}) : _now = now ?? DateTime.now;
+  final DateTime Function() _now;
+
+  bool covered = false;
+  bool foreground = true;
+  Duration _before = Duration.zero;
+  DateTime? _since;
+
+  bool get running => !covered && foreground;
+  Duration get visible => _before + (_since == null ? Duration.zero : _now().difference(_since!));
+
+  /// A new page: the count starts again (running only when it may).
+  void restart() {
+    _before = Duration.zero;
+    _since = running ? _now() : null;
+  }
+
+  /// Starts or stops after [covered] / [foreground] changed; returns whether it runs.
+  bool sync() {
+    if (running) {
+      _since ??= _now();
+    } else if (_since != null) {
+      _before = visible;
+      _since = null;
+    }
+    return running;
+  }
+}
+
 abstract final class WirdRules {
   static const minSecondsPerPage = 20;
 

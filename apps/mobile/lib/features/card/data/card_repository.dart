@@ -1,4 +1,5 @@
 import '../../../core/network/api_client.dart';
+import '../../community/domain/community_models.dart' show Badge;
 import '../domain/public_card.dart';
 
 /// The user's public card. Online by nature (it is a published page); the editor keeps the
@@ -27,6 +28,10 @@ class CardRepository {
 
   /// The owner's private journey: level, lifetime points and every dated milestone.
   Future<MyJourney> journey() async => MyJourney.fromJson((await api.get('/v1/me/journey') as Map).cast<String, dynamic>());
+
+  /// Every badge the caller has earned (GET /v1/me/badges), newest first. Keepsakes only — never
+  /// points. Kinds this build does not know are skipped.
+  Future<List<Badge>> badges() async => Badge.listFrom(await api.get('/v1/me/badges'));
 
   /// The owner's activated key medals / cards.
   Future<List<CardTag>> tags() async =>

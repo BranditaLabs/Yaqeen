@@ -141,7 +141,18 @@ class HifzPlan {
     return HifzPlan(goal: goal, perDay: perDay, portions: portions, activeDays: activeDays, stepsOn: _iso(today), steps: current);
   }
 
+  /// Ticks [step] for today if it isn't already (a guided stage ending; repeating it changes nothing).
+  HifzPlan completeStep(int step, DateTime today) {
+    final current = stepsFor(today);
+    if (current.contains(step)) return this;
+    return HifzPlan(goal: goal, perDay: perDay, portions: portions, activeDays: activeDays, stepsOn: _iso(today), steps: {...current, step});
+  }
+
+  /// Records today's new passage as memorised — once a day: a second call the same day (the hifz
+  /// screen's «حفظت» and a guided session's grade) changes nothing, so the next portion, never
+  /// studied, is not recorded by mistake.
   HifzPlan memorise(QuranData q, DateTime today) {
+    if (memorisedToday(today)) return this;
     final t = this.today(q);
     if (t == null) return this;
     final day = DateTime(today.year, today.month, today.day);

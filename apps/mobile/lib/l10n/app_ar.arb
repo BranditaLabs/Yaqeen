@@ -2518,6 +2518,20 @@
   "pfNameLocked": "أخفى فريق الدعم هذا الاسم. راسلنا لمراجعته.",
   "pfNameReverted": "لم يُقبل الاسم، فأعدناه كما كان.",
   "pfSave": "حفظ",
+  "pfAttestOffline": "تحتاج اتصالاً لتأكيد عمرك",
+  "pfLangGlyph": "ع",
+  "pfSemanticsJoin": "{a}، {b}",
+  "@pfSemanticsJoin": {
+    "description": "Joins two parts of a screen-reader label.",
+    "placeholders": {
+      "a": {
+        "type": "String"
+      },
+      "b": {
+        "type": "String"
+      }
+    }
+  },
   "cmSincerity": "تنافسٌ لطيف على الخير. لا نقاط إضافية هنا، والشارات تذكارٌ فقط.",
   "cmPrivacy": "يرى المشاركون اسمك وصورتك ومستواك ونقاط الفترة فقط، لا صلواتك ولا أذكارك ولا مهامك.",
   "cmSnapshotLine": "يُحدَّث الترتيب كل ليلة.",
@@ -2723,6 +2737,9 @@
   "cmErrTournamentNotOpen": "انتهى الانضمام إلى هذه البطولة.",
   "cmErrAck": "وافق على الظهور في البطولة للانضمام.",
   "cmErrGeneric": "تعذّر الانضمام. حاول مرة أخرى.",
+  "cmTEndsTonight": "تنتهي الليلة",
+  "cmLeagueEmpty": "لم يُنشر ترتيب هذا الأسبوع بعد.",
+  "cmCountryNeedsBoard": "شغّل «لوحة المستويات» أولاً لتظهر في لوحة بلدك.",
   "hmChipSemantics": "{name}، المستوى {n} · {levelName}، {percent}%",
   "@hmChipSemantics": {
     "placeholders": {

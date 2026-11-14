@@ -9,6 +9,7 @@ import 'package:yaqeen/core/settings/app_settings.dart';
 import 'package:yaqeen/core/storage/kv_store.dart';
 import 'package:yaqeen/core/storage/local_store.dart';
 import 'package:yaqeen/core/widgets/liquid_glass.dart';
+import 'package:yaqeen/core/widgets/yq_states.dart';
 import 'package:yaqeen/features/quran/data/reading_repository.dart';
 import 'package:yaqeen/features/quran/domain/annotations.dart';
 import 'package:yaqeen/features/quran/domain/ayah_search.dart';
@@ -96,9 +97,7 @@ void main() {
       ),
     );
     await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.text('حفظ'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('إخفاء الآيات'));
+    await tester.tap(find.text('تحفيظ'));
     await tester.pumpAndSettle();
     final page = tester.widget<MushafPage>(find.byType(MushafPage).first);
     expect(page.memorise, MemoriseMode.ayat);
@@ -144,6 +143,47 @@ void main() {
     await leave(tester);
   });
 
+  group('wird timer', () {
+    Future<int> pagesToday(MemoryKvStore kv) async => (await ReadingRepository(LocalStore(kv)).wird())?.pages.length ?? 0;
+
+    Future<void> open(WidgetTester tester, MemoryKvStore kv) async {
+      size(tester, const Size(390, 844));
+      await tester.pumpWidget(
+        harness(
+          const ReaderScreen(initialPage: 5),
+          kv: kv,
+          overrides: [...base(), initialSettingsProvider.overrideWithValue(const AppSettings(readerHintSeen: true))],
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+
+    testWidgets('a full-screen page over the reader stops the count', (tester) async {
+      final kv = MemoryKvStore();
+      await open(tester, kv);
+      tester.state<NavigatorState>(find.byType(Navigator)).push(MaterialPageRoute<void>(builder: (_) => const Scaffold()));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 25));
+      expect(await pagesToday(kv), 0);
+      // Back on the page the clock goes on from where it was.
+      tester.state<NavigatorState>(find.byType(Navigator)).pop();
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 21));
+      expect(await pagesToday(kv), 1);
+      await leave(tester);
+    });
+
+    testWidgets('a bottom sheet over the page does not pause it', (tester) async {
+      final kv = MemoryKvStore();
+      await open(tester, kv);
+      showYqSheet<void>(tester.element(find.byType(ReaderScreen)), builder: (_) => const SizedBox(height: 120));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 21));
+      expect(await pagesToday(kv), 1);
+      await leave(tester);
+    });
+  });
+
   testWidgets('khatma: start a 30-day plan, see today\'s portion and status', (tester) async {
     size(tester, const Size(390, 844));
     final kv = MemoryKvStore();
@@ -158,6 +198,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('حصّة اليوم'), findsOneWidget);
     expect(find.text('من الصفحة 1 إلى 21'), findsOneWidget);
+    expect(find.text('استمع إلى الحصّة'), findsOneWidget, reason: 'the khatma portion by ear');
     final plan = await ReadingRepository(LocalStore(kv)).khatma();
     expect(plan, isA<Khatma>());
     expect(plan!.targetDate, '2026-11-18');

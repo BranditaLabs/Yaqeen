@@ -1,6 +1,12 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
-import { fixture } from './fixture';
+import { API_URL, fixture, staffContext } from './fixture';
+
+/** Rule 2: admins never see which prayers, azkar or pages someone did. */
+/** A server action round trip: the API write, then the revalidated page re-rendered. */
+const ACTION = 20_000;
+
+const WORSHIP = /الفجر|الظهر|العصر|المغرب|العشاء|أذكار الصباح|أذكار المساء|الورد|وِرد/;
 
 const SECTIONS = [
   { href: '/', label: 'نظرة عامة' },
@@ -8,6 +14,7 @@ const SECTIONS = [
   { href: '/content', label: 'المحتوى' },
   { href: '/campaigns', label: 'الحملات' },
   { href: '/rewards', label: 'النقاط والمكافآت' },
+  { href: '/competitions', label: 'المسابقات' },
   { href: '/analytics', label: 'التحليلات' },
   { href: '/cards', label: 'البطاقات العامة' },
   { href: '/tags', label: 'الميداليات والبطاقات' },
@@ -84,5 +91,241 @@ test.describe('admin dashboard', () => {
     await page.goto('/users');
     await expect(page).toHaveURL(/\/login/);
     await context.close();
+  });
+});
+
+test.describe('competitions «المسابقات»', () => {
+  test('tournament standings list the member with snapshot points, without worship detail', async ({ page }) => {
+    const f = fixture();
+    await page.goto('/competitions');
+    await page.getByRole('link', { name: 'التفاصيل' }).first().click();
+    await expect(page).toHaveURL(new RegExp(`/competitions/tournaments/${f.tournamentId}$`));
+    const row = page.getByRole('row', { name: new RegExp(f.runner.name) });
+    await expect(row).toContainText(`@${f.runner.handle}`);
+    await expect(row).toContainText('240');
+    await expect(row).toContainText('على الطريق'); // level 2 from the public lifetime snapshot
+    await expect(page.getByText('يُحدَّث الترتيب كل ليلة').first()).toBeVisible();
+    await expect(page.getByText(WORSHIP)).toHaveCount(0);
+  });
+
+  test('stats for fewer than 20 participants show «—»', async ({ page }) => {
+    const f = fixture();
+    await page.goto(`/competitions/tournaments/${f.tournamentId}`);
+    const kpis = page.getByTestId('tournament-kpis');
+    await expect(kpis).toBeVisible();
+    // Two participants: every aggregate is suppressed (K = 20), never the real count.
+    await expect(kpis.getByText('—', { exact: true })).toHaveCount(3);
+    await expect(kpis.getByText('أقل من 20 — مخفي')).toHaveCount(2);
+  });
+
+  test('support hides a photo with a reason; the audit log records competitor.hide_photo', async ({ page, request }) => {
+    const f = fixture();
+    // Before: the card's photo is public (attested owner, published card).
+    expect((await request.get(`${API_URL}/v1/public/avatars/${f.pictured.photoId}/256.webp`)).status()).toBe(200);
+
+    await page.goto(`/competitions?tab=moderation&q=${encodeURIComponent(f.pictured.name)}`); // by name: the API strips _ from searches
+    const row = page.getByTestId(`competitor-${f.pictured.handle}`);
+    await expect(row).toContainText('أكّد العمر: نعم');
+    await row.getByText('إجراء', { exact: true }).click();
+    await row.getByLabel('إخفاء الصورة').fill('صورة غير لائقة — بلاغ');
+    await row.getByRole('button', { name: 'إخفاء الصورة' }).click();
+    // The row re-renders with the new state: hidden, and restorable by support for 7 days.
+    await expect(row.getByText('الصورة مخفية')).toBeVisible({ timeout: ACTION });
+    await expect(row.getByRole('button', { name: 'استعادة الصورة' })).toBeVisible();
+    await expect(row.locator('img[data-photo-status="removed"]')).toHaveCount(1);
+
+    await page.goto('/settings');
+    await expect(page.getByText('competitor.hide_photo').first()).toBeVisible();
+  });
+
+  test('a removed photo loads through the admin proxy for support, never cached', async ({ browser }) => {
+    const f = fixture();
+    const context = await staffContext(browser, f.tokens.support);
+    const page = await context.newPage();
+    await page.goto(`/competitions?tab=moderation&filter=hidden&q=${encodeURIComponent(f.removed.name)}`);
+    const thumb = page.getByTestId(`competitor-${f.removed.handle}`).locator('img[data-photo-status="removed"]');
+    await expect(thumb).toBeVisible();
+    await expect.poll(() => thumb.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBeGreaterThan(0);
+
+    const res = await page.request.get(`/api/competitors/${f.removed.id}/photos/${f.removed.photoId}/96`);
+    expect(res.status()).toBe(200);
+    expect(res.headers()['content-type']).toContain('image/webp');
+    expect(res.headers()['cache-control']).toBe('private, no-store');
+    await context.close();
+  });
+
+  test('support moderates, but cannot manage tournaments, league settings or the rollover', async ({ browser }) => {
+    const f = fixture();
+    const context = await staffContext(browser, f.tokens.support);
+    const page = await context.newPage();
+
+    await page.goto('/competitions');
+    await expect(page.getByRole('heading', { name: 'المسابقات', level: 1 })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'بطولة جديدة' })).toHaveCount(0);
+
+    await page.goto(`/competitions?tab=moderation&q=${encodeURIComponent(f.runner.name)}`);
+    const row = page.getByTestId(`competitor-${f.runner.handle}`);
+    await row.getByText('إجراء', { exact: true }).click();
+    await expect(row.getByRole('button', { name: 'إيقاف من المنافسات' })).toBeVisible();
+    await expect(row.getByLabel('إخفاء الاسم')).toBeVisible();
+
+    await page.goto('/competitions?tab=leagues');
+    await expect(page.locator('fieldset[disabled]').filter({ has: page.locator('input[name="groupSize"]') })).toHaveCount(1);
+    await expect(page.getByRole('button', { name: 'حفظ الإعدادات' })).toHaveCount(0);
+    await expect(page.getByText('تشغيل التدوير الآن')).toHaveCount(0);
+    await expect(page.getByText('المعمول به هذا الأسبوع')).toBeVisible();
+
+    const res = await page.goto('/competitions/tournaments/new');
+    expect(res?.status()).toBe(403);
+    await context.close();
+  });
+
+  test('the user page shows the competitions card with points only', async ({ page }) => {
+    const f = fixture();
+    await page.goto(`/users/${f.runner.id}`);
+    await expect(page.getByRole('heading', { name: 'المسابقات' })).toBeVisible();
+    await expect(page.getByText('لا تظهر هنا أي بيانات عبادة — النقاط فقط')).toBeVisible();
+    await expect(page.getByText(WORSHIP)).toHaveCount(0);
+  });
+
+  test('a marketing admin sees the competitions but no moderation forms or photos', async ({ browser }) => {
+    const f = fixture();
+    const context = await staffContext(browser, f.tokens.marketing);
+    const page = await context.newPage();
+    await page.goto(`/competitions/tournaments/${f.tournamentId}`);
+    await expect(page.getByRole('row', { name: new RegExp(f.runner.name) })).toBeVisible();
+    await expect(page.getByText('إجراء', { exact: true })).toHaveCount(0);
+
+    await page.goto('/competitions?tab=moderation');
+    await expect(page.getByTestId(`competitor-${f.runner.handle}`)).toBeVisible();
+    await expect(page.getByText('إجراء', { exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /إخفاء|إيقاف|تجاهل/ })).toHaveCount(0);
+    await expect(page.locator('img[data-photo-status]')).toHaveCount(0);
+    // The photo route itself is support-only.
+    expect((await page.request.get(`/api/competitors/${f.removed.id}/photos/${f.removed.photoId}/96`)).status()).toBe(403);
+
+    // League settings are theirs to edit; the rollover is the super admin's.
+    await page.goto('/competitions?tab=leagues');
+    await expect(page.getByRole('button', { name: 'حفظ الإعدادات' })).toBeVisible();
+    await expect(page.getByText('تشغيل التدوير الآن')).toHaveCount(0);
+    await context.close();
+  });
+
+  test('a content editor gets 403 on /competitions', async ({ browser }) => {
+    const f = fixture();
+    const context = await staffContext(browser, f.tokens.content_editor);
+    const page = await context.newPage();
+    const res = await page.goto('/competitions');
+    expect(res?.status()).toBe(403);
+    await expect(page.getByText('لا تملك صلاحية هذا القسم')).toBeVisible();
+    await page.goto('/content'); // their own section still opens
+    await expect(page.getByRole('link', { name: 'المسابقات' })).toHaveCount(0);
+    await context.close();
+  });
+
+  test('tournament: create → publish → close early with a reason', async ({ page }) => {
+    const f = fixture();
+    const lastDay = new Date(Date.parse(`${f.today}T00:00:00Z`) + 3 * 86_400_000).toISOString().slice(0, 10);
+    const slug = `e2e-flow-${Date.now() % 1_000_000}`;
+    await page.goto('/competitions');
+    await page.getByRole('link', { name: 'بطولة جديدة' }).click();
+    await expect(page).toHaveURL(/\/competitions\/tournaments\/new$/);
+    await expect(page.getByText('نص تسويقي فقط — لا آيات ولا أحاديث ولا أدعية').first()).toBeVisible();
+    await page.getByLabel(/المعرّف/).fill(slug);
+    await page.getByLabel(/العنوان بالعربية/).fill('أيام الخير');
+    await page.getByLabel(/Title \(English\)/).fill('Days of good');
+    await page.getByLabel('اليوم الأول').fill(f.today);
+    await page.getByLabel('اليوم الأخير').fill(lastDay);
+    await page.getByLabel(/اسم الشارة بالعربية/).fill('وسام الخير');
+    await page.getByLabel(/Badge name \(English\)/).fill('Good days');
+    await page.getByRole('button', { name: 'حفظ ونشر' }).click();
+
+    await expect(page).toHaveURL(/\/competitions\/tournaments\/[0-9a-f-]{36}$/, { timeout: ACTION });
+    await expect(page.getByText('جارية').first()).toBeVisible(); // published and started today
+
+    await page.getByLabel('سبب الإغلاق المبكر').fill('تجربة الإغلاق المبكر');
+    await page.getByRole('button', { name: 'إغلاق مبكر' }).click();
+    await expect(page.getByText('ستُغلق البطولة عند منتصف الليل')).toBeVisible({ timeout: ACTION });
+
+    await page.goto('/settings');
+    await expect(page.getByText('tournament.close').first()).toBeVisible();
+  });
+
+  test('a draft whose join day is cleared joins until its last day', async ({ page }) => {
+    const f = fixture();
+    const day = (n: number) => new Date(Date.parse(`${f.today}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+    await page.goto('/competitions/tournaments/new');
+    await page.getByLabel(/المعرّف/).fill(`e2e-join-${Date.now() % 1_000_000}`);
+    await page.getByLabel(/العنوان بالعربية/).fill('مسودة الانضمام');
+    await page.getByLabel(/Title \(English\)/).fill('Join draft');
+    await page.getByLabel('اليوم الأول').fill(day(10));
+    await page.getByLabel('اليوم الأخير').fill(day(20));
+    await page.getByLabel(/آخر يوم للانضمام/).fill(day(12));
+    await page.getByLabel(/اسم الشارة بالعربية/).fill('وسام');
+    await page.getByLabel(/Badge name \(English\)/).fill('Medal');
+    await page.getByRole('button', { name: 'حفظ كمسودة' }).click();
+    await expect(page).toHaveURL(/\/competitions\/tournaments\/[0-9a-f-]{36}$/, { timeout: ACTION });
+
+    const header = page.getByText(/الانضمام حتى/).first();
+    const joinAndLast = async () => {
+      const m = /إلى (.+) · الانضمام حتى (.+)$/.exec((await header.textContent()) ?? '');
+      return m ? { last: m[1], join: m[2] } : null;
+    };
+    const before = await joinAndLast();
+    expect(before?.join).not.toBe(before?.last);
+
+    await expect(page.getByLabel(/آخر يوم للانضمام/)).toHaveValue(day(12));
+    await page.getByLabel(/آخر يوم للانضمام/).fill('');
+    await page.getByRole('button', { name: 'حفظ كمسودة' }).click();
+    await expect(page.getByText('تم الحفظ')).toBeVisible({ timeout: ACTION });
+    await page.reload();
+    const after = await joinAndLast();
+    expect(after?.join).toBe(after?.last);
+    expect(after?.last).toBe(before?.last);
+  });
+
+  test('league settings save from next week; a group page is read-only', async ({ page }) => {
+    const f = fixture();
+    await page.goto('/competitions?tab=leagues');
+    await expect(page.getByText('تُطبَّق التغييرات من الأسبوع القادم').first()).toBeVisible();
+    await page.getByLabel('حجم المجموعة (10–50)').fill('24');
+    await page.getByRole('button', { name: 'حفظ الإعدادات' }).click();
+    await expect(page.getByText('حُفظت — تُطبَّق من الأسبوع القادم')).toBeVisible({ timeout: ACTION });
+    await page.reload();
+    await expect(page.getByLabel('حجم المجموعة (10–50)')).toHaveValue('24');
+
+    await page.goto(`/competitions/leagues/groups/${f.groupId}`);
+    const row = page.getByRole('row', { name: new RegExp(f.runner.name) });
+    await expect(row).toContainText('180');
+    await expect(page.locator('input[name="groupSize"]')).toHaveCount(0);
+  });
+
+  test('the level board lists the member with a level ring', async ({ page }) => {
+    const f = fixture();
+    await page.goto('/competitions?tab=leaderboard');
+    const row = page.getByRole('row', { name: new RegExp(f.runner.name) });
+    await expect(row.getByRole('img', { name: /المستوى 2/ })).toBeVisible();
+  });
+
+  test('support hides a name from the standings; the row shows «عضو يقين»', async ({ page }) => {
+    const f = fixture();
+    await page.goto(`/competitions/tournaments/${f.tournamentId}`);
+    const row = page.getByRole('row', { name: new RegExp(f.removed.name) });
+    await row.getByText('إجراء', { exact: true }).click();
+    await row.getByLabel('إخفاء الاسم').fill('اسم غير لائق — بلاغ');
+    await row.getByRole('button', { name: 'إخفاء الاسم' }).click();
+    // Hidden at read time (the handle rotates too: this member's card is not published).
+    await expect(page.getByRole('row', { name: /عضو يقين/ })).toContainText('120', { timeout: ACTION });
+    await expect(page.getByRole('row', { name: new RegExp(f.removed.name) })).toHaveCount(0);
+  });
+
+  test('/competitions has no serious accessibility violations', async ({ page }) => {
+    for (const tab of ['tournaments', 'leagues', 'moderation', 'badges']) {
+      await page.goto(`/competitions?tab=${tab}`);
+      await expect(page.getByRole('heading', { name: 'المسابقات', level: 1 })).toBeVisible();
+      const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+      const serious = violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
+      expect(serious.map((v) => `${tab} ${v.id}: ${v.nodes.length}`)).toEqual([]);
+    }
   });
 });

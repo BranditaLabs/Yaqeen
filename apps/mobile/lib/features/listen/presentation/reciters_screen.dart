@@ -107,7 +107,7 @@ class _RecitersScreenState extends ConsumerState<RecitersScreen> {
     final selected = all?.where((r) => r.id == selectedId).firstOrNull;
     final text = Theme.of(context).textTheme;
     final border =
-        OutlineInputBorder(borderRadius: BorderRadius.circular(YqRadii.pill), borderSide: const BorderSide(color: Color(0xF2FFFFFF)));
+        OutlineInputBorder(borderRadius: BorderRadius.circular(YqRadii.pill), borderSide: BorderSide(color: YqColors.white.withValues(alpha: 0.95)));
 
     return Scaffold(
       backgroundColor: YqColors.porcelain,
@@ -159,7 +159,7 @@ class _RecitersScreenState extends ConsumerState<RecitersScreen> {
                   hintText: t.recitersSearch,
                   prefixIcon: const Padding(padding: EdgeInsets.all(12), child: YqIcon(YqIcons.search, size: 20, tone: YqIconTone.idle)),
                   filled: true,
-                  fillColor: const Color(0xCCFFFFFF),
+                  fillColor: YqColors.white.withValues(alpha: 0.8),
                   border: border,
                   enabledBorder: border,
                 ),
@@ -346,10 +346,7 @@ class _ReciterRow extends StatelessWidget {
                 child: download.running
                     ? TextButton.icon(
                         onPressed: onDownload,
-                        icon: SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(value: download.fraction, strokeWidth: 2.2, color: YqColors.lapis),
-                        ),
+                        icon: YqRing(value: download.fraction, size: 18, stroke: 2.2),
                         label: Text('${t.reciterDownloading} · ${t.reciterProgress(download.surahs)}'),
                       )
                     : download.complete

@@ -82,21 +82,38 @@ class ProfileRepository {
 
   Future<void> _save(MeProfile p) => store.write(meKey, jsonEncode(p.toJson()));
 
-  /// GET /v1/me/profile. Local changes still on their way (a queued PATCH, a pending photo upload)
-  /// stay on top of the server's answer until they are delivered.
+  /// Bumped when the cached profile is replaced as a whole — [wipe] (the account is forgotten) and
+  /// [pushAfterSignIn] (a guest's changes reached the account): a request that started before (a
+  /// background refresh, a photo upload) never writes its older answer back over it.
+  int _generation = 0;
+
+  /// GET /v1/me/profile. Local changes still on their way (a queued PATCH, a pending photo upload,
+  /// a guest's changes not yet pushed to the account they linked) stay on top of the server's
+  /// answer until they are delivered. Throws [StaleProfileException] when the account on this
+  /// phone was forgotten while the request was out (nothing is saved).
   Future<MeProfile> refresh() async {
+    final generation = _generation;
     final local = await cached();
-    final json = await api.get(profilePath);
-    var p = MeProfile.fromJson((json as Map).cast<String, dynamic>());
-    p = await _overlayPending(p, local);
+    final server = await _fetch();
+    final p = await _overlayPending(server, local);
+    if (generation != _generation) throw const StaleProfileException();
     await _save(p);
     return p;
   }
 
+  Future<MeProfile> _fetch() async {
+    final json = await api.get(profilePath);
+    return MeProfile.fromJson((json as Map).cast<String, dynamic>());
+  }
+
   Future<MeProfile> _overlayPending(MeProfile server, MeProfile? local) async {
     var p = server;
+    // A guest's name and picture wait in `profile.dirty.v1` until [pushAfterSignIn] delivers them:
+    // a refresh racing that push (the session changes first) never replaces them nor deletes the
+    // photo file still to be uploaded.
+    final dirty = await _dirty();
     // Support removed the photo: drop this phone's copies too.
-    if (p.photoHidden) {
+    if (p.photoHidden && dirty['photo'] != true) {
       await _deletePhotoFiles();
       await store.delete(pendingUploadKey);
     }
@@ -105,6 +122,15 @@ class ProfileRepository {
       final name = queued['displayName'];
       if (name is String) p = p.copyWith(displayName: name);
       if (queued['avatar'] is Map) p = p.copyWith(avatar: AvatarRef.fromJson(queued['avatar']));
+    }
+    if (local != null && dirty.containsValue(true)) {
+      final name = local.displayName?.trim() ?? '';
+      if (dirty['name'] == true && name.isNotEmpty) p = p.copyWith(displayName: name);
+      final avatar = local.avatar;
+      if (dirty['avatar'] == true && avatar is! PhotoAvatar) p = p.copyWith(avatar: avatar);
+      if (dirty['photo'] == true && avatar is PhotoAvatar && avatar.localPath != null) {
+        if (File(avatar.localPath!).existsSync()) return p.copyWith(avatar: avatar);
+      }
     }
     final localAvatar = local?.avatar;
     if (!p.photoHidden && localAvatar is PhotoAvatar) {
@@ -226,6 +252,7 @@ class ProfileRepository {
   }
 
   Future<Result<AvatarRef, CommunityFailure>> _upload(File file, String mime, AvatarRef previous) async {
+    final generation = _generation;
     try {
       final json = await api.putBytes(photoPath, await file.readAsBytes(), mime);
       final server = AvatarRef.fromJson(json);
@@ -245,6 +272,8 @@ class ProfileRepository {
         await _deletePhotoFiles(keep: path);
       }
       await store.delete(pendingUploadKey);
+      // The account was forgotten while uploading: its photo is not this phone's any more.
+      if (generation != _generation) return Ok(shown);
       final p = await _base();
       await _save(p.copyWith(avatar: shown, photoHidden: false));
       return Ok(shown);
@@ -418,15 +447,17 @@ class ProfileRepository {
   /// photo only when the photo itself was changed, and clear the dirty flags.
   Future<MeProfile?> pushAfterSignIn() async {
     if (!isAccount) return null;
+    final generation = _generation;
     final local = await cached();
     final dirty = await _dirty();
     MeProfile server;
     try {
-      server = await refresh();
+      server = await _fetch();
     } on Object {
       return null; // offline: the flags stay for the next sign-in push
     }
-    var p = server;
+    var p = await _overlayPending(server, local);
+    if (generation != _generation) return null;
     final patch = <String, dynamic>{};
     if (dirty['name'] == true && (local?.displayName?.trim().isNotEmpty ?? false)) {
       patch['displayName'] = local!.displayName!.trim();
@@ -456,6 +487,8 @@ class ProfileRepository {
         await _upload(file, mime, server.avatar);
       }
     }
+    // A refresh sent before the PATCH landed may answer with the old name: it is dropped.
+    if (dirty.containsValue(true)) _generation++;
     await store.delete(dirtyKey);
     return cached();
   }
@@ -464,6 +497,7 @@ class ProfileRepository {
 
   /// Account deletion / forgetting the account: profile and community caches and photo files.
   Future<void> wipe() async {
+    _generation++;
     for (final k in wipedKeys) {
       await store.delete(k);
     }
@@ -477,4 +511,12 @@ class ProfileRepository {
       }
     }
   }
+}
+
+/// The account was forgotten on this phone while a profile request was out: its answer is dropped.
+class StaleProfileException implements Exception {
+  const StaleProfileException();
+
+  @override
+  String toString() => 'StaleProfileException';
 }

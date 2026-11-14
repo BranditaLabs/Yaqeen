@@ -19,6 +19,7 @@ import 'package:yaqeen/core/theme/theme.dart';
 import 'package:yaqeen/core/time/zoned.dart';
 import 'package:yaqeen/core/widgets/liquid_glass.dart';
 import 'package:yaqeen/features/onboarding/presentation/onboarding_screens.dart';
+import 'package:yaqeen/features/onboarding/presentation/profile_step.dart';
 import 'package:yaqeen/core/config/remote_config.dart';
 import 'package:yaqeen/features/listen/domain/audio_models.dart';
 import 'package:yaqeen/features/listen/presentation/downloads_controller.dart';
@@ -80,6 +81,7 @@ void main() {
     test('first launch → welcome; a killed onboarding resumes its step; then home or the deep link', () {
       expect(nextAfterSplash(const AppSettings()), '/onboarding/welcome');
       expect(nextAfterSplash(const AppSettings(onboardingStep: 3)), '/onboarding/consent');
+      expect(nextAfterSplash(const AppSettings(onboardingStep: 6, onboardingRoute: '/onboarding/profile')), '/onboarding/profile');
       final done = AppSettings(onboardingCompletedAt: DateTime(2026));
       expect(nextAfterSplash(done), '/home');
       expect(nextAfterSplash(done, deepLink: '/challenge/calendar'), '/challenge/calendar');
@@ -119,6 +121,7 @@ void main() {
         GoRoute(path: '/onboarding/consent', builder: (_, __) => const ConsentStep()),
         GoRoute(path: '/onboarding/goal', builder: (_, __) => const GoalStep()),
         GoRoute(path: '/onboarding/routine', builder: (_, __) => const RoutineStep()),
+        GoRoute(path: '/onboarding/profile', builder: (_, __) => const ProfileStep()),
         GoRoute(path: '/onboarding/download', builder: (_, __) => const DownloadStep()),
         GoRoute(path: '/home', builder: (_, __) => const Scaffold(body: Text('HOME'))),
       ],
@@ -221,6 +224,14 @@ void main() {
     expect(kv.data['settings.v1'], isNot(contains('quranSlot":{"k":"off')));
     await tester.tap(find.text('رتّب يومي'));
     await tester.pumpAndSettle();
+    expect(kv.data['settings.v1'], contains('"onboardingRoute":"/onboarding/profile"'));
+
+    // 05·ج — your profile: a guest keeps the defaults (league off) and continues, all on the device.
+    expect(find.text('ملفّك في يقين'), findsOneWidget);
+    await tester.tap(find.text('متابعة'));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pumpAndSettle();
+    expect(calls.where((c) => c.contains('/v1/me/profile') || c.contains('/v1/me/community')), isEmpty);
 
     // 07 — reading works offline from the bundled text.
     expect(find.text('القرآن معك\nحتى دون اتصال'), findsOneWidget);
@@ -311,13 +322,20 @@ void main() {
 
     await tester.tap(find.byTooltip('رجوع'));
     await tester.pumpAndSettle();
-    expect(find.text('متى يناسبك؟'), findsOneWidget); // 06 → 05·ب
-    expect(kv.data['settings.v1'], contains('"onboardingStep":5'));
+    expect(find.text('ملفّك في يقين'), findsOneWidget); // 06 → 05·ج
+    expect(kv.data['settings.v1'], contains('"onboardingRoute":"/onboarding/profile"'));
+    expect(kv.data['settings.v1'], contains('"onboardingStep":6'));
 
     // Android back / iOS edge swipe: the same step back, the app stays open.
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
+    expect(find.text('متى يناسبك؟'), findsOneWidget); // 05·ج → 05·ب
+    expect(kv.data['settings.v1'], contains('"onboardingRoute":"/onboarding/routine"'));
+
+    await tester.tap(find.byTooltip('رجوع'));
+    await tester.pumpAndSettle();
     expect(find.text('وِردك اليومي'), findsOneWidget); // 05·ب → 05
+    expect(kv.data['settings.v1'], contains('"onboardingRoute":"/onboarding/goal"'));
     expect(kv.data['settings.v1'], contains('"onboardingStep":4'));
 
     await tester.tap(find.byTooltip('رجوع'));
@@ -331,6 +349,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('المتابعة كضيف'), findsOneWidget); // 03 → 02
     expect(find.text('HOME'), findsNothing);
+    expect(kv.data['settings.v1'], contains('"onboardingRoute":"/onboarding/welcome"'));
     expect(kv.data['settings.v1'], contains('"onboardingStep":0'));
   });
 

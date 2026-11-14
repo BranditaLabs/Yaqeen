@@ -222,7 +222,13 @@ class _ConfirmSheetState extends ConsumerState<_ConfirmSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const CircularProgressIndicator(color: YqColors.gold),
+            // The code being issued: a gift disc and its line, under one shimmer.
+            const YqSkeleton(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [YqSkeletonBox.circle(64), SizedBox(height: YqSpace.m), YqSkeletonLine(widthFactor: .5)],
+              ),
+            ),
             const SizedBox(height: YqSpace.l),
             Text(t.redeemLoading, style: text.bodyMedium),
           ],

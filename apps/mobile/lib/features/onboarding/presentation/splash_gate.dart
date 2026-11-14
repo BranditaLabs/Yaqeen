@@ -9,7 +9,23 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../core/time/zoned.dart';
 import 'splash_screen.dart';
 
+/// The onboarding steps in order (spec §5.3–5.8, §5.7·ج). A step's place in this list is what
+/// `AppSettings.onboardingRoute` resumes by — by name, so adding a step never shifts a resume.
 const onboardingRoutes = [
+  '/onboarding/welcome',
+  '/onboarding/language',
+  '/onboarding/prayer',
+  '/onboarding/consent',
+  '/onboarding/goal',
+  '/onboarding/routine',
+  '/onboarding/profile',
+  '/onboarding/download',
+];
+
+/// Frozen: the order before 05·ج «ملفّك» existed. Settings saved by that release carry only the
+/// index `onboardingStep`, which is read through this list (an old step 6 still resumes at
+/// download). Never edit it.
+const legacyOnboardingRoutesV1 = [
   '/onboarding/welcome',
   '/onboarding/language',
   '/onboarding/prayer',
@@ -19,9 +35,14 @@ const onboardingRoutes = [
   '/onboarding/download',
 ];
 
-/// Where the splash goes: Home once onboarded, otherwise the step the user stopped at (kill-safe).
+/// Where the splash goes: Home once onboarded, otherwise the step the user stopped at (kill-safe):
+/// the saved route name when it is a known step, else the legacy index through the v1 list.
 String nextAfterSplash(AppSettings s, {String? deepLink}) {
-  if (!s.onboarded) return onboardingRoutes[s.onboardingStep.clamp(0, onboardingRoutes.length - 1)];
+  if (!s.onboarded) {
+    final route = s.onboardingRoute;
+    if (route != null && onboardingRoutes.contains(route)) return route;
+    return legacyOnboardingRoutesV1[s.onboardingStep.clamp(0, legacyOnboardingRoutesV1.length - 1)];
+  }
   return deepLink ?? '/home';
 }
 

@@ -3,7 +3,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/card/presentation/card_screen.dart';
 import '../../features/profile/presentation/badges_screen.dart';
-import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/profile/presentation/downloads_screen.dart';
+import '../../features/profile/presentation/ledger_screen.dart';
+import '../../features/profile/presentation/privacy_screen.dart';
 import '../../features/profile/presentation/profile_settings_screen.dart';
 
 /// `/profile/*` (owned by the profile stream; router.dart only spreads this list).

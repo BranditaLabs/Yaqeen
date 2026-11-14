@@ -9,7 +9,12 @@ import '../../../core/network/api_client.dart';
 import '../../../core/offline/outbox.dart';
 import '../../../core/settings/app_settings.dart';
 import '../../../core/settings/settings_controller.dart';
+import '../../../core/widgets/yq_avatar.dart';
 import '../../backup/data/backup_engine.dart';
+import '../../profile/data/profile_repository.dart';
+import '../../profile/domain/me_profile.dart';
+import '../../profile/presentation/me_profile_controller.dart';
+import '../../quran/data/session_store.dart';
 import '../data/auth_repository.dart';
 import '../data/consent_repository.dart';
 
@@ -24,11 +29,36 @@ class SessionController extends Notifier<Session> {
   String get _locale => ref.read(settingsProvider).locale;
 
   Future<void> _afterSignIn() async {
+    // First, before any other network call: the name and picture a guest chose on this phone reach
+    // the account (only what they changed; the server's values win otherwise). The repository
+    // keeps those changes on top of any refresh until they are pushed (`profile.dirty.v1`). Never
+    // fails sign-in: offline keeps the flags for later.
+    MeProfile? profile;
+    try {
+      profile = await ref.read(profileRepositoryProvider).pushAfterSignIn();
+    } on Object {
+      // best effort
+    }
+    // Signing in is not a level-up: the account's level becomes the last one seen on this phone.
+    await _rebaseLevel(profile?.level.level);
+    // Screens show the pushed profile (a refresh that raced the push was dropped by the repository).
+    if (profile != null && ref.exists(meProfileProvider)) await ref.read(meProfileProvider.notifier).reload();
     await ref.read(consentRepositoryProvider).syncAll();
     // Settings chosen before the account existed reach the server too.
     final s = ref.read(settingsProvider);
     await ref.read(settingsRepositoryProvider).save(s);
     ref.read(outboxSyncProvider).flush().ignore();
+  }
+
+  /// A new account is about to replace the session: until its own level is known, the level-up
+  /// moment neither remembers the placeholder profile nor owes anything.
+  void _holdLevelUp() {
+    if (ref.exists(levelUpProvider)) ref.read(levelUpProvider.notifier).reset(hold: true);
+  }
+
+  Future<void> _rebaseLevel(int? level) async {
+    if (ref.exists(levelUpProvider)) ref.read(levelUpProvider.notifier).rebase(level);
+    if (level != null) await ref.read(kvStoreProvider).write(ProfileRepository.lastSeenLevelKey, '$level');
   }
 
   /// Google or Apple. A cancelled native sheet is not an error (spec §5.3).
@@ -37,7 +67,9 @@ class SessionController extends Notifier<Session> {
     try {
       final cred = provider == SignInProvider.apple ? await social.apple() : await social.google();
       if (cred == null) return SignInOutcome.cancelled;
-      state = await _repo.signIn(provider, idToken: cred.idToken, displayName: cred.displayName, locale: _locale);
+      final session = await _repo.signIn(provider, idToken: cred.idToken, displayName: cred.displayName, locale: _locale);
+      _holdLevelUp();
+      state = session;
       // Consent isn't decided yet during onboarding → queued, sent only if ads are allowed.
       await ref.read(analyticsProvider).logOrQueue(AdEvent.signUp);
       unawaited(ref.read(productAnalyticsProvider).track(ProductEvent.signIn, {'provider': provider.name}));
@@ -80,9 +112,11 @@ class SessionController extends Notifier<Session> {
       await ensureServerAccount();
       final cred = provider == SignInProvider.apple ? await social.apple() : await social.google();
       if (cred == null) return SignInOutcome.cancelled;
-      state = state.userId == null
+      final session = state.userId == null
           ? await _repo.signIn(provider, idToken: cred.idToken, displayName: cred.displayName, locale: _locale)
           : await _repo.link(provider, idToken: cred.idToken, displayName: cred.displayName);
+      _holdLevelUp();
+      state = session;
       await ref.read(analyticsProvider).log(AdEvent.signUp);
       await _afterSignIn();
       return SignInOutcome.signedIn;
@@ -115,14 +149,15 @@ class SessionController extends Notifier<Session> {
   Future<bool> expire() async {
     if (!state.signedIn || state.pendingServer) return false;
     await _repo.forget();
-    await _forgetAccountCaches();
+    // The UI signs out at once: the profile's photo files are removed in the background.
+    await _forgetAccountCaches(awaitFiles: false);
     state = Session.none;
     return true;
   }
 
   static bool _accountScoped(OutboxItem i) => i.path.startsWith('/v1/me/') || i.path.startsWith('/v1/challenge/');
 
-  Future<void> _forgetAccountCaches() async {
+  Future<void> _forgetAccountCaches({bool awaitFiles = true}) async {
     final kv = ref.read(kvStoreProvider);
     for (final key in ['cache.rewards', 'cache.redemptions', ...BackupEngine.storageKeys]) {
       await kv.delete(key);
@@ -131,14 +166,42 @@ class SessionController extends Notifier<Session> {
     // The cloud backup belongs to the account: the next account on this phone decides for itself
     // (the server copy and the consent record stay with this one).
     await ref.read(consentRepositoryProvider).adopt(ConsentKind.cloudBackup, false);
+    // So do the profile (name, picture, level cache) and the competitions it joined.
+    await _forgetProfile(awaitFiles: awaitFiles);
+  }
+
+  /// Profile and community caches, photo files and the `community` consent on this phone. The
+  /// cached keys always go before the session changes (so no screen paints the old profile);
+  /// [awaitFiles] false leaves the photo files to finish in the background.
+  Future<void> _forgetProfile({bool awaitFiles = true}) async {
+    // Started first: from here on a profile request still out for this account (a background
+    // refresh, an upload) is dropped instead of writing the old profile back (the repository's
+    // generation moves synchronously).
+    final files = ref.read(profileRepositoryProvider).wipe();
+    final kv = ref.read(kvStoreProvider);
+    for (final key in ProfileRepository.wipedKeys) {
+      await kv.delete(key);
+    }
+    YqAvatar.clearMemoryCache();
+    // The last-seen level also lives in memory: the next account must not be compared with it.
+    if (ref.exists(levelUpProvider)) ref.read(levelUpProvider.notifier).reset();
+    await ref.read(consentRepositoryProvider).adopt(ConsentKind.community, false);
+    if (awaitFiles) {
+      await files;
+    } else {
+      files.ignore();
+    }
   }
 
   /// `DELETE /v1/me`, then wipes everything on this device (spec §5.24): tokens, caches, the local
-  /// worship store and onboarding — the next start is a first launch.
+  /// worship store, the profile, the Quran session and onboarding — the next start is a first launch.
+  /// (Sign-out keeps the Quran session like other on-device Quran data.)
   Future<void> deleteAccount() async {
     await _repo.deleteAccount();
     await ref.read(socialAuthProvider).signOut();
+    await _forgetProfile();
     final kv = ref.read(kvStoreProvider);
+    await QuranSessionStore.wipe(kv);
     for (final key in [
       'cache.challenge.summary', 'cache.rewards', 'cache.redemptions', 'cache.content', 'cache.dailyTask', //
       'consents.v1', 'consents.pending.v1', 'consents.decided', 'analytics.pending.v1', 'outbox.v1',
