@@ -165,9 +165,16 @@ export async function adminHidePhoto(tx: DbOrTx, uid: string, adminId: string, r
 
 /**
  * Re-activate the most recent photo support removed (under 7 days old) and unlock uploads. Never a
- * photo the owner removed or replaced themselves → `nothing_to_restore`.
+ * photo the owner removed or replaced themselves → `nothing_to_restore`; never for an account that
+ * isn't active (erasure requested, suspended) → `account_inactive`. When the owner chose another
+ * avatar after the hide (a preset or the initial — not what the hide left them), their choice
+ * stands: uploads are unlocked, the photo stays removed (retention) and `restored` is false.
  */
-export async function adminRestorePhoto(tx: DbOrTx, uid: string, now: Date) {
+export async function adminRestorePhoto(tx: DbOrTx, uid: string, now: Date): Promise<{ photoId: string | null; restored: boolean }> {
+  const u = await tx.execute<{ status: string; avatar_kind: string; avatar_preset: string | null }>(sql`
+    select status::text as status, avatar_kind, avatar_preset from users where id = ${uid} for no key update`);
+  const user = u.rows[0];
+  if (!user || user.status !== 'active') throw conflict('account_inactive', 'The account is not active; the photo stays removed');
   const cutoff = new Date(now.getTime() - PHOTO_RETENTION_DAYS * 86_400_000);
   const [p] = await tx
     .select({ id: avatarPhotos.id })
@@ -176,6 +183,17 @@ export async function adminRestorePhoto(tx: DbOrTx, uid: string, now: Date) {
     .orderBy(desc(avatarPhotos.removedAt))
     .limit(1);
   if (!p) throw conflict('nothing_to_restore', 'No photo removed by support in the last 7 days');
+  // The avatar the hide left the owner with (its audit row; else the fallback the hide computes).
+  const hid = await tx.execute<{ avatar: { kind?: string; id?: string } | null }>(sql`
+    select after->'avatar' as avatar from audit_log
+    where action = 'competitor.hide_photo' and target_type = 'user' and target_id = ${uid}
+    order by created_at desc limit 1`);
+  const left = hid.rows[0]?.avatar ?? (user.avatar_preset ? { kind: 'preset', id: user.avatar_preset } : { kind: 'initial' });
+  const unchanged = user.avatar_kind === left.kind && (user.avatar_kind !== 'preset' || user.avatar_preset === left.id);
+  if (!unchanged) {
+    await tx.update(users).set({ photoLockedAt: null, updatedAt: now }).where(eq(users.id, uid));
+    return { photoId: null, restored: false };
+  }
   await tx
     .update(avatarPhotos)
     .set({ status: 'replaced', removedAt: now })
@@ -185,7 +203,7 @@ export async function adminRestorePhoto(tx: DbOrTx, uid: string, now: Date) {
     .set({ status: 'active', removedAt: null, removedBy: null, removedReason: null })
     .where(eq(avatarPhotos.id, p.id));
   await tx.update(users).set({ photoLockedAt: null, avatarKind: 'photo', avatarPhotoId: p.id, updatedAt: now }).where(eq(users.id, uid));
-  return { photoId: p.id };
+  return { photoId: p.id, restored: true };
 }
 
 export interface PhotoBytes {

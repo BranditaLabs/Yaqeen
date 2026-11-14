@@ -370,7 +370,7 @@ export const adminCompetitionsRoutes: FastifyPluginAsync = async (app) => {
         }
         case 'restore-photo': {
           const r = await avatar.adminRestorePhoto(tx, userId, now);
-          extra.photoId = r.photoId;
+          Object.assign(extra, { photoId: r.photoId, photoRestored: r.restored });
           break;
         }
         case 'ban':
