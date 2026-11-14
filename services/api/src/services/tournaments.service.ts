@@ -174,7 +174,8 @@ export async function join(ctx: CommunityCtx, uid: string, id: string, body: { a
   if (body.acknowledge !== true) throw badRequest('ack_required', 'Agree to appear in this tournament');
   const now = ctx.now();
   await ctx.db.transaction(async (tx) => {
-    const t = await load(tx, id);
+    // Row lock: waits for the close job's `finalizing_at` (and a cancel) and sees it.
+    const t = await load(tx, id, true);
     if (!t || t.status === 'draft') throw notFound('tournament');
     if (t.status !== 'published' || t.closed_at || t.finalizing_at || now.getTime() >= new Date(t.join_until).getTime() || now.getTime() >= new Date(t.ends_at).getTime()) {
       throw conflict('tournament_not_open', 'Joining this tournament has closed');
@@ -191,18 +192,22 @@ export async function join(ctx: CommunityCtx, uid: string, id: string, body: { a
   return get(ctx, uid, id);
 }
 
-/** Leave any time: hidden from the standings at once, no badge for this tournament. */
+/**
+ * Leave any time: hidden from the standings at once, no badge for this tournament. Once the close
+ * has started the field is frozen (finals are written in batches): the entry stays ranked —
+ * `left_at` not before `finalizing_at` — but is hidden and gets no badge. After the close it is
+ * hidden from the final standings (ranks keep their gaps).
+ */
 export async function leave(ctx: CommunityCtx, uid: string, id: string): Promise<Tournament> {
   const now = ctx.now();
   await ctx.db.transaction(async (tx) => {
-    const t = await load(tx, id);
+    // Row lock: a leave racing the job's `finalizing_at` waits for it and sees it.
+    const t = await load(tx, id, true);
     if (!t || t.status === 'draft') throw notFound('tournament');
-    // Once the close has started the field is frozen (finals are being written in batches).
-    if (!t.finalizing_at && !t.closed_at) {
-      await tx.execute(sql`
-        update tournament_entries set left_at = ${now}
-        where tournament_id = ${id} and user_id = ${uid} and left_at is null`);
-    }
+    const at = t.finalizing_at && new Date(t.finalizing_at).getTime() > now.getTime() ? new Date(t.finalizing_at) : now;
+    await tx.execute(sql`
+      update tournament_entries set left_at = ${at}
+      where tournament_id = ${id} and user_id = ${uid} and left_at is null`);
     await recomputeCommunityConsent(tx, uid, 'settings');
   });
   await ctx.cache.bumpNamespace('community');
@@ -424,11 +429,14 @@ export async function closeEarly(tx: DbOrTx, id: string, now: Date) {
   return { before, after: await adminGet(tx, id, now) };
 }
 
-/** Cancel: no badges; every entrant's community consent is recomputed (source system). */
+/**
+ * Cancel: no badges; every entrant's community consent is recomputed (source system). Not once the
+ * close job started finalizing (finals and badges are being written) — the job owns it from then.
+ */
 export async function cancel(tx: DbOrTx, id: string, now: Date) {
   const t = await load(tx, id, true);
   if (!t) throw notFound('tournament');
-  if (t.status === 'cancelled' || t.closed_at) throw conflict('tournament_closed', 'This tournament is already over');
+  if (t.status === 'cancelled' || t.closed_at || t.finalizing_at) throw conflict('tournament_closed', 'This tournament is already over');
   const before = adminRow(t, now);
   await tx.execute(sql`update tournaments set status = 'cancelled', updated_at = ${now} where id = ${id}`);
   await recomputeCommunityConsentMany(tx, sql`select user_id from tournament_entries where tournament_id = ${id}`, 'system');
@@ -487,6 +495,8 @@ const FINAL_BATCH = 1000;
  * are before `ends_at`; a late qada lands after it), written for entries without finals in batches
  * of 1,000 with their badges, then `closed_at` and the entrants' consent in one short transaction.
  * A crash resumes from the entries still without finals. `maxBatches` stops early (tests).
+ * Every write re-checks, under the tournament row lock, that it is still published and open: a
+ * tournament cancelled meanwhile gets no further finals, badges or `closed_at`.
  */
 export async function closeDueTournaments(ctx: CommunityCtx, opts: { maxBatches?: number; batchSize?: number } = {}): Promise<{ closed: number; batches: number }> {
   const now = ctx.now();
@@ -496,32 +506,52 @@ export async function closeDueTournaments(ctx: CommunityCtx, opts: { maxBatches?
   const due = await ctx.db.execute<TournamentRecord>(sql`
     select t.*, 0 as participants from tournaments t
     where t.status = 'published' and t.ends_at <= ${now} and t.closed_at is null order by t.ends_at, t.id`);
+  /** Lock the tournament row; false when it is no longer published and open. */
+  const stillOpen = async (tx: DbOrTx, id: string) => {
+    const s = await tx.execute(sql`select 1 from tournaments where id = ${id} and status = 'published' and closed_at is null for update`);
+    return s.rows.length > 0;
+  };
   for (const t of due.rows) {
+    // Under the row lock: a cancel committed before this is seen (and refused after it).
     const f = await ctx.db.execute<{ at: Date }>(sql`
-      update tournaments set finalizing_at = coalesce(finalizing_at, ${now}) where id = ${t.id} returning finalizing_at as at`);
-    const finalizingAt = new Date(f.rows[0]!.at);
+      update tournaments set finalizing_at = coalesce(finalizing_at, ${now})
+      where id = ${t.id} and status = 'published' and closed_at is null returning finalizing_at as at`);
+    if (!f.rows[0]) continue;
+    const finalizingAt = new Date(f.rows[0].at);
     const w = windowDays(t);
-    // The field is frozen when finalizing starts: someone removed after that (ban, erasure) keeps
-    // their place in the ranking so a resumed close ranks the same set; they get no badge.
+    // The field is frozen when finalizing starts: someone removed after that (leave, ban, erasure)
+    // keeps their place in the ranking so a resumed close ranks the same set; they get no badge.
+    // An entry that already has finals was in the field whatever happened to it since.
     const r = await ctx.db.execute<{ user_id: string; handle: string; points: number; has_final: boolean; gone: boolean }>(sql`
       select e.user_id, coalesce(pp.handle, e.user_id::text) as handle, (e.final_points is not null) as has_final, (e.left_at is not null) as gone,
         coalesce((select sum(d.earned) from points_earned_daily d where d.user_id = e.user_id and d.day >= ${w.from}::date and d.day < ${w.to}::date), 0)::int as points
       from tournament_entries e left join public_profiles pp on pp.user_id = e.user_id
-      where e.tournament_id = ${t.id} and (e.left_at is null or e.left_at >= ${finalizingAt})`);
+      where e.tournament_id = ${t.id} and (e.left_at is null or e.left_at >= ${finalizingAt} or e.final_points is not null)`);
     const gone = new Set(r.rows.filter((x) => x.gone).map((x) => x.user_id));
     const n = r.rows.length;
     const standingsAll = rankStandings(r.rows.map((x) => ({ userId: x.user_id, handle: x.handle, points: Number(x.points) })));
     const pending = new Set(r.rows.filter((x) => !x.has_final).map((x) => x.user_id));
     const todo = standingsAll.filter((s) => pending.has(s.userId));
-    for (let i = 0; i < todo.length; i += size) {
+    let aborted = false;
+    for (let i = 0; i < todo.length && !aborted; i += size) {
       if (opts.maxBatches !== undefined && batches >= opts.maxBatches) return { closed, batches };
       const chunk = todo.slice(i, i + size);
       await ctx.db.transaction(async (tx) => {
+        if (!(await stillOpen(tx, t.id))) {
+          aborted = true;
+          return;
+        }
         const finals = chunk.map((s) => ({ u: s.userId, p: s.points, r: s.rank }));
         await tx.execute(sql`
           update tournament_entries e set final_points = x.p, final_rank = x.r
           from jsonb_to_recordset(${JSON.stringify(finals)}::jsonb) as x(u uuid, p int, r int)
           where e.tournament_id = ${t.id} and e.user_id = x.u and e.final_points is null`);
+        // Who left since the field was read (a leave during finalizing): ranked, but no badge.
+        const left = await tx.execute<{ user_id: string }>(sql`
+          select user_id from tournament_entries
+          where tournament_id = ${t.id} and left_at is not null
+            and user_id in (select x::uuid from jsonb_array_elements_text(${JSON.stringify(chunk.map((s) => s.userId))}::jsonb) as x)`);
+        for (const x of left.rows) gone.add(x.user_id);
         const awards: AwardRow[] = [];
         for (const s of chunk) {
           if (gone.has(s.userId)) continue;
@@ -536,13 +566,16 @@ export async function closeDueTournaments(ctx: CommunityCtx, opts: { maxBatches?
         }
         await awardBadges(tx, awards, now);
       });
-      batches++;
+      if (!aborted) batches++;
     }
-    await ctx.db.transaction(async (tx) => {
+    if (aborted) continue;
+    const done = await ctx.db.transaction(async (tx) => {
+      if (!(await stillOpen(tx, t.id))) return false;
       await tx.execute(sql`update tournaments set closed_at = ${now}, updated_at = ${now} where id = ${t.id} and closed_at is null`);
       await recomputeCommunityConsentMany(tx, sql`select user_id from tournament_entries where tournament_id = ${t.id}`, 'system');
+      return true;
     });
-    closed++;
+    if (done) closed++;
   }
   if (closed || batches) await ctx.cache.bumpNamespace('community');
   return { closed, batches };

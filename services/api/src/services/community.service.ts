@@ -282,12 +282,17 @@ export async function leaveLeague(tx: DbOrTx, uid: string, now: Date): Promise<v
     where w.starts_on = m.starts_on and w.status = 'open' and m.user_id = ${uid} and m.left_at is null`);
 }
 
-/** Leave every unclosed tournament entry. */
+/**
+ * Leave every tournament entry. An open one leaves the field; a closed tournament's entry is hidden
+ * from its final standings (ranks keep their gaps), so withdrawal, erasure and a ban leave nothing
+ * public behind and a cancelled erasure doesn't bring it back. During finalizing the entry keeps its
+ * place in the frozen field (`left_at` not before `finalizing_at`) but gets no badge and isn't shown.
+ */
 export async function leaveTournaments(tx: DbOrTx, uid: string, now: Date): Promise<void> {
   await tx.execute(sql`
-    update tournament_entries e set left_at = ${now}
+    update tournament_entries e set left_at = greatest(${now}::timestamptz, coalesce(t.finalizing_at, ${now}::timestamptz))
     from tournaments t
-    where t.id = e.tournament_id and e.user_id = ${uid} and e.left_at is null and t.closed_at is null`);
+    where t.id = e.tournament_id and e.user_id = ${uid} and e.left_at is null`);
 }
 
 /** All switches off and every live row left (consent withdrawal, erasure, ban). The division is kept. */
