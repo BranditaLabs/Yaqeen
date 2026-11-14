@@ -23,7 +23,7 @@ import {
 } from '@yaqeen/contracts';
 import type { AppContext } from '../context.js';
 import { challengeEnrollments, pointsLedger, publicProfiles, users } from '../db/schema.js';
-import { weekWindow } from '../domain/community.js';
+import { nameProblem, weekWindow } from '../domain/community.js';
 import { addDays } from '../domain/points.js';
 import { conflict, forbidden, badRequest, notFound } from '../lib/errors.js';
 import { ownAvatar, setAvatar } from './avatar.service.js';
@@ -62,11 +62,26 @@ export async function handleAvailable(ctx: AppContext, handle: string, uid?: str
   return !row || row.userId === uid;
 }
 
+/** The handle a card may take while support hides the name: `yaqeen_<id>`, never derived from it. */
+const NEUTRAL_HANDLE = /^yaqeen_[0-9a-f]{6,10}[0-9]*$/;
+
+/**
+ * A new card handle's own text must pass the community name filter (brand words, profanity), as
+ * every competitor @handle is shown in public lists. The neutral `yaqeen_<id>` suggestion is ours.
+ */
+function handleProblem(handle: string): boolean {
+  if (NEUTRAL_HANDLE.test(handle)) return false;
+  return nameProblem(handle.replace(/_/g, ' ')) !== null;
+}
+
 export async function settings(ctx: AppContext, uid: string): Promise<PublicProfileSettings> {
   const [row] = await ctx.db.select().from(publicProfiles).where(eq(publicProfiles.userId, uid));
+  const [u] = await ctx.db.select({ displayName: users.displayName, nameHiddenAt: users.nameHiddenAt }).from(users).where(eq(users.id, uid));
+  // While support hides the name, nothing suggested here is derived from it.
+  const hidden = !!u?.nameHiddenAt;
   if (row) {
     // A competitor handle (`omar-5521`, `member-x7k2p9`) isn't a card handle: suggest one to publish with.
-    const handle = PROFILE_HANDLE.test(row.handle) ? row.handle : await suggestHandle(ctx, row.displayName, uid);
+    const handle = PROFILE_HANDLE.test(row.handle) ? row.handle : await suggestHandle(ctx, hidden ? null : row.displayName, uid);
     return {
       published: row.published,
       handle,
@@ -81,12 +96,11 @@ export async function settings(ctx: AppContext, uid: string): Promise<PublicProf
     };
   }
   // Not created yet: a draft the app shows in the editor (nothing is public until saved + published).
-  const [u] = await ctx.db.select({ displayName: users.displayName }).from(users).where(eq(users.id, uid));
-  const handle = await suggestHandle(ctx, u?.displayName ?? null, uid);
+  const handle = await suggestHandle(ctx, hidden ? null : (u?.displayName ?? null), uid);
   return {
     published: false,
     handle,
-    displayName: u?.displayName?.trim() || 'Yaqeen',
+    displayName: (hidden ? '' : u?.displayName?.trim()) || 'Yaqeen',
     bio: '',
     links: [],
     show: DEFAULT_SHOW,
@@ -100,12 +114,19 @@ export async function settings(ctx: AppContext, uid: string): Promise<PublicProf
 export async function update(ctx: AppContext, uid: string, isGuest: boolean, input: PublicProfileUpdate): Promise<PublicProfileSettings> {
   if (isGuest) throw forbidden('account_required', 'Sign in to publish a profile card');
   if (await isReservedHandle(ctx, input.handle)) throw badRequest('handle_reserved');
-  const [u] = await ctx.db.select({ status: users.status }).from(users).where(eq(users.id, uid));
+  const [u] = await ctx.db.select({ status: users.status, nameHiddenAt: users.nameHiddenAt }).from(users).where(eq(users.id, uid));
   if (!u || u.status !== 'active') throw forbidden('account_inactive');
   const [before] = await ctx.db
-    .select({ published: publicProfiles.published, moderatedAt: publicProfiles.moderatedAt })
+    .select({ published: publicProfiles.published, moderatedAt: publicProfiles.moderatedAt, handle: publicProfiles.handle })
     .from(publicProfiles)
     .where(eq(publicProfiles.userId, uid));
+  // The card handle is also the competitor @handle in every public list.
+  if (!before || before.handle !== input.handle) {
+    if (u.nameHiddenAt && input.handle !== (await suggestHandle(ctx, null, uid))) {
+      throw conflict('name_locked', 'Support hid this name; the handle stays neutral until it is restored');
+    }
+    if (!u.nameHiddenAt && handleProblem(input.handle)) throw badRequest('handle_reserved');
+  }
   if (input.published && before?.moderatedAt) throw forbidden('card_moderated', 'This card was hidden by Yaqeen support');
   if (input.published && !(await cardFeatureOn(ctx, 'publicCards'))) throw forbidden('feature_off', 'Public cards are paused');
   try {
