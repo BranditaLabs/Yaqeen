@@ -18,7 +18,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsc -p tsconfig.json && node ../../tools/contracts/gen_dart_fixtures.mjs --check",
+    "test": "tsc -p tsconfig.json && node ../../tools/contracts/gen_dart_fixtures.mjs --check && node ../../tools/contracts/gen_recordings_fixtures.mjs --check",
     "prepare": "tsc -p tsconfig.json"
   },
   "dependencies": {

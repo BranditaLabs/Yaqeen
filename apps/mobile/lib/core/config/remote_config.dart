@@ -21,6 +21,9 @@ abstract final class Flags {
   static const leagues = 'leagues';
   static const tournaments = 'tournaments';
   static const leaderboard = 'leaderboard';
+
+  /// «تلاواتي» — members' own recorded recitations (design doc §16); off unless the admin turns it on.
+  static const recordings = 'recordings';
 }
 
 /// Mirror of `RemoteConfig` in packages/contracts/src/api.ts.
@@ -63,6 +66,7 @@ class RemoteConfig {
     Flags.leagues: false,
     Flags.tournaments: false,
     Flags.leaderboard: false,
+    Flags.recordings: false,
   };
 
   /// Bundled default (Quran 15:99) — replaced by the reviewed verse from remote config.
