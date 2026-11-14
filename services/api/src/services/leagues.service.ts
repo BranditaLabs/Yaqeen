@@ -88,7 +88,7 @@ export async function placeInto(tx: DbOrTx, startsOn: string, division: number, 
     i += s.take;
     const ins = await tx.execute<{ user_id: string }>(sql`
       insert into league_members (starts_on, user_id, group_id, division, joined_at)
-      select ${startsOn}, x.u, ${s.groupId}, ${division}, ${now}
+      select ${startsOn}::date, x.u::uuid, ${s.groupId}::uuid, ${division}::smallint, ${now}::timestamptz
       from jsonb_array_elements_text(${JSON.stringify(batch)}::jsonb) as x(u)
       on conflict (starts_on, user_id) do nothing
       returning user_id`);

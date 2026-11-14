@@ -131,7 +131,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       // counted twice — it only raises the level (LEVEL_REASONS). Same as yq_rebuild_points_rollups().
       await tx.execute(sql`
         insert into points_earned_daily (user_id, day, earned)
-        select ${existing.id}, day, earned from points_earned_daily where user_id = ${guestId}
+        select ${existing.id}::uuid, day, earned from points_earned_daily where user_id = ${guestId}
         on conflict (user_id, day) do update set earned = points_earned_daily.earned + excluded.earned`);
       await tx.execute(sql`delete from points_earned_daily where user_id = ${guestId}`);
       await tx.update(users).set({ mergedInto: existing.id, updatedAt: app.ctx.now() }).where(eq(users.id, guestId));
