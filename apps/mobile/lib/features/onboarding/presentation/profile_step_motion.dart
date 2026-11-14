@@ -187,7 +187,7 @@ class MiniLeagueCard extends StatelessWidget {
           child: Column(
             children: [
               neighbour(1, 72),
-              YqSheen(key: ValueKey('mini-league-sheen-$joined'), play: joined, color: YqColors.lapis, opacity: 0.16, radius: YqRadii.chip, child: mine),
+              YqSheen(key: const ValueKey('mini-league-sheen'), play: joined, color: YqColors.lapis, opacity: 0.16, radius: YqRadii.chip, child: mine),
               neighbour(3, 52),
             ],
           ),

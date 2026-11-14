@@ -106,42 +106,45 @@ class _YqSheenState extends State<YqSheen> with SingleTickerProviderStateMixin, 
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.play) return widget.child;
     final rtl = Directionality.of(context) == TextDirection.rtl;
+    // One shape whether or not it plays, so turning [play] on or off never remounts [child] (its
+    // own implicit animations carry on); the overlay is empty while it does not play.
     return Stack(
       fit: StackFit.passthrough,
       children: [
         widget.child,
         Positioned.fill(
-          child: IgnorePointer(
-            child: RepaintBoundary(
-              child: AnimatedBuilder(
-                animation: c,
-                builder: (context, _) {
-                  final t = this.t;
-                  if (t <= 0 || t >= 1) return const SizedBox.shrink();
-                  final x = Curves.easeInOutSine.transform(t) * 3.2 - 1.6; // beyond one edge → beyond the other
-                  final cx = rtl ? -x : x;
-                  final band = DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment(cx - 0.9, -1),
-                        end: Alignment(cx + 0.9, 1),
-                        colors: [
-                          widget.color.withValues(alpha: 0),
-                          widget.color.withValues(alpha: widget.opacity),
-                          widget.color.withValues(alpha: 0),
-                        ],
-                      ),
+          child: !widget.play
+              ? const SizedBox.shrink()
+              : IgnorePointer(
+                  child: RepaintBoundary(
+                    child: AnimatedBuilder(
+                      animation: c,
+                      builder: (context, _) {
+                        final t = this.t;
+                        if (t <= 0 || t >= 1) return const SizedBox.shrink();
+                        final x = Curves.easeInOutSine.transform(t) * 3.2 - 1.6; // beyond one edge → beyond the other
+                        final cx = rtl ? -x : x;
+                        final band = DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment(cx - 0.9, -1),
+                              end: Alignment(cx + 0.9, 1),
+                              colors: [
+                                widget.color.withValues(alpha: 0),
+                                widget.color.withValues(alpha: widget.opacity),
+                                widget.color.withValues(alpha: 0),
+                              ],
+                            ),
+                          ),
+                        );
+                        return widget.circle
+                            ? ClipOval(child: band)
+                            : ClipRRect(borderRadius: BorderRadius.circular(widget.radius), child: band);
+                      },
                     ),
-                  );
-                  return widget.circle
-                      ? ClipOval(child: band)
-                      : ClipRRect(borderRadius: BorderRadius.circular(widget.radius), child: band);
-                },
-              ),
-            ),
-          ),
+                  ),
+                ),
         ),
       ],
     );

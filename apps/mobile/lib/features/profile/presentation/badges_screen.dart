@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide Badge;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/design/motion.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/liquid_glass.dart';
@@ -81,13 +82,16 @@ class _BadgesScreenState extends ConsumerState<BadgesScreen> with BadgeSweepLatc
           ),
         ),
         children: [
-          // Skeleton → medals with the shared 200 ms fade.
-          YqFadeSwap(
-            child: KeyedSubtree(
-              key: ValueKey(badges.hasValue ? 'list' : (badges.hasError ? 'error' : 'loading')),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: _body(t, badges),
+          // Skeleton → medals with the shared 200 ms fade; each medal's light plays once here.
+          YqMotionMemo(
+            memo: sweepMemo,
+            child: YqFadeSwap(
+              child: KeyedSubtree(
+                key: ValueKey(badges.hasValue ? 'list' : (badges.hasError ? 'error' : 'loading')),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: _body(t, badges),
+                ),
               ),
             ),
           ),

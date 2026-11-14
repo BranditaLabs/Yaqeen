@@ -4,6 +4,7 @@ import 'package:flutter/material.dart' hide Badge;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/design/motion.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/format.dart';
 import '../../../core/theme/tokens.dart';
@@ -16,39 +17,74 @@ import '../../community/presentation/badge_label.dart';
 import '../data/profile_repository.dart';
 
 /// The badges whose light has already passed over them on this phone (KV
-/// [ProfileRepository.badgesSweptKey]; wiped with the account).
-final sweptBadgesProvider = FutureProvider<Set<String>>((ref) async {
-  final raw = await ref.watch(kvStoreProvider).read(ProfileRepository.badgesSweptKey);
-  if (raw == null) return <String>{};
-  try {
-    return {for (final k in jsonDecode(raw) as List) '$k'};
-  } on Object {
-    return <String>{};
-  }
-});
+/// [ProfileRepository.badgesSweptKey]; wiped with the account, when the session also drops this
+/// cache). [SweptBadges.markSwept] updates the cached set and the KV together, so a second list
+/// in the same run (the strip, then «الكل») never sweeps the same medals again.
+final sweptBadgesProvider = AsyncNotifierProvider<SweptBadges, Set<String>>(SweptBadges.new);
 
-String _sweepKey(Badge b) => '${b.kind.name}:${b.refKey}';
+class SweptBadges extends AsyncNotifier<Set<String>> {
+  /// The newest few hundred are plenty: older badges have long had their moment.
+  static const keep = 300;
+
+  @override
+  Future<Set<String>> build() async {
+    final raw = await ref.watch(kvStoreProvider).read(ProfileRepository.badgesSweptKey);
+    if (raw == null) return <String>{};
+    try {
+      return {for (final k in jsonDecode(raw) as List) '$k'};
+    } on Object {
+      return <String>{};
+    }
+  }
+
+  /// Records [keys] as swept: the cached set at once, the KV in the background.
+  void markSwept(Iterable<String> keys) {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    final added = [
+      for (final k in keys)
+        if (!current.contains(k)) k,
+    ];
+    if (added.isEmpty) return;
+    final all = [...current, ...added];
+    final kept = all.length > keep ? all.sublist(all.length - keep) : all;
+    state = AsyncData(kept.toSet());
+    ref.read(kvStoreProvider).write(ProfileRepository.badgesSweptKey, jsonEncode(kept)).ignore();
+  }
+}
+
+/// The key a badge's sweep is remembered by (on this phone and per screen).
+String badgeSweepKey(Badge b) => '${b.kind.name}:${b.refKey}';
 
 /// Earned medals catch one light sweep the first time this phone shows them (gold: earned), then
 /// never again. A list screen asks once, when the badges and the swept set are both known, and
-/// keeps the answer for its life; the KV set is updated at once.
+/// keeps the answer for its life; the swept set is updated right after the frame. Wrap the medals
+/// in a `YqMotionMemo(memo: sweepMemo)`: a medal rebuilt after scrolling away (a lazy list) has
+/// already had its light and stays still.
 mixin BadgeSweepLatch<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   Set<String>? _sweep;
 
+  /// Which medals already played their sweep on this screen.
+  final MotionMemo sweepMemo = MotionMemo();
+
   /// Whether [b] sweeps on this screen (false until the swept set is read).
-  bool sweeps(Badge b) => _sweep?.contains(_sweepKey(b)) ?? false;
+  bool sweeps(Badge b) => _sweep?.contains(badgeSweepKey(b)) ?? false;
 
   /// Call from build with the badges on screen.
   void latchSweep(List<Badge> badges) {
     if (_sweep != null) return;
     final swept = ref.watch(sweptBadgesProvider).valueOrNull;
     if (swept == null) return;
-    _sweep = {for (final b in badges) if (!swept.contains(_sweepKey(b))) _sweepKey(b)};
-    if (_sweep!.isEmpty) return;
-    final all = [...swept, ..._sweep!];
-    // The newest few hundred are plenty: older badges have long had their moment.
-    final kept = all.length > 300 ? all.sublist(all.length - 300) : all;
-    ref.read(kvStoreProvider).write(ProfileRepository.badgesSweptKey, jsonEncode(kept)).ignore();
+    final fresh = {
+      for (final b in badges)
+        if (!swept.contains(badgeSweepKey(b))) badgeSweepKey(b),
+    };
+    _sweep = fresh;
+    if (fresh.isEmpty) return;
+    // Providers cannot change while widgets build: record it right after this frame.
+    Future.microtask(() {
+      if (mounted) ref.read(sweptBadgesProvider.notifier).markSwept(fresh);
+    });
   }
 }
 
@@ -99,11 +135,9 @@ class BadgeMedal extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            YqSheen(
-              play: sweep,
-              circle: true,
-              color: YqColors.white,
-              opacity: 0.85,
+            _MedalSweep(
+              sweep: sweep,
+              sweepKey: badgeSweepKey(badge),
               delay: sweepDelay,
               child: Container(
                 key: const ValueKey('badge-medal'),
@@ -137,6 +171,46 @@ class BadgeMedal extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The medal's one light, decided once for this element: it plays when [sweep] is (or turns)
+/// true and the screen's memo has not played this medal yet, and keeps that answer for its life.
+class _MedalSweep extends StatefulWidget {
+  const _MedalSweep({required this.sweep, required this.sweepKey, required this.delay, required this.child});
+  final bool sweep;
+  final String sweepKey;
+  final Duration delay;
+  final Widget child;
+
+  @override
+  State<_MedalSweep> createState() => _MedalSweepState();
+}
+
+class _MedalSweepState extends State<_MedalSweep> {
+  bool _play = false;
+  bool _decided = false;
+
+  void _decide() {
+    if (_decided || !widget.sweep) return;
+    _decided = true;
+    _play = YqMotionMemo.firstTime(context, 'badge-sweep:${widget.sweepKey}');
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _decide();
+  }
+
+  @override
+  void didUpdateWidget(_MedalSweep old) {
+    super.didUpdateWidget(old);
+    _decide();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      YqSheen(play: _play, circle: true, color: YqColors.white, opacity: 0.85, delay: widget.delay, child: widget.child);
 }
 
 /// «الشارات» on the Profile tab: the newest earned medals in one lazy horizontal row, «الكل» →
@@ -176,15 +250,19 @@ class _BadgesStripState extends ConsumerState<BadgesStrip> with BadgeSweepLatch 
         else
           SizedBox(
             height: BadgesStrip.height,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              clipBehavior: Clip.none,
-              itemCount: badges.length,
-              separatorBuilder: (_, __) => const SizedBox(width: YqSpace.s),
-              itemBuilder: (context, i) => BadgeMedal(
-                badge: badges[i],
-                sweep: sweeps(badges[i]),
-                sweepDelay: BadgeMedal.sweepStep * i.clamp(0, 6),
+            // Medals scrolled back into view have had their light (the memo outlives the items).
+            child: YqMotionMemo(
+              memo: sweepMemo,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                clipBehavior: Clip.none,
+                itemCount: badges.length,
+                separatorBuilder: (_, __) => const SizedBox(width: YqSpace.s),
+                itemBuilder: (context, i) => BadgeMedal(
+                  badge: badges[i],
+                  sweep: sweeps(badges[i]),
+                  sweepDelay: BadgeMedal.sweepStep * i.clamp(0, 6),
+                ),
               ),
             ),
           ),

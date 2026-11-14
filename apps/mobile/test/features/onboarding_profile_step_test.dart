@@ -29,6 +29,7 @@ import 'package:yaqeen/features/onboarding/presentation/profile_step.dart';
 import 'package:yaqeen/features/profile/data/profile_repository.dart';
 import 'package:yaqeen/l10n/gen/app_localizations.dart';
 import 'package:yaqeen/core/theme/tokens.dart';
+import 'package:yaqeen/core/widgets/yq_once.dart';
 import 'package:yaqeen/features/onboarding/presentation/profile_step_motion.dart';
 
 import '../helpers/fonts.dart';
@@ -435,11 +436,23 @@ void main() {
       expect(dot(tester, 5), YqColors.line);
       expect(find.byType(MiniLeagueCard), findsOneWidget);
 
-      // Switching the league on lights the person's own row with one sheen.
-      expect(find.byKey(const ValueKey('mini-league-sheen-false')), findsOneWidget);
+      // Switching the league on lights the person's own row with one sheen; the row is the same
+      // element, so its tint and «أنت» ease in rather than snap.
+      const sheen = ValueKey('mini-league-sheen');
+      expect(tester.widget<YqSheen>(find.byKey(sheen)).play, isFalse);
+      final row = tester.element(find.descendant(of: find.byKey(sheen), matching: find.byType(AnimatedContainer)).first);
       await tester.tap(toggle(joinLabel));
       await tester.pump();
-      expect(find.byKey(const ValueKey('mini-league-sheen-true')), findsOneWidget);
+      expect(tester.widget<YqSheen>(find.byKey(sheen)).play, isTrue);
+      expect(tester.element(find.descendant(of: find.byKey(sheen), matching: find.byType(AnimatedContainer)).first), same(row));
+      await tester.pump(const Duration(milliseconds: 100));
+      final you = tester.widget<FadeTransition>(
+        find.descendant(
+          of: find.descendant(of: find.byKey(sheen), matching: find.byType(AnimatedOpacity)),
+          matching: find.byType(FadeTransition),
+        ).first,
+      );
+      expect(you.opacity.value, inExclusiveRange(0.45, 1.0)); // «أنت» on its way, not snapped
       await tester.pumpAndSettle();
     });
 
@@ -450,7 +463,7 @@ void main() {
       expect(numeral(tester), '1');
       expect(dot(tester, 0), YqColors.lapis);
       expect(find.byType(MiniLeagueCard), findsOneWidget);
-      final card = tester.widget<Opacity>(find.ancestor(of: find.byKey(const ValueKey('mini-league-sheen-false')), matching: find.byType(Opacity)).first);
+      final card = tester.widget<Opacity>(find.ancestor(of: find.byKey(const ValueKey('mini-league-sheen')), matching: find.byType(Opacity)).first);
       expect(card.opacity, 1);
       expect(tester.binding.transientCallbackCount, 0);
     });

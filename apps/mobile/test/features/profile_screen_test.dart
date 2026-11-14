@@ -12,6 +12,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:yaqeen/core/config/remote_config.dart';
 import 'package:yaqeen/core/design/motion.dart';
+import 'package:yaqeen/core/widgets/yq_once.dart';
 import 'package:yaqeen/core/di/providers.dart';
 import 'package:yaqeen/core/network/api_client.dart';
 import 'package:yaqeen/core/network/connectivity.dart';
@@ -860,6 +861,42 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await show();
     expect(tester.widgetList<BadgeMedal>(find.byType(BadgeMedal)).any((m) => m.sweep), isFalse);
+  });
+
+  testWidgets('badges: the strip then «الكل» in one run: the second list does not sweep the same medals again', (tester) async {
+    final me = MeProfile.fromJson(fixture('me_profile'));
+    final store = MemoryKvStore();
+    // The same harness each time keeps one ProviderScope (one app run).
+    Future<void> show(Key key) async {
+      await tester.pumpWidget(
+        harness(Scaffold(body: BadgesStrip(key: key, badges: me.recentBadges, count: me.badgesCount)), kv: store),
+      );
+      await tester.pump();
+      await tester.pump();
+    }
+
+    await show(const ValueKey('profile-strip'));
+    expect(tester.widgetList<BadgeMedal>(find.byType(BadgeMedal)).every((m) => m.sweep), isTrue);
+    await tester.pumpAndSettle();
+    await show(const ValueKey('another-list')); // a new list screen, same run
+    expect(tester.widgetList<BadgeMedal>(find.byType(BadgeMedal)).any((m) => m.sweep), isFalse);
+    expect(tester.widgetList<YqSheen>(find.byType(YqSheen)).any((s) => s.play), isFalse);
+  });
+
+  testWidgets('badges: a medal rebuilt in a lazy list (scrolled away and back) keeps its light spent', (tester) async {
+    final me = MeProfile.fromJson(fixture('me_profile'));
+    final memo = MotionMemo();
+    final badge = me.recentBadges.first;
+    Future<void> medal(Key key) async {
+      await tester.pumpWidget(harness(YqMotionMemo(memo: memo, child: Center(child: BadgeMedal(key: key, badge: badge, sweep: true)))));
+      await tester.pump();
+    }
+
+    await medal(const ValueKey('first-build'));
+    expect(tester.widget<YqSheen>(find.byType(YqSheen)).play, isTrue);
+    await tester.pumpAndSettle();
+    await medal(const ValueKey('rebuilt')); // a new element, as a lazy list builds it again
+    expect(tester.widget<YqSheen>(find.byType(YqSheen)).play, isFalse);
   });
 
   testWidgets('level ladder: six levels, the current one in lapis, gold dots on the reached, the note', (tester) async {
