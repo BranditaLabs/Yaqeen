@@ -39,3 +39,9 @@ graphify-out/
 
 # Redis dumps from local runs
 *.rdb
+
+# tools/asr: conversion and ship-gate data (model binaries and audio are never committed)
+tools/asr/.cache/
+tools/asr/eval/report.md
+build/asr/
+tools/asr/**/__pycache__/

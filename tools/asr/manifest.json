@@ -1,0 +1,43 @@
+{
+  "id": "yaqeen-asr-v1",
+  "upstream": {
+    "repo": "tarteel-ai/whisper-tiny-ar-quran",
+    "revision": "c3d7e624af5c81bef25a10a2af3a5a84cb4dd0f0",
+    "licence": "Apache-2.0"
+  },
+  "exporter": {
+    "repo": "k2-fsa/sherpa-onnx",
+    "commit": "7be9a38e275ece9ee9a9277cc78295f2cbfd6673",
+    "licence": "Apache-2.0"
+  },
+  "vad": {
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx",
+    "licence": "MIT"
+  },
+  "files": [
+    {
+      "role": "encoder",
+      "name": "yaqeen-asr-v1-encoder.int8.onnx",
+      "bytes": 12926470,
+      "sha256": "d3b05195086f02c565084638faa1d5d1710b63ea8703201246c9fb4f0207ab42"
+    },
+    {
+      "role": "decoder",
+      "name": "yaqeen-asr-v1-decoder.int8.onnx",
+      "bytes": 30099011,
+      "sha256": "2b983686b02c7cad345b2d399aea0180f66e0c754ca5709b1ab5dd0d25f68fe2"
+    },
+    {
+      "role": "tokens",
+      "name": "yaqeen-asr-v1-tokens.txt",
+      "bytes": 866987,
+      "sha256": "febeed8e568f92d9ca984580bc2e6b605b867dc5ba4486f9646de381b44a8226"
+    },
+    {
+      "role": "vad",
+      "name": "silero_vad.onnx",
+      "bytes": 643854,
+      "sha256": "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6"
+    }
+  ]
+}
