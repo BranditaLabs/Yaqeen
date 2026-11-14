@@ -327,6 +327,7 @@ describe.skipIf(!TEST_DB_URL)('community: tournaments (Postgres)', () => {
     await earn(h, u1.id, 999, '2026-11-09T11:00:00Z'); // before the window: never counts
     // Leaving hides at once; the leaver gets no badge.
     await h.app.inject({ method: 'DELETE', url: `/v1/tournaments/${t.id}/join`, headers: auth(others[0]!.token) });
+    expect((await consentEventsFor(h, others[0]!.id)).at(-1)).toMatchObject({ granted: false, source: 'settings', attested_adult: null });
 
     expect((await h.app.inject({ method: 'GET', url: `/v1/tournaments/${t.id}/standings`, headers: auth(u1.token) })).json().rows.every((r: { rank: number | null }) => r.rank === null)).toBe(true);
     await takeNightlySnapshot(h.ctx);
@@ -375,5 +376,22 @@ describe.skipIf(!TEST_DB_URL)('community: tournaments (Postgres)', () => {
     const audits = await h.db.execute<{ action: string }>(sql`select action from audit_log where admin_id = ${mk.id} order by created_at`);
     expect(new Set(audits.rows.map((a) => a.action))).toEqual(new Set(['tournament.create', 'tournament.publish', 'tournament.cancel']));
     expect((await h.app.inject({ method: 'POST', url: `/v1/tournaments/${t2.id}/join`, headers: auth(u1.token), payload: { acknowledge: true } })).json().error.code).toBe('tournament_not_open');
+
+    // A live tournament may end later (with a reason); an early close ends it at the next Cairo
+    // midnight (today still counts). Both audited.
+    const t3 = (await h.app.inject({ method: 'POST', url: '/admin/competitions/tournaments', headers: auth(mk.token), payload: { ...base, slug: 'fri-cup', startsOn: '2026-11-13', lastDay: '2026-11-20' } })).json();
+    await h.app.inject({ method: 'POST', url: `/admin/competitions/tournaments/${t3.id}/publish`, headers: auth(mk.token), payload: {} });
+    const longer = await h.app.inject({ method: 'PATCH', url: `/admin/competitions/tournaments/${t3.id}`, headers: auth(mk.token), payload: { lastDay: '2026-11-21', reason: 'one more day' } });
+    expect(longer.json()).toMatchObject({ endsAt: '2026-11-21T22:00:00.000Z' });
+    const early = await h.app.inject({ method: 'POST', url: `/admin/competitions/tournaments/${t3.id}/close`, headers: auth(mk.token), payload: { reason: 'ending early' } });
+    expect(early.json()).toMatchObject({ endsAt: '2026-11-13T22:00:00.000Z', status: 'published' });
+    const t3Audit = await h.db.execute<{ action: string; reason: string | null }>(sql`
+      select action, reason from audit_log where target_id = ${t3.id} order by created_at`);
+    expect(t3Audit.rows.map((a) => [a.action, a.reason])).toEqual([
+      ['tournament.create', null],
+      ['tournament.publish', null],
+      ['tournament.update', 'one more day'],
+      ['tournament.close', 'ending early'],
+    ]);
   });
 });

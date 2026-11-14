@@ -7,6 +7,7 @@ import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { sql } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import pg from 'pg';
+import { vi } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { loadEnv } from '../src/config/env.js';
 import { createDb, type Db } from '../src/db/client.js';
@@ -20,6 +21,10 @@ import { resetActivityCache } from '../src/services/activity.service.js';
 import type { CommunityCtx } from '../src/services/community-settings.service.js';
 
 export const TEST_DB_URL = process.env.TEST_DATABASE_URL;
+
+// These files walk whole flows through the API against Postgres (a fresh schema per file); give
+// them room on a slow CI runner instead of the 5 s unit-test default.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 120_000 });
 
 export interface Harness {
   app: FastifyInstance;
