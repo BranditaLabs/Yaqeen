@@ -136,7 +136,14 @@ function RecordingRow({ r, rights }: { r: AdminRecordingItem; rights: ReturnType
             <dd className="num inline">{pct(r.clientScore)}</dd>
           </div>
         )}
-        <Reports count={r.reports} reasons={r.reasons} />
+        {r.reports > 0 && (
+          <div>
+            <dt className="inline text-muted">البلاغات: </dt>
+            <dd className="inline">
+              <Reports count={r.reports} reasons={r.reasons} />
+            </dd>
+          </div>
+        )}
       </dl>
       {r.transcript && (
         <p className="max-w-2xl rounded-xl bg-white/70 px-3 py-2 text-sm leading-7 text-ink" lang="ar">
