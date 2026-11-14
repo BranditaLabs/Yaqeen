@@ -12,8 +12,8 @@ What it does:
     the app (sherpa-onnx OfflineRecognizer, Whisper int8, language "ar", task "transcribe", greedy).
   * Aligns the transcript against the bundled mushaf text with a line-for-line port of the app's
     `RecitationAligner` (aligner.py) and reports word accuracy = words marked ok / words expected.
-  * Optional `--live`: replays each surah through the app's live loop (1.2 s steps, ≤ 8 s window,
-    local agreement, segment ends on pauses) to measure what the page shows while reciting.
+  * Optional `--live`: replays each whole surah the way the app judges it live — speech segments cut
+    by pauses (≤ 25 s), each decoded when it ends — instead of per-ayah cuts.
 
 Read the number with care: professional reciters in a studio (and possibly in the model's training
 data) score higher than ordinary users on a phone. The gate needs real users' voices (`--local`).
@@ -145,53 +145,33 @@ class Tally:
         self.cpu += o.cpu
 
 
-def live_replay(rec, samples: np.ndarray, step_s=1.2, window_s=8.0, silence_s=0.6, thr=0.02) -> list[str]:
-    """The app's LiveTranscriber, simplified to an energy gate (the phone uses Silero VAD)."""
+def live_replay(rec, samples: np.ndarray, silence_s=0.6, max_s=25.0, thr=0.02) -> list[str]:
+    """What the app's LiveTranscriber judges on: whole speech segments (a pause of 0.6 s ends one, a
+    stretch is cut at 25 s), each decoded once when it ends. The live tentative words only reveal on
+    the page and are not judged, so they are not replayed. Energy gate here; Silero VAD on the phone."""
     committed: list[str] = []
     hop = int(0.1 * SR)
-    seg: list[float] | None = None
-    seg_start = 0
-    pending: list[str] = []
-    since = quiet = 0
-
-    def key(w):
-        return aligner._norm(w)
+    seg: list[np.ndarray] | None = None
+    length = quiet = 0
 
     def final():
-        nonlocal seg, pending
-        if seg is not None and len(seg) > SR // 4:
-            committed.extend(decode(rec, np.array(seg, dtype=np.float32)).split())
-        seg, pending = None, []
+        nonlocal seg, length
+        if seg is not None and length > SR // 4:
+            committed.extend(decode(rec, np.concatenate(seg)).split())
+        seg, length = None, 0
 
     for i in range(0, len(samples), hop):
         chunk = samples[i : i + hop]
-        speaking = float(np.max(np.abs(chunk))) >= thr if len(chunk) else False
+        speaking = len(chunk) > 0 and float(np.max(np.abs(chunk))) >= thr
         if seg is None:
             if speaking:
-                seg, since, quiet, pending, seg_start = list(chunk), len(chunk), 0, [], i
+                seg, length, quiet = [chunk], len(chunk), 0
             continue
-        seg.extend(chunk.tolist())
-        since += len(chunk)
+        seg.append(chunk)
+        length += len(chunk)
         quiet = 0 if speaking else quiet + len(chunk)
-        if quiet >= silence_s * SR or len(seg) >= 25 * SR:
+        if quiet >= silence_s * SR or length >= max_s * SR:
             final()
-            continue
-        if since >= step_s * SR and len(seg) >= SR // 2:
-            since = 0
-            if len(seg) > window_s * SR and len(pending) > 1:
-                committed.extend(pending[:-1])
-                pending = pending[-1:]
-                seg = seg[-int(window_s * SR) :]
-            hyp = decode(rec, np.array(seg, dtype=np.float32)).split()
-            k = 0
-            while k < len(hyp) and k < len(pending) and key(hyp[k]) == key(pending[k]):
-                k += 1
-            if k:
-                committed.extend(hyp[:k])
-                # Without word times here, keep the buffer (the app trims at the last committed word).
-                cut = int(len(seg) * k / max(1, len(hyp)))
-                seg = seg[cut:]
-            pending = hyp[k:]
     final()
     return committed
 
@@ -213,7 +193,7 @@ TEMPLATE = """# «تسميع» ship-gate evaluation
 | <QF id> | <surah> | … | … | … | … | …% |
 | **All** | | **…** | **…** | **…** | **…** | **…%** |
 
-Live loop replay (energy gate, whole surahs): **…%** of … words.   (with --live)
+Live loop replay (whole surahs cut by pauses, energy gate): **…%** of … words.   (with --live)
 
 ## Your voices (`--local`)
 
@@ -317,7 +297,7 @@ def main() -> None:
         "",
     ]
     if args.live:
-        lines += [f"Live loop replay (energy gate, whole surahs): **{live_total.accuracy:.1%}** of {live_total.total} words.", ""]
+        lines += [f"Live loop replay (whole surahs cut by pauses, energy gate): **{live_total.accuracy:.1%}** of {live_total.total} words.", ""]
     lines += ["## Your voices (`--local`)", ""]
     if local_rows:
         lines += ["| File | Words | ok | Accuracy |", "| --- | ---: | ---: | ---: |"]

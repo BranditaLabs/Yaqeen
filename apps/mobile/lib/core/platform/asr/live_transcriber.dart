@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import '../../text/arabic.dart';
 import '../recitation_engine.dart';
 import 'pcm.dart';
 
@@ -69,61 +68,56 @@ List<RecognizedWord> spreadWords(String text, double seconds, {double offset = 0
 class _Segment {
   _Segment(this.start);
 
-  /// Global sample index of the first sample still held.
-  int start;
+  /// Global sample index of the segment's first sample.
+  final int start;
   final chunks = <Float32List>[];
   int length = 0;
   bool ended = false;
-
-  /// The last decode's words after the committed ones (absolute times), for agreement.
-  List<RecognizedWord> pending = const [];
 
   void add(Float32List s) {
     chunks.add(s);
     length += s.length;
   }
 
-  Float32List snapshot() {
-    final out = Float32List(length);
+  /// The segment's last [max] samples (all of it when shorter).
+  Float32List tail(int max) {
+    final n = math.min(length, max);
+    final out = Float32List(n);
+    var skip = length - n;
     var at = 0;
     for (final c in chunks) {
-      out.setAll(at, c);
-      at += c.length;
+      if (skip >= c.length) {
+        skip -= c.length;
+        continue;
+      }
+      final part = Float32List.sublistView(c, skip);
+      skip = 0;
+      out.setAll(at, part);
+      at += part.length;
     }
     return out;
-  }
-
-  /// Drops samples before global index [to].
-  void trimTo(int to) {
-    var drop = to - start;
-    if (drop <= 0) return;
-    drop = math.min(drop, length);
-    final all = snapshot();
-    chunks
-      ..clear()
-      ..add(Float32List.sublistView(all, drop));
-    length -= drop;
-    start += drop;
   }
 }
 
 /// The live recognition loop (spec §6.8), pure Dart so it is tested with a fake decoder:
 ///
-/// 16 kHz mono PCM → voice activity cuts speech segments (a pause of [endSilence] ends one) → while a
-/// segment runs, the audio since the last committed word is decoded every [decodeEvery] (never two
-/// decodes at once: a slow phone simply decodes less often), and the words two decodes in a row agree
-/// on are committed (they never change again); the buffer then starts after the last committed word,
-/// and it never grows past [window] (the oldest words are committed when it would). A segment that
-/// ends is decoded once more and committed whole. Long sessions (a page or more) are just many
-/// segments. With `live: false` nothing is decoded until [finish] («سمّع ثم تحقّق»): the speech
-/// segments are kept (in memory only) and checked at once.
+/// 16 kHz mono PCM → voice activity cuts speech segments (a pause of [endSilence] ends one; a
+/// stretch longer than [maxSegment] is cut too) → while a segment runs, its last [window] of audio
+/// is decoded every [decodeEvery] (never two decodes at once: a slow phone simply decodes less
+/// often) and those words are *tentative* — they reveal words on the page as they are said, and
+/// judge nothing. When the segment ends, the whole segment is decoded once more and those words are
+/// *committed*: they are what the recitation is judged on, and they never change again. (Whisper
+/// reads a whole phrase far better than a phrase cut mid-word; committing only whole segments keeps
+/// the live judgement as accurate as a per-ayah check — measured in docs/MODELS.md.) Long sessions
+/// (a page or more) are just many segments. With `live: false` nothing is decoded until [finish]
+/// («سمّع ثم تحقّق»): the segments are kept (in memory only) and checked at once.
 class LiveTranscriber {
   LiveTranscriber({
     required this.decoder,
     required this.activity,
     this.live = true,
     this.decodeEvery = const Duration(milliseconds: 1200),
-    this.window = const Duration(seconds: 8),
+    this.window = const Duration(seconds: 12),
     this.endSilence = const Duration(milliseconds: 600),
     this.preRoll = const Duration(milliseconds: 300),
     this.maxSegment = const Duration(seconds: 25),
@@ -133,6 +127,8 @@ class LiveTranscriber {
   final SpeechActivity activity;
   final bool live;
   final Duration decodeEvery;
+
+  /// How much of a running segment a tentative decode reads (its end).
   final Duration window;
   final Duration endSilence;
   final Duration preRoll;
@@ -213,44 +209,20 @@ class LiveTranscriber {
     return [for (final w in words) RecognizedWord(w.text, start: w.start + at, end: w.end + at)];
   }
 
-  static String _key(String w) => ArabicText.normalize(w).replaceAll(RegExp(r'[^ء-ي]'), '');
-
   Future<void> _decodeTentative(_Segment seg) async {
+    if (seg.ended || seg.length < _samples(const Duration(milliseconds: 500))) return;
+    final n = math.min(seg.length, _samples(window));
+    final words = _absolute(await decoder.decode(seg.tail(n)), seg.start + seg.length - n);
     if (seg.ended) return;
-    // The buffer never grows past the window: the oldest pending words are committed first.
-    if (seg.length > _samples(window) && seg.pending.length > 1) {
-      final keep = seg.pending.last;
-      _commit(seg, seg.pending.sublist(0, seg.pending.length - 1));
-      seg.pending = [keep];
-    }
-    if (seg.length > _samples(window)) seg.trimTo(seg.start + seg.length - _samples(window));
-    if (seg.length < _samples(const Duration(milliseconds: 500))) return;
-    final start = seg.start;
-    final hyp = _absolute(await decoder.decode(seg.snapshot()), start);
-    if (seg.ended) return;
-    // Local agreement: what this decode and the last one both say, from the start, is stable.
-    var k = 0;
-    while (k < hyp.length && k < seg.pending.length && _key(hyp[k].text) == _key(seg.pending[k].text)) {
-      k++;
-    }
-    if (k > 0) _commit(seg, hyp.sublist(0, k));
-    seg.pending = hyp.sublist(k);
-    _emit(seg.pending);
-  }
-
-  void _commit(_Segment seg, List<RecognizedWord> words) {
-    if (words.isEmpty) return;
-    _committed.addAll(words);
-    seg.trimTo((words.last.end * asrSampleRate).round());
+    _emit(words);
   }
 
   Future<void> _decodeFinal(_Segment seg) async {
     final words = seg.length < _samples(const Duration(milliseconds: 250))
         ? const <RecognizedWord>[]
-        : _absolute(await decoder.decode(seg.snapshot()), seg.start);
+        : _absolute(await decoder.decode(seg.tail(seg.length)), seg.start);
     _committed.addAll(words);
     seg
-      ..pending = const []
       ..chunks.clear()
       ..length = 0;
     _segments.remove(seg);

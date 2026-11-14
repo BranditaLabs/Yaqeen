@@ -622,7 +622,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     final step = s.stage.hifzStep;
     HapticFeedback.mediumImpact();
     _echoing = false;
-    await ref.read(voiceRehearsalProvider.notifier).stop();
+    // Not awaited: this may run from inside the microphone's own update (the tenth repetition).
+    ref.read(voiceRehearsalProvider.notifier).stop().ignore();
     _sessions.update((x) => x.advance());
     if (step != null && s.kind == QuranSessionKind.hifz) await ref.read(hifzControllerProvider.notifier).completeStep(step);
     final next = ref.read(activeSessionProvider);

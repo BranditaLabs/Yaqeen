@@ -21,6 +21,7 @@ import 'package:yaqeen/features/recite/presentation/recite_overlay.dart';
 import '../helpers/harness.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   final q = QuranData.fromJson(jsonDecode(File('assets/quran/quran.json').readAsStringSync()) as Map<String, dynamic>);
   final ayah = [(const AyahRef(112, 1), q.text(const AyahRef(112, 1)))];
 

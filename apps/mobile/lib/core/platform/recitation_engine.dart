@@ -172,6 +172,7 @@ class ScriptedRecitationEngine extends RecitationEngine {
     _c = null;
     if (c == null) return;
     if (lastLive == false && finalUpdate != null) c.add(finalUpdate!);
-    await c.close();
+    // Not awaited: a listener that already cancelled never completes `close`.
+    c.close().ignore();
   }
 }

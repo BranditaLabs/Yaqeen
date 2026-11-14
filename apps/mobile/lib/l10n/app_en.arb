@@ -2941,7 +2941,5 @@
   "asrEchoMode": "Repeat after the reciter",
   "asrEchoYourTurn": "Your turn",
   "asrAutoCount": "A repetition counts when you recite the passage in full",
-  "asrRepeatListening": "Listening to your repetition",
-  "asrHiddenWord": "Hidden word",
-  "asrHelpWord": "Help: {word}"
+  "asrRepeatListening": "Listening to your repetition"
 }

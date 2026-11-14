@@ -125,7 +125,7 @@ class _ReciteStripState extends ConsumerState<ReciteStrip> {
     final label = switch (s.phase) {
       RecitePhase.listening => s.live ? t.reciteListening : t.asrReciteThenCheck,
       RecitePhase.checking => t.asrChecking,
-      RecitePhase.paused => t.asrPause,
+      RecitePhase.paused => t.asrResume,
       _ => t.reciteStart,
     };
     return Column(
@@ -252,7 +252,7 @@ class ReciteMic extends StatelessWidget {
     final halo = reduce || !listening ? 0.0 : level.clamp(0.0, 1.0);
     return Semantics(
       button: true,
-      label: listening ? t.reciteStop : t.reciteStart,
+      label: listening ? t.asrPause : t.reciteStart,
       excludeSemantics: true,
       onTap: onTap,
       child: GestureDetector(

@@ -133,9 +133,11 @@ class ReciteController extends AutoDisposeNotifier<ReciteState> {
     ref.onDispose(() {
       disposed = true;
       _ticker?.cancel();
+      // Only this layer's own microphone: the engine may be serving voice «تحفيظ» meanwhile.
+      final mine = _sub != null;
       _sub?.cancel();
       _lifecycle?.dispose();
-      _engine.stop().ignore();
+      if (mine) _engine.stop().ignore();
     });
     // A download finishing while the layer is open makes it ready.
     ref.listen(asrModelControllerProvider.select((s) => s.ready), (_, ready) {

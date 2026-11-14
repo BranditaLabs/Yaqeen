@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/providers.dart';
@@ -51,7 +51,14 @@ class VoiceRehearsal extends AutoDisposeNotifier<RehearsalState> {
   @override
   RehearsalState build() {
     _engine = ref.watch(recitationEngineProvider);
+    // The microphone never stays open behind the screen (screen off, another app).
+    final lifecycle = AppLifecycleListener(
+      onStateChange: (s) {
+        if (s != AppLifecycleState.resumed && s != AppLifecycleState.detached && _sub != null) stop().ignore();
+      },
+    );
     ref.onDispose(() {
+      lifecycle.dispose();
       final listening = _sub != null;
       _sub?.cancel();
       _sub = null;
@@ -127,7 +134,8 @@ class VoiceRehearsal extends AutoDisposeNotifier<RehearsalState> {
 
   Future<void> stop() async {
     final had = _sub != null;
-    await _sub?.cancel();
+    // Not awaited: a cancel from inside the stream's own delivery may complete only later.
+    _sub?.cancel().ignore();
     _sub = null;
     _follower = null;
     if (had) await _engine.stop();

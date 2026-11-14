@@ -43,11 +43,13 @@ class BurstDecoder implements SpeechDecoder {
   final List<String> vocab;
   int calls = 0;
   int longest = 0;
+  int overWindow = 0;
 
   @override
   Future<List<RecognizedWord>> decode(Float32List s) async {
     calls++;
     if (s.length > longest) longest = s.length;
+    if (s.length > Speech._n(const Duration(seconds: 12))) overWindow++;
     final out = <RecognizedWord>[];
     var i = 0;
     while (i < s.length) {
@@ -89,7 +91,7 @@ void main() {
   const vocab = ['قل', 'هو', 'الله', 'احد', 'الصمد', 'لم', 'يلد', 'ولم', 'يولد', 'يكن', 'له', 'كفوا'];
 
   group('live loop (fake PCM pipeline)', () {
-    test('words are committed as decodes agree, never change, and all arrive by the end', () async {
+    test('words show live as tentative; each phrase is committed whole when it ends, and never changes', () async {
       final speech = Speech(vocab)
         ..silence(const Duration(milliseconds: 500))
         ..say(['قل', 'هو', 'الله', 'احد'])
@@ -108,22 +110,23 @@ void main() {
         final next = updates[i].committed.map((w) => w.text).toList();
         expect(next.take(prev.length), prev);
       }
-      // Some words were committed before their phrase ended (live), with a tentative guess.
-      expect(updates.any((u) => !u.isFinal && u.committed.isNotEmpty && u.committed.length < 4), isTrue);
-      expect(updates.any((u) => u.tentative.isNotEmpty), isTrue);
+      // While a phrase is said its words arrive as tentative (they reveal, they don't judge)...
+      expect(updates.any((u) => u.committed.isEmpty && u.tentative.length >= 2), isTrue);
+      // ...and the phrase is committed whole once it ends.
+      expect(updates.map((u) => u.committed.length).toSet(), {0, 4, 6});
       // Word times are session times.
       expect(updates.last.committed.first.start, closeTo(0.5, 0.05));
     });
 
-    test('a long stretch without a pause never decodes more than the window', () async {
+    test('a long stretch without a pause: live decodes read at most the window, cuts at 25 s', () async {
       final speech = Speech(vocab)..say([for (var i = 0; i < 30; i++) vocab[i % vocab.length]], gap: const Duration(milliseconds: 100));
       speech.silence(const Duration(seconds: 1));
       final decoder = BurstDecoder(vocab);
       final t = LiveTranscriber(decoder: decoder, activity: EnergyActivity());
       final updates = await run(t, speech.samples);
-      expect(updates.last.committed, hasLength(30));
-      // Tentative decodes stay within the 8 s window (the final one reads what is left).
+      expect(updates.last.committed.length, inInclusiveRange(29, 30), reason: 'a cut at 25 s may split one word');
       expect(decoder.longest, lessThanOrEqualTo(Speech._n(const Duration(seconds: 25))));
+      expect(decoder.overWindow, 1, reason: 'only the segment-end decode reads more than the 12 s window');
     });
 
     test('«سمّع ثم تحقّق»: nothing until the end, then every word at once', () async {

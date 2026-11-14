@@ -3037,14 +3037,5 @@
   "asrEchoMode": "ردّد بعد القارئ",
   "asrEchoYourTurn": "ردّد الآن",
   "asrAutoCount": "يُحتسب التكرار حين تتلو المقطع كاملاً",
-  "asrRepeatListening": "يستمع لتكرارك",
-  "asrHiddenWord": "كلمة مخفية",
-  "asrHelpWord": "مساعدة: {word}",
-  "@asrHelpWord": {
-    "placeholders": {
-      "word": {
-        "type": "String"
-      }
-    }
-  }
+  "asrRepeatListening": "يستمع لتكرارك"
 }
