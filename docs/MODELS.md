@@ -40,7 +40,7 @@ decoding settings, transcripts aligned with a port of the app's `RecitationAlign
 | --- | ---: | ---: |
 | 4 reciters (QF catalogue: Alafasy, AbdulBaset murattal, Minshawi murattal, Husary) × 7 surahs (1, 67, 103, 108, 112–114), per-ayah cuts — **ours** (int8 embedding) | 1 776 | **95.5 %** (74 «تنبيه», 6 not heard) |
 | Same, interim export (fp32 embedding) | 1 776 | 95.4 % |
-| Same audio replayed as whole surahs the way the app judges live (segments cut by pauses, each decoded when it ends) | 1 776 | LIVE_RESULT |
+| Same audio replayed as whole surahs the way the app judges live (segments cut by pauses, each decoded when it ends) | 1 776 | **93.7 %** (was 69.3 % with the earlier prefix-commit design) |
 | Users' own voices on phones (`--local`) | — | **not measured yet** |
 
 - The int8 embedding costs nothing measurable (95.5 % vs 95.4 %) and saves ~60 MB.
