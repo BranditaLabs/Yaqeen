@@ -61,3 +61,27 @@ spec:
               envFrom:
                 - configMapRef: { name: yaqeen-api-config }
                 - secretRef: { name: yaqeen-api-secrets }
+---
+# «تلاواتي» sweeper: retry recordings stuck in the AI check, send them to review after 3 failures,
+# delete moderator-removed recordings after their 7-day restore window.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: yaqeen-recordings
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels: { app: yaqeen-recordings }
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: recordings
+              image: ghcr.io/branditalabs/yaqeen-api:latest
+              command: ["node", "dist/jobs/recordings.js"]
+              envFrom:
+                - configMapRef: { name: yaqeen-api-config }
+                - secretRef: { name: yaqeen-api-secrets }

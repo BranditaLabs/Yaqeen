@@ -142,6 +142,9 @@ deploy() { # deploy <deployApps true|false> <domainMode>
   acr=$(q acr list -g "$RG" --query '[0].loginServer' 2>/dev/null || true)
   storage=$(q postgres flexible-server list -g "$RG" --query '[0].storage.storageSizeGb' 2>/dev/null || true)
   if [[ -n "$kv" ]]; then
+    # The ASR shared secret (API ↔ yaqeen-asr), generated once and kept; both apps read it from the vault.
+    [[ -n $(q keyvault secret list --vault-name "$kv" --query "[?name=='env-ASR-TOKEN'].name") ]] ||
+      vault_set "$kv" env-ASR-TOKEN "$(openssl rand -hex 32)" || die "cannot create env-ASR-TOKEN in $kv"
     # env-<name> vault secrets → API env vars. Container Apps secret names must be lowercase (Key
     # Vault names are case-insensitive, so the reference still resolves).
     extra=$(q keyvault secret list --vault-name "$kv" --query "[?starts_with(name, 'env-')].name" | node -e '
@@ -174,7 +177,7 @@ deploy() { # deploy <deployApps true|false> <domainMode>
       deployApps: v(e.APPS === "true"), domainMode: v(e.MODE), enableCampaigns: v(e.CAMPAIGNS === "true"),
       apiHost: v(e.API_HOST), adminHost: v(e.ADMIN_HOST), siteHost: v(e.SITE_HOST), pgStorageGB: v(Number(e.STORAGE)),
       adminAllowedCidrs: v(e.CIDRS.split(",").map((s) => s.trim()).filter(Boolean)),
-      apiImage: v(img(`yaqeen-api:${e.TAG}`)), adminImage: v(img(`yaqeen-admin:${e.TAG}`)), redisImage: v(img("redis:7-alpine")),
+      apiImage: v(img(`yaqeen-api:${e.TAG}`)), adminImage: v(img(`yaqeen-admin:${e.TAG}`)), redisImage: v(img("redis:7-alpine")), asrImage: v(img(`yaqeen-asr:${e.TAG}`)),
       apiSettings: v(JSON.parse(e.SETTINGS)), extraSecrets: v(JSON.parse(e.EXTRA)),
       pgPassword: v(e.PG), redisPassword: v(e.REDIS), jwtSecret: v(e.JWT), adminJwtSecret: v(e.AJWT),
       adminSecretsKey: v(e.ASK), backupSecretsKey: v(e.BSK),
@@ -221,7 +224,9 @@ images() {
   docker build -f "$ROOT/services/api/Dockerfile" --build-arg GIT_SHA="$TAG" -t "$server/yaqeen-api:$TAG" "$ROOT"
   docker build -f "$ROOT/apps/admin/Dockerfile" --build-arg GIT_SHA="$TAG" -t "$server/yaqeen-admin:$TAG" "$ROOT"
   docker push "$server/yaqeen-api:$TAG"
+  docker build -f "$ROOT/services/asr/Dockerfile" -t "$server/yaqeen-asr:$TAG" "$ROOT"
   docker push "$server/yaqeen-admin:$TAG"
+  docker push "$server/yaqeen-asr:$TAG"
 }
 
 apps() {

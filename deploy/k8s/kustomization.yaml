@@ -6,6 +6,8 @@ resources:
   - api.yaml
   - admin.yaml
   - jobs.yaml
+  - asr.yaml
 # CI pins images per release:
 #   kustomize edit set image ghcr.io/branditalabs/yaqeen-api=ghcr.io/branditalabs/yaqeen-api:$GIT_SHA
 #   kustomize edit set image ghcr.io/branditalabs/yaqeen-admin=ghcr.io/branditalabs/yaqeen-admin:$GIT_SHA
+#   kustomize edit set image ghcr.io/branditalabs/yaqeen-asr=ghcr.io/branditalabs/yaqeen-asr:$GIT_SHA

@@ -1,0 +1,5 @@
+# Runtime (pinned). faster-whisper brings ctranslate2, PyAV (FFmpeg libraries bundled), tokenizers,
+# onnxruntime (Silero VAD) and huggingface_hub.
+faster-whisper==1.1.1
+fastapi==0.115.6
+uvicorn==0.34.0

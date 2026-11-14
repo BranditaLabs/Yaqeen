@@ -4,7 +4,7 @@
 //
 //   infra      ACR, Key Vault, Postgres, identities (+ VNet, Log Analytics, environment unless shared)
 //   apps       api (public), admin (public), redis (VNet-internal TCP; own environment only),
-//              migrate + purge (+ campaigns) jobs
+//              asr («تلاواتي» speech check: internal, scale-to-zero), migrate + purge + recordings (+ campaigns) jobs
 //   domains    'none' → 'add' (hostnames, no cert) → 'bind' (managed certificates, SNI)
 
 targetScope = 'resourceGroup'
@@ -33,6 +33,8 @@ param deployApps bool = false
 param apiImage string = ''
 param adminImage string = ''
 param redisImage string = ''
+@description('ASR image (services/asr); empty = no ASR app, and shared recordings wait for a reviewer instead.')
+param asrImage string = ''
 
 @description('Public hosts once DNS points here (docs/OPERATIONS.md › Azure › Custom domains).')
 param apiHost string
@@ -75,6 +77,7 @@ var isProd = envName == 'production'
 var useShared = !empty(existingEnvironmentId)
 var redisOn = enableRedis && !useShared
 var envRg = useShared ? split(existingEnvironmentId, '/')[4] : resourceGroup().name
+var asrOn = deployApps && !empty(asrImage)
 var envResourceName = useShared ? last(split(existingEnvironmentId, '/')) : 'cae-yaqeen-${envName}'
 
 // ---------------------------------------------------------------- identity, registry, secrets
@@ -334,7 +337,9 @@ var apiDefaults = {
 }
 // Empty REDIS_URL = in-memory cache and rate limits (the env default would point at localhost).
 var redisOffEnv = redisOn ? {} : { REDIS_URL: '' }
-var apiPlainEnv = [for e in items(union(apiDefaults, redisOffEnv, apiSettings)): { name: e.key, value: string(e.value) }]
+// ASR_TOKEN arrives through the vault secret `env-ASR-TOKEN` (extraSecrets), generated once by azure.sh.
+var asrEnv = asrOn ? { ASR_URL: 'http://yaqeen-asr' } : {}
+var apiPlainEnv = [for e in items(union(apiDefaults, redisOffEnv, asrEnv, apiSettings)): { name: e.key, value: string(e.value) }]
 var apiSecretVars = [for s in apiSecretEnv: { name: s.env, secretRef: s.secret }]
 var apiEnv = concat(apiPlainEnv, apiSecretVars)
 
@@ -483,12 +488,52 @@ resource admin 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
   dependsOn: [edgeAcrPull, api, managedCerts]
 }
 
+// «تلاواتي» speech check (services/asr): internal ingress only (reached as http://yaqeen-asr from the
+// API and its jobs), min replicas 0 → it runs, and costs, only while verifying a shared recording.
+// 1 vCPU / 2 GiB; a 30 s clip takes a few vCPU-seconds (docs/OPERATIONS.md › ASR).
+resource asr 'Microsoft.App/containerApps@2024-03-01' = if (asrOn) {
+  name: 'yaqeen-asr'
+  location: appsLocation
+  tags: tags
+  identity: { type: 'UserAssigned', userAssignedIdentities: { '${identity.id}': {} } }
+  properties: {
+    environmentId: environmentId
+    workloadProfileName: 'Consumption'
+    configuration: {
+      activeRevisionsMode: 'Single'
+      ingress: { external: false, targetPort: 8080, transport: 'http', allowInsecure: true }
+      registries: registries
+      secrets: [{ name: 'env-asr-token', keyVaultUrl: '${vaultUri}secrets/env-asr-token', identity: identity.id }]
+    }
+    template: {
+      containers: [
+        {
+          name: 'asr'
+          image: asrImage
+          env: [
+            { name: 'ASR_TOKEN', secretRef: 'env-asr-token' }
+            { name: 'ASR_THREADS', value: '1' }
+          ]
+          resources: { cpu: json('1.0'), memory: '2Gi' }
+          probes: [
+            { type: 'Startup', httpGet: { path: '/health', port: 8080 }, initialDelaySeconds: 2, periodSeconds: 2, failureThreshold: 30 }
+          ]
+        }
+      ]
+      scale: { minReplicas: 0, maxReplicas: 1, rules: [{ name: 'http', http: { metadata: { concurrentRequests: '4' } } }] }
+    }
+  }
+  dependsOn: [identityAcrPull, identityKvRead]
+}
+
 // ---------------------------------------------------------------- jobs (deploy/k8s/jobs.yaml)
 
 var jobs = concat(
   [
     { name: 'yaqeen-migrate', command: ['node', 'dist/db/migrate.js'], cron: '' }
     { name: 'yaqeen-purge', command: ['node', 'dist/jobs/purge-deleted.js'], cron: '17 1 * * *' }
+    // «تلاواتي» sweeper: retries stuck AI checks, deletes moderator-removed recordings after 7 days.
+    { name: 'yaqeen-recordings', command: ['node', 'dist/jobs/recordings.js'], cron: '*/10 * * * *' }
   ],
   enableCampaigns && redisOn ? [{ name: 'yaqeen-campaigns', command: ['node', 'dist/jobs/campaign-dispatcher.js'], cron: '*/10 * * * *' }] : []
 )

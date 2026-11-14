@@ -7,6 +7,7 @@ namespace: yaqeen
 images:
   - { name: ghcr.io/branditalabs/yaqeen-api, newTag: latest }
   - { name: ghcr.io/branditalabs/yaqeen-admin, newTag: latest }
+  - { name: ghcr.io/branditalabs/yaqeen-asr, newTag: latest }
 patches:
   - target: { kind: Deployment, name: yaqeen-admin }
     patch: |

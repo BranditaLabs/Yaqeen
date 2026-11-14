@@ -34,7 +34,22 @@ jobs:
         run: |
           pnpm --filter @yaqeen/api exec drizzle-kit generate --name ci_check
           git diff --exit-code -- services/api/drizzle || (echo "Run pnpm db:generate and commit the migration" && exit 1)
+      - name: Recitation-match vectors, Quran word list and surah names are in sync
+        run: |
+          pnpm --filter @yaqeen/api exec tsx scripts/build-quran-words.ts --check
+          pnpm --filter @yaqeen/api exec tsx scripts/build-recitation-fixtures.ts --check
       - run: pnpm --filter @yaqeen/admin build
+
+  asr:
+    name: ASR service (HTTP contract)
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: services/asr } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -q
 
   e2e:
     name: Browser E2E (admin · site · cards)
@@ -210,3 +225,6 @@ jobs:
       - name: Admin image
         uses: docker/build-push-action@v6
         with: { context: ., file: apps/admin/Dockerfile, push: false, tags: "yaqeen-admin:ci", cache-from: type=gha, cache-to: "type=gha,mode=max" }
+      - name: ASR image (converts the pinned model)
+        uses: docker/build-push-action@v6
+        with: { context: ., file: services/asr/Dockerfile, push: false, tags: "yaqeen-asr:ci", cache-from: type=gha, cache-to: "type=gha,mode=max" }

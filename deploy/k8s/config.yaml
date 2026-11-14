@@ -1,6 +1,6 @@
 # Non-secret settings. Secrets (DATABASE_URL, REDIS_URL, JWT_SECRET, ADMIN_JWT_SECRET, ADMIN_SECRETS_KEY, BACKUP_SECRETS_KEY,
 # SHOPIFY_ADMIN_TOKEN, SHOPIFY_WEBHOOK_SECRET, FIREBASE_SERVICE_ACCOUNT_JSON, GOOGLE_CLIENT_IDS, APPLE_CLIENT_IDS,
-# CONVERSIONS_ID_SALT, META_CAPI_TOKEN, GA4_API_SECRET, TIKTOK_ACCESS_TOKEN, QF_CLIENT_ID, QF_CLIENT_SECRET) live in
+# CONVERSIONS_ID_SALT, META_CAPI_TOKEN, GA4_API_SECRET, TIKTOK_ACCESS_TOKEN, QF_CLIENT_ID, QF_CLIENT_SECRET, ASR_TOKEN) live in
 # the `yaqeen-api-secrets` Secret, created from your secret manager — never committed:
 #   kubectl -n yaqeen create secret generic yaqeen-api-secrets --from-env-file=prod.env
 apiVersion: v1
@@ -26,3 +26,5 @@ data:
   METRICS_PORT: "9100"
   # Errors only by default; raise to sample performance traces (0.05 = 5 %).
   SENTRY_TRACES_SAMPLE_RATE: "0"
+  # «تلاواتي» AI check (deploy/k8s/asr.yaml). ASR_TOKEN is in yaqeen-api-secrets (same value as yaqeen-asr-secrets).
+  ASR_URL: http://yaqeen-asr
