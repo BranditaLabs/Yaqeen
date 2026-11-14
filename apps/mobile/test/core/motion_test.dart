@@ -227,6 +227,20 @@ void main() {
       expect(find.byKey(const ValueKey('s')), findsNothing);
     });
 
+    testWidgets('YqShiftIn: a long climb slides at most three rows and fades in', (tester) async {
+      await tester.pumpWidget(harness(const Center(child: YqShiftIn(rows: 40, child: SizedBox(width: 50, height: 10)))));
+      await tester.pump(const Duration(milliseconds: 1));
+      final shift = tester.widget<FractionalTranslation>(
+        find.descendant(of: find.byType(YqShiftIn), matching: find.byType(FractionalTranslation)),
+      );
+      expect(shift.translation.dy, lessThanOrEqualTo(YqShiftIn.maxRows.toDouble()));
+      expect(shift.translation.dy, greaterThan(2.9));
+      final fade = tester.widget<Opacity>(find.descendant(of: find.byType(YqShiftIn), matching: find.byType(Opacity)));
+      expect(fade.opacity, lessThan(0.1));
+      await tester.pumpAndSettle();
+      expect(find.descendant(of: find.byType(YqShiftIn), matching: find.byType(FractionalTranslation)), findsNothing);
+    });
+
     testWidgets('YqFadeSwap: the outgoing state keeps its element, its size rule and its alignment', (tester) async {
       Widget s(bool ready) => harness(
             Align(

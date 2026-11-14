@@ -68,33 +68,36 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     });
   }
 
-  /// Whether the last build showed the loading board: it gives way to the loaded one with the
-  /// shared 200 ms fade; other changes (scope, joined, a note) simply update.
-  bool _loading = false;
-
   @override
   Widget build(BuildContext context) {
-    final screen = _screen(context);
-    return YqFadeSwap(expand: true, child: KeyedSubtree(key: ValueKey(_loading), child: screen));
-  }
-
-  Widget _screen(BuildContext context) {
-    _loading = false;
     final t = AppLocalizations.of(context);
     final locale = Localizations.localeOf(context).languageCode;
     final flagOn = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.leaderboard)));
     final account = ref.watch(sessionProvider.select((s) => s.canEarnPoints));
     final bar = YqStageBar(back: true, title: t.cmLeaderboardTitle);
 
-    Widget canvas(List<Widget> children, {List<Widget> slivers = const [], Widget? footer, Future<void> Function()? onRefresh}) =>
-        Scaffold(
-          backgroundColor: YqColors.porcelain,
-          body: YqCanvas(
-            onRefresh: onRefresh,
-            stage: YqStage(compact: true, child: bar),
-            footer: footer,
-            slivers: slivers,
-            children: children,
+    // Every state is the same tree (motion scope → scaffold → canvas, the segmented control at
+    // the same place), so switching World/Country or loading a board never remounts the screen:
+    // the segmented thumb glides, the scroll stays, and only the board area changes.
+    Widget canvas(
+      List<Widget> children, {
+      List<String> handles = const [],
+      List<Widget> slivers = const [],
+      Widget? footer,
+      Future<void> Function()? onRefresh,
+    }) =>
+        RankMotionScope(
+          listId: _scope,
+          handles: handles,
+          child: Scaffold(
+            backgroundColor: YqColors.porcelain,
+            body: YqCanvas(
+              onRefresh: onRefresh,
+              stage: YqStage(compact: true, child: bar),
+              footer: footer,
+              slivers: slivers,
+              children: children,
+            ),
           ),
         );
 
@@ -126,9 +129,12 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     );
     Future<void> refresh() async => ref.invalidate(leaderboardProvider(_scope));
 
+    // The board's states share one head: the offline line, the segmented control, a gap.
+    List<Widget> head({bool offline = false}) => [YqOfflineBanner(offline: offline), segmented, const SizedBox(height: YqSpace.l)];
+
     // No city chosen: no country board to ask for.
     if (_scope == LeaderboardScope.country && country == null) {
-      return canvas([segmented, const SizedBox(height: YqSpace.l), CommunityNote(icon: YqIcons.flag, title: t.cmCountryUnknown)]);
+      return canvas(onRefresh: () async {}, [...head(), CommunityNote(icon: YqIcons.flag, title: t.cmCountryUnknown)]);
     }
 
     final async = ref.watch(leaderboardProvider(_scope));
@@ -145,8 +151,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
       };
       final countryOn = profile?.community.leaderboardCountry ?? false;
       return canvas(onRefresh: refresh, [
-        segmented,
-        const SizedBox(height: YqSpace.l),
+        ...head(),
         note,
         // A small country board grows only if people can still opt in to it.
         if (error.failure == CommunityFailure.countryTooSmall && !countryOn) ...[
@@ -157,9 +162,8 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     }
     final fresh = async.valueOrNull;
     if (fresh == null) {
-      if (async.hasError) return canvas([segmented, const SizedBox(height: YqSpace.l), YqErrorState(onRetry: refresh)]);
-      _loading = true;
-      return canvas([segmented, const SizedBox(height: YqSpace.l), const CompetitorSkeleton(rows: 8)]);
+      if (async.hasError) return canvas(onRefresh: refresh, [...head(), YqErrorState(onRetry: refresh)]);
+      return canvas(onRefresh: refresh, [...head(), const CompetitorSkeleton(rows: 8)]);
     }
     final view = fresh.value;
     final left = _leftHere(profile, _scope);
@@ -172,28 +176,28 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     final me = joined ? view.me : null;
 
     // Rows that moved glide; the person's own ring draws in and their pinned rank slides up, once.
-    return RankMotionScope(
+    // The board fades in over the skeleton's place (and again when the scope changes).
+    return canvas(
       handles: [for (final r in rows) r.handle],
-      child: canvas(
-        onRefresh: refresh,
-        [
-          YqOfflineBanner(offline: fresh.offline),
-          segmented,
+      onRefresh: refresh,
+      [
+        ...head(offline: fresh.offline),
+        if (!joined) ...[
+          _JoinCard(
+            country: _scope == LeaderboardScope.country,
+            needsBoard: _scope == LeaderboardScope.country && !globalOn,
+            busy: _busy,
+            error: _error,
+            // The country board is offered only on top of the level board (never both at once).
+            onJoin: () => _join(country: _scope == LeaderboardScope.country && globalOn),
+          ),
           const SizedBox(height: YqSpace.l),
-          if (!joined) ...[
-            _JoinCard(
-              country: _scope == LeaderboardScope.country,
-              needsBoard: _scope == LeaderboardScope.country && !globalOn,
-              busy: _busy,
-              error: _error,
-              // The country board is offered only on top of the level board (never both at once).
-              onJoin: () => _join(country: _scope == LeaderboardScope.country && globalOn),
-            ),
-            const SizedBox(height: YqSpace.l),
-          ],
         ],
-        slivers: [
-          SliverList.builder(
+      ],
+      slivers: [
+        YqSliverFadeIn(
+          key: ValueKey(_scope),
+          sliver: SliverList.builder(
             itemCount: rows.length,
             itemBuilder: (context, i) {
               final c = rows[i];
@@ -205,11 +209,11 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
               );
             },
           ),
-          const SliverToBoxAdapter(child: SnapshotLine()),
-          const SliverToBoxAdapter(child: CommunityFooter()),
-        ],
-        footer: joined ? _MyRank(rank: me?.rank) : null,
-      ),
+        ),
+        const SliverToBoxAdapter(child: SnapshotLine()),
+        const SliverToBoxAdapter(child: CommunityFooter()),
+      ],
+      footer: joined ? _MyRank(rank: me?.rank) : null,
     );
   }
 

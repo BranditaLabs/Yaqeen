@@ -289,6 +289,13 @@ class RankMotion {
     _last = next;
   }
 
+  /// A different list in the same place (another board): its order is the new baseline, so
+  /// nothing glides. One-time moments already played stay played.
+  void restart(List<String> handles) {
+    _moves.clear();
+    _last = {for (var i = 0; i < handles.length; i++) handles[i]: i};
+  }
+
   /// The rows this handle moved by (0 when it stayed), once.
   int takeMove(String handle) => _moves.remove(handle) ?? 0;
 }
@@ -296,8 +303,12 @@ class RankMotion {
 /// Gives a ranked list its [RankMotion]: [handles] in display order (rows moving between
 /// snapshots glide), and a memo so one-time moments play once per screen.
 class RankMotionScope extends StatefulWidget {
-  const RankMotionScope({super.key, required this.handles, required this.child});
+  const RankMotionScope({super.key, required this.handles, this.listId, required this.child});
   final List<String> handles;
+
+  /// Which list [handles] belong to (e.g. the world or the country board). A new id is a
+  /// different list, not a reorder: its rows never glide from the old list's places.
+  final Object? listId;
   final Widget child;
 
   static RankMotion? maybeOf(BuildContext context) => context.getInheritedWidgetOfExactType<_RankMotionData>()?.motion;
@@ -318,7 +329,11 @@ class _RankMotionScopeState extends State<RankMotionScope> {
   @override
   void didUpdateWidget(RankMotionScope old) {
     super.didUpdateWidget(old);
-    if (!listEquals(old.handles, widget.handles)) _motion.update(widget.handles);
+    if (old.listId != widget.listId) {
+      _motion.restart(widget.handles);
+    } else if (!listEquals(old.handles, widget.handles)) {
+      _motion.update(widget.handles);
+    }
   }
 
   @override

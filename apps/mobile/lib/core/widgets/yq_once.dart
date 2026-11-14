@@ -336,13 +336,17 @@ class _YqSlideInState extends State<YqSlideIn> with SingleTickerProviderStateMix
       );
 }
 
-/// A row that moved in a ranked list glides from where it was: [rows] is how many rows it moved
+//// A row that moved in a ranked list glides from where it was: [rows] is how many rows it moved
 /// (positive = it was lower and climbed). Played when the row first builds with a move, or when a
-/// new move arrives.
+/// new move arrives. A move of more than [maxRows] does not travel the whole way (it would cross
+/// the rows around it): the row fades in from [maxRows] rows away instead.
 class YqShiftIn extends StatefulWidget {
   const YqShiftIn({super.key, required this.rows, required this.child});
   final int rows;
   final Widget child;
+
+  /// The furthest a row slides; larger moves fade in from here.
+  static const maxRows = 3;
 
   @override
   State<YqShiftIn> createState() => _YqShiftInState();
@@ -372,7 +376,11 @@ class _YqShiftInState extends State<YqShiftIn> with SingleTickerProviderStateMix
         builder: (context, child) {
           final t = Motion.emphasisedCurve.transform(this.t);
           if (t >= 1 || _rows == 0) return child!;
-          return FractionalTranslation(translation: Offset(0, _rows * (1 - t)), child: child);
+          final far = _rows.abs() > YqShiftIn.maxRows;
+          final rows = _rows.clamp(-YqShiftIn.maxRows, YqShiftIn.maxRows);
+          final moved = FractionalTranslation(translation: Offset(0, rows * (1 - t)), child: child);
+          if (!far) return moved;
+          return Opacity(opacity: t.clamp(0.0, 1.0), alwaysIncludeSemantics: true, child: moved);
         },
       );
 }

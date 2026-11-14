@@ -22,6 +22,7 @@ import 'package:yaqeen/features/prayer/data/city_repository.dart';
 import 'package:yaqeen/features/profile/data/profile_repository.dart';
 import 'package:yaqeen/core/widgets/yq_avatar.dart';
 import 'package:yaqeen/core/widgets/yq_once.dart';
+import 'package:yaqeen/core/widgets/yq_stage.dart';
 import 'package:yaqeen/features/community/presentation/community_widgets.dart';
 
 import '../../helpers/fonts.dart';
@@ -539,6 +540,36 @@ void main() {
       await tester.pumpAndSettle();
       expect(rig.calls, contains('GET /v1/leaderboard?scope=country'));
       expect(find.text('ترتيبك 4'), findsOneWidget);
+    });
+
+    testWidgets('switching boards keeps the screen: the segmented control and canvas are never remounted, no row glides', (tester) async {
+      final rig = CommunityRig(routes: {
+        'GET /v1/leaderboard': (req) => jsonResponse(
+              req.url.queryParameters['scope'] == 'country' ? board(scope: 'country', countryJoined: true) : board(),
+            ),
+      },);
+      await pump(tester, rig, const LeaderboardScreen(), profile: profileJson(country: true));
+      final segmented = tester.element(find.byType(YqSegmented<LeaderboardScope>));
+      final canvas = tester.element(find.byType(YqCanvas));
+      final gate = rig.gates['GET /v1/leaderboard'] = Completer<void>();
+      await tester.tap(find.text('مصر'));
+      await tester.pump(); // the country board is loading: only the board area shows the skeleton
+      expect(find.byType(YqSkeleton), findsOneWidget);
+      expect(tester.element(find.byType(YqSegmented<LeaderboardScope>)), same(segmented));
+      expect(find.byType(YqSegmented<LeaderboardScope>), findsOneWidget); // never two screens cross-fading
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(find.byType(YqSkeleton), findsNothing);
+      expect(tester.element(find.byType(YqSegmented<LeaderboardScope>)), same(segmented));
+      expect(tester.element(find.byType(YqCanvas)), same(canvas));
+      // Back to the cached world board: a different list, so nothing slides in from the other one.
+      await tester.tap(find.text('العالم'));
+      await tester.pump();
+      for (final shift in tester.widgetList<YqShiftIn>(find.byType(YqShiftIn))) {
+        expect(shift.rows, 0);
+      }
+      await tester.pumpAndSettle();
+      expect(tester.element(find.byType(YqCanvas)), same(canvas));
     });
   });
 
