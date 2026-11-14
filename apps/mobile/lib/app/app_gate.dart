@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../core/config/config_controller.dart';
 import '../core/config/env.dart';
 import '../core/notifications/push_service.dart';
+import '../features/recite/presentation/asr_model_controller.dart';
 import '../features/backup/presentation/backup_sync.dart';
 import '../features/backup/presentation/backup_widgets.dart';
 import '../features/challenge/presentation/challenge_controller.dart';
@@ -97,6 +98,8 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
       _updatePacks,
       // Full-reciter downloads cut short by a kill or restart pick up where they stopped.
       () => ref.read(downloadsControllerProvider.notifier).resumeInterrupted(),
+      // The recitation model's download, if one was cut short (Wi-Fi, or mobile data if allowed then).
+      () => ref.read(asrModelControllerProvider.notifier).resumeInterrupted(),
       _syncPush,
       _filePushes,
       // Opt-in cloud backup: pull + merge + push (time-boxed), or offer a restore after sign-in.

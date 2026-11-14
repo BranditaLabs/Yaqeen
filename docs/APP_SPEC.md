@@ -237,7 +237,7 @@ Push payload: `data.link`, `data.campaignId` (opened → `POST /v1/me/campaigns/
 | 07 | Home | `/home` | ✅ | — |
 | 08 | Quran index | `/quran` | ✅ | — |
 | 09 | Reading mode | `/quran/read/:page` | ✅ | KFGQPC page fonts licence (Amiri Quran until then) |
-| 10 | Recitation check (reader layer; route redirects) | `/quran/recite/:surah` | 🟡 beta flag | on-device ASR model passing the ship gate (§6.8) |
+| 10 | Recitation check (reader layer; route redirects) | `/quran/recite/:surah` | 🟡 beta flag | on-device engine + model built (2026-11); the flag waits for users' voices to pass the ship gate (§6.8, docs/MODELS.md) |
 | 11 | Listen (reader layer + mini player; route redirects) | `/quran/listen/:surah` | 🟡 building | licensed recitations + timing files in the catalogue |
 | 12 | Choose a reciter | `/quran/reciters` | ✅ | same |
 | 13 | Prayer times | `/prayer` | ✅ | — |
@@ -564,7 +564,7 @@ Footer verse «وَرَتِّلِ ٱلْقُرْءَانَ تَرْتِيلًا�
 
 ---
 
-### 5.12 `10 · Recitation check (تسميع)` — `/quran/recite/:surah` 🟡 (UI + aligner; ASR model pending) · flag `recite`
+### 5.12 `10 · Recitation check (تسميع)` — `/quran/recite/:surah` 🟡 (on-device engine + model built; ship gate: users' voices) · flag `recite`
 
 **Layout** Header: back · surah «الفاتحة» · «الجزء 1 · الصفحة 1» · segmented «قراءة | استماع | تسميع» (switches modes for the same position). Ayat shown progressively; hidden until recited when «إظهار الآيات» is OFF (memorisation test). Bottom: big mic button with live waveform and label «يستمع إليك» · «إيقاف التسميع» · «استمع إلى القارئ».
 Result strip: «3 آيات صحيحة» (success tone) · «تنبيه واحد: الْعَالَمِينَ» (the word underlined in gold, tap → play the reciter for that ayah).
@@ -577,7 +577,9 @@ Result strip: «3 آيات صحيحة» (success tone) · «تنبيه واحد:
 
 **One Page (2026-11)** Recite is a reader layer (§5.11): it tests `Passage.ofPage(page)` or the session's passage and pauses listening first; notes are a muted dotted «تنبيه» underline; tapping a note plays that ayah once; summary «{ayat} آيات · {notes} ملاحظات». `/quran/recite/:surah[?from&to&hifz]` **redirects** into the reader at `pageOf(surah:from)` (`mode=recite`) — from the bundled surah→page table when `QuranData` is not loaded yet.
 
-**Acceptance** [ ] Works offline after model download · [ ] No audio leaves the device · [ ] Flag OFF hides the tab everywhere.
+**On-device recognition (2026-11)** «النص يظهر بصوتك»: the passage's words sit in their exact printed places as soft ink-10 % pills (their own layer over the page); each word the voice says is revealed with a short fade and rise in lapis that settles to ink, and a soft glow waits on the next expected word. «إظهار النص» shows the hidden words faintly. **Help:** after 4 s without progress the next word's first letter appears; after 8 s the whole word appears muted and counts as one «مساعدة». A different word gets the muted dotted «تنبيه» underline (never «خطأ»); a word the voice passed without it a fainter one («لم تُسمَع»). **Flow:** the page curls by itself once the voice is past its last word (spread and follow rules); the strip shows a `YqRing` per ayah, «{ayat} آيات · {notes} ملاحظات · {helps} مساعدات», pause / «متابعة» and «إنهاء», with a light haptic tick per completed ayah. **End card:** ayat · notes · helps · time; each flagged word (tap → that ayah once from the user's reciter); «سمّع الملاحظات فقط» retries only those ayat; in a hifz/review session the grade sheet follows («متابعة إلى التقييم», suggestion counts help). Slow phones (real-time factor > 0.8, measured once): «سمّع ثم تحقّق» — record, then every mark at once in a stagger. The microphone stops when the app leaves the foreground. Copy says it checks the words, not tajweed. First entry before the model is on the phone: a calm sheet (what it does, «يعمل دون إنترنت ولا يغادر صوتك جهازك», size, «تنزيل»; mobile data only on the user's explicit choice). Settings › «التعرّف على التلاوة على الجهاز» (size, download ring, delete).
+
+**Acceptance** [x] Works offline after model download · [x] No audio leaves the device (tested: no API call, no backed-up store) · [x] Flag OFF hides the tab everywhere · [ ] ≥ 90 % word accuracy on users' voices (ship gate, docs/MODELS.md).
 
 ---
 
@@ -585,7 +587,7 @@ Result strip: «3 آيات صحيحة» (success tone) · «تنبيه واحد:
 
 **Layout** Back «رجوع إلى المصحف» · download button «تنزيل السورة». Eyebrow «يُشغَّل الآن», surah card «السورة 18 · مكية · 110 آيات» with name «الكهف» in display face, reciter «مشاري راشد العفاسي». Current ayah card (glass) with ayah text and number + collapsible tafsir line. Progress bar «4:12 / 23:40» (seek). Controls «التحكم في التشغيل»: repeat ayah · previous ayah · play/pause (64 dark pill) · next ayah · speed (0.75/1/1.25/1.5). Bottom chips «تغيير القارئ» (→ 12) · «مؤقت النوم» (sheet: 15/30/45/60 min, end of surah).
 
-**Rules (§6.7)** `just_audio` + `audio_service`: background playback, lock-screen + notification controls, Bluetooth buttons, interruption handling (pause on call, resume after). Ayah sync from per-ayah timings (Quran Foundation verse timestamps, resolved per surah by `GET /v1/content/reciters/:id/surahs/:n` and kept on the device; a full download also saves `timings.json`); current ayah also highlighted if the reader is open. The tafsir line uses the same source as the reader (§6.6) and credits it. Streaming when online; downloaded files preferred. Repeat modes: ayah ×N, range A–B, surah. Listening ≥ 5 minutes in a day ticks challenge task `listen`.
+**Rules (§6.7)** A «تنبيه» heard again, echo practice and «ردّد بعد القارئ» play single ayat through `ListenController.playAyahThenPause` (the earlier repeat is restored after). `just_audio` + `audio_service`: background playback, lock-screen + notification controls, Bluetooth buttons, interruption handling (pause on call, resume after). Ayah sync from per-ayah timings (Quran Foundation verse timestamps, resolved per surah by `GET /v1/content/reciters/:id/surahs/:n` and kept on the device; a full download also saves `timings.json`); current ayah also highlighted if the reader is open. The tafsir line uses the same source as the reader (§6.6) and credits it. Streaming when online; downloaded files preferred. Repeat modes: ayah ×N, range A–B, surah. Listening ≥ 5 minutes in a day ticks challenge task `listen`.
 
 **One Page (2026-11)** Listening is a reader layer with an expanded **player sheet** (orbit scrubber, repeat sheet, speed, sleep, «تغيير القارئ», jump picker, tafsir line) and an app-wide **mini player** above the dock (surah, step label, `YqRing` progress around play/pause, close = pause + dismiss; tap → `/quran/read/<pageOf(ref)>?mode=listen`; hidden while the reader is on top and during reciter samples; no live blur). The shell adds its height to the bottom inset so every screen clears it. `/quran/listen/:surah[?ayah&to]` **redirects** into the reader with `player=open`.
 
@@ -746,6 +748,8 @@ Plan sheet «خطتي»: goals «جزء عمّ · 37 سورة · 564 آية» ·
 **Rules** Existing `ReviewScheduler` (first intervals 1 / 3 / 14 days by rating, then growing — §6.14). All hifz data **local only** (optional encrypted backup later). Due review → local notification (setting in 15).
 
 **Guided hifz (2026-11)** «ابدأ الحلقة / أكمل الحلقة» opens the reader (§5.11) with `session=hifz&surah&from&to`: stages «استماع ×3» → «تكرار ×10» (echo, or the «كرّرت» counter) → «اختبار»; each step auto-ticks (idempotent; a manual untick still works). The grade sheet pre-selects a suggested grade («اقتراح: {grade}») which the user confirms, then today's portion is marked memorised with one gold glint. A due review («راجع») opens at the test stage; «انتهيت» or leaving → grade sheet. No audio on the phone → «تنزيل السورة» or «تخطَّ إلى التكرار».
+
+**By voice (2026-11, with the recitation model on the phone and the flag on):** in «تكرار ×10» each full recitation of the passage (the voice reaches its last word with at most one note) counts by itself with a soft haptic; the «كرّرت» counter stays as fallback and override, and a mic button turns counting off. «ردّد بعد القارئ»: the reciter plays an ayah, the microphone opens, the user repeats it, and the next ayah starts once it is recognised (or after twice its length) — hands-free. «اختبار» is the «تسميع» layer on the session passage, its end card, then the grade. The first time the test finds no model, the download sheet is offered once; «ليس الآن» keeps today's self-check. Everything falls back to the previous behaviour without the model or the flag.
 
 ---
 
@@ -946,12 +950,14 @@ Each function: **what · where in code · rules · tests**. Pure logic goes in `
 - Player state persisted (surah, ayah, position, reciter, speed, repeat). Lock-screen metadata: surah name, reciter, mark artwork.
 - Downloads: queue, pause/resume, Wi-Fi only default, storage accounting. Delete reclaims.
 
-### 6.8 Recitation check (R&D) 🟡 (engine interface + aligner; model pending) · flag `recite`
+### 6.8 Recitation check 🟡 (on-device engine + model built 2026-11; ship gate pending on users' voices) · flag `recite`
 
-- Interface `RecitationEngine { start(expectedAyat); Stream<WordResult>; stop() }`. Implementation candidate: on-device Whisper-small fine-tuned on Quran recitation (e.g. Tarteel-style open models) via `whisper.cpp`/ONNX; model ~150 MB downloaded on demand.
-- Alignment: normalise both sides (strip tashkeel for matching), Levenshtein on words, mark `ok / warn / skipped`. Show only «تنبيه», never claim tajweed judgment in v1.
-- Privacy: audio in memory only; no upload. Opt-in "help improve" upload is **out of scope** until a separate consent exists.
-- Ship gate: ≥ 90 % word accuracy on a 50-reciter internal test set; otherwise keep flag off.
+- **Engine** `RecitationEngine` (`core/platform/recitation_engine.dart`): `listen({live})` → word-timed updates (committed / tentative), `level`, `startFromPcm`, `transcribeFile`, `liveSupport`, `modelInfo`. Real implementation: sherpa-onnx (Apache-2.0) running `tarteel-ai/whisper-tiny-ar-quran` (Apache-2.0) exported to ONNX int8 by `tools/asr/convert.py` (44.5 MB with Silero VAD, MIT), microphone via `record` (BSD-3). Model card, licences, revision, SHA-256s, accuracy: `docs/MODELS.md`.
+- **Model download**: on request only, through the app-wide `DownloadQueue` (resumable; an interrupted download carries on at the next launch), each file checked against the SHA-256 pinned in the app, stored in app support; deletable in Settings. Host: `ASR_MODEL_BASE_URL` (dart-define); without it, development builds use a pinned interim upstream export (~104 MB).
+- **Live loop** (`LiveTranscriber`, pure Dart, tested with a fake PCM pipeline): 16 kHz mono PCM → Silero VAD segments (a 0.6 s pause ends one, ≤ 25 s) → while a segment runs, its last 12 s are decoded every 1.2 s on a background isolate → *tentative* words that reveal on the page and judge nothing; when the segment ends it is decoded whole → *committed* words, which are what is judged and never change. (Measured: committing agreed prefixes cut mid-phrase lost words without token times — 69 %; judging whole segments: 93.7 %, per-ayah cuts 95.5 %.) Real-time factor measured once per model on a 3 s clip; above 0.8 the phone uses «سمّع ثم تحقّق» (record, check after stop).
+- **Alignment**: normalise both sides (strip tashkeel for matching), Levenshtein on words, mark `ok / warn / skipped` (`RecitationAligner.align`); incrementally with a moving cursor (`RecitationFollower`: marks frozen up to the last matched word, extra words fall away, the isti'adha and a Basmala before the passage are skipped). Show only «تنبيه», never claim a tajweed judgment.
+- **Privacy**: audio in memory only; no upload; results stay on the device (never backup, export, profile, competitions, admin, analytics, ads). Opt-in "help improve" upload is **out of scope** until a separate consent exists.
+- **Ship gate**: ≥ 90 % word accuracy, measured with `tools/asr/eval` (same model and decoding as the app, port of the aligner). Reciters (QF catalogue, 4 reciters × 7 surahs): see docs/MODELS.md. Professional reciters overestimate ordinary users: the flag stays off until users' own recordings pass too.
 
 ### 6.9 Challenge engine ✅
 
@@ -986,7 +992,7 @@ Each function: **what · where in code · rules · tests**. Pure logic goes in `
 ### 6.14 Hifz ✅
 
 - `ReviewScheduler` (existing, `features/hifz/domain`): `hard → 1 d` · `good → max(3, previous×2)` · `easy → max(14, previous×2.5)`, capped at 120 d; new portions per plan rate. Plan estimate = remaining ayat ÷ rate.
-- Recitation results (6.8) and memorise reveals suggest a grade («اقتراح: {grade}»); the user confirms. The grade lives in hifz state (`HifzController.rate` / `memoriseToday`, already a cloud-backup kind); raw session data (passage, reveals, raw recite results) stays on the device (`quran.session.v1`).
+- Recitation results (6.8, notes + words not reached + «مساعدة») and memorise reveals suggest a grade («اقتراح: {grade}»); the user confirms. The grade lives in hifz state (`HifzController.rate` / `memoriseToday`, already a cloud-backup kind); raw session data (passage, reveals, raw recite results) stays on the device (`quran.session.v1`).
 
 ### 6.15 Remote config, maintenance, min-version ✅ (API)
 

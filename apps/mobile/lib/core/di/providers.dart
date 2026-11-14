@@ -40,6 +40,7 @@ import '../notifications/notification_planner.dart';
 import '../notifications/push_registration.dart';
 import '../notifications/push_service.dart';
 import '../offline/outbox.dart';
+import '../platform/asr/asr_model_store.dart';
 import '../platform/audio_engine.dart';
 import '../platform/device_services.dart';
 import '../platform/location_service.dart';
@@ -261,8 +262,19 @@ final azkarStoreProvider = Provider((ref) => AzkarStore(ref.watch(localStoreProv
 
 final hifzRepositoryProvider = Provider((ref) => HifzRepository(ref.watch(localStoreProvider)));
 
-/// On-device ASR for «التسميع» — unavailable until a model passes the ship gate (spec §6.8).
+/// On-device ASR for «التسميع» / «التحفيظ» (spec §6.8). Unavailable by default (tests, platforms
+/// without the runtime); main() sets the sherpa-onnx engine. The `recite` flag stays the ship gate.
 final recitationEngineProvider = Provider<RecitationEngine>((_) => const UnavailableRecitationEngine());
+
+/// The recitation model's files (download through the app-wide queue, verify, delete).
+final asrModelStoreProvider = Provider(
+  (ref) => AsrModelStore(
+    root: ref.watch(filesDirProvider),
+    kv: ref.watch(kvStoreProvider),
+    isUnmetered: ref.watch(connectivityProvider).isUnmetered,
+    queue: ref.watch(downloadQueueProvider),
+  ),
+);
 
 final reminderServiceProvider = Provider(
   (ref) => ReminderService(

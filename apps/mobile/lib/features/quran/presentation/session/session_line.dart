@@ -7,6 +7,7 @@ import '../../../../core/widgets/controls.dart';
 import '../../../../core/widgets/yq_button.dart';
 import '../../../../core/widgets/yq_ring.dart';
 import '../../../../l10n/gen/app_localizations.dart';
+import '../../../hifz/presentation/voice_rehearsal.dart';
 import '../../../listen/presentation/downloads_controller.dart';
 import '../../../listen/presentation/listen_controller.dart';
 import '../../domain/quran_session.dart';
@@ -34,6 +35,8 @@ class SessionLine extends ConsumerWidget {
     this.onEcho,
     this.echoing = false,
     this.onListenKept,
+    this.voice,
+    this.onVoice,
   });
 
   final QuranSession session;
@@ -52,6 +55,13 @@ class SessionLine extends ConsumerWidget {
   /// Another surah's recitation was kept over «استماع ×3» («استبدال التشغيل الحالي؟» → no): the
   /// stage offers to listen now (replacing it) or «تخطَّ إلى التكرار». Null: not the case.
   final VoidCallback? onListenKept;
+
+  /// Voice-aware «تكرار ×10» (the model on the phone): whether the microphone counts repetitions,
+  /// and how far into the current one the voice is. Null: the «كرّرت» counter only.
+  final RehearsalState? voice;
+
+  /// Opens / closes the microphone for counting.
+  final VoidCallback? onVoice;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -115,15 +125,44 @@ class SessionLine extends ConsumerWidget {
                 style: text.labelMedium?.copyWith(color: YqColors.lapis, fontWeight: FontWeight.w700),
               ),
             ),
+            if (stage == SessionStage.repeat && onVoice != null)
+              Semantics(
+                button: true,
+                toggled: voice?.mode == RehearsalMode.repeats,
+                label: t.asrAutoCount,
+                excludeSemantics: true,
+                child: IconButton(
+                  tooltip: t.asrAutoCount,
+                  onPressed: onVoice,
+                  icon: YqRing(
+                    value: voice?.mode == RehearsalMode.repeats ? voice!.progress : 0,
+                    size: 28,
+                    stroke: 2,
+                    child: Icon(
+                      voice?.mode == RehearsalMode.repeats ? Icons.mic_rounded : Icons.mic_none_rounded,
+                      size: 16,
+                      color: YqColors.lapis,
+                    ),
+                  ),
+                ),
+              ),
             if (stage == SessionStage.repeat && onEcho != null)
               IconButton(
-                tooltip: t.qsRepeatTimes(YqFormat.number(memoriseRepeatGoal)),
+                tooltip: onVoice != null ? t.asrEchoMode : t.qsRepeatTimes(YqFormat.number(memoriseRepeatGoal)),
                 onPressed: onEcho,
                 icon: Icon(echoing ? Icons.pause_rounded : Icons.replay_rounded, color: YqColors.lapis),
               ),
             if (stage == SessionStage.test && onFinished != null) YqButton.text(label: t.qsFinished, onPressed: onFinished),
           ],
         ),
+        if (stage == SessionStage.repeat && voice != null && voice!.listening)
+          Padding(
+            padding: const EdgeInsets.only(top: YqSpace.xs),
+            child: Text(
+              voice!.mode == RehearsalMode.echo ? t.asrEchoYourTurn : t.asrRepeatListening,
+              style: text.bodySmall?.copyWith(color: YqColors.muted),
+            ),
+          ),
         if (missing) _NoAudio(onSkip: onSkipToRepeat, onReady: onAudioReady),
         if (kept)
           Row(
