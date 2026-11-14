@@ -4,7 +4,7 @@
  * come from the nightly snapshot (or the finals once closed); the caller alone sees their live
  * points. Closing never writes `points_ledger`.
  */
-import { sql } from 'drizzle-orm';
+import { type SQL, sql } from 'drizzle-orm';
 import type {
   AdminStandingRow,
   AdminTournamentCreate,
@@ -144,12 +144,13 @@ export async function join(ctx: CommunityCtx, uid: string, id: string, body: { a
     if (t.status !== 'published' || t.closed_at || t.finalizing_at || now.getTime() >= new Date(t.join_until).getTime() || now.getTime() >= new Date(t.ends_at).getTime()) {
       throw conflict('tournament_not_open', 'Joining this tournament has closed');
     }
-    const { attestedNow } = await prepareJoin(tx, ctx, uid, body.attestAdult === true ? true : undefined, ip);
+    await prepareJoin(tx, ctx, uid, body.attestAdult === true ? true : undefined, ip);
     await tx.execute(sql`
       insert into tournament_entries (tournament_id, user_id, joined_at) values (${id}, ${uid}, ${now})
       on conflict (tournament_id, user_id) do update set left_at = null, joined_at = excluded.joined_at
       where tournament_entries.left_at is not null`);
-    await recomputeCommunityConsent(tx, uid, 'settings', { attestedAdult: attestedNow || true });
+    // A join always carries the 18+ attestation (given now or before): the consent event records it.
+    await recomputeCommunityConsent(tx, uid, 'settings', { attestedAdult: true });
   });
   await ctx.cache.bumpNamespace('community');
   return get(ctx, uid, id);
@@ -161,9 +162,12 @@ export async function leave(ctx: CommunityCtx, uid: string, id: string): Promise
   await ctx.db.transaction(async (tx) => {
     const t = await load(tx, id);
     if (!t || t.status === 'draft') throw notFound('tournament');
-    await tx.execute(sql`
-      update tournament_entries set left_at = ${now}
-      where tournament_id = ${id} and user_id = ${uid} and left_at is null and final_points is null`);
+    // Once the close has started the field is frozen (finals are being written in batches).
+    if (!t.finalizing_at && !t.closed_at) {
+      await tx.execute(sql`
+        update tournament_entries set left_at = ${now}
+        where tournament_id = ${id} and user_id = ${uid} and left_at is null`);
+    }
     await recomputeCommunityConsent(tx, uid, 'settings');
   });
   await ctx.cache.bumpNamespace('community');
@@ -185,6 +189,18 @@ function decodeCursor(cursor: string | undefined): [number, string] | null {
     // fall through
   }
   throw badRequest('bad_cursor');
+}
+
+/**
+ * Keyset condition after `(rank, handle)` in the order `rank asc nulls last, handle asc` — written
+ * so the (tournament_id, rank) index can serve the order (no sort of every entry). RANK_MAX in a
+ * cursor stands for a null rank (the unranked tail).
+ */
+function afterCursor(rankCol: SQL, after: [number, string] | null): SQL {
+  if (!after) return sql``;
+  const [rank, handle] = after;
+  if (rank >= RANK_MAX) return sql`and ${rankCol} is null and pp.handle > ${handle}`;
+  return sql`and (${rankCol} > ${rank} or ${rankCol} is null or (${rankCol} = ${rank} and pp.handle > ${handle}))`;
 }
 
 interface StandingsPage {
@@ -209,8 +225,8 @@ async function standingsPage(ctx: CommunityCtx, t: TournamentRecord, cursor: str
       ${COMPETITOR_JOINS}
       left join community_members cm on cm.user_id = u.id
       where ${visible}
-        ${after ? sql`and (coalesce(${rankCol}, ${RANK_MAX}), pp.handle) > (${after[0]}, ${after[1]})` : sql``}
-      order by coalesce(${rankCol}, ${RANK_MAX}) asc, pp.handle asc
+        ${afterCursor(rankCol, after)}
+      order by ${rankCol} asc nulls last, pp.handle asc
       limit ${limit + 1}`);
     const total = await ctx.db.execute<{ n: number }>(sql`
       select count(*)::int as n from tournament_entries e join users u on u.id = e.user_id
@@ -442,13 +458,18 @@ export async function closeDueTournaments(ctx: CommunityCtx, opts: { maxBatches?
     select t.*, 0 as participants from tournaments t
     where t.status = 'published' and t.ends_at <= ${now} and t.closed_at is null order by t.ends_at, t.id`);
   for (const t of due.rows) {
-    await ctx.db.execute(sql`update tournaments set finalizing_at = coalesce(finalizing_at, ${now}) where id = ${t.id}`);
+    const f = await ctx.db.execute<{ at: Date }>(sql`
+      update tournaments set finalizing_at = coalesce(finalizing_at, ${now}) where id = ${t.id} returning finalizing_at as at`);
+    const finalizingAt = new Date(f.rows[0]!.at);
     const w = windowDays(t);
-    const r = await ctx.db.execute<{ user_id: string; handle: string; points: number; has_final: boolean }>(sql`
-      select e.user_id, coalesce(pp.handle, e.user_id::text) as handle, (e.final_points is not null) as has_final,
+    // The field is frozen when finalizing starts: someone removed after that (ban, erasure) keeps
+    // their place in the ranking so a resumed close ranks the same set; they get no badge.
+    const r = await ctx.db.execute<{ user_id: string; handle: string; points: number; has_final: boolean; gone: boolean }>(sql`
+      select e.user_id, coalesce(pp.handle, e.user_id::text) as handle, (e.final_points is not null) as has_final, (e.left_at is not null) as gone,
         coalesce((select sum(d.earned) from points_earned_daily d where d.user_id = e.user_id and d.day >= ${w.from}::date and d.day < ${w.to}::date), 0)::int as points
       from tournament_entries e left join public_profiles pp on pp.user_id = e.user_id
-      where e.tournament_id = ${t.id} and e.left_at is null`);
+      where e.tournament_id = ${t.id} and (e.left_at is null or e.left_at >= ${finalizingAt})`);
+    const gone = new Set(r.rows.filter((x) => x.gone).map((x) => x.user_id));
     const n = r.rows.length;
     const standingsAll = rankStandings(r.rows.map((x) => ({ userId: x.user_id, handle: x.handle, points: Number(x.points) })));
     const pending = new Set(r.rows.filter((x) => !x.has_final).map((x) => x.user_id));
@@ -464,6 +485,7 @@ export async function closeDueTournaments(ctx: CommunityCtx, opts: { maxBatches?
           where e.tournament_id = ${t.id} and e.user_id = x.u and e.final_points is null`);
         const awards: AwardRow[] = [];
         for (const s of chunk) {
+          if (gone.has(s.userId)) continue;
           const kind = tournamentBadge(s.position, n, s.points, Number(t.min_points));
           if (!kind) continue;
           awards.push({
