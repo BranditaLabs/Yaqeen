@@ -278,12 +278,17 @@ export const adminCompetitionsRoutes: FastifyPluginAsync = async (app) => {
       from league_members m join users u on u.id = m.user_id ${COMPETITOR_JOINS}
       where m.group_id = ${id} and m.left_at is null
       order by coalesce(${closed ? sql.raw('m.final_rank') : sql.raw('m.snapshot_rank')}, 32767) asc, pp.handle asc`);
+    // The nightly snapshot an open week's ranks come from (finals once closed).
+    const snap = closed
+      ? null
+      : (await db.execute<{ day: string | null }>(sql`select max(day)::text as day from community_snapshot_days where day >= ${group.starts_on}::date`)).rows[0]?.day ?? null;
     return {
       id: group.id,
       startsOn: group.starts_on,
       division: Number(group.division),
       size: r.rows.length,
       closedAt: group.closed_at ? new Date(group.closed_at).toISOString() : null,
+      snapshotDay: snap,
       rows: r.rows.map((x) => ({ ...toCompetitor(ctx, x, null), userId: x.user_id, outcome: x.outcome })),
     };
   });
