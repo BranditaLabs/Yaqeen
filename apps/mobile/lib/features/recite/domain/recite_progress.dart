@@ -35,6 +35,9 @@ class ReciteProgress {
   Duration _lastMove = Duration.zero;
   Duration _now = Duration.zero;
 
+  /// Committed words of the engine's current session seen so far.
+  int _heardCount = 0;
+
   /// Listening time so far.
   Duration get elapsed => _now;
 
@@ -59,18 +62,26 @@ class ReciteProgress {
     _now = at > _now ? at : _now;
     final before = follower.frontier;
     final changed = follower.update([for (final w in u.committed) w.text], [for (final w in u.tentative) w.text]);
+    // Help waits for *silence*: while the voice is still going (the isti'adha and the Basmala
+    // before the passage, a phrase said again, a long word) the clock starts over. Tentative words
+    // only arrive while a phrase is being said; new committed words when one ends.
+    final speaking = u.tentative.isNotEmpty || u.committed.length > _heardCount;
+    _heardCount = u.committed.length;
     if (follower.frontier != before) {
       _lastMove = _now;
       letterHint = null;
+    } else if (speaking) {
+      _lastMove = _now;
     }
     if (u.isFinal) follower.finish();
     return changed || u.isFinal;
   }
 
-  /// The session clock moved to [at] while listening; escalates help on the current word.
-  /// Returns whether a hint appeared.
-  bool tick(Duration at) {
+  /// The session clock moved to [at] while listening; escalates help on the current word (not
+  /// with [help] false: «سمّع ثم تحقّق» only keeps time). Returns whether a hint appeared.
+  bool tick(Duration at, {bool help = true}) {
     _now = at;
+    if (!help) return false;
     final i = current;
     if (i == null || helped.contains(i)) return false;
     final idle = _now - _lastMove;
@@ -91,6 +102,7 @@ class ReciteProgress {
   void resume(Duration at) {
     _now = at;
     _lastMove = at;
+    _heardCount = 0;
     follower.newSession();
   }
 

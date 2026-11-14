@@ -181,6 +181,8 @@ class ReciteController extends AutoDisposeNotifier<ReciteState> {
   /// first (the reader's own voice only).
   Future<void> start(Passage p, QuranData q) async {
     await ref.read(listenControllerProvider.notifier).pause();
+    final stopping = _stopping;
+    if (stopping != null) await stopping;
     final s = state;
     final fresh = s.passage != p || s.progress == null || s.progress!.complete || s.phase == RecitePhase.done;
     if (fresh && !(s.retrying && s.passage == p && !(s.progress?.complete ?? true))) {
@@ -193,27 +195,67 @@ class ReciteController extends AutoDisposeNotifier<ReciteState> {
   }
 
   Future<void> _listen() async {
-    await _sub?.cancel();
+    // A pause still closing (its last phrase being decoded) finishes first: what it heard is kept,
+    // and the new session never races the old one for the microphone.
+    final stopping = _stopping;
+    if (stopping != null) await stopping;
+    await _drop();
     _support ??= await _engine.liveSupport();
     final live = _support!.live;
     state = state.copyWith(phase: RecitePhase.listening, live: live, denied: false);
+    final closed = _closed = Completer<void>();
     _sub = _engine.listen(live: live).listen(
       _onUpdate,
       onError: (Object e) {
         _ticker?.cancel();
         state = state.copyWith(phase: RecitePhase.idle, denied: e is MicrophoneDenied);
+        if (!closed.isCompleted) closed.complete();
       },
-      onDone: _onDone,
+      onDone: () {
+        _onDone();
+        if (!closed.isCompleted) closed.complete();
+      },
     );
     _ticker?.cancel();
-    if (live) _ticker = Timer.periodic(tick, (_) => _tick());
+    // Live: help escalates on this beat. Recording («سمّع ثم تحقّق»): it only keeps the time.
+    _ticker = Timer.periodic(tick, (_) => _tick(help: live));
   }
 
-  void _tick() {
+  void _tick({required bool help}) {
     final p = state.progress;
     if (p == null || !state.listening) return;
     _clock += tick;
-    if (p.tick(_clock)) state = state.copyWith();
+    if (p.tick(_clock, help: help)) state = state.copyWith();
+  }
+
+  /// A stop in progress: the engine closing and the session's last updates delivered.
+  Future<void>? _stopping;
+
+  /// Completes when the current session's stream has delivered everything (or was dropped).
+  Completer<void>? _closed;
+
+  /// Closes the microphone and waits until the session's last phrase has been judged; [start],
+  /// [resume] and [finish] build on that.
+  Future<void> _stopEngine() {
+    final closed = _closed;
+    Future<void> run() async {
+      await _engine.stop();
+      if (closed != null && _sub != null) await closed.future.timeout(const Duration(seconds: 10), onTimeout: () {});
+    }
+
+    final f = _stopping = run();
+    return f.whenComplete(() {
+      if (identical(_stopping, f)) _stopping = null;
+    });
+  }
+
+  /// Drops the current session's stream without waiting for the rest of it.
+  Future<void> _drop() async {
+    final s = _sub;
+    _sub = null;
+    await s?.cancel();
+    final closed = _closed;
+    if (closed != null && !closed.isCompleted) closed.complete();
   }
 
   void _onUpdate(RecognitionUpdate u) {
@@ -245,10 +287,14 @@ class ReciteController extends AutoDisposeNotifier<ReciteState> {
     _ticker?.cancel();
     final live = state.live;
     state = state.copyWith(phase: live ? RecitePhase.paused : RecitePhase.checking);
-    await _engine.stop();
+    await _stopEngine();
   }
 
   Future<void> resume() async {
+    if (state.phase != RecitePhase.paused || state.progress == null) return;
+    // The paused session's last phrase lands first (before the attempt counts a new session).
+    final stopping = _stopping;
+    if (stopping != null) await stopping;
     if (state.phase != RecitePhase.paused || state.progress == null) return;
     state.progress!.resume(_clock);
     await _listen();
@@ -260,13 +306,13 @@ class ReciteController extends AutoDisposeNotifier<ReciteState> {
     if (state.listening) {
       if (state.live) {
         state = state.copyWith(phase: RecitePhase.done);
-        await _engine.stop();
+        await _stopEngine();
         state.progress?.finish();
         state = state.copyWith();
       } else {
         // Checked at once when the recording ends; `done` follows the final update.
         state = state.copyWith(phase: RecitePhase.checking);
-        await _engine.stop();
+        await _stopEngine();
       }
     } else {
       state.progress?.finish();
@@ -276,10 +322,9 @@ class ReciteController extends AutoDisposeNotifier<ReciteState> {
 
   /// Compat: stop listening (leaving the test, the layer).
   Future<void> stop() async {
-    await _sub?.cancel();
-    _sub = null;
+    await _drop();
     _ticker?.cancel();
-    if (state.listening || state.phase == RecitePhase.checking) await _engine.stop();
+    if (state.listening || state.phase == RecitePhase.checking) await _stopEngine();
     if (state.listening) state = state.copyWith(phase: RecitePhase.paused);
   }
 
@@ -321,7 +366,12 @@ class ReciteController extends AutoDisposeNotifier<ReciteState> {
   }
 }
 
-/// Stops the microphone when the app leaves the foreground (screen off, another app).
+/// Stops the microphone when the app leaves the foreground (screen off, another app). Not on
+/// `inactive`: the OS microphone-permission dialog, a notification shade or an incoming-call banner
+/// make the app inactive while it stays on screen — pausing there would stop the very first
+/// recitation while its permission is being asked.
+bool leftForeground(AppLifecycleState s) => s == AppLifecycleState.hidden || s == AppLifecycleState.paused || s == AppLifecycleState.detached;
+
 class _Lifecycle with WidgetsBindingObserver {
   _Lifecycle({required this.onBackground}) {
     WidgetsBinding.instance.addObserver(this);
@@ -330,7 +380,7 @@ class _Lifecycle with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive || state == AppLifecycleState.hidden) onBackground();
+    if (leftForeground(state)) onBackground();
   }
 
   void dispose() => WidgetsBinding.instance.removeObserver(this);

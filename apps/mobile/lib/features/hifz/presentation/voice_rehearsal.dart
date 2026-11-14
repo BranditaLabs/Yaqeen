@@ -9,6 +9,7 @@ import '../../quran/domain/passage.dart';
 import '../../quran/domain/quran_data.dart';
 import '../../recite/domain/recitation.dart';
 import '../../recite/domain/recitation_follower.dart';
+import '../../recite/presentation/recite_controller.dart' show leftForeground;
 
 /// What the voice is doing in «تحفيظ».
 enum RehearsalMode { off, repeats, echo }
@@ -51,10 +52,11 @@ class VoiceRehearsal extends AutoDisposeNotifier<RehearsalState> {
   @override
   RehearsalState build() {
     _engine = ref.watch(recitationEngineProvider);
-    // The microphone never stays open behind the screen (screen off, another app).
+    // The microphone never stays open behind the screen (screen off, another app) — but not on
+    // `inactive` (the permission dialog, a banner): see [leftForeground].
     final lifecycle = AppLifecycleListener(
       onStateChange: (s) {
-        if (s != AppLifecycleState.resumed && s != AppLifecycleState.detached && _sub != null) stop().ignore();
+        if (leftForeground(s) && _sub != null) stop().ignore();
       },
     );
     ref.onDispose(() {
@@ -132,7 +134,11 @@ class VoiceRehearsal extends AutoDisposeNotifier<RehearsalState> {
     if (state.mode == RehearsalMode.repeats) state = const RehearsalState();
   }
 
+  /// Closes the microphone; an echo still waiting for the user ends at once (not heard).
   Future<void> stop() async {
+    final e = _echo;
+    _echo = null;
+    if (e != null && !e.isCompleted) e.complete(false);
     final had = _sub != null;
     // Not awaited: a cancel from inside the stream's own delivery may complete only later.
     _sub?.cancel().ignore();

@@ -25,5 +25,14 @@ leaves a session is a hifz grade the user confirms (hifz state, as before).
   model (`reciteEntryProvider`). Before the download, the first entry opens the calm sheet; the
   hifz test offers it once by itself. Never on mobile data without the user's tap.
 - Copy: «تنبيه», never «خطأ»; it checks the words, not tajweed — said in the sheet, the strip, the card.
-- The microphone stops when the app leaves the foreground; «متابعة» resumes.
+- The microphone stops when the app leaves the foreground (`hidden` / `paused`, not `inactive`:
+  the permission dialog or a banner must not stop the first recitation); «متابعة» resumes after
+  the paused phrase has been judged. A start still setting up when stop arrives never opens the
+  microphone afterwards.
+- Help waits for *silence*: while words keep arriving (the isti'adha, a phrase said again) the 4 s /
+  8 s clock starts over. «سمّع ثم تحقّق» keeps time but gives no help.
+- The model loads on the first recitation, leaves memory 2 min after the last one (and at once when
+  deleted); a recognizer isolate that fails to load fails the start instead of hanging it.
+- Release builds never download the interim third-party export: without `ASR_MODEL_BASE_URL`
+  nothing is offered (internal builds may set `ASR_ALLOW_INTERIM=true`).
 - Reduce motion: words appear without the rise, the glow jumps, no stagger.

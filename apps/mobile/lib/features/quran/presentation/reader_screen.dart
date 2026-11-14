@@ -654,6 +654,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
   Future<void> _echo() async {
     if (_echoing) {
       setState(() => _echoing = false);
+      // The microphone waiting for the user's turn closes with it.
+      await ref.read(voiceRehearsalProvider.notifier).stop();
       await ref.read(listenControllerProvider.notifier).pause();
       return;
     }
