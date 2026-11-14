@@ -62,7 +62,7 @@ class BurstDecoder implements SpeechDecoder {
       }
       final k = ((level - 0.1) / 0.02).round();
       final full = i - start >= Speech._n(Speech.word) - 1;
-      final cutAtStart = start == 0 && s.length > 0;
+      final cutAtStart = start == 0 && s.isNotEmpty;
       if (!full && cutAtStart) continue; // the tail of a word committed before
       out.add(RecognizedWord(full ? vocab[k] : '${vocab[k]}~${i - start}', start: start / asrSampleRate, end: i / asrSampleRate));
     }
@@ -270,9 +270,13 @@ void main() {
     });
 
     test('nothing is offered when a build has no published model', () async {
-      const unpublished = AsrModelManifest(id: 'x', upstream: 'x', licence: 'x', baseUrl: '', files: [
-        AsrModelFile(AsrFileRole.encoder, 'e', bytes: 1, sha256: ''),
-      ]);
+      const unpublished = AsrModelManifest(
+        id: 'x',
+        upstream: 'x',
+        licence: 'x',
+        baseUrl: '',
+        files: [AsrModelFile(AsrFileRole.encoder, 'e', bytes: 1, sha256: '')],
+      );
       expect(unpublished.published, isFalse);
       expect(AsrModelManifest.interim.published, isTrue);
       expect(AsrModelManifest.interim.bytes, greaterThan(100 * 1000 * 1000));
