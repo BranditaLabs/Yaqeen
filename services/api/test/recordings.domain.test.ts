@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { RECITATION_MATCH } from '@yaqeen/contracts';
-import { checkComment, foldTokens, hasBlockedWord, hasLink, hasPhone, parseBlocklist } from '../src/domain/comments.js';
+import { checkComment, foldDigits, foldTokens, hasBlockedWord, hasLink, hasPhone, parseBlocklist } from '../src/domain/comments.js';
 import { inspectM4a, matchesRecordingFormat } from '../src/domain/m4a.js';
 import { expectedAyat, validRange } from '../src/domain/quran-words.js';
 import { align, matchRecitation, normalizeArabic, normWord, opening, sameWord, splitWords } from '../src/domain/recitation-match.js';
@@ -143,6 +143,21 @@ describe('comment moderation', () => {
   it('control characters refuse; invisible ones are dropped', () => {
     expect(checkComment('hi\u0007there', list)).toEqual({ ok: false, problem: 'invalid_chars' });
     expect(checkComment('جم​يل', list)).toEqual({ ok: true, text: 'جميل', mentions: [] });
+  });
+  it('links: any label.tld, invisible splitters, fullwidth and Arabic dots', () => {
+    for (const t of ['زوروا evil.de', 'x.top', 'y.biz', 'z.ai', 'promo.vip', 'evil\u00AD.com', 'evil\u2060.com', 'evil.\u180Ecom', 'ｅｖｉｌ．ｃｏｍ', 'evil۔com', 'spam . de', 'spam نقطة com'])
+      expect(checkComment(t, list), JSON.stringify(t)).toEqual({ ok: false, problem: 'link' });
+    for (const t of ['البقرة 2.255 جميلة', 'تلاوة 1.5 دقيقة', 'ما شاء الله. جميل', 'Well done. Beautiful', 'Surah 2:255', 'Well done. To you', 'Great . One more'])
+      expect(checkComment(t, list), t).toMatchObject({ ok: true });
+  });
+  it('phones in any digit set (Extended Arabic-Indic, fullwidth, mixed) and through invisibles', () => {
+    for (const t of ['رقمي ۰۱۰۰۱۲۳۴۵۶۷', 'call ０１００１２３４５６７', '٠١٠٠ 123 ۴۵۶۷', '0100\u00AD1234567'])
+      expect(checkComment(t, list), JSON.stringify(t)).toEqual({ ok: false, problem: 'phone' });
+    expect(foldDigits('۰۱۲۳۴۵۶۷۸۹ ٠١٢٣٤٥٦٧٨٩ ०१२ ０９ 𝟎𝟗𝟘')).toBe('0123456789 0123456789 012 09 090');
+  });
+  it('blocked words split by a soft hyphen or word joiner', () => {
+    expect(checkComment('انت كل\u00ADب', list)).toEqual({ ok: false, problem: 'blocked_word' });
+    expect(checkComment('sh\u2060it', list)).toEqual({ ok: false, problem: 'blocked_word' });
   });
   it('folds tokens', () => expect(foldTokens('Sh1iiT ـ الـلـه')).toEqual(['shit', 'الله']));
 });

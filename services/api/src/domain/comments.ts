@@ -17,15 +17,26 @@ export type CommentProblem = 'too_short' | 'too_long' | 'link' | 'phone' | 'bloc
 
 export type CommentCheck = { ok: true; text: string; mentions: string[] } | { ok: false; problem: CommentProblem };
 
-/** Bidi controls and zero-width characters are dropped; other control characters refuse the comment. */
-// eslint-disable-next-line no-control-regex
-const INVISIBLE = /[​-‏‪-‮⁦-⁩﻿]/g;
+/**
+ * Every Unicode format character (\p{Cf}: bidi controls, zero-width space/joiners, soft hyphen U+00AD,
+ * word joiner U+2060, Mongolian vowel separator U+180E, BOM, Arabic letter mark…) and the fillers that
+ * render as nothing (combining grapheme joiner, Hangul fillers) are dropped — they would otherwise split
+ * «evil.com» or a blocklisted word while it still renders whole. Other control characters refuse the comment.
+ */
+const INVISIBLE = /[\p{Cf}\u034f\u115f\u1160\u3164\uffa0]/gu;
 // eslint-disable-next-line no-control-regex
 const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
 
 const LEET: Record<string, string> = { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b', '@': 'a', $: 's', '!': 'i', '|': 'l' };
 
-const LINK = /(https?:\/\/|www\.|\b[a-z0-9-]{2,}\s*(?:\.|dot|\(dot\)|\[dot\]|دوت)\s*(?:com|net|org|io|me|ly|gg|xyz|info|co|app|link|site|online|store|shop|live|tv|ru|tk|eg|sa|ae)\b|\bt\.me\b|wa\.me|\bbit\s*\.\s*ly\b)/i;
+/**
+ * A link: a scheme or www., any `label.tld` written without spaces (x.top, evil.de — a 2+ letter
+ * alphabetic TLD, no allowlist; numbers like «2.255» or «1.5» never match, a missing space after a full
+ * stop «done.Thanks» does and is refused as a link), and the spaced or spelled-out dot («spam dot com»,
+ * «spam . de») for common TLDs. The dot may be «.», «。» or the Arabic «۔».
+ */
+const LINK =
+  /(https?:\/\/|www[.。۔]|\b[a-z0-9-]+[.。۔][a-z]{2,24}\b|\b[a-z0-9-]{2,}\s*(?:[.。۔]|dot|\(dot\)|\[dot\]|دوت|نقط[ةه])\s*(?:com|net|org|io|me|ly|gg|xyz|info|co|app|link|site|online|store|shop|live|tv|ru|tk|eg|sa|ae|de|uk|top|biz|ai|vip|icu|cc)\b|\bt\.me\b|wa\.me|\bbit\s*\.\s*ly\b)/i;
 const MENTION = /(?:^|[^\w@])@([a-z][a-z0-9_.-]{1,39})/gi;
 
 /** Fold a word for blocklist matching. */
@@ -97,22 +108,42 @@ export function defaultBlocklist(): Blocklist {
   return cached;
 }
 
+/**
+ * Every Unicode decimal digit (Arabic-Indic ٠-٩, Extended Arabic-Indic / Persian-Urdu ۰-۹, Devanagari,
+ * fullwidth, mathematical…) folded to 0-9. Unicode keeps each digit set as ten consecutive code points
+ * from zero (adjacent sets back to back), so a digit's value is its distance from the start of its run, mod 10.
+ */
+export function foldDigits(text: string): string {
+  return text.replace(/\p{Nd}/gu, (d) => {
+    const cp = d.codePointAt(0)!;
+    let start = cp;
+    while (start > 0 && /\p{Nd}/u.test(String.fromCodePoint(start - 1))) start--;
+    return String((cp - start) % 10);
+  });
+}
+
+/** What the filters look at: compatibility forms folded (NFKC: fullwidth ｅｖｉｌ．ｃｏｍ), invisibles dropped, digits folded. */
+export function probe(text: string): string {
+  return foldDigits(text.normalize('NFKC').replace(INVISIBLE, ''));
+}
+
 function digitsOnly(text: string): string {
   return normalizeArabic(text).replace(/[^0-9]/g, ' ');
 }
 
-/** A phone number: 7+ digits, allowing spaces, dots, dashes and brackets between them. */
+/** A phone number: 7+ digits (in any digit set), allowing spaces, dots, dashes and brackets between them. */
 export function hasPhone(text: string): boolean {
-  const t = normalizeArabic(text);
+  const t = normalizeArabic(probe(text));
   if (/(?:\+?\d[\s().-]*){7,}/.test(t)) return true;
   return digitsOnly(t).replace(/\s+/g, '').length >= 10;
 }
 
 export function hasLink(text: string): boolean {
-  return LINK.test(normalizeArabic(text));
+  return LINK.test(normalizeArabic(probe(text)));
 }
 
-export function hasBlockedWord(text: string, list: Blocklist = defaultBlocklist()): boolean {
+export function hasBlockedWord(input: string, list: Blocklist = defaultBlocklist()): boolean {
+  const text = probe(input);
   const toks = foldTokens(text);
   for (const t of toks) for (const v of variants(t)) if (list.words.has(v)) return true;
   for (const p of list.phrases) {
