@@ -11,9 +11,20 @@ import 'me_profile_controller.dart';
 /// [ring], it sits in their live level ring (guests: no ring); a skeleton circle only while there
 /// is no value at all.
 class MeAvatar extends ConsumerWidget {
-  const MeAvatar({super.key, this.size = 40, this.ring = false, this.stroke = 2.5, this.showLevel = false, this.semanticLabel});
+  const MeAvatar({
+    super.key,
+    this.size = 40,
+    this.ring = false,
+    this.stroke = 2.5,
+    this.showLevel = false,
+    this.semanticLabel,
+    this.drawIn,
+  });
 
   final double size;
+
+  /// The ring's first sweep (see `YqLevelAvatar.drawIn`).
+  final Duration? drawIn;
   final bool ring;
   final double stroke;
   final bool showLevel;
@@ -38,6 +49,7 @@ class MeAvatar extends ConsumerWidget {
       stroke: stroke,
       achieved: profile.level.isTop,
       showLevel: showLevel,
+      drawIn: drawIn,
       name: name,
       levelName: profile.level.name(locale),
       semanticLabel: semanticLabel,

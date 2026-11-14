@@ -12,6 +12,7 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../core/widgets/yq_avatar.dart';
 import '../../backup/data/backup_engine.dart';
 import '../../profile/data/profile_repository.dart';
+import '../../profile/presentation/badges_strip.dart' show sweptBadgesProvider;
 import '../../profile/domain/me_profile.dart';
 import '../../profile/presentation/me_profile_controller.dart';
 import '../../quran/data/session_store.dart';
@@ -185,6 +186,8 @@ class SessionController extends Notifier<Session> {
     YqAvatar.clearMemoryCache();
     // The last-seen level also lives in memory: the next account must not be compared with it.
     if (ref.exists(levelUpProvider)) ref.read(levelUpProvider.notifier).reset();
+    // So does the set of medals whose light already passed (re-read from the wiped KV).
+    if (ref.exists(sweptBadgesProvider)) ref.invalidate(sweptBadgesProvider);
     await ref.read(consentRepositoryProvider).adopt(ConsentKind.community, false);
     if (awaitFiles) {
       await files;

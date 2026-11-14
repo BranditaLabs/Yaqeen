@@ -38,7 +38,9 @@ import 'widgets/continue_reading.dart';
 import 'widgets/orbs.dart';
 import 'widgets/profile_chip.dart';
 import '../../core/design/living_sky.dart';
+import '../../core/design/motion.dart';
 import '../../core/widgets/ambient_background.dart';
+import '../../core/widgets/yq_orb.dart';
 import '../../core/widgets/yq_rise.dart';
 import '../../core/widgets/yq_stage.dart';
 import '../../core/widgets/yq_timeline.dart';
@@ -128,11 +130,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _levelUp?.close();
     _levelUp = null;
     final t = AppLocalizations.of(context);
+    final message = t.lvlReached(level.name(Localizations.localeOf(context).languageCode));
     final glint = ref.read(profileChipGlintProvider.notifier)..state = true;
-    YqToast.show(context, t.lvlReached(level.name(Localizations.localeOf(context).languageCode)));
     unawaited(ref.read(levelUpProvider.notifier).markSeen());
-    // The ring's glint runs once (600 ms); the gold leaves with it — even if Home is gone by then.
-    Timer(const Duration(milliseconds: 900), () {
+    // The light sweeps round the chip's ring and the picture swells once; the quiet toast follows
+    // the light (at once under reduce-motion).
+    if (reduceMotion(context)) {
+      YqToast.show(context, message);
+    } else {
+      Timer(Motion.glint, () {
+        if (mounted) YqToast.show(context, message);
+      });
+    }
+    // The gold leaves after the moment — even if Home is gone by then.
+    Timer(Motion.glintHold, () {
       try {
         glint.state = false;
       } on StateError {
@@ -387,10 +398,11 @@ class _Complications extends ConsumerWidget {
         return Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.start,
+          // The three instruments rise in 40 ms apart as Home opens (never on tab switches).
           children: [
-            const Expanded(child: QiblaOrb()),
-            const Expanded(child: TasbeehOrb()),
-            Expanded(child: WirdOrb(done: done, goal: s.wirdGoalPages)),
+            const Expanded(child: YqRise(stagger: YqOrbRow.stagger, distance: 10, child: QiblaOrb())),
+            const Expanded(child: YqRise(order: 1, stagger: YqOrbRow.stagger, distance: 10, child: TasbeehOrb())),
+            Expanded(child: YqRise(order: 2, stagger: YqOrbRow.stagger, distance: 10, child: WirdOrb(done: done, goal: s.wirdGoalPages))),
           ],
         );
       },

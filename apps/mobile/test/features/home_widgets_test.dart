@@ -9,10 +9,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:yaqeen/core/design/motion.dart';
 import 'package:yaqeen/core/di/providers.dart';
 import 'package:yaqeen/core/network/api_client.dart';
 import 'package:yaqeen/core/theme/theme.dart';
 import 'package:yaqeen/core/widgets/yq_avatar.dart';
+import 'package:yaqeen/core/widgets/yq_ring.dart';
 import 'package:yaqeen/core/widgets/yq_states.dart';
 import 'package:yaqeen/features/challenge/domain/challenge_models.dart';
 import 'package:yaqeen/features/challenge/presentation/challenge_controller.dart';
@@ -345,17 +347,42 @@ void main() {
       await close(tester);
     });
 
+    testWidgets('the chip ring draws in once (600 ms); under reduce-motion it is there at once', (tester) async {
+      final kv = MemoryKvStore()..data[ProfileRepository.meKey] = profileJson;
+      await open(tester, home(kv: kv));
+      final chipRing = find.descendant(of: find.byType(ProfileChip), matching: find.byType(YqLevelAvatar));
+      expect(tester.widget<YqLevelAvatar>(chipRing).drawIn, Motion.ringDrawSmall);
+      await close(tester);
+
+      tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      final kv2 = MemoryKvStore()
+        ..data[ProfileRepository.meKey] = profileJson
+        ..data[ProfileRepository.lastSeenLevelKey] = '2';
+      await open(tester, home(kv: kv2));
+      await tester.pump(const Duration(milliseconds: 100));
+      // The level-up toast comes at once, with no light sweep to wait for.
+      expect(find.text('بلغت مستوى مواظب'), findsOneWidget);
+      final ring = find.descendant(of: find.byType(ProfileChip), matching: find.byType(YqRing));
+      expect(find.descendant(of: ring, matching: find.byType(CustomPaint)), findsOneWidget); // no glint layer
+      await tester.pumpAndSettle(); // nothing keeps ticking
+      await close(tester);
+    });
+
     testWidgets('a reached level glints the chip and toasts once, then is marked seen', (tester) async {
       final kv = MemoryKvStore()
         ..data[ProfileRepository.meKey] = profileJson
         ..data[ProfileRepository.lastSeenLevelKey] = '2';
       await open(tester, home(kv: kv));
       await tester.pump(const Duration(milliseconds: 100));
-      expect(find.text('بلغت مستوى مواظب'), findsOneWidget);
       final ring = tester.widget<YqLevelAvatar>(find.descendant(of: find.byType(ProfileChip), matching: find.byType(YqLevelAvatar)));
       expect(ring.achieved, isTrue); // gold during the glint
+      expect(ring.glint, isTrue); // the light sweeps round the chip once
       await tester.pump(const Duration(milliseconds: 50));
       expect(kv.data[ProfileRepository.lastSeenLevelKey], '3');
+      // The quiet toast follows the light.
+      await tester.pump(Motion.glint);
+      expect(find.text('بلغت مستوى مواظب'), findsOneWidget);
       await tester.pump(const Duration(seconds: 3));
       expect(find.text('بلغت مستوى مواظب'), findsNothing);
       final after = tester.widget<YqLevelAvatar>(find.descendant(of: find.byType(ProfileChip), matching: find.byType(YqLevelAvatar)));

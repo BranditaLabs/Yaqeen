@@ -9,6 +9,7 @@ import 'package:yaqeen/core/theme/tokens.dart';
 import 'package:yaqeen/core/time/zoned.dart';
 import 'package:yaqeen/core/widgets/controls.dart';
 import 'package:yaqeen/core/widgets/liquid_glass.dart';
+import 'package:yaqeen/core/widgets/yq_count.dart';
 import 'package:yaqeen/core/widgets/yq_layout.dart';
 import 'package:yaqeen/core/widgets/yq_states.dart';
 import 'package:yaqeen/features/community/data/community_repository.dart';
@@ -19,6 +20,10 @@ import 'package:yaqeen/features/community/presentation/tournament_screen.dart';
 import 'package:yaqeen/features/community/presentation/tournaments_screen.dart';
 import 'package:yaqeen/features/prayer/data/city_repository.dart';
 import 'package:yaqeen/features/profile/data/profile_repository.dart';
+import 'package:yaqeen/core/widgets/yq_avatar.dart';
+import 'package:yaqeen/core/widgets/yq_once.dart';
+import 'package:yaqeen/core/widgets/yq_stage.dart';
+import 'package:yaqeen/features/community/presentation/community_widgets.dart';
 
 import '../../helpers/fonts.dart';
 import '../../helpers/harness.dart';
@@ -78,7 +83,14 @@ Finder goldMarks() => find.byWidgetPredicate((w) {
       return d is BoxDecoration && d.border is Border && (d.border! as Border).top.color == YqColors.gold;
     });
 
-Future<void> pump(WidgetTester tester, CommunityRig rig, Widget screen, {String locale = 'ar', Map<String, dynamic>? profile}) async {
+Future<void> pump(
+  WidgetTester tester,
+  CommunityRig rig,
+  Widget screen, {
+  String locale = 'ar',
+  Map<String, dynamic>? profile,
+  bool settle = true,
+}) async {
   tester.view.physicalSize = const Size(390 * 3, 2400 * 3);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
@@ -103,7 +115,8 @@ Future<void> pump(WidgetTester tester, CommunityRig rig, Widget screen, {String 
       overrides: [...rig.overrides, cityRepositoryProvider.overrideWithValue(cities)],
     ),
   );
-  await tester.pumpAndSettle();
+  // A held request would time out while settling under a shimmer: tests holding one pump by hand.
+  if (settle) await tester.pumpAndSettle();
 }
 
 void main() {
@@ -131,6 +144,37 @@ void main() {
       await tester.tap(find.text('انتهت').first);
       await tester.pumpAndSettle();
       expect(find.text('تحدّي المولد'), findsOneWidget);
+    });
+
+    testWidgets('list: the skeleton cards fade into the list (one swap, the segmented control kept)', (tester) async {
+      final rig = CommunityRig(routes: {'GET /v1/tournaments': (_) => jsonResponse(tournaments())});
+      final gate = rig.gates['GET /v1/tournaments'] = Completer<void>();
+      await pump(tester, rig, const TournamentsScreen(), settle: false);
+      await tester.pump();
+      expect(find.byKey(const ValueKey('tournaments-loading')), findsOneWidget);
+      final segmented = tester.element(find.byType(YqSegmented<TournamentPhase>));
+      gate.complete();
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      // Mid-fade: the skeleton is still fading out under the list.
+      expect(find.byKey(const ValueKey('tournaments-loading')), findsOneWidget);
+      expect(find.text('خريف الخير'), findsOneWidget);
+      expect(tester.element(find.byType(YqSegmented<TournamentPhase>)), same(segmented));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('tournaments-loading')), findsNothing);
+    });
+
+    testWidgets('an upcoming tournament never asks for standings', (tester) async {
+      final upcoming = tournaments().firstWhere((x) => x['phase'] == 'upcoming');
+      final id = upcoming['id'] as String;
+      final rig = CommunityRig(routes: {
+        'GET /v1/tournaments/$id': (_) => jsonResponse(upcoming),
+        'GET /v1/tournaments/$id/standings': (_) => jsonResponse(standings()),
+      },);
+      await pump(tester, rig, TournamentScreen(id: id));
+      expect(find.text('رمضان 1448'), findsWidgets);
+      expect(rig.calls.where((c) => c.contains('/standings')), isEmpty);
     });
 
     testWidgets('list: empty copy when nothing is announced', (tester) async {
@@ -183,7 +227,8 @@ void main() {
         'DELETE /v1/tournaments/$id/join': (_) => jsonResponse(current = left),
       },);
       await pump(tester, rig, TournamentScreen(id: id));
-      expect(find.text('17'), findsOneWidget);
+      // The rank's digits roll into place (one Text per digit; the number is its label).
+      expect(find.byWidgetPredicate((w) => w is YqRollingNumber && w.value == 17), findsOneWidget);
       expect(find.text('640 نقطة في البطولة'), findsOneWidget);
       expect(find.text('يُحدَّث الترتيب كل ليلة.'), findsOneWidget);
 
@@ -535,6 +580,36 @@ void main() {
       expect(rig.calls, contains('GET /v1/leaderboard?scope=country'));
       expect(find.text('ترتيبك 4'), findsOneWidget);
     });
+
+    testWidgets('switching boards keeps the screen: the segmented control and canvas are never remounted, no row glides', (tester) async {
+      final rig = CommunityRig(routes: {
+        'GET /v1/leaderboard': (req) => jsonResponse(
+              req.url.queryParameters['scope'] == 'country' ? board(scope: 'country', countryJoined: true) : board(),
+            ),
+      },);
+      await pump(tester, rig, const LeaderboardScreen(), profile: profileJson(country: true));
+      final segmented = tester.element(find.byType(YqSegmented<LeaderboardScope>));
+      final canvas = tester.element(find.byType(YqCanvas));
+      final gate = rig.gates['GET /v1/leaderboard'] = Completer<void>();
+      await tester.tap(find.text('مصر'));
+      await tester.pump(); // the country board is loading: only the board area shows the skeleton
+      expect(find.byType(YqSkeleton), findsOneWidget);
+      expect(tester.element(find.byType(YqSegmented<LeaderboardScope>)), same(segmented));
+      expect(find.byType(YqSegmented<LeaderboardScope>), findsOneWidget); // never two screens cross-fading
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(find.byType(YqSkeleton), findsNothing);
+      expect(tester.element(find.byType(YqSegmented<LeaderboardScope>)), same(segmented));
+      expect(tester.element(find.byType(YqCanvas)), same(canvas));
+      // Back to the cached world board: a different list, so nothing slides in from the other one.
+      await tester.tap(find.text('العالم'));
+      await tester.pump();
+      for (final shift in tester.widgetList<YqShiftIn>(find.byType(YqShiftIn))) {
+        expect(shift.rows, 0);
+      }
+      await tester.pumpAndSettle();
+      expect(tester.element(find.byType(YqCanvas)), same(canvas));
+    });
   });
 
   group('report and block', () {
@@ -656,6 +731,76 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('عمري 18 عاماً أو أكثر، أو لديّ موافقة وليّ أمري'), findsOneWidget);
       expect(rig.calls.where((c) => c.startsWith('PUT')), isEmpty);
+    });
+  });
+
+  group('motion', () {
+    /// Reduce-motion for everything the router builds (MaterialApp reads it from the platform).
+    void reduce(WidgetTester tester) {
+      tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    }
+
+    testWidgets('a live tournament card breathes for a few breaths, then rests (pumpAndSettle completes)', (tester) async {
+      final rig = CommunityRig(routes: {'GET /v1/tournaments': (_) => jsonResponse(tournaments())});
+      await pump(tester, rig, const TournamentsScreen()); // pump() ends on pumpAndSettle: the dot stops
+      expect(find.byType(LivePill), findsOneWidget);
+      expect(find.byType(YqBreathingDot), findsOneWidget);
+      expect(tester.binding.transientCallbackCount, 0);
+      // Upcoming and ended cards carry no live dot.
+      await tester.tap(find.text('قادمة'));
+      await tester.pumpAndSettle();
+      expect(find.byType(LivePill), findsNothing);
+    });
+
+    testWidgets('a joined live tournament: the rank rolls in, the live eyebrow breathes; reduce-motion: still', (tester) async {
+      final live = tournaments().firstWhere((t) => t['phase'] == 'live');
+      final id = live['id'] as String;
+      final rig = CommunityRig(
+        routes: {
+          'GET /v1/tournaments/$id': (_) => jsonResponse(live),
+          'GET /v1/tournaments/$id/standings': (_) => jsonResponse(standings()),
+        },
+      );
+      reduce(tester);
+      await pump(tester, rig, TournamentScreen(id: id));
+      expect(find.byType(LivePill), findsOneWidget);
+      expect(tester.binding.transientCallbackCount, 0);
+      expect(find.byType(RankNumeral), findsOneWidget);
+    });
+
+    testWidgets('a closed podium rises in sequence on the standings', (tester) async {
+      final ended = tournaments()[2];
+      final id = ended['id'] as String;
+      final rig = CommunityRig(
+        routes: {
+          'GET /v1/tournaments/$id': (_) => jsonResponse(ended),
+          'GET /v1/tournaments/$id/standings': (_) => jsonResponse(standings()),
+        },
+      );
+      await pump(tester, rig, TournamentScreen(id: id));
+      final rising = tester.widgetList<YqSlideIn>(find.descendant(of: find.byType(CompetitorRow), matching: find.byType(YqSlideIn)));
+      expect(rising.where((s) => s.play).length, inInclusiveRange(1, 3));
+    });
+
+    testWidgets('level board: my pinned rank slides up with my ring drawing in; reduce-motion: it is simply there', (tester) async {
+      final rig = CommunityRig(routes: {'GET /v1/leaderboard': (_) => jsonResponse(board())});
+      await pump(tester, rig, const LeaderboardScreen());
+      final pinned = find.ancestor(of: find.text('ترتيبك 4'), matching: find.byType(YqSlideIn));
+      expect(pinned, findsOneWidget);
+      expect(tester.widget<YqSlideIn>(pinned).offset, const Offset(0, 1.2));
+      final mine = find.descendant(of: pinned, matching: find.byType(YqLevelAvatar));
+      expect(tester.widget<YqLevelAvatar>(mine).drawIn, isNotNull);
+      await tester.pumpWidget(const SizedBox());
+
+      reduce(tester);
+      await pump(tester, CommunityRig(routes: {'GET /v1/leaderboard': (_) => jsonResponse(board())}), const LeaderboardScreen());
+      expect(find.text('ترتيبك 4'), findsOneWidget);
+      final opacity = tester.widget<Opacity>(
+        find.ancestor(of: find.text('ترتيبك 4'), matching: find.byType(Opacity)).first,
+      );
+      expect(opacity.opacity, 1);
+      expect(tester.binding.transientCallbackCount, 0);
     });
   });
 }

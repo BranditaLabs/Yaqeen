@@ -1,16 +1,24 @@
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
-/// Rises 14 px and fades in once, staggered by [order] (70 ms apart). Skipped with reduced motion
-/// (docs/DESIGN_SYSTEM.md §5).
+/// Rises [distance] (14 px) and fades in once, staggered by [order] × [stagger] (70 ms; the orbs
+/// use 40 ms). Skipped with reduced motion (docs/DESIGN_SYSTEM.md §5).
 ///
 /// Inside a [YqRiseScope] (every `YqCanvas`, Home) only content that appears while the page opens
 /// rises; a lazy list item built later — scrolled into view, or rebuilt after scrolling away — is
 /// simply there, so long pages never fade in under the finger.
 class YqRise extends StatefulWidget {
-  const YqRise({super.key, this.order = 0, required this.child});
+  const YqRise({super.key, this.order = 0, this.stagger = const Duration(milliseconds: 70), this.distance = 14, required this.child});
   final int order;
+  final Duration stagger;
+  final double distance;
   final Widget child;
+
+  /// Each item's own rise.
+  static const run = Duration(milliseconds: 350);
+
+  /// The latest an item starts, however long the list.
+  static const maxDelay = Duration(milliseconds: 420);
 
   @override
   State<YqRise> createState() => _YqRiseState();
@@ -29,17 +37,18 @@ class _YqRiseState extends State<YqRise> {
   @override
   Widget build(BuildContext context) {
     if (_play != true) return widget.child;
-    final start = (widget.order * 0.07).clamp(0.0, 0.6);
+    final delayUs = (widget.stagger.inMicroseconds * widget.order).clamp(0, YqRise.maxDelay.inMicroseconds);
+    final totalUs = delayUs + YqRise.run.inMicroseconds;
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 700),
-      curve: Interval(start, (start + 0.5).clamp(0.0, 1.0), curve: Curves.easeOutCubic),
+      duration: Duration(microseconds: totalUs),
+      curve: Interval(delayUs / totalUs, 1, curve: Curves.easeOutCubic),
       child: widget.child,
       builder: (context, v, child) => Opacity(
         opacity: v,
         // Screen readers see the content at once; only the eye waits for the rise.
         alwaysIncludeSemantics: true,
-        child: Transform.translate(offset: Offset(0, 14 * (1 - v)), child: child),
+        child: Transform.translate(offset: Offset(0, widget.distance * (1 - v)), child: child),
       ),
     );
   }

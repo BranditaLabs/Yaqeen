@@ -7,13 +7,17 @@ import 'package:go_router/go_router.dart';
 import '../../../core/analytics/product_analytics.dart';
 import '../../../core/config/config_controller.dart';
 import '../../../core/config/env.dart';
+import '../../../core/design/motion.dart';
 import '../../../core/config/remote_config.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/format.dart';
 import '../../../core/settings/settings_controller.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../core/theme/typography.dart';
 import '../../../core/widgets/liquid_glass.dart';
 import '../../../core/widgets/yq_avatar.dart';
+import '../../../core/widgets/yq_count.dart';
+import '../../../core/widgets/yq_flip.dart';
 import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_layout.dart';
 import '../../../core/widgets/yq_orb.dart';
@@ -63,16 +67,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   /// The level-up moment is playing (gold ring + glint), then the ring settles back to lapis.
   bool _celebrating = false;
   Timer? _celebration;
+  Timer? _toast;
 
-  static const celebration = Duration(milliseconds: 1600);
+  static const celebration = Motion.glintHold;
 
   @override
   void dispose() {
     _celebration?.cancel();
+    _toast?.cancel();
     super.dispose();
   }
 
-  /// Plays the level-up moment once, unless Home already did: glint, a quiet toast, then seen.
+  /// Plays the level-up moment once, unless Home already did: the light sweeps round the ring
+  /// and the picture swells softly, then a quiet toast, and the level is marked seen. Under
+  /// reduce-motion the toast comes at once.
   void _maybeCelebrate(LevelUp up) {
     if (!up.pending || up.level == null || _celebrating) return;
     // Only on screen (an offstage tab keeps its tickers off): the moment must be seen to be spent.
@@ -83,9 +91,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (!mounted) return;
       final t = AppLocalizations.of(context);
       final locale = Localizations.localeOf(context).languageCode;
+      final message = t.lvlReached(level.name(locale));
       setState(() {});
-      YqToast.show(context, t.lvlReached(level.name(locale)));
       ref.read(levelUpProvider.notifier).markSeen().ignore();
+      if (reduceMotion(context)) {
+        YqToast.show(context, message);
+      } else {
+        _toast = Timer(Motion.glint, () {
+          if (mounted) YqToast.show(context, message);
+        });
+      }
       _celebration = Timer(celebration, () {
         if (mounted) setState(() => _celebrating = false);
       });
@@ -190,22 +205,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           children: [
             bar,
             const SizedBox(height: YqSpace.l),
-            if (profile == null) const _StageSkeleton() else _Stage(profile: profile, celebrating: _celebrating),
+            YqFadeSwap(
+              child: profile == null ? const _StageSkeleton() : _Stage(key: const ValueKey('profile-stage'), profile: profile, celebrating: _celebrating),
+            ),
           ],
         ),
       ),
       children: [
         YqOfflineBanner(offline: !online),
-        if (profile == null)
-          const YqSkeleton(child: YqSkeletonOrbs(count: 3))
-        else
-          YqOrbRow(
-            orbs: [
-              _LevelOrb(profile: profile),
-              if (rewards) _PointsOrb(weekPoints: profile.weekPoints) else const _LanguageOrb(),
-              if (config.isOn(Flags.leagues)) _LeagueOrb(profile: profile, signedIn: signedIn) else const _DownloadsOrb(),
-            ],
-          ),
+        YqFadeSwap(
+          child: profile == null
+              ? const YqSkeleton(key: ValueKey('profile-orbs-skeleton'), child: YqSkeletonOrbs(count: 3))
+              : YqOrbRow(
+                  key: const ValueKey('profile-orbs'),
+                  rise: true,
+                  orbs: [
+                    _LevelOrb(profile: profile),
+                    if (rewards) _PointsOrb(weekPoints: profile.weekPoints) else const _LanguageOrb(),
+                    if (config.isOn(Flags.leagues)) _LeagueOrb(profile: profile, signedIn: signedIn) else const _DownloadsOrb(),
+                  ],
+                ),
+        ),
         const SizedBox(height: YqSpace.xxl),
         if (signedIn && profile != null) ...[
           BadgesStrip(badges: profile.recentBadges, count: profile.badgesCount),
@@ -270,11 +290,14 @@ class _StageSkeleton extends StatelessWidget {
 }
 
 class _Stage extends ConsumerWidget {
-  const _Stage({required this.profile, required this.celebrating});
+  const _Stage({super.key, required this.profile, required this.celebrating});
   final MeProfile profile;
   final bool celebrating;
 
   static const size = 120.0;
+
+  /// How far the edit badge's 44-pt target hangs past the ring's end and bottom edges.
+  static const _badgeOutset = 6.0;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -293,66 +316,94 @@ class _Stage extends ConsumerWidget {
     final caption = t.lvlCaption(YqFormat.number(level.level), level.name(locale)) +
         (signedIn && profile.handle != null ? t.pfHandleSuffix(profile.handle!) : '');
 
+    // One ring for the screen's life: it draws in once, then eases; a new picture cross-fades
+    // inside it (YqAvatarSwap) and a level just reached sweeps light round it.
     final picture = YqLevelAvatar(
-      key: ValueKey('profile-avatar-${avatar.kind}-${switch (avatar) {
-        PresetAvatar(:final id) => id,
-        PhotoAvatar(:final id) => id,
-        _ => ''
-      }}-$achieved'),
+      key: const ValueKey('profile-avatar'),
       avatar: avatar,
       level: level.level,
       progress: signedIn ? level.progress : 0,
       size: size,
       stroke: 4,
       achieved: achieved,
+      glint: signedIn && celebrating,
+      drawIn: Motion.ringDraw,
       name: profile.nameHidden ? null : name,
       levelName: level.name(locale),
     );
 
+    // The edit badge hangs [badgeOutset] past the ring's end and bottom; the box grows by that
+    // much (both sides across, below only) so its whole 44-pt target is hit-testable, and the gap
+    // under it shrinks by the same amount, so nothing else moves.
+    const outset = _badgeOutset;
     return Column(
       children: [
-        GlassTap(
-          onTap: () => showAvatarSheet(context, ref),
-          semanticLabel: t.pfSemanticsJoin(
-            t.lvlRingSemantics(YqFormat.number(level.level), level.name(locale), YqFormat.number((level.progress * 100).round())),
-            t.pfEditPhoto,
-          ),
-          child: ExcludeSemantics(
-            child: SizedBox.square(
-              dimension: size,
-              child: Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.center,
-                children: [
-                  AnimatedSwitcher(duration: YqMotion.base, child: picture),
-                  // Uploading a photo: the ring shimmers in lapis until it lands.
-                  if (uploading)
-                    const IgnorePointer(
-                      key: ValueKey('profile-uploading'),
-                      child: YqSkeleton(child: YqRing(value: 1, size: size, stroke: 4, color: YqColors.lapis)),
+        SizedBox(
+          width: size + 2 * outset,
+          height: size + outset,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Align(
+                alignment: Alignment.topCenter,
+                child: GlassTap(
+                  onTap: () => showAvatarSheet(context, ref),
+                  semanticLabel: t.pfSemanticsJoin(
+                    t.lvlRingSemantics(YqFormat.number(level.level), level.name(locale), YqFormat.number((level.progress * 100).round())),
+                    t.pfEditPhoto,
+                  ),
+                  child: ExcludeSemantics(
+                    child: SizedBox.square(
+                      dimension: size,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          picture,
+                          // Uploading a photo: the ring shimmers in lapis until it lands.
+                          if (uploading)
+                            const IgnorePointer(
+                              key: ValueKey('profile-uploading'),
+                              child: YqSkeleton(child: YqRing(value: 1, size: size, stroke: 4, color: YqColors.lapis)),
+                            ),
+                        ],
+                      ),
                     ),
-                  const PositionedDirectional(
-                    end: 0,
-                    bottom: 0,
-                    child: ExcludeSemantics(
-                      child: SizedBox.square(
-                        dimension: 32,
-                        child: LiquidGlass(
-                          radius: YqRadii.pill,
-                          padding: EdgeInsets.zero,
-                          highlight: false,
-                          opacity: 0.9,
-                          child: Center(child: YqIcon(YqIcons.edit, size: 16)),
+                  ),
+                ),
+              ),
+              // The edit badge pops on its own press (0.92, springing back) — a sibling above the
+              // ring, not inside its tap, so the ring and picture stay still while it does. Same
+              // action as the ring, already announced there.
+              PositionedDirectional(
+                end: 0,
+                bottom: 0,
+                child: ExcludeSemantics(
+                  child: GlassTap(
+                    key: const ValueKey('profile-edit-badge'),
+                    onTap: () => showAvatarSheet(context, ref),
+                    pressScale: 0.92,
+                    child: const SizedBox.square(
+                      dimension: YqSpace.touch,
+                      child: Center(
+                        child: SizedBox.square(
+                          dimension: 32,
+                          child: LiquidGlass(
+                            radius: YqRadii.pill,
+                            padding: EdgeInsets.zero,
+                            highlight: false,
+                            opacity: 0.9,
+                            child: Center(child: YqIcon(YqIcons.edit, size: 16)),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
-        const SizedBox(height: YqSpace.m),
+        const SizedBox(height: YqSpace.m - outset),
         GlassTap(
           onTap: () => showEditNameSheet(context),
           semanticLabel: t.pfSemanticsJoin(profile.nameHidden ? t.avHiddenName : name, t.pfNameTitle),
@@ -424,10 +475,23 @@ class _LevelOrb extends StatelessWidget {
     final t = AppLocalizations.of(context);
     final level = profile.level;
     final next = level.nextAt;
-    final status = next == null ? t.pfTopLevel : t.pfToNext(YqFormat.number((next - profile.lifetimePoints).clamp(0, next)));
+    final remaining = next == null ? null : (next - profile.lifetimePoints).clamp(0, next);
+    final status = remaining == null ? t.pfTopLevel : t.pfToNext(YqFormat.number(remaining));
     return YqOrb(
       title: t.pfLevel,
       status: status,
+      // The points still to go count into place, wrapped like the orb's status (two lines at most).
+      statusChild: remaining == null
+          ? null
+          : CountUp(
+              key: const ValueKey('level-orb-status'),
+              value: remaining,
+              builder: t.pfToNext,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: YqOrb.statusStyle(),
+            ),
       onTap: () => showLevelLadderSheet(context, level),
       semanticLabel: t.pfSemanticsJoin(t.lvlNumeral(YqFormat.number(level.level)), status),
       disc: YqRing(
@@ -436,13 +500,15 @@ class _LevelOrb extends StatelessWidget {
         track: YqColors.lapis100.withValues(alpha: 0.5),
         size: YqOrb.defaultSize - 12,
         stroke: 5,
-        child: Text(YqFormat.number(level.level), style: YqMoment.numeral(size: 30)),
+        drawIn: Motion.ringDraw,
+        child: YqRollingNumber(value: level.level, style: YqMoment.numeral(size: 30)),
       ),
     );
   }
 }
 
-/// «الرصيد»; a tap flips to «هذا الأسبوع» (self only), a long press opens the ledger.
+/// «الرصيد»; a tap flips the disc about its vertical axis to «هذا الأسبوع» (self only), a long
+/// press opens the ledger. Numbers roll into place.
 class _PointsOrb extends ConsumerStatefulWidget {
   const _PointsOrb({required this.weekPoints});
   final int weekPoints;
@@ -465,26 +531,37 @@ class _PointsOrbState extends ConsumerState<_PointsOrb> {
     final value = _week ? widget.weekPoints : balance;
     final title = _week ? t.pfThisWeek : t.pfBalance;
     final status = value == null ? (failed ? t.pfNoRank : '') : t.challengePointsLabel(YqFormat.number(value));
+    final Widget balanceFace = YqFadeSwap(
+      alignment: Alignment.center,
+      child: balance == null && failed
+          // A retry affordance: the tap fetches the summary again.
+          ? const Center(key: ValueKey('points-failed'), child: YqIcon(YqIcons.sync, size: 26, tone: YqIconTone.idle))
+          : balance == null
+              ? const YqSkeleton(
+                  key: ValueKey('points-loading'),
+                  child: Center(child: YqSkeletonBox(width: 44, height: 18, radius: YqRadii.pill)),
+                )
+              : Center(
+                  key: const ValueKey('points-false'),
+                  child: YqRollingNumber(value: balance, style: _numeral),
+                ),
+    );
+    final Widget weekFace = Center(
+      key: const ValueKey('points-true'),
+      child: YqRollingNumber(value: widget.weekPoints, style: _numeral),
+    );
     return YqOrb(
       title: title,
       status: status,
+      swapText: true,
       onTap: () => failed && !_week ? ref.invalidate(challengeControllerProvider) : setState(() => _week = !_week),
       onLongPress: () => context.push('/profile/ledger'),
       semanticLabel: t.pfSemanticsJoin(title, failed && value == null ? t.retry : status),
-      disc: AnimatedSwitcher(
-        duration: YqMotion.base,
-        child: value == null && failed
-            // A retry affordance: the tap fetches the summary again.
-            ? const Center(key: ValueKey('points-failed'), child: YqIcon(YqIcons.sync, size: 26, tone: YqIconTone.idle))
-            : value == null
-                ? const YqSkeleton(
-                    key: ValueKey('points-loading'),
-                    child: Center(child: YqSkeletonBox(width: 44, height: 18, radius: YqRadii.pill)),
-                  )
-                : KeyedSubtree(key: ValueKey('points-$_week'), child: YqOrb.number(YqFormat.number(value), size: 22)),
-      ),
+      disc: SizedBox.expand(child: YqFlip(showBack: _week, front: balanceFace, back: weekFace)),
     );
   }
+
+  static final _numeral = YqText.numeral.copyWith(fontSize: 22, fontWeight: FontWeight.w500, color: YqColors.ink);
 }
 
 class _LanguageOrb extends ConsumerWidget {
@@ -530,7 +607,7 @@ class _LeagueOrb extends StatelessWidget {
           height: 64,
           alignment: Alignment.center,
           decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: YqColors.line, width: 2)),
-          child: Text(YqFormat.number(league.division), style: YqMoment.numeral(size: 28)),
+          child: YqRollingNumber(value: league.division, style: YqMoment.numeral(size: 28)),
         ),
       );
     } else {

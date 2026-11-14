@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/config_controller.dart';
 import '../../../core/config/env.dart';
 import '../../../core/config/remote_config.dart';
+import '../../../core/design/motion.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/platform/photo_picker.dart';
 import '../../../core/settings/settings_controller.dart';
@@ -15,6 +16,7 @@ import '../../../core/widgets/liquid_glass.dart';
 import '../../../core/widgets/yq_avatar.dart';
 import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_layout.dart';
+import '../../../core/widgets/yq_once.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../community/domain/community_models.dart';
@@ -24,6 +26,7 @@ import '../../profile/domain/level.dart';
 import '../../profile/domain/me_profile.dart';
 import '../../profile/presentation/me_profile_controller.dart';
 import 'onboarding_screens.dart';
+import 'profile_step_motion.dart';
 import 'session_controller.dart';
 import 'sign_in_sheet.dart';
 import 'splash_gate.dart';
@@ -259,12 +262,14 @@ class _ProfileStepState extends ConsumerState<ProfileStep> {
       visual: Center(
         child: Column(
           children: [
+            // The track fades in like every level ring; a picked picture cross-fades in.
             YqLevelAvatar(
               avatar: current,
               level: start.level,
               progress: 0,
               size: 112,
               stroke: 4,
+              drawIn: Motion.ringDraw,
               name: typed.isEmpty ? null : typed,
               levelName: start.name(locale),
             ),
@@ -287,33 +292,44 @@ class _ProfileStepState extends ConsumerState<ProfileStep> {
           onChanged: (v) => setState(() => _filter = v),
         ),
         const SizedBox(height: YqSpace.m),
-        _presetsReady
-            ? _TileGrid(
-                children: [
-                  if (picker.available)
-                    _PhotoTile(
-                      label: t.obFromPhotos,
-                      selected: _picked == null && current is PhotoAvatar,
-                      busy: _photoBusy,
-                      onTap: _photoBusy ? null : _pickPhoto,
-                    ),
-                  for (final p in presets)
-                    _PresetTile(
-                      preset: p,
-                      label: p.label(locale),
-                      selected: current == PresetAvatar(p.id),
-                      onTap: () => setState(() => _picked = PresetAvatar(p.id)),
-                    ),
-                ],
-              )
-            : YqSkeleton(
-                child: _TileGrid(
+        // Skeleton circles give way to the pictures, which pop in one after another.
+        YqFadeSwap(
+          child: _presetsReady
+              ? _TileGrid(
+                  key: const ValueKey('presets'),
                   children: [
-                    for (var i = 0; i < presets.length + (picker.available ? 1 : 0); i++)
-                      const SizedBox.square(dimension: _tile, child: Center(child: YqSkeletonBox.circle(_circle))),
+                    if (picker.available)
+                      PresetCascade(
+                        index: 0,
+                        child: _PhotoTile(
+                          label: t.obFromPhotos,
+                          selected: _picked == null && current is PhotoAvatar,
+                          busy: _photoBusy,
+                          onTap: _photoBusy ? null : _pickPhoto,
+                        ),
+                      ),
+                    for (var i = 0; i < presets.length; i++)
+                      PresetCascade(
+                        index: i + (picker.available ? 1 : 0),
+                        child: _PresetTile(
+                          preset: presets[i],
+                          label: presets[i].label(locale),
+                          selected: current == PresetAvatar(presets[i].id),
+                          onTap: () => setState(() => _picked = PresetAvatar(presets[i].id)),
+                        ),
+                      ),
                   ],
+                )
+              : YqSkeleton(
+                  key: const ValueKey('presets-skeleton'),
+                  child: _TileGrid(
+                    children: [
+                      for (var i = 0; i < presets.length + (picker.available ? 1 : 0); i++)
+                        const SizedBox.square(dimension: _tile, child: Center(child: YqSkeletonBox.circle(_circle))),
+                    ],
+                  ),
                 ),
-              ),
+        ),
         const SizedBox(height: YqSpace.xl),
         _Heading(t.obYourName),
         TextField(
@@ -333,22 +349,23 @@ class _ProfileStepState extends ConsumerState<ProfileStep> {
               const SizedBox(height: YqSpace.s),
               Text(t.obLevelsLine, style: text.bodySmall),
               const SizedBox(height: YqSpace.s),
-              // The six levels; the first is where everyone starts.
-              ExcludeSemantics(
-                child: Row(
-                  children: [
-                    for (var i = 0; i < cardLevels.length; i++) ...[
-                      if (i > 0) const SizedBox(width: 6),
-                      Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(shape: BoxShape.circle, color: i == 0 ? YqColors.lapis : YqColors.line),
-                      ),
-                    ],
-                  ],
+              // How it works, in motion, once it scrolls into view: the ring fills through the six
+              // levels and settles back on the first, where everyone starts; a miniature league
+              // slides in with the person's own row (lit when they switch the league on).
+              YqWhenVisible(builder: (context, seen) => LevelsDemo(play: seen)),
+              if (leagues) ...[
+                const SizedBox(height: YqSpace.s),
+                Text(t.obLeagueLine, style: text.bodySmall),
+                const SizedBox(height: YqSpace.s),
+                YqWhenVisible(
+                  builder: (context, seen) => MiniLeagueCard(
+                    play: seen,
+                    avatar: current,
+                    name: typed.isEmpty ? null : typed,
+                    joined: _join,
+                  ),
                 ),
-              ),
-              if (leagues) ...[const SizedBox(height: YqSpace.s), Text(t.obLeagueLine, style: text.bodySmall)],
+              ],
               const SizedBox(height: YqSpace.s),
               Text(t.obTournamentsLine, style: text.bodySmall),
             ],
@@ -404,7 +421,7 @@ const double _tile = 80;
 
 /// Even columns of [_tile]-wide cells (4 on a phone), rows filled from the start edge.
 class _TileGrid extends StatelessWidget {
-  const _TileGrid({required this.children});
+  const _TileGrid({super.key, required this.children});
   final List<Widget> children;
 
   @override
