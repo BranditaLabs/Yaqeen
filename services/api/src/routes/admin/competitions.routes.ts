@@ -43,7 +43,7 @@ import {
   recomputeCommunityConsent,
   toCompetitor,
   type CompetitorRow,
-  COMPETITOR_COLUMNS,
+  COMPETITOR_COLUMNS_ANY,
   COMPETITOR_JOINS,
 } from '../../services/community.service.js';
 import * as leaderboard from '../../services/leaderboard.service.js';
@@ -274,8 +274,9 @@ export const adminCompetitionsRoutes: FastifyPluginAsync = async (app) => {
     const group = g.rows[0];
     if (!group) throw notFound('group');
     const closed = group.closed_at !== null;
+    // Unfiltered rows (banned, inactive, a closed week): the public photo rule decides the avatar.
     const r = await db.execute<CompetitorRow & { outcome: string | null }>(sql`
-      select ${COMPETITOR_COLUMNS}, ${closed ? sql.raw('m.final_points') : sql.raw('m.snapshot_points')} as points,
+      select ${COMPETITOR_COLUMNS_ANY}, ${closed ? sql.raw('m.final_points') : sql.raw('m.snapshot_points')} as points,
         ${closed ? sql.raw('m.final_rank') : sql.raw('m.snapshot_rank')} as rank, m.outcome
       from league_members m join users u on u.id = m.user_id ${COMPETITOR_JOINS}
       where m.group_id = ${id} and m.left_at is null

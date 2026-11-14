@@ -86,17 +86,47 @@ export type CompetitorRow = AvatarColumns & {
 }
 
 /**
- * Columns of a competitor (aliases: u = users, pp = public_profiles, ap = the active avatar photo,
- * t = user_point_totals). `photo_ok` assumes the row already passed the visibility filter, so the
- * photo is public when it is active and the owner attested 18+.
+ * Whether a user's photo may be served publicly (aliases u, ap, and `cm` = community_members):
+ * active photo, active account, attested 18+, and actually visible somewhere — in a live competition
+ * (not banned) or on a published, unmoderated card.
  */
-export const COMPETITOR_COLUMNS = sql.raw(`u.id as user_id, pp.handle, u.display_name, (u.name_hidden_at is not null) as name_hidden,
+function photoPublicRule(cm: string): string {
+  if (!/^[a-z_]+$/.test(cm)) throw new Error('bad alias');
+  return `coalesce(
+    ap.status = 'active' and u.status = 'active' and u.adult_attested_at is not null and (
+      (coalesce(${cm}.banned_at is null, false) and (coalesce(${cm}.leagues, false) or coalesce(${cm}.leaderboard, false) or exists (
+        select 1 from tournaments ptt
+        where ptt.status = 'published' and ptt.closed_at is null and exists (
+          select 1 from tournament_entries pe where pe.tournament_id = ptt.id and pe.user_id = u.id and pe.left_at is null))))
+      or exists (select 1 from public_profiles cp where cp.user_id = u.id and cp.published and cp.moderated_at is null)
+    ), false)`;
+}
+
+const competitorColumns = (photoOk: string) =>
+  sql.raw(`u.id as user_id, pp.handle, u.display_name, (u.name_hidden_at is not null) as name_hidden,
   u.avatar_kind, u.avatar_preset, u.avatar_photo_id,
-  coalesce(ap.status = 'active' and u.adult_attested_at is not null, false) as photo_ok,
+  ${photoOk} as photo_ok,
   coalesce(t.public_lifetime, 0)::int as public_lifetime`);
+
+/**
+ * Columns of a competitor (aliases: u = users, pp = public_profiles, ap = the active avatar photo,
+ * pcm = community_members, t = user_point_totals) for rows of a LIVE list — an open league group, a
+ * live tournament's standings, the level board — whose visibility filter (active, not banned, in
+ * that live competition) already implies the public photo rule, so `photo_ok` only adds "active
+ * photo, attested 18+".
+ */
+export const COMPETITOR_COLUMNS = competitorColumns(`coalesce(ap.status = 'active' and u.adult_attested_at is not null, false)`);
+
+/**
+ * The same columns for any other row — a closed tournament's standings, a closed league group, the
+ * caller's own row, admin views: `photo_ok` is the public photo route's own rule (`photoPublicSql`),
+ * so a row never carries a photo URL the route would refuse (the preset or initial shows instead).
+ */
+export const COMPETITOR_COLUMNS_ANY = competitorColumns(photoPublicRule('pcm'));
 
 export const COMPETITOR_JOINS = sql.raw(`join public_profiles pp on pp.user_id = u.id
   left join avatar_photos ap on ap.id = u.avatar_photo_id
+  left join community_members pcm on pcm.user_id = u.id
   left join user_point_totals t on t.user_id = u.id`);
 
 /** Active account (not suspended, not deletion-requested) — the base of every visibility filter. */
@@ -522,16 +552,9 @@ export async function report(ctx: CommunityCtx, uid: string, handle: string, rea
 /* ------------------------------------------------------------- visibility */
 
 /**
- * Whether a user's photo may be served publicly (aliases u, ap, cm; pp optional via subquery):
- * active photo, active account, attested 18+, and actually visible somewhere — in a competition (not
- * banned) or on a published, unmoderated card.
+ * Whether a user's photo may be served publicly (aliases u, ap and `cm` = community_members; the
+ * same rule as every competitor row's `photo_ok`).
  */
-export function photoPublicSql(): SQL {
-  return sql.raw(`coalesce(
-    ap.status = 'active' and u.status = 'active' and u.adult_attested_at is not null and (
-      (coalesce(cm.banned_at is null, false) and (coalesce(cm.leagues, false) or coalesce(cm.leaderboard, false) or exists (
-        select 1 from tournament_entries e join tournaments tt on tt.id = e.tournament_id
-        where e.user_id = u.id and e.left_at is null and tt.status = 'published' and tt.closed_at is null)))
-      or exists (select 1 from public_profiles cp where cp.user_id = u.id and cp.published and cp.moderated_at is null)
-    ), false)`);
+export function photoPublicSql(cm = 'cm'): SQL {
+  return sql.raw(photoPublicRule(cm));
 }

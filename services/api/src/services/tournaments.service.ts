@@ -24,6 +24,7 @@ import type { CommunityCtx } from './community-settings.service.js';
 import {
   ACTIVE_USER,
   COMPETITOR_COLUMNS,
+  COMPETITOR_COLUMNS_ANY,
   COMPETITOR_JOINS,
   type CompetitorRow,
   type DbOrTx,
@@ -252,8 +253,11 @@ async function standingsPage(ctx: CommunityCtx, t: TournamentRecord, cursor: str
     const rankCol = closed ? sql.raw('e.final_rank') : sql.raw('e.snapshot_rank');
     const ptsCol = closed ? sql.raw('e.final_points') : sql.raw('e.snapshot_points');
     const visible = sql`e.tournament_id = ${t.id} and e.left_at is null and ${ACTIVE_USER} and coalesce(cm.banned_at is null, true)`;
+    // A live tournament's filter implies the public photo rule; a closed one's entrants may be in no
+    // live competition any more, so their photo shows only where the public route would serve it.
+    const columns = closed || t.status !== 'published' ? COMPETITOR_COLUMNS_ANY : COMPETITOR_COLUMNS;
     const r = await ctx.db.execute<CompetitorRow>(sql`
-      select ${COMPETITOR_COLUMNS}, ${ptsCol} as points, ${rankCol} as rank
+      select ${columns}, ${ptsCol} as points, ${rankCol} as rank
       from tournament_entries e
       join users u on u.id = e.user_id
       ${COMPETITOR_JOINS}
@@ -285,8 +289,9 @@ export async function standings(ctx: CommunityCtx, uid: string, id: string, curs
   const page = await standingsPage(ctx, t, cursor);
   const blocked = await blockedBothWays(ctx.db, uid);
   const closed = t.closed_at !== null;
+  // The caller's row isn't filtered on visibility: the full public photo rule.
   const mine = await ctx.db.execute<CompetitorRow>(sql`
-    select ${COMPETITOR_COLUMNS}, ${closed ? sql.raw('e.final_points') : sql.raw('e.snapshot_points')} as points,
+    select ${COMPETITOR_COLUMNS_ANY}, ${closed ? sql.raw('e.final_points') : sql.raw('e.snapshot_points')} as points,
       ${closed ? sql.raw('e.final_rank') : sql.raw('e.snapshot_rank')} as rank
     from tournament_entries e join users u on u.id = e.user_id ${COMPETITOR_JOINS}
     where e.tournament_id = ${id} and e.user_id = ${uid} and e.left_at is null`);
