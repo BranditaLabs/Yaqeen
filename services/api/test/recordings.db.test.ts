@@ -487,7 +487,9 @@ describe.skipIf(!url)('recordings «تلاواتي» (Postgres)', () => {
     const membersOnly = await approvedRecording(owner, 'members');
     const html = (await app.inject({ method: 'GET', url: `/u/${owner.handle}` })).body;
     expect(html).toContain('تلاواتي');
-    expect(html).toContain(`/u/${owner.handle}/r/${pub}.m4a`);
+    // A same-origin path (CSP media-src 'self', CORP same-origin), never an absolute URL on another host.
+    expect(html).toContain(`src="/u/${owner.handle}/r/${pub}.m4a"`);
+    expect(html).not.toContain(`https://id.test/u/${owner.handle}/r/`);
     expect(html).not.toContain(membersOnly);
     expect(html).toContain('سورة الفاتحة · الآيات 1–4');
     expect(html).toContain('<script src="/u/assets/recitations.js" defer></script>');
@@ -497,6 +499,17 @@ describe.skipIf(!url)('recordings «تلاواتي» (Postgres)', () => {
     expect((await app.inject({ method: 'GET', url: `/u/${owner.handle}/r/${membersOnly}.m4a` })).statusCode).toBe(404);
     const js = await app.inject({ method: 'GET', url: '/u/assets/recitations.js' });
     expect(js.headers['content-type']).toContain('text/javascript');
+    // The cards kill switch takes the recordings' audio down with `/u/:handle`.
+    await db.update(s.appConfig).set({ value: { recordings: true, publicCards: false } }).where(eq(s.appConfig.key, 'features'));
+    await app.ctx.cache.bumpNamespace('config');
+    try {
+      expect((await app.inject({ method: 'GET', url: `/u/${owner.handle}` })).statusCode).toBe(404);
+      expect((await app.inject({ method: 'GET', url: `/u/${owner.handle}/r/${pub}.m4a` })).statusCode).toBe(404);
+    } finally {
+      await db.update(s.appConfig).set({ value: { recordings: true } }).where(eq(s.appConfig.key, 'features'));
+      await app.ctx.cache.bumpNamespace('config');
+    }
+    expect((await app.inject({ method: 'GET', url: `/u/${owner.handle}/r/${pub}.m4a` })).statusCode).toBe(200);
     // Unpublished card → nothing.
     await db.update(s.publicProfiles).set({ published: false }).where(eq(s.publicProfiles.userId, owner.id));
     expect((await app.inject({ method: 'GET', url: `/u/${owner.handle}/r/${pub}.m4a` })).statusCode).toBe(404);
@@ -583,11 +596,19 @@ describe.skipIf(!url)('recordings «تلاواتي» (Postgres)', () => {
       expect((await app.inject({ method: 'PUT', url: `/v1/recordings/${up.json().id}/reaction`, headers: auth(viewer.token), payload: { kind: 'ahsant' } })).json().error.code).toBe('blocked');
       expect((await app.inject({ method: 'DELETE', url: `/v1/community/blocks/${vcard!.handle}`, headers: auth(owner.token) })).statusCode).toBe(204);
       expect((await app.inject({ method: 'PUT', url: `/v1/recordings/${up.json().id}/reaction`, headers: auth(viewer.token), payload: { kind: 'ahsant' } })).statusCode).toBe(200);
+      // A public recording on a published card, live on the web while in the community.
+      await db.update(s.publicProfiles).set({ published: true }).where(eq(s.publicProfiles.userId, owner.id));
+      const pubRec = up.json().id as string;
+      await app.inject({ method: 'PATCH', url: `/v1/me/recordings/${pubRec}`, headers: auth(owner.token), payload: { visibility: 'public' } });
+      expect((await app.inject({ method: 'GET', url: `/u/${card!.handle}/r/${pubRec}.m4a` })).statusCode).toBe(200);
       // Leaving the community (derived consent off) hides the recordings from members and refuses sharing.
       const leave = await app.inject({ method: 'PUT', url: '/v1/me/community', headers: auth(owner.token), payload: { leaderboard: false, source: 'settings' } });
       expect(leave.statusCode).toBe(200);
       expect((await app.inject({ method: 'GET', url: `/v1/recordings/${up.json().id}/audio`, headers: auth(viewer.token) })).statusCode).toBe(404);
       expect((await upload(owner.token, meta('exact_recitation'))).json().error.code).toBe('community_required');
+      // …and from the open web: the card section and its audio go too.
+      expect((await app.inject({ method: 'GET', url: `/u/${card!.handle}/r/${pubRec}.m4a` })).statusCode).toBe(404);
+      expect(await rec.forCard(app.ctx, card!.handle)).toEqual([]);
       // The hourly community job carries the recordings sweep (stuck AI checks → retried).
       const stuck = await upload(viewer.token, meta('exact_recitation'));
       await rec.drain(app.ctx); // attempt 1 fails (nothing queued)

@@ -57,6 +57,7 @@ import { audit } from '../lib/audit.js';
 import { AppError, badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { captureError } from '../lib/observability.js';
 import { COMPETITOR_COLUMNS_ANY, COMPETITOR_JOINS, type CompetitorRow, toCompetitor } from './community.service.js';
+import { cardFeatureOn } from './cards-settings.service.js';
 import { featureOn as flagOn } from './community-settings.service.js';
 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
@@ -843,27 +844,32 @@ export interface CardRecording {
   toAyah: number;
   durationMs: number;
   reactions: ReactionCounts;
-  /** Absolute public URL of the audio. */
+  /**
+   * Same-origin path of the audio (`/u/<handle>/r/<id>.m4a`), relative like the player script: the
+   * page's CSP (media-src 'self') and CORP (same-origin) must allow it on whichever host serves the card.
+   */
   audioUrl: string;
 }
 
-/** Public, approved recordings for the owner's web card `/u/<handle>` (published, unmoderated card). */
+/**
+ * Public, approved recordings for the owner's web card `/u/<handle>` (published, unmoderated card) —
+ * under the same owner gate as the member views (`OWNER_SHAREABLE`): leaving the community, a ban or a
+ * withdrawn attestation takes them off the open web too.
+ */
 export async function forCard(ctx: AppContext, handle: string): Promise<CardRecording[]> {
-  if (!(await featureOn(ctx))) return [];
+  // Both switches: «تلاواتي» (`recordings`) and the cards programme (`publicCards`, which 404s `/u/:handle`).
+  if (!(await featureOn(ctx)) || !(await cardFeatureOn(ctx, 'publicCards'))) return [];
   const h = handle.trim().toLowerCase();
   const rows = await ctx.db.execute<{ id: string; surah: number; from_ayah: number; to_ayah: number; duration_ms: number; handle: string }>(sql`
     select r.id, r.surah, r.from_ayah, r.to_ayah, r.duration_ms, pp.handle from recordings r ${OWNER_JOINS}
     where pp.handle = ${h} and pp.published and pp.moderated_at is null
-      and ${MEMBER_VISIBLE} and r.visibility = 'public'
-      and u.status = 'active' and u.adult_attested_at is not null
-      and not exists (select 1 from community_members cm where cm.user_id = u.id and cm.banned_at is not null)
+      and ${MEMBER_VISIBLE} and r.visibility = 'public' and ${OWNER_SHAREABLE}
     order by r.position, r.created_at`);
   const extra = await reactionsFor(
     ctx.db,
     rows.rows.map((r) => r.id),
     null,
   );
-  const base = ctx.env.PUBLIC_PROFILE_BASE_URL.replace(/\/$/, '');
   return rows.rows.map((r) => ({
     id: r.id,
     surah: Number(r.surah),
@@ -871,13 +877,12 @@ export async function forCard(ctx: AppContext, handle: string): Promise<CardReco
     toAyah: Number(r.to_ayah),
     durationMs: Number(r.duration_ms),
     reactions: extra.get(r.id)!.counts,
-    audioUrl: `${base}/u/${r.handle}/r/${r.id}.m4a`,
+    audioUrl: `/u/${encodeURIComponent(r.handle)}/r/${r.id}.m4a`,
   }));
 }
 
-/** The audio behind `/u/<handle>/r/<id>.m4a`: only while public + approved on a live card. */
+/** The audio behind `/u/<handle>/r/<id>.m4a`: only while public + approved on a live card (both switches on). */
 export async function cardAudio(ctx: AppContext, handle: string, id: string): Promise<Buffer | null> {
-  if (!(await featureOn(ctx))) return null;
   const list = await forCard(ctx, handle);
   if (!list.some((r) => r.id === id)) return null;
   const [row] = await ctx.db.select({ audio: recordings.audio }).from(recordings).where(eq(recordings.id, id));
