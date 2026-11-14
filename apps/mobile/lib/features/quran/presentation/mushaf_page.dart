@@ -6,6 +6,9 @@ import '../../../core/settings/app_settings.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/theme/typography.dart';
 import '../../../l10n/gen/app_localizations.dart';
+import '../../recite/domain/recitation.dart';
+import '../../recite/domain/recite_progress.dart';
+import '../../recite/presentation/recite_overlay.dart';
 import '../domain/annotations.dart';
 import '../domain/passage.dart';
 import '../domain/quran_data.dart';
@@ -99,6 +102,7 @@ class MushafPage extends StatefulWidget {
     this.revealed = const {},
     this.marks = const {},
     this.passage,
+    this.recite,
     this.onAyahLongPress,
     this.onAyahTap,
     this.onNoteTap,
@@ -123,6 +127,10 @@ class MushafPage extends StatefulWidget {
 
   /// The passage a layer works on (the printed page draws its margin rail; the text page has none).
   final Passage? passage;
+
+  /// «تسميع» on the text page (the printed font not on the phone yet): hidden words are tinted
+  /// pills that the voice reveals, without the printed page's motion.
+  final ReciteView? recite;
   final ValueChanged<AyahRef>? onAyahLongPress;
 
   /// A tap on an ayah (memorise: reveal; listen: play from it; recite: hear a noted ayah). In
@@ -211,7 +219,10 @@ class _MushafPageState extends State<MushafPage> {
       final spans = <InlineSpan>[];
       final quarter = q.quarterStartingAt(a.ref);
       if (quarter != null && !(a.ref.surah == 1 && a.ref.ayah == 1)) spans.add(_marker(_quarterLabel(t, quarter), c, widget.fontSize));
-      if (!isHidden && notes.isEmpty) {
+      final rv = widget.recite;
+      if (rv != null && rv.progress.spans.containsKey(a.ref)) {
+        spans.addAll(_reciteSpans(rv, a, rec, base, c, noted, t));
+      } else if (!isHidden && notes.isEmpty) {
         spans.add(TextSpan(text: '${a.text} ', recognizer: rec, semanticsLabel: label, style: base));
       } else if (isHidden && widget.memorise == MemoriseMode.ayat) {
         spans.add(TextSpan(text: '${a.text} ', recognizer: rec, semanticsLabel: t.quranHiddenAyahA11y, style: hidden));
@@ -284,6 +295,46 @@ class _MushafPageState extends State<MushafPage> {
         ),
       ),
     );
+  }
+
+  /// An ayah being recited, word by word: revealed words in ink (a «تنبيه» muted and underlined, a
+  /// passed word muted), hidden ones a soft ink-10 % tint keeping their place, the first letter or
+  /// the whole word muted as help, faint text with «إظهار النص».
+  List<InlineSpan> _reciteSpans(ReciteView rv, PageAyah a, GestureRecognizer rec, TextStyle base, MushafColors c, TextStyle noted, AppLocalizations t) {
+    final p = rv.progress;
+    final out = <InlineSpan>[];
+    var position = 0;
+    final tokens = a.text.split(' ');
+    final done = p.ayahProgress(a.ref) >= 1;
+    for (final (k, w) in tokens.indexed) {
+      final label = k == 0 ? (done ? t.ayahA11y(widget.quran.surah(a.ref.surah).nameAr, a.ref.ayah) : t.quranHiddenAyahA11y) : '';
+      if (RecitationAligner.words(w).isEmpty) {
+        out.add(TextSpan(text: '$w ', recognizer: rec, semanticsLabel: label, style: base));
+        continue;
+      }
+      position++;
+      final i = p.indexAt(a.ref, position);
+      if (i == null || p.revealed(i)) {
+        final mark = i == null ? null : p.markOf(i);
+        final hint = i == null ? HintLevel.none : p.hintOf(i);
+        final style = switch (mark) {
+          WordMark.warn => base.merge(noted).copyWith(color: c.muted),
+          WordMark.skipped => base.copyWith(color: c.muted.withValues(alpha: 0.6)),
+          _ => hint == HintLevel.word ? base.copyWith(color: c.muted) : base,
+        };
+        out.add(TextSpan(text: '$w ', recognizer: rec, semanticsLabel: label, style: style));
+        continue;
+      }
+      final pill = TextStyle(color: c.ink.withValues(alpha: rv.showText ? 0.28 : 0), backgroundColor: c.ink.withValues(alpha: 0.10));
+      if (p.hintOf(i) == HintLevel.letter && w.isNotEmpty) {
+        final first = String.fromCharCode(w.runes.first);
+        out.add(TextSpan(text: first, recognizer: rec, semanticsLabel: label, style: pill.copyWith(color: c.muted)));
+        out.add(TextSpan(text: '${w.substring(first.length)} ', recognizer: rec, semanticsLabel: '', style: pill));
+      } else {
+        out.add(TextSpan(text: '$w ', recognizer: rec, semanticsLabel: label, style: pill));
+      }
+    }
+    return out;
   }
 
   /// «الجزء 2» at a juz start, «الحزب 5» at a hizb start, «¼ / ½ / ¾ الحزب 5» at the quarters.
@@ -434,6 +485,7 @@ class FittedMushafPage extends StatelessWidget {
               revealed: p.revealed,
               marks: p.marks,
               passage: p.passage,
+              recite: p.recite,
               onAyahLongPress: p.onAyahLongPress,
               onAyahTap: p.onAyahTap,
               onNoteTap: p.onNoteTap,

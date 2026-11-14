@@ -2925,5 +2925,126 @@
   "qsClosePlayer": "إغلاق المشغّل",
   "qsOpenPlayer": "فتح المشغّل",
   "skWorking": "جارٍ التنفيذ",
-  "skLoading": "جارٍ التحميل"
+  "skLoading": "جارٍ التحميل",
+  "asrSettingsTitle": "التعرّف على التلاوة على الجهاز",
+  "asrSettingsReady": "جاهز · {size}",
+  "@asrSettingsReady": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "asrSettingsDownload": "تنزيل · {size}",
+  "@asrSettingsDownload": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "asrSettingsDownloading": "جارٍ التنزيل · {percent}",
+  "@asrSettingsDownloading": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "asrSettingsFailed": "تعذّر التنزيل · المس للمحاولة",
+  "asrDeleteConfirm": "حذف نموذج التعرّف؟",
+  "asrDeleteBody": "يمكنك تنزيله مرة أخرى متى شئت.",
+  "asrSheetTitle": "سمّع من حفظك، وتتبعك الصفحة",
+  "asrSheetBody": "يستمع يقين إلى تلاوتك، فتظهر كل كلمة حين تقولها، وينبّهك بلطف إن اختلفت كلمة.",
+  "asrSheetPrivacy": "يعمل دون إنترنت ولا يغادر صوتك جهازك",
+  "asrSheetWords": "يتحقّق من الكلمات، لا من أحكام التجويد.",
+  "asrSheetSize": "تنزيل واحد · {size}",
+  "@asrSheetSize": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "asrDownload": "تنزيل",
+  "asrDownloadMetered": "التنزيل عبر بيانات الجوال",
+  "asrNotNow": "ليس الآن",
+  "asrPreparing": "جارٍ تجهيز التعرّف · {percent}",
+  "@asrPreparing": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "asrShowText": "إظهار النص",
+  "asrSummary": "{ayat} آيات · {notes} ملاحظات · {helps} مساعدات",
+  "@asrSummary": {
+    "placeholders": {
+      "ayat": {
+        "type": "String"
+      },
+      "notes": {
+        "type": "String"
+      },
+      "helps": {
+        "type": "String"
+      }
+    }
+  },
+  "asrPause": "إيقاف مؤقت",
+  "asrResume": "متابعة",
+  "asrFinish": "إنهاء",
+  "asrChecking": "جارٍ التحقّق من تلاوتك",
+  "asrReciteThenCheck": "سمّع ثم تحقّق",
+  "asrReciteThenCheckHint": "تبقى تلاوتك على الجهاز، وتظهر العلامات كلها حين تنتهي",
+  "asrMicDenied": "اسمح بالميكروفون من إعدادات الجهاز لتسمّع",
+  "asrAyahDone": "اكتملت الآية {ayah}",
+  "@asrAyahDone": {
+    "placeholders": {
+      "ayah": {
+        "type": "String"
+      }
+    }
+  },
+  "asrWordsOnly": "يتحقّق من الكلمات، لا من التجويد",
+  "asrEndTitle": "أتممت التسميع",
+  "asrStatAyat": "آيات",
+  "asrStatNotes": "ملاحظات",
+  "asrStatHelps": "مساعدات",
+  "asrStatTime": "الوقت",
+  "asrEndNotesTitle": "الملاحظات · المس لتستمع",
+  "asrEndNoNotes": "لا ملاحظات، أحسنت",
+  "asrSkipped": "لم تُسمَع: {word}",
+  "@asrSkipped": {
+    "placeholders": {
+      "word": {
+        "type": "String"
+      }
+    }
+  },
+  "asrRetryNotes": "سمّع الملاحظات فقط",
+  "asrDone": "تم",
+  "asrToGrade": "متابعة إلى التقييم",
+  "asrPlayAyah": "استمع إلى الآية {ayah}",
+  "@asrPlayAyah": {
+    "placeholders": {
+      "ayah": {
+        "type": "String"
+      }
+    }
+  },
+  "asrEchoMode": "ردّد بعد القارئ",
+  "asrEchoYourTurn": "ردّد الآن",
+  "asrAutoCount": "يُحتسب التكرار حين تتلو المقطع كاملاً",
+  "asrRepeatListening": "يستمع لتكرارك",
+  "asrHiddenWord": "كلمة مخفية",
+  "asrHelpWord": "مساعدة: {word}",
+  "@asrHelpWord": {
+    "placeholders": {
+      "word": {
+        "type": "String"
+      }
+    }
+  }
 }

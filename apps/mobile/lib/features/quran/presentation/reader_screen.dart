@@ -33,7 +33,13 @@ import '../../listen/presentation/mini_player.dart';
 import '../../listen/presentation/player_sheet.dart';
 import '../../notifications/presentation/reminders_controller.dart';
 import '../../onboarding/presentation/session_controller.dart';
+import '../../hifz/presentation/voice_rehearsal.dart';
+import '../../recite/domain/recite_progress.dart';
+import '../../recite/presentation/asr_model_sheet.dart';
+import '../../recite/presentation/recite_available.dart';
 import '../../recite/presentation/recite_controller.dart';
+import '../../recite/presentation/recite_end_card.dart';
+import '../../recite/presentation/recite_overlay.dart';
 import '../data/reading_repository.dart';
 import '../domain/annotations.dart';
 import '../domain/mushaf_layout.dart';
@@ -570,10 +576,16 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
         _layers.revealAll(s.passage.range);
         _layers.setRepeats(s.round);
         _sessions.update((x) => x.withMode(QuranMode.memorise));
+        // With the model on the phone (and the microphone allowed before), each full recitation
+        // counts by itself; «كرّرت» stays as fallback and override.
+        if (ref.read(reciteReadyProvider) && await ref.read(reciteControllerProvider.notifier).rationaleSeen()) {
+          await _voiceRepeats(true);
+        }
       case SessionStage.test:
         _echoing = false;
+        await ref.read(voiceRehearsalProvider.notifier).stop();
         await listen.pause();
-        final recite = ref.read(remoteConfigProvider).isOn(Flags.recite) && await ref.read(recitationEngineProvider).isAvailable();
+        final recite = await _testByVoice();
         if (!mounted) return;
         if (recite) {
           _layers.setMode(QuranMode.recite);
@@ -610,6 +622,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     final step = s.stage.hifzStep;
     HapticFeedback.mediumImpact();
     _echoing = false;
+    await ref.read(voiceRehearsalProvider.notifier).stop();
     _sessions.update((x) => x.advance());
     if (step != null && s.kind == QuranSessionKind.hifz) await ref.read(hifzControllerProvider.notifier).completeStep(step);
     final next = ref.read(activeSessionProvider);
@@ -647,6 +660,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     if (s == null || s.stage != SessionStage.repeat) return;
     setState(() => _echoing = true);
     final listen = ref.read(listenControllerProvider.notifier);
+    final rehearsal = ref.read(voiceRehearsalProvider.notifier);
+    // «ردّد بعد القارئ»: with the model on the phone the microphone opens after each ayah and the
+    // next one starts once it has been repeated — hands-free.
+    final q = ref.read(quranDataProvider).valueOrNull;
+    final byVoice = q != null && ref.read(reciteReadyProvider) && await ref.read(reciteControllerProvider.notifier).rationaleSeen();
+    final counting = ref.read(voiceRehearsalProvider).mode == RehearsalMode.repeats;
+    if (counting) await rehearsal.stop();
     // Echo cuts the recitation into single ayat; the repeat the user had set comes back after it.
     final before = ref.read(listenControllerProvider);
     while (_echoing && mounted && ref.read(activeSessionProvider)?.stage == SessionStage.repeat) {
@@ -657,7 +677,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
           _echoing = false;
           break;
         }
-        await Future<void>.delayed(gap);
+        if (byVoice) {
+          await rehearsal.echoAyah(a, q, timeout: gap * 2 + const Duration(seconds: 3));
+        } else {
+          await Future<void>.delayed(gap);
+        }
       }
       if (_echoing && mounted) {
         _layers.countRepeat();
@@ -666,6 +690,41 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     }
     listen.restoreRepeat(before);
     if (mounted) setState(() => _echoing = false);
+    if (counting && mounted && ref.read(activeSessionProvider)?.stage == SessionStage.repeat) await _voiceRepeats(true);
+  }
+
+  /// «تكرار ×10» by voice: each full recitation of the passage counts (a soft haptic as the disc
+  /// fills). [on] false closes the microphone; the «كرّرت» counter works either way.
+  Future<void> _voiceRepeats(bool on) async {
+    final rehearsal = ref.read(voiceRehearsalProvider.notifier);
+    final s = ref.read(activeSessionProvider);
+    final q = ref.read(quranDataProvider).valueOrNull;
+    if (!on || s == null || q == null || s.stage != SessionStage.repeat) {
+      await rehearsal.stop();
+      return;
+    }
+    if (!await reciteRationale(context, ref) || !mounted) return;
+    await rehearsal.listenForRepeats(
+      s.passage,
+      q,
+      onRepeat: () {
+        if (!mounted) return;
+        _layers.countRepeat();
+        HapticFeedback.lightImpact();
+      },
+    );
+  }
+
+  /// Whether the guided test listens to the voice: the flag on and the model on the phone. The
+  /// first time the model is missing the calm sheet is offered once; «ليس الآن» → the self-check.
+  Future<bool> _testByVoice() async {
+    if (!ref.read(remoteConfigProvider).isOn(Flags.recite) || !await ref.read(recitationEngineProvider).isSupported()) return false;
+    if (await ref.read(recitationEngineProvider).isAvailable()) return true;
+    final kv = ref.read(kvStoreProvider);
+    if (await kv.read(asrSheetOfferedKey) != null || !mounted) return false;
+    await kv.write(asrSheetOfferedKey, '1');
+    if (!mounted) return false;
+    return ensureReciteModel(context, ref);
   }
 
   /// The guided test is open and not graded yet.
@@ -680,14 +739,35 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     final s = ref.read(activeSessionProvider);
     if (s == null || !s.kind.guided || s.stage != SessionStage.test) return false;
     final reciting = ref.read(quranSessionControllerProvider).mode == QuranMode.recite;
-    final recite = reciting ? ref.read(reciteControllerProvider) : null;
-    if (reciting) await ref.read(reciteControllerProvider.notifier).stop();
+    var recite = reciting ? ref.read(reciteControllerProvider) : null;
+    if (reciting) {
+      final c = ref.read(reciteControllerProvider.notifier);
+      if (recite!.listening || recite.phase == RecitePhase.paused) await c.finish();
+      recite = ref.read(reciteControllerProvider);
+      // The attempt's card first (notes to hear again, «سمّع الملاحظات فقط»), then the grade.
+      final progress = recite.progress;
+      if (recite.started && progress != null && mounted) {
+        final action = await showReciteEndCard(context, progress: progress, graded: true, onPlay: (a) => playAyahOnce(ref, a));
+        if (!mounted) return false;
+        final q = ref.read(quranDataProvider).valueOrNull;
+        if (action == ReciteEndAction.retryFlagged && q != null) {
+          await c.retryFlagged(q);
+          return false;
+        }
+        if (action == null) {
+          c.acknowledge();
+          return false;
+        }
+      }
+      c.acknowledge();
+    }
     final plan = await ref.read(hifzControllerProvider.future);
     if (!mounted) return false;
     final portion = plan?.portions.where((p) => p.id == s.portion).firstOrNull;
     final suggestion = suggestGrade(
-      recite: recite != null && recite.started ? recite.results : null,
+      recite: recite != null && recite.started && !recite.retrying ? recite.results : null,
       reveals: s.reveals.length,
+      helps: recite?.helps ?? 0,
       ayat: s.passage.length,
     );
     final grade = await showGradeSheet(
@@ -813,10 +893,17 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     // A layer this build doesn't offer (recite without the flag or a model) opens as reading. The
     // model check is asked directly: a deep link may arrive before the dock has its answer.
     final offered = mode == QuranMode.recite
-        ? ref.read(remoteConfigProvider).isOn(Flags.recite) && await ref.read(recitationEngineProvider).isAvailable()
+        ? ref.read(remoteConfigProvider).isOn(Flags.recite) && await ref.read(recitationEngineProvider).isSupported()
         : ref.read(quranModesProvider).contains(mode);
     if (!mounted) return;
     if (!offered) mode = QuranMode.read;
+    // Before the model is on the phone, the first «تسميع» opens the calm download sheet; «ليس الآن»
+    // keeps the layer the reader was on.
+    if (mode == QuranMode.recite && !await ensureReciteModel(context, ref)) {
+      if (ref.read(quranSessionControllerProvider).mode == QuranMode.recite) _layers.setMode(QuranMode.read);
+      return;
+    }
+    if (!mounted) return;
     if (mode == QuranMode.listen && !await _startListening(ask: ask)) return;
     // Reciting is the reader's own voice: recitation playing pauses first.
     if (mode == QuranMode.recite) await ref.read(listenControllerProvider.notifier).pause();
@@ -864,6 +951,44 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
 
   Future<bool?> _confirmReplace() => confirmReplacePlayback(context);
 
+  /// «تسميع» reached its end: the guided test goes on to its grade; free recitation shows its card
+  /// (notes to hear again, «سمّع الملاحظات فقط», «تم»).
+  Future<void> _reciteDone() async {
+    if (_needsGrade) {
+      await _finishTest();
+      return;
+    }
+    final c = ref.read(reciteControllerProvider.notifier);
+    final progress = ref.read(reciteControllerProvider).progress;
+    final q = ref.read(quranDataProvider).valueOrNull;
+    if (progress == null || q == null || !mounted) return;
+    HapticFeedback.mediumImpact();
+    final action = await showReciteEndCard(context, progress: progress, onPlay: (a) => playAyahOnce(ref, a));
+    if (!mounted) return;
+    if (action == ReciteEndAction.retryFlagged) {
+      await c.retryFlagged(q);
+    } else {
+      c.acknowledge();
+    }
+  }
+
+  /// The voice moved onto a word of a page not on screen: a real turn to it (the next page), or a
+  /// jump. Not while the page is locked, a sheet is open, or the user is browsing away.
+  void _followVoice(ReciteProgress? progress, int? current) {
+    final q = ref.read(quranDataProvider).valueOrNull;
+    if (progress == null || current == null || q == null || !mounted) return;
+    final target = q.pageOf(progress.words[current].ayah);
+    if (_visible(_page).contains(target)) return;
+    final sheetOpen = !(ModalRoute.of(context)?.isCurrent ?? true);
+    if (_locked || sheetOpen) return;
+    _following = true;
+    if (_indexOf(target, _spread) == _indexOf(_page, _spread) + 1) {
+      _pager.next(); // a real page curl (a cross-fade under reduce-motion)
+    } else {
+      _goTo(target);
+    }
+  }
+
   /// The page follows the recitation (see [FollowAudio]).
   void _follow(ListenState? prev, ListenState next) {
     if (!mounted || ref.read(quranSessionControllerProvider).mode != QuranMode.listen) return;
@@ -907,7 +1032,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
           },
         QuranMode.listen => (r) => ref.read(listenControllerProvider.notifier).open(r.surah, ayah: r.ayah),
         QuranMode.recite => (r) {
-            if (recite?.marks.containsKey(r) ?? false) playAyahOnce(ref, r);
+            if (recite?.notes.any((w) => w.ayah == r) ?? false) playAyahOnce(ref, r);
           },
         _ => null,
       };
@@ -997,6 +1122,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
         onFinished: () => _finishTest(),
         onEcho: ref.read(quranModesProvider).contains(QuranMode.listen) ? _echo : null,
         echoing: _echoing,
+        voice: ref.read(reciteReadyProvider) && s.stage == SessionStage.repeat ? ref.read(voiceRehearsalProvider) : null,
+        onVoice: ref.read(reciteReadyProvider) && s.stage == SessionStage.repeat
+            ? () => _voiceRepeats(ref.read(voiceRehearsalProvider).mode != RehearsalMode.repeats)
+            : null,
         onListenKept: _keptPlayback
             ? () {
                 final now = ref.read(activeSessionProvider);
@@ -1054,7 +1183,19 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
         if (_handedOff) return;
         _sessions.update((s) => s.stage == SessionStage.test ? s.withResults(heard) : s);
       });
+      // The voice reached the end (or «إنهاء»): the end card — in a guided test, then the grade.
+      ref.listen(reciteControllerProvider.select((r) => r.phase), (prev, next) {
+        if (_handedOff || next != RecitePhase.done || prev == RecitePhase.done) return;
+        _reciteDone();
+      });
+      // The page turns by itself when the voice is past its last word (spread and follow rules).
+      ref.listen(reciteControllerProvider.select((r) => (r.progress, r.progress?.current)), (_, next) {
+        if (_handedOff) return;
+        _followVoice(next.$1, next.$2);
+      });
     }
+    // Voice-aware «تحفيظ» lives with the reader (never started by itself: see [_voiceRepeats]).
+    ref.watch(voiceRehearsalProvider);
     final session = ref.watch(activeSessionProvider);
     // Only what the pages draw: other settings writes (e.g. readerHintSeen, wird counters) must not
     // rebuild the reader and its pre-built neighbour pages.
@@ -1125,10 +1266,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
                   onBackgroundTap: _onPageTap,
                   onOpenSettings: () => showReaderSettings(context, page: _page),
                   annotations: annotations,
-                  memorise: reciting ? (recite.showAyat ? MemoriseMode.off : MemoriseMode.ayat) : layers.hiding,
-                  revealed: reciting ? recite.recitedAyat.toSet() : layers.revealed,
+                  memorise: reciting ? MemoriseMode.off : layers.hiding,
+                  revealed: reciting ? const {} : layers.revealed,
                   passage: layerPassage,
                   marks: reciting ? recite.marks : const {},
+                  recite: reciting && recite.progress != null
+                      ? ReciteView(progress: recite.progress!, version: recite.version, showText: recite.showText, live: recite.live)
+                      : null,
                   onAyahTap: _locked ? null : _ayahTap(layers, recite),
                   onNoteTap: (r) => showNoteSheet(context, quran: q, ref: r),
                   onAyahLongPress: _locked
@@ -1287,6 +1431,7 @@ class _PageFrame extends ConsumerWidget {
     required this.revealed,
     this.passage,
     this.marks = const {},
+    this.recite,
     this.selected,
     this.playing,
     this.onAyahLongPress,
@@ -1307,6 +1452,7 @@ class _PageFrame extends ConsumerWidget {
   final Set<AyahRef> revealed;
   final Passage? passage;
   final Map<AyahRef, Set<int>> marks;
+  final ReciteView? recite;
   final ValueChanged<AyahRef>? onAyahLongPress;
   final ValueChanged<AyahRef>? onAyahTap;
   final ValueChanged<AyahRef>? onNoteTap;
@@ -1388,6 +1534,7 @@ class _PageFrame extends ConsumerWidget {
                     revealed: revealed,
                     passage: passage,
                     marks: marks,
+                    recite: recite,
                     onAyahLongPress: onAyahLongPress,
                     onAyahTap: onAyahTap,
                     onNoteTap: onNoteTap,
@@ -1467,6 +1614,7 @@ class _PageBody extends ConsumerStatefulWidget {
     required this.revealed,
     this.passage,
     this.marks = const {},
+    this.recite,
     this.selected,
     this.playing,
     this.onAyahLongPress,
@@ -1485,6 +1633,7 @@ class _PageBody extends ConsumerStatefulWidget {
   final Set<AyahRef> revealed;
   final Passage? passage;
   final Map<AyahRef, Set<int>> marks;
+  final ReciteView? recite;
   final ValueChanged<AyahRef>? onAyahLongPress;
   final ValueChanged<AyahRef>? onAyahTap;
   final ValueChanged<AyahRef>? onNoteTap;
@@ -1560,6 +1709,7 @@ class _PageBodyState extends ConsumerState<_PageBody> {
             revealed: widget.revealed,
             passage: widget.passage,
             marks: widget.marks,
+            recite: widget.recite,
             onAyahLongPress: widget.onAyahLongPress,
             onAyahTap: widget.onAyahTap,
             onNoteTap: widget.onNoteTap,
@@ -1582,6 +1732,7 @@ class _PageBodyState extends ConsumerState<_PageBody> {
               revealed: widget.revealed,
               passage: widget.passage,
               marks: widget.marks,
+              recite: widget.recite,
               onAyahLongPress: widget.onAyahLongPress,
               onAyahTap: widget.onAyahTap,
               onNoteTap: widget.onNoteTap,

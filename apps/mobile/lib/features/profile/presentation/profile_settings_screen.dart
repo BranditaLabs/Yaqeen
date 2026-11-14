@@ -24,6 +24,8 @@ import '../../../l10n/gen/app_localizations.dart';
 import '../../content/presentation/pack_row.dart';
 import '../../onboarding/presentation/session_controller.dart';
 import '../../prayer/presentation/prayer_labels.dart';
+import '../../recite/presentation/asr_model_row.dart';
+import '../../recite/presentation/recite_available.dart';
 import '../domain/avatar.dart';
 import '../domain/avatar_presets.dart';
 import 'avatar_sheet.dart';
@@ -107,6 +109,8 @@ class ProfileSettingsScreen extends ConsumerWidget {
                 icon: YqIcons.download,
                 onTap: () => context.push('/profile/downloads'),
               ),
+              // «تسميع» on the phone: shown only where it is offered (flag + supported device).
+              if (ref.watch(reciteEntryProvider)) const AsrModelRow(),
             ],
           ),
           const SizedBox(height: YqSpace.l),

@@ -55,4 +55,19 @@ class FakeListen extends ListenController {
 
   @override
   Future<void> toggle() async => state = state.copyWith(playing: !state.playing);
+
+  /// Ayat played once and paused (a «تنبيه» heard again, echo practice).
+  final played = <AyahRef>[];
+
+  /// What [playAyahThenPause] answers (null: no recitation on the phone).
+  Duration? echoGap = const Duration(milliseconds: 20);
+
+  @override
+  Future<Duration?> playAyahThenPause(AyahRef ref, {double gapFactor = 1.2}) async {
+    played.add(ref);
+    return echoGap;
+  }
+
+  @override
+  void restoreRepeat(ListenState before) {}
 }

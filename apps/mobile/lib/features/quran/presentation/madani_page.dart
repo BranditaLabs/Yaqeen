@@ -13,6 +13,7 @@ import '../domain/mushaf_layout.dart';
 import '../domain/page_geometry.dart';
 import '../domain/passage.dart';
 import '../domain/quran_data.dart';
+import '../../recite/presentation/recite_overlay.dart';
 import 'mushaf_page.dart';
 
 /// Measures a word's advance width at font size 1 in its page font (a fake in tests).
@@ -36,6 +37,7 @@ class MadaniPage extends StatefulWidget {
     this.revealed = const {},
     this.marks = const {},
     this.passage,
+    this.recite,
     this.onAyahLongPress,
     this.onAyahTap,
     this.onNoteTap,
@@ -60,6 +62,10 @@ class MadaniPage extends StatefulWidget {
 
   /// The passage a layer works on: a rail in the start margin beside its lines.
   final Passage? passage;
+
+  /// «تسميع»: the passage's words are hidden pills revealed by the voice ([ReciteLayer]); the
+  /// glyph layer skips them.
+  final ReciteView? recite;
   final ValueChanged<AyahRef>? onAyahLongPress;
 
   /// A tap on an ayah, in every mode where the reader listens for one (memorise: reveal; listen:
@@ -121,6 +127,9 @@ class MadaniPageState extends State<MadaniPage> {
     );
   }
 
+  /// Drawn by the recite layer instead of the page.
+  bool _skip(MushafWord w) => !w.isEnd && (widget.recite?.indexAt(w.ref, w.position) != null);
+
   bool _hidden(MushafWord w) {
     if (widget.memorise == MemoriseMode.off || widget.revealed.contains(w.ref) || w.isEnd) return false;
     // With a chosen passage only its ayat are hidden; the rest of the page stays as a guide.
@@ -178,15 +187,32 @@ class MadaniPageState extends State<MadaniPage> {
                         selected: widget.selected,
                         highlights: widget.annotations.highlights,
                         hidden: _hidden,
+                        skip: _skip,
                         bandLabel: (s) => t.quranSurahName(widget.quran.surah(s).nameAr),
-                        ayahLabel: (r) => widget.memorise != MemoriseMode.off && !widget.revealed.contains(r)
+                        ayahLabel: (r) => (widget.memorise != MemoriseMode.off && !widget.revealed.contains(r)) ||
+                                (widget.recite != null && widget.recite!.progress.spans.containsKey(r) && widget.recite!.progress.ayahProgress(r) < 1)
                             ? t.quranHiddenAyahA11y
                             : '${t.ayahA11y(widget.quran.surah(r.surah).nameAr, r.ayah)}\n${widget.quran.text(r)}',
-                        memoriseKey: '${widget.memorise.name}:${widget.passage}:${widget.revealed.join(',')}',
+                        memoriseKey: '${widget.memorise.name}:${widget.passage}:${widget.revealed.join(',')}'
+                            ':${widget.recite == null ? '' : identityHashCode(widget.recite!.progress)}',
                       ),
                     ),
                   ),
                 ),
+                if (widget.recite case final ReciteView view)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: RepaintBoundary(
+                        child: ReciteLayer(
+                          geometry: g,
+                          family: MushafFonts.family(widget.page),
+                          colors: colors,
+                          night: widget.theme == MushafTheme.night,
+                          view: view,
+                        ),
+                      ),
+                    ),
+                  ),
                 Positioned.fill(
                   child: IgnorePointer(
                     child: RepaintBoundary(
@@ -196,7 +222,8 @@ class MadaniPageState extends State<MadaniPage> {
                           colors: colors,
                           playing: widget.playing,
                           passage: widget.passage,
-                          marks: widget.marks,
+                          // Reciting, the recite layer draws its own «تنبيه» marks.
+                          marks: widget.recite == null ? widget.marks : const {},
                         ),
                       ),
                     ),
@@ -240,6 +267,7 @@ class _MadaniPainter extends CustomPainter {
     required this.selected,
     required this.highlights,
     required this.hidden,
+    required this.skip,
     required this.bandLabel,
     required this.ayahLabel,
     required this.memoriseKey,
@@ -254,6 +282,7 @@ class _MadaniPainter extends CustomPainter {
   final AyahRef? selected;
   final Map<AyahRef, MarkColor> highlights;
   final bool Function(MushafWord) hidden;
+  final bool Function(MushafWord) skip;
   final String Function(int surah) bandLabel;
   final String Function(AyahRef) ayahLabel;
   final String memoriseKey;
@@ -292,6 +321,7 @@ class _MadaniPainter extends CustomPainter {
       switch (l.line) {
         case TextLine():
           for (final w in l.words) {
+            if (skip(w.word)) continue;
             if (hidden(w.word)) {
               // Memorise: the word keeps its place; a dotted rule marks it.
               final y = w.rect.top + g.pitch * 0.72;
