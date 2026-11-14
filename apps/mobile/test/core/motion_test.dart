@@ -119,6 +119,35 @@ void main() {
       expect(find.bySemanticsLabel('1,250 نقطة'), findsOneWidget);
     });
 
+    testWidgets('CountUp in a narrow column: wraps like the final text, no jump on landing or going down', (tester) async {
+      Widget c(int v) => harness(
+            Center(
+              child: SizedBox(
+                width: 70,
+                child: CountUp(value: v, builder: _points, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
+              ),
+            ),
+          );
+      await tester.pumpWidget(c(1250));
+      final first = tester.getSize(find.byType(CountUp));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(tester.getSize(find.byType(CountUp)), first);
+      // Every text it draws wraps the same way (two lines at most, an ellipsis beyond).
+      for (final text in tester.widgetList<Text>(find.descendant(of: find.byType(CountUp), matching: find.byType(Text)))) {
+        expect(text.maxLines, 2);
+        expect(text.overflow, TextOverflow.ellipsis);
+        expect(text.softWrap, isNot(false));
+      }
+      await tester.pumpAndSettle();
+      expect(tester.getSize(find.byType(CountUp)), first);
+      // Fewer points to go: the count glides down inside the same box.
+      await tester.pumpWidget(c(1200));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(tester.getSize(find.byType(CountUp)), first);
+      await tester.pumpAndSettle();
+      expect(find.text('1,200 نقطة'), findsOneWidget);
+    });
+
     testWidgets('CountUp under reduce-motion is the final text', (tester) async {
       await tester.pumpWidget(harness(still(const Center(child: CountUp(value: 42)))));
       expect(find.text('42'), findsOneWidget);

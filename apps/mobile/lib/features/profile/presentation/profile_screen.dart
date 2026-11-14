@@ -457,7 +457,7 @@ class _LevelOrb extends StatelessWidget {
     return YqOrb(
       title: t.pfLevel,
       status: status,
-      // The points still to go count down into place.
+      // The points still to go count into place, wrapped like the orb's status (two lines at most).
       statusChild: remaining == null
           ? null
           : CountUp(
@@ -465,6 +465,8 @@ class _LevelOrb extends StatelessWidget {
               value: remaining,
               builder: t.pfToNext,
               textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: YqOrb.statusStyle(),
             ),
       onTap: () => showLevelLadderSheet(context, level),

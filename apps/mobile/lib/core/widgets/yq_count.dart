@@ -10,11 +10,21 @@ TextStyle? tabular(TextStyle? style) =>
     (style ?? const TextStyle()).copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
 
 /// A number that counts up to [value] on first show (and glides between values when it changes),
-/// in Western digits with tabular figures. The final text reserves its width from the first frame,
-/// so nothing around it moves while it counts. Screen readers get the final value at once; under
-/// reduce-motion it is simply the final text.
+/// in Western digits with tabular figures. The final text alone decides the size from the first
+/// frame (the count is drawn over it, wrapped the same way), so nothing around it moves while it
+/// counts, nor when it lands. Screen readers get the final value at once; under reduce-motion it
+/// is simply the final text.
 class CountUp extends StatelessWidget {
-  const CountUp({super.key, required this.value, this.style, this.builder, this.textAlign, this.alignment = AlignmentDirectional.center});
+  const CountUp({
+    super.key,
+    required this.value,
+    this.style,
+    this.builder,
+    this.textAlign,
+    this.alignment = AlignmentDirectional.center,
+    this.maxLines,
+    this.overflow,
+  });
   final int value;
   final TextStyle? style;
 
@@ -22,8 +32,12 @@ class CountUp extends StatelessWidget {
   final String Function(String n)? builder;
   final TextAlign? textAlign;
 
-  /// Where the counting text sits inside the reserved (final) width.
+  /// Where the counting text sits inside the reserved (final) box.
   final AlignmentGeometry alignment;
+
+  /// Applied to every text it draws (the counting one, the final one and the width holder).
+  final int? maxLines;
+  final TextOverflow? overflow;
 
   String _text(num v) => builder == null ? YqFormat.number(v.round()) : builder!(YqFormat.number(v.round()));
 
@@ -31,7 +45,8 @@ class CountUp extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = tabular(style);
     final last = _text(value);
-    if (reduceMotion(context)) return Text(last, style: s, textAlign: textAlign);
+    Text text(String v) => Text(v, style: s, textAlign: textAlign, maxLines: maxLines, overflow: overflow);
+    if (reduceMotion(context)) return text(last);
     final end = value.toDouble();
     return Semantics(
       label: last,
@@ -41,14 +56,15 @@ class CountUp extends StatelessWidget {
         duration: Duration(milliseconds: 700 + math.min(value.abs(), 600)),
         curve: Curves.easeOutCubic,
         builder: (context, v, _) {
-          if (v == end) return Text(last, style: s, textAlign: textAlign);
-          // While counting, the final text (invisible) holds the width and the count is drawn
-          // over it; once done, the final text alone.
+          if (v == end) return text(last);
+          // While counting, the final text (invisible) holds the box and the count is drawn over
+          // it, inside the same width and wrapped the same way; once done, the final text alone.
+          // A count briefly longer than the final text (a value going down) may spill, never push.
           return Stack(
-            alignment: alignment,
+            clipBehavior: Clip.none,
             children: [
-              Visibility.maintain(visible: false, child: Text(last, style: s, textAlign: textAlign)),
-              Text(_text(v), style: s, textAlign: textAlign, maxLines: 1, softWrap: false),
+              Visibility.maintain(visible: false, child: text(last)),
+              Positioned.fill(child: OverflowBox(maxHeight: double.infinity, alignment: alignment, child: text(_text(v)))),
             ],
           );
         },
