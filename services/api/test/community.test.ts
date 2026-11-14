@@ -4,7 +4,7 @@
  * tournament windows, the display-name filter and competitor handles.
  */
 import { describe, expect, it } from 'vitest';
-import { RESERVED_HANDLES } from '@yaqeen/contracts';
+import { AdminTournamentCreate, AdminTournamentPatch, RESERVED_HANDLES } from '@yaqeen/contracts';
 import {
   cairoMidnight,
   canonicalName,
@@ -329,5 +329,14 @@ describe('names and handles', () => {
     expect(competitorHandle(null, Math.random)).toMatch(/^member-[a-z0-9]{6}$/);
     expect(competitorHandle('123', Math.random)).toMatch(/^member-[a-z0-9]{6}$/);
     expect(memberHandle(Math.random)).toMatch(/^member-[a-z0-9]{6}$/);
+  });
+});
+
+describe('admin tournament bodies', () => {
+  it('a patch carries only the fields sent (no create-time default for minPoints)', () => {
+    expect(AdminTournamentPatch.parse({ lastDay: '2026-11-21', reason: 'one more day' })).toEqual({ lastDay: '2026-11-21', reason: 'one more day' });
+    expect(AdminTournamentPatch.parse({ minPoints: 50 })).toEqual({ minPoints: 50 });
+    const create = { slug: 'cup', titleAr: 'ك', titleEn: 'C', bodyAr: '', bodyEn: '', startsOn: '2026-11-14', lastDay: '2026-11-20', badgeAr: 'ب', badgeEn: 'B' };
+    expect(AdminTournamentCreate.parse(create).minPoints).toBe(1);
   });
 });
