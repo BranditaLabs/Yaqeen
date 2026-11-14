@@ -295,7 +295,7 @@ export async function leaveTournaments(tx: DbOrTx, uid: string, now: Date): Prom
     where t.id = e.tournament_id and e.user_id = ${uid} and e.left_at is null`);
 }
 
-/** All switches off and every live row left (consent withdrawal, erasure, ban). The division is kept. */
+/** All switches off, every live row left and closed entries hidden (consent withdrawal, erasure, ban). The division is kept. */
 export async function leaveEverything(tx: DbOrTx, uid: string, now: Date): Promise<void> {
   await tx
     .update(communityMembers)
