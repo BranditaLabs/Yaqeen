@@ -271,6 +271,7 @@ export const RECORDING_ERROR_CODES = [
   'comment_rejected',
   'comment_rate_limited',
   'blocked',
+  'own_recording',
   'rate_limited',
   'feature_off',
   'not_found',

@@ -112,6 +112,9 @@ enum RecordingFailure {
   commentRejected('comment_rejected'),
   commentRateLimited('comment_rate_limited'),
   blocked('blocked'),
+
+  /// Reacting to one's own recording (others react; the owner's would inflate the counts).
+  ownRecording('own_recording'),
   rateLimited('rate_limited'),
   featureOff('feature_off'),
   notFound('not_found'),

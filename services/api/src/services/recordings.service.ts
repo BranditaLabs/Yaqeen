@@ -696,9 +696,10 @@ async function reactionState(ctx: AppContext, id: string, viewerId: string): Pro
   return { reactions: e.counts, myReaction: e.mine };
 }
 
-/** PUT /v1/recordings/:id/reaction — set or change (idempotent). */
+/** PUT /v1/recordings/:id/reaction — set or change (idempotent). Others react; the owner cannot (`own_recording`). */
 export async function setReaction(ctx: AppContext, viewerId: string, id: string, kind: ReactionKind): Promise<ReactionState> {
-  await engage(ctx, viewerId, id);
+  const rec = await engage(ctx, viewerId, id);
+  if (rec.user_id === viewerId) throw forbidden('own_recording');
   await ctx.db
     .insert(recordingReactions)
     .values({ recordingId: id, userId: viewerId, kind, createdAt: ctx.now() })

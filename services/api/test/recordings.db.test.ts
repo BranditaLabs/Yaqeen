@@ -348,6 +348,11 @@ describe.skipIf(!url)('recordings «تلاواتي» (Postgres)', () => {
     await db.delete(s.communityBlocks);
     await put('barakallah');
     expect((await rec.listMine(app.ctx, owner.id)).items[0]!.reactions.barakallah).toBe(1);
+    // Others react — the owner's own reaction is refused and never counted.
+    const self = await put('mashallah', owner.token);
+    expect(self.statusCode).toBe(403);
+    expect(self.json().error.code).toBe('own_recording');
+    expect((await rec.listMine(app.ctx, owner.id)).items[0]!.reactions).toEqual({ mashallah: 0, barakallah: 1, ahsant: 0 });
   });
 
   it('comments: filter, mentions, rate limit, comments off, pagination, owner/author delete, 3 reports hide', async () => {
