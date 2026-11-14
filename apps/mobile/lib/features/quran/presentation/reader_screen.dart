@@ -1127,8 +1127,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
         QuranMode.recite => ReciteStrip(quran: q, passage: layers.passage ?? Passage.ofPage(q, _page)),
       };
 
-  /// The running session over the strip.
-  Widget _sessionLine(QuranSession s) => SessionLine(
+  /// The running session over the strip. [voiceReady] is [reciteReadyProvider] as `build` watches it,
+  /// so the mic appears the moment a model download finishes mid-stage.
+  Widget _sessionLine(QuranSession s, {required bool voiceReady}) => SessionLine(
         session: s,
         onSkipToRepeat: _skipToRepeat,
         onAudioReady: () {
@@ -1138,8 +1139,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
         onFinished: () => _finishTest(),
         onEcho: ref.read(quranModesProvider).contains(QuranMode.listen) ? _echo : null,
         echoing: _echoing,
-        voice: ref.read(reciteReadyProvider) && s.stage == SessionStage.repeat ? ref.read(voiceRehearsalProvider) : null,
-        onVoice: ref.read(reciteReadyProvider) && s.stage == SessionStage.repeat
+        voice: voiceReady && s.stage == SessionStage.repeat ? ref.read(voiceRehearsalProvider) : null,
+        onVoice: voiceReady && s.stage == SessionStage.repeat
             ? () => _voiceRepeats(ref.read(voiceRehearsalProvider).mode != RehearsalMode.repeats)
             : null,
         onListenKept: _keptPlayback
@@ -1212,6 +1213,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
     }
     // Voice-aware «تحفيظ» lives with the reader (never started by itself: see [_voiceRepeats]).
     ref.watch(voiceRehearsalProvider);
+    // Watched (not read): a model download that finishes mid-stage brings the mic in at once.
+    final voiceReady = ref.watch(reciteReadyProvider);
     final session = ref.watch(activeSessionProvider);
     // Only what the pages draw: other settings writes (e.g. readerHintSeen, wird counters) must not
     // rebuild the reader and its pre-built neighbour pages.
@@ -1366,7 +1369,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
                                 : Column(
                                     mainAxisSize: MainAxisSize.min,
                                     crossAxisAlignment: CrossAxisAlignment.stretch,
-                                    children: [_sessionLine(session), _strip(q, layers)],
+                                    children: [_sessionLine(session, voiceReady: voiceReady), _strip(q, layers)],
                                   ),
                           ),
                         ),

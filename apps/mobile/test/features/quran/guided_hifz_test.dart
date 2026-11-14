@@ -24,6 +24,7 @@ import 'package:yaqeen/features/quran/presentation/quran_providers.dart';
 import 'package:yaqeen/features/quran/presentation/reader_screen.dart';
 import 'package:yaqeen/features/quran/presentation/session/active_session.dart';
 import 'package:yaqeen/features/quran/presentation/session/quran_session_controller.dart';
+import 'package:yaqeen/features/recite/presentation/asr_model_controller.dart';
 
 import '../../helpers/fonts.dart';
 import '../../helpers/harness.dart';
@@ -289,6 +290,45 @@ void main() {
     expect(find.text('أتممت جلستك'), findsOneWidget);
     await tester.tap(find.text('إغلاق').last);
     await tester.pumpAndSettle();
+    await leave(tester);
+  });
+
+  testWidgets('a model download that finishes during «تكرار ×10» brings the mic in at once', (tester) async {
+    final kv = await withPlan(const HifzPlan(goal: HifzGoal.amma, perDay: 5));
+    final listen = FakeListen();
+    final engine = ScriptedRecitationEngine(available: false);
+    tester.view.physicalSize = const Size(390, 844) * 3;
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      harness(
+        const ReaderScreen(initialPage: 604, session: 'hifz', passage: passage),
+        kv: kv,
+        overrides: [
+          clockProvider.overrideWithValue(() => now),
+          quranDataProvider.overrideWith((_) async => q),
+          mushafLayoutProvider.overrideWith((_) async => null),
+          listenControllerProvider.overrideWith(() => listen),
+          recitationEngineProvider.overrideWithValue(engine),
+          initialConfigProvider.overrideWithValue(RemoteConfig(features: Map.of(RemoteConfig.defaultFeatures)..[Flags.recite] = true)),
+          initialSettingsProvider.overrideWithValue(const AppSettings(readerHintSeen: true)),
+        ],
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    listen.set(listen.state.copyWith(roundsDone: 3, loopEnded: true, playing: false));
+    await tester.pumpAndSettle();
+    expect(session(tester)!.stage, SessionStage.repeat);
+    final mic = find.byTooltip('يُحتسب التكرار حين تتلو المقطع كاملاً');
+    expect(mic, findsNothing, reason: 'no model on the phone yet: «كرّرت» only');
+
+    // The download finishes while the stage is open: nothing else rebuilds the reader.
+    engine.available = true;
+    await container(tester).read(asrModelControllerProvider.notifier).refresh();
+    await tester.pump();
+    expect(mic, findsOneWidget);
+    expect(engine.listening, isFalse, reason: 'the mic waits for a tap; it never opens by itself');
     await leave(tester);
   });
 }
