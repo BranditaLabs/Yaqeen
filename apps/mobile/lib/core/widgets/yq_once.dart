@@ -376,3 +376,57 @@ class _YqShiftInState extends State<YqShiftIn> with SingleTickerProviderStateMix
         },
       );
 }
+
+/// Builds [builder] with `seen` false until the widget first scrolls into view (its top inside
+/// the lower edge of the screen), then true for good — so an illustration below the fold plays
+/// when the person reaches it, not while they are still at the top. No ticker: it listens to the
+/// nearest scroll position only until seen.
+class YqWhenVisible extends StatefulWidget {
+  const YqWhenVisible({super.key, required this.builder, this.inset = 0.12});
+  final Widget Function(BuildContext context, bool seen) builder;
+
+  /// How far above the screen's bottom edge (a fraction of its height) counts as seen.
+  final double inset;
+
+  @override
+  State<YqWhenVisible> createState() => _YqWhenVisibleState();
+}
+
+class _YqWhenVisibleState extends State<YqWhenVisible> {
+  bool _seen = false;
+  ScrollPosition? _position;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_seen) return;
+    final p = Scrollable.maybeOf(context)?.position;
+    if (p != _position) {
+      _position?.removeListener(_check);
+      _position = p?..addListener(_check);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _check());
+  }
+
+  void _check() {
+    if (_seen || !mounted) return;
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.hasSize || !box.attached) return;
+    final top = box.localToGlobal(Offset.zero).dy;
+    final height = MediaQuery.sizeOf(context).height;
+    if (top < height * (1 - widget.inset)) {
+      _position?.removeListener(_check);
+      _position = null;
+      setState(() => _seen = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _position?.removeListener(_check);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(context, _seen);
+}

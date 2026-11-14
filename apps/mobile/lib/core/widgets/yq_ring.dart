@@ -28,6 +28,7 @@ class YqRing extends StatefulWidget {
     this.glint = false,
     this.track,
     this.drawIn,
+    this.change = YqRing.changeDuration,
     this.child,
   });
 
@@ -42,10 +43,12 @@ class YqRing extends StatefulWidget {
   /// How long the first sweep from 0 takes ([Motion.ringDraw] on the Profile stage,
   /// [Motion.ringDrawSmall] on the Home chip); null shows the value at once.
   final Duration? drawIn;
+
+  /// How long a later value change takes; zero follows [value] exactly (a parent animating it).
+  final Duration change;
   final Widget? child;
 
-  /// How long a later value change takes.
-  static const change = YqMotion.slow;
+  static const changeDuration = YqMotion.slow;
 
   Color get _color => color ?? (gold ? YqColors.gold : YqColors.lapis);
 
@@ -109,14 +112,14 @@ class _YqRingState extends State<YqRing> with TickerProviderStateMixin {
       final current = _value;
       _to = next;
       _drawing = false;
-      if (still) {
+      if (still || widget.change == Duration.zero) {
         _from = next;
         _move.value = 1;
       } else {
         _from = current;
         _curve = Curves.easeOutCubic;
         _move
-          ..duration = YqRing.change
+          ..duration = widget.change
           ..forward(from: 0);
       }
     }

@@ -28,6 +28,8 @@ import 'package:yaqeen/features/onboarding/data/auth_repository.dart';
 import 'package:yaqeen/features/onboarding/presentation/profile_step.dart';
 import 'package:yaqeen/features/profile/data/profile_repository.dart';
 import 'package:yaqeen/l10n/gen/app_localizations.dart';
+import 'package:yaqeen/core/theme/tokens.dart';
+import 'package:yaqeen/features/onboarding/presentation/profile_step_motion.dart';
 
 import '../helpers/fonts.dart';
 import '../helpers/harness.dart';
@@ -173,7 +175,8 @@ void main() {
     await tester.pump();
     await tester.enterText(find.byType(TextField), '  سارة  ');
     await tester.pump();
-    expect(find.text('سارة'), findsOneWidget); // the live preview under the ring
+    // The live preview under the ring, and the person's row in the miniature league.
+    expect(find.text('سارة'), findsNWidgets(2));
     await tester.tap(find.text('متابعة'));
     await settle(tester);
 
@@ -407,4 +410,49 @@ void main() {
       }
     });
   }
+
+  group('motion (how it works)', () {
+    String numeral(WidgetTester tester) => tester.widget<Text>(find.byKey(const ValueKey('levels-demo-numeral'))).data!;
+    Color dot(WidgetTester tester, int i) =>
+        (tester.widget<AnimatedContainer>(find.byKey(ValueKey('levels-demo-dot-$i'))).decoration! as BoxDecoration).color!;
+
+    testWidgets('the ring fills through the levels once, then rests on level 1; presets pop in; the league slides in', (tester) async {
+      tester.view.physicalSize = const Size(390 * 3, 2600 * 3);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(app(session: google));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1)); // presets decoded (or the wait capped)
+      expect(find.byType(PresetCascade), findsWidgets);
+      expect(find.byType(LevelsDemo), findsOneWidget);
+      // Mid-fill the numeral has climbed past the first level.
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump(const Duration(milliseconds: 900));
+      expect(int.parse(numeral(tester)), greaterThan(1));
+      await tester.pumpAndSettle(); // it plays once and stops
+      expect(numeral(tester), '1');
+      expect(dot(tester, 0), YqColors.lapis);
+      expect(dot(tester, 5), YqColors.line);
+      expect(find.byType(MiniLeagueCard), findsOneWidget);
+
+      // Switching the league on lights the person's own row with one sheen.
+      expect(find.byKey(const ValueKey('mini-league-sheen-false')), findsOneWidget);
+      await tester.tap(toggle(joinLabel));
+      await tester.pump();
+      expect(find.byKey(const ValueKey('mini-league-sheen-true')), findsOneWidget);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('reduce-motion: every illustration at rest from the first frame, and it settles', (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      await open(tester, app(session: google));
+      expect(numeral(tester), '1');
+      expect(dot(tester, 0), YqColors.lapis);
+      expect(find.byType(MiniLeagueCard), findsOneWidget);
+      final card = tester.widget<Opacity>(find.ancestor(of: find.byKey(const ValueKey('mini-league-sheen-false')), matching: find.byType(Opacity)).first);
+      expect(card.opacity, 1);
+      expect(tester.binding.transientCallbackCount, 0);
+    });
+  });
 }
