@@ -155,6 +155,36 @@ Contracts: `packages/contracts/src/community.ts`. Competition endpoints answer `
 
 **Admin** (`/admin/competitions`, guards read = marketing·support, writes per role; every write audited and bumps the `community` cache): tournaments (CRUD, publish, close, cancel — `AdminTournamentCreate/Patch`, Cairo days), `/leagues/settings` (applies from the next week), `/leagues/stats`, `/leagues/groups/:id`, `/leagues/rollover` (super admin), `/leaderboard`, `/competitors` (+ `:userId`, `:userId/photos/:photoId/:size` — any status within 7 days, `private, no-store`), `POST /competitors/:userId/:action` (`hide-name` · `restore-name` · `hide-photo` · `restore-photo` · `ban` · `unban`, `AdminReason`), `/reports` + resolve, `/badges`. Admin errors: `tournament_dates`, `slug_taken`, `tournament_not_editable`, `tournament_closed`, `settings_invalid`, `nothing_to_restore`, `reason_required`.
 
+## Recordings «تلاواتي» (design `docs/design/2026-11-profile-community-quran.md` §16)
+
+Contracts: `packages/contracts/src/recordings.ts` (fixtures `apps/mobile/test/fixtures/recordings`, matcher vectors `packages/contracts/fixtures/recitation-match`). The user's **own voice** reciting verses they chose — user content, never sent to analytics or ad sinks. Flag `recordings` (off by default): uploads and sharing answer `403 feature_off`, member/web views 404; the owner can always list, play and delete their own.
+
+- **Format** (`RECORDING_FORMAT`): AAC-LC in `.m4a`, mono, 16 kHz, ≈ 32 kbps, ≤ 30 s (`RECORDING_MAX_MS`, + 250 ms encoder tolerance), ≤ 200 KB. The server reads the real duration, channels, rate and audio object type from the file (`ftyp`, `mdhd`, `mp4a`, `esds`) and stores the bytes as uploaded.
+- **Limits:** 3 per profile (`recordings_limit`), 10 uploads + share-verifications per Cairo day (`recording_daily_limit`; deleting does not give them back).
+- **Statuses:** `private_ready` (private, never sent to the AI check) · `processing` · `approved` · `needs_review` · `rejected` (`rejectReason` not_matching · unclear · silence · too_long) · `removed` (`removed_by_moderator`). Only members/public recordings are verified, on upload or when switched from private; switching back to private keeps an approved result and abandons a pending one. Without `ASR_URL` shared recordings go to `needs_review` (never auto-approved).
+- **Sharing gates** (members/public, reactions, comments, reports): signed in, not a guest (`account_required`), 18+ attestation (`attestation_required`), community opt-in with a handle (`community_required`), not banned (`community_banned`). Blocks hide both ways (views 404; actions `403 blocked`).
+
+| Method & path | Body → response | Errors |
+| --- | --- | --- |
+| POST `/v1/me/recordings` | `multipart/form-data`: part `meta` = `RecordingMeta` JSON (`surah, fromAyah, toAyah, durationMs, visibility='private', commentsOn=true, clientScore?, clientWords?`), part `audio` (`audio/mp4`) → **202** `Recording` | 400 `recording_bad_format` · `recording_too_long` · `recording_invalid_range`, 413 `recording_too_large`, 409 `recordings_limit`, 429 `recording_daily_limit`, 403 gates · `feature_off` (20/h per token) |
+| GET `/v1/me/recordings` | → `MyRecordings {items, leftToday}` | — |
+| GET `/v1/me/recordings/:id/audio` | the owner's audio (any status), `Range` → 206, `private, no-store` | 404 |
+| PATCH `/v1/me/recordings/:id` | `RecordingPatch {visibility?, commentsOn?, position?}` → `Recording` | 409 `recording_not_public` (rejected/removed), 429 `recording_daily_limit`, 403 gates |
+| DELETE `/v1/me/recordings/:id` | hard delete (audio, reactions, comments, their reports) → 204 | 404 |
+| GET `/v1/community/members/:handle/recordings` | any signed-in user → `MemberRecordings {owner: PublicCompetitor, items: PublicRecording[]}` (approved, members/public, not held; owner active, attested, in the community, not banned) | 404 |
+| GET `/v1/recordings/:id/audio` | same visibility, `Range` → 206, `private, max-age=300` | 404 |
+| PUT · DELETE `/v1/recordings/:id/reaction` | `SetReaction {kind: mashallah·barakallah·ahsant}` → `ReactionState` (one per viewer, idempotent, changeable) | 403 gates · `blocked`, 404 |
+| GET `/v1/recordings/:id/comments?cursor=` | → `RecordingCommentsPage` (newest first, 20 per page, blocked authors left out) | 404 |
+| POST `/v1/recordings/:id/comments` | `PostComment {text}` → **201** `RecordingComment` | 400 `comment_rejected` (`details.problem`: too_short · too_long · link · phone · blocked_word · mention · invalid_chars), 403 `comments_off` · gates · `blocked`, 429 `comment_rate_limited` (5/min, 50/day) |
+| DELETE `/v1/recordings/:id/comments/:cid` | author or the recording's owner → 204 (text wiped) | 404 |
+| POST `/v1/recordings/:id/report` · `/v1/recordings/:id/comments/:cid/report` | `RecordingReportRequest {reason: not_recitation·inappropriate·spam·other}` → 204 (repeat = no-op; 3 distinct reporters hide a comment / hold a recording pending support) | 429 `rate_limited` (20 / 24 h), 403 gates |
+| GET `/u/:handle/r/:id.m4a` | public + approved recording of a published, unmoderated card (no auth, `Range`, `public, max-age=300`) | 404 |
+| GET `/u/assets/recitations.js` | the web card's player (CSP `script-src 'self'`) | — |
+
+**Admin «التلاوات»** (`/admin/recordings`, read: religious_reviewer · support; every decision audited in the same transaction): `GET /queue` → `AdminRecordingQueue` (only `needs_review`, held/reported, removed ≤ 7 days; reported/hidden comments — never a user's list; the transcript only while queued) · `GET /:id/audio` (only while queued, `private, no-store`) · `POST /:id/decision` `AdminRecordingDecision` (`approve` · `reject` + `rejectReason` = religious_reviewer; `dismiss` · `remove` · `restore` = support) · `POST /comments/:id/decision` `AdminCommentDecision` (`remove` · `restore` · `dismiss`, support). Errors: `role_not_allowed`, `not_in_review`, `nothing_to_dismiss`, `nothing_to_restore`, `already_removed`, `reject_reason_required`.
+
+**Internal ASR** (`services/asr`, not public): `POST {ASR_URL}/verify` raw `.m4a` + `X-ASR-Token` → `AsrVerifyResponse {durationMs, speechMs, transcript, words:[{text,startMs,endMs}]}`; 401, 413 `too_large`/`too_long`, 422 `undecodable`, 503 `not_configured`.
+
 ## Cloud backup
 
 Opt-in (consent `cloud_backup`, off by default, signed-in accounts only) copy of the user's device-first progress — spec §6.13, docs/SECURITY_PRIVACY.md rule 8.
@@ -166,4 +196,4 @@ Opt-in (consent `cloud_backup`, off by default, signed-in accounts only) copy of
 
 ## Common error codes
 
-`validation_failed` · `unauthorized` · `invalid_token` · `role_not_allowed` · `account_required` · `account_suspended` · `not_enrolled` · `future_date` · `before_enrollment` · `outside_qada_window` · `already_completed` · `task_inactive` · `insufficient_points` · `reward_out_of_stock` · `shopify_unavailable` · `not_a_guest` · `no_test_devices` · `push_not_configured` · `use_splash_verse_endpoint` · `user_reward_limit_reached` · `bonus_not_eligible` · `bonus_already_claimed` · `cannot_review_own_edit` · `not_pending_review` · `invalid_total` · `duplicate_task` · `use_program_endpoint` · `hijri_invalid_sequence` · `copy_issues` · `backup_off` · `backup_conflict` · `backup_too_large`
+`validation_failed` · `unauthorized` · `invalid_token` · `role_not_allowed` · `account_required` · `account_suspended` · `not_enrolled` · `future_date` · `before_enrollment` · `outside_qada_window` · `already_completed` · `task_inactive` · `insufficient_points` · `reward_out_of_stock` · `shopify_unavailable` · `not_a_guest` · `no_test_devices` · `push_not_configured` · `use_splash_verse_endpoint` · `user_reward_limit_reached` · `bonus_not_eligible` · `bonus_already_claimed` · `cannot_review_own_edit` · `not_pending_review` · `invalid_total` · `duplicate_task` · `use_program_endpoint` · `hijri_invalid_sequence` · `copy_issues` · `backup_off` · `backup_conflict` · `backup_too_large` · recordings: `recording_too_long` · `recording_too_large` · `recording_bad_format` · `recording_invalid_range` · `recordings_limit` · `recording_daily_limit` · `recording_not_public` · `attestation_required` · `community_required` · `comments_off` · `comment_rejected` · `comment_rate_limited` · `blocked`

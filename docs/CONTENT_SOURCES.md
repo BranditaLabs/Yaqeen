@@ -16,6 +16,16 @@ Researched 2026-11-10 (licence pages and data samples checked first-hand):
 | Risala / General Presidency English edition | Separate licence needed for the English |
 | hisnmuslim.com API, GitHub JSON copies, Darussalam, code repos (MIT/GPL) | Not usable: no licence for the text, errors, or all rights reserved |
 
+## Models (not content)
+
+The «تلاواتي» speech check (`services/asr`) uses a speech-recognition **model**, not religious content: it only transcribes a user's own recording so the API can compare it with the verses they chose. It publishes nothing.
+
+| Model | Licence | Revision | Where |
+| --- | --- | --- | --- |
+| [`tarteel-ai/whisper-base-ar-quran`](https://huggingface.co/tarteel-ai/whisper-base-ar-quran) (Whisper base fine-tuned on Quran recitation) | Apache-2.0 (model card, checked 2026-11-14); base `openai/whisper-base` | `5c3c53fdf9272c4f6ee0bee09a1e5a4a615ee25c` | converted to CTranslate2 int8 at image build (`services/asr/Dockerfile`) |
+
+The matcher's expected words (`services/api/data/quran-words.txt`) are normalised matching keys generated from the app's bundled mushaf text (`apps/mobile/assets/quran/quran.json`, same source and attribution as the app) by `services/api/scripts/build-quran-words.ts`; they are never displayed.
+
 ## Permission request
 
 Send to the author's office through **Arabia for Information Technology** (publisher of the official

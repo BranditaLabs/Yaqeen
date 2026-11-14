@@ -152,10 +152,11 @@ Everything is in `deploy/azure/main.bicep`, driven by `tools/deploy/azure.sh <en
 | `yaqeen-api` | public HTTPS, port 4000; probes `/health` + `/ready`; 1–3 replicas (prod 2–10) |
 | `yaqeen-admin` | public HTTPS, port 3000; calls the API in-environment at `http://yaqeen-api`; optional IP allow-list (`ADMIN_ALLOWED_CIDRS`) |
 | `yaqeen-redis` | Redis 7, **VNet-internal TCP only** (`yaqeen-redis:6379`), password, no persistence (own environment only) |
-| `yaqeen-migrate` (manual), `yaqeen-purge` (01:17 UTC), `yaqeen-campaigns` (prod only, every 10 min) | jobs on the API image |
+| `yaqeen-asr` | «تلاواتي» speech check (`services/asr`): **internal ingress only** (`http://yaqeen-asr`), 1 vCPU / 2 GiB, **min replicas 0, max 1** — it runs (and costs) only while verifying a shared recording |
+| `yaqeen-migrate` (manual), `yaqeen-purge` (01:17 UTC), `yaqeen-recordings` (every 10 min), `yaqeen-campaigns` (prod only, every 10 min) | jobs on the API image |
 | `psql-yaqeen-<env>-*` | Postgres 16 Flexible Server (staging B1ms, prod D2ds_v5), TLS enforced, 7/35-day backups |
 | `kv-yaqeen-*` | Key Vault (RBAC): every secret; apps read it through managed identities |
-| `cryaqeen<env>*` | Container registry (images `yaqeen-api:<commit>`, `yaqeen-admin:<commit>`, `redis:7-alpine`) |
+| `cryaqeen<env>*` | Container registry (images `yaqeen-api:<commit>`, `yaqeen-admin:<commit>`, `yaqeen-asr:<commit>`, `redis:7-alpine`) |
 | `id-yaqeen-<env>` / `-edge` | identities: API + jobs read the vault; admin + redis can only pull and read the Redis password |
 
 **Commands**: `all` (infra → images → apps → migrate → smoke → dns), or one of `infra`, `images`, `apps`
@@ -183,6 +184,15 @@ then `azure.sh <env> domains` binds the hostnames with free managed certificates
 Before production: private access (delegated subnet + private DNS) or a NAT gateway with one allowed IP,
 and a least-privilege `yaqeen_app` role for the API (the admin role only for migrations).
 
+### ASR — the «تلاواتي» speech check
+
+- **What:** `services/asr` (FastAPI + faster-whisper, `tarteel-ai/whisper-base-ar-quran` int8, Apache-2.0, baked into the image — see `services/asr/README.md`). The API calls `POST {ASR_URL}/verify` with the audio only (no user id) for recordings shared with members/public; private recordings never reach it. Stateless; no access log; nothing stored.
+- **Secret:** `env-ASR-TOKEN` in the vault, generated once by `azure.sh` (via a private temp file) and read by both the API (`ASR_TOKEN`, through the `env-` convention) and `yaqeen-asr`. Rotate by deleting the secret and re-running `azure.sh <env> apps` (in-flight checks fail once and are retried). k8s: `yaqeen-asr-secrets` and `yaqeen-api-secrets` hold the same `ASR_TOKEN`; `ASR_URL=http://yaqeen-asr` is in the ConfigMap; a NetworkPolicy admits only the API pods and the sweeper job.
+- **Scale to zero and cost:** min 0 / max 1 replica, 1 vCPU, 2 GiB. A 30 s clip takes a few vCPU-seconds with whisper-base int8, plus a 10–20 s cold start after idle (`ASR_TIMEOUT_MS` = 120 s covers it). The Container Apps monthly free grant (180,000 vCPU-s, 360,000 GiB-s per subscription) covers thousands of shared recordings a month; beyond it the cost is per second of use only.
+- **Orchestration:** the API verifies in the background, one at a time per process, retrying after 5 s and 30 s; `yaqeen-recordings` (every 10 min) retries `processing` recordings older than 10 min and sends them to the review queue after 3 failed attempts. It also deletes moderator-removed recordings after 7 days. Without `ASR_URL` (dev/test) shared recordings go to the review queue — never auto-approved.
+- **Feature flag:** `recordings` (الإعدادات), off by default. Turning it off stops uploads and every member/web view at once; owners keep their list.
+- **Metrics:** `yaqeen_external_calls_total{service="asr",outcome}`. A growing `needs_review` queue in «التلاوات» with `outcome="error"` climbing means the service is down or the token is wrong.
+
 ## Runbooks
 
 | Symptom | Do |
@@ -197,6 +207,7 @@ and a least-privilege `yaqeen_app` role for the API (the admin role only for mig
 | Error spike after a deploy | Sentry › Releases › compare the new release with the previous one; roll back first, investigate after. |
 | `outage` issue opened | Synthetics failed from outside: check the probe dashboard (in-cluster view) to tell a cluster outage from an ingress/DNS/TLS one. |
 | Conversions failing (`yaqeen_conversions_total{outcome="failed"}`) | Sentry shows `conversions: <platform> HTTP 4xx` (token revoked / wrong pixel: regenerate and update the secret) or `timeout`/`HTTP 5xx` (platform side). A failed order is retried only if Shopify replays its webhook (max 3 attempts); purchases are never queued. To stop all sends: turn `serverConversions` off in الإعدادات. |
+| «التلاوات» queue filling with `needs_review`, `yaqeen_external_calls_total{service="asr",outcome="error"}` rising | ASR down or `ASR_TOKEN` mismatch (401). `az containerapp logs show -n yaqeen-asr` (no audio or transcript is ever logged); check `env-ASR-TOKEN` exists and both apps were redeployed after a rotation. The sweeper retries automatically; reviewers can approve/reject from the queue meanwhile. |
 | Need to pause a feature | Dashboard → الإعدادات → turn the flag off (apps pick it up within the config cache window), or maintenance mode for a full stop — Quran, prayer and azkar keep working offline. |
 
 ## Release checklist (ops)
