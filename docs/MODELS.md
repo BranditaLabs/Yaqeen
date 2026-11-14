@@ -59,8 +59,8 @@ decoding settings, transcripts aligned with a port of the app's `RecitationAlign
 
 ## Server model — the «تلاواتي» AI check (`services/asr`)
 
-Shared recordings (visibility `members`/`public`) are checked once on our own servers; private ones
-never leave the phone's owner account for a check. The app's verdict from the on-device model above is
+Shared recordings (visibility `members`/`public`) are checked once on our own servers; private ones are
+stored for their owner only and never sent to the check. The app's verdict from the on-device model above is
 diagnostics only and never approves anything.
 
 | | |
