@@ -72,7 +72,7 @@ class _AsrModelSheetState extends ConsumerState<AsrModelSheet> {
           child: progress == null
               ? const Icon(Icons.graphic_eq_rounded, size: 40, color: YqColors.lapis)
               : Semantics(
-                  label: t.asrPreparing(YqFormat.number((progress * 100).round())),
+                  label: t.asrPreparing('${YqFormat.number((progress * 100).round())}%'),
                   child: YqRing(value: progress, size: 48, stroke: 3.4),
                 ),
         ),

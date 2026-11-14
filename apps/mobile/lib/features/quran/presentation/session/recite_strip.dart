@@ -137,6 +137,7 @@ class _ReciteStripState extends ConsumerState<ReciteStrip> {
             ReciteMic(
               available: s.available,
               listening: s.listening,
+              paused: s.phase == RecitePhase.paused,
               progress: s.progressValue,
               level: s.listening ? ref.watch(_levelProvider).valueOrNull ?? 0 : 0,
               onTap: _toggle,
@@ -235,9 +236,20 @@ class _AyahRings extends StatelessWidget {
 /// lapis while listening, breathing gently with the voice level; a shimmering disc while the
 /// device is still being asked. Under reduce motion the level never moves anything.
 class ReciteMic extends StatelessWidget {
-  const ReciteMic({super.key, required this.available, required this.listening, required this.progress, this.level = 0, required this.onTap});
+  const ReciteMic({
+    super.key,
+    required this.available,
+    required this.listening,
+    this.paused = false,
+    required this.progress,
+    this.level = 0,
+    required this.onTap,
+  });
   final bool? available;
   final bool listening;
+
+  /// Stopped mid-way: the tap goes on («متابعة»).
+  final bool paused;
   final double progress;
   final double level;
   final VoidCallback onTap;
@@ -252,7 +264,7 @@ class ReciteMic extends StatelessWidget {
     final halo = reduce || !listening ? 0.0 : level.clamp(0.0, 1.0);
     return Semantics(
       button: true,
-      label: listening ? t.asrPause : t.reciteStart,
+      label: listening ? t.asrPause : (paused ? t.asrResume : t.reciteStart),
       excludeSemantics: true,
       onTap: onTap,
       child: GestureDetector(
