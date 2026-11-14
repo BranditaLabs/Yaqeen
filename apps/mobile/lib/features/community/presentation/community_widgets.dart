@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/env.dart';
+import '../../../core/design/motion.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/format.dart';
 import '../../../core/theme/tokens.dart';
@@ -11,7 +13,10 @@ import '../../../core/widgets/controls.dart';
 import '../../../core/widgets/liquid_glass.dart';
 import '../../../core/widgets/yq_avatar.dart';
 import '../../../core/widgets/yq_button.dart';
+import '../../../core/widgets/yq_count.dart';
 import '../../../core/widgets/yq_icon.dart';
+import '../../../core/widgets/yq_once.dart';
+import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../profile/domain/level.dart';
@@ -84,7 +89,7 @@ String pointsText(int? points, AppLocalizations t) => points == null || points <
 /// One person in a public list: rank · avatar in their (snapshot) level ring · name · points (or
 /// the level name on the level board). The caller's own row is tinted lapis and says «أنت».
 /// Long-press another person's row → report/block.
-class CompetitorRow extends StatelessWidget {
+class CompetitorRow extends StatefulWidget {
   const CompetitorRow({
     super.key,
     required this.competitor,
@@ -102,8 +107,41 @@ class CompetitorRow extends StatelessWidget {
   final bool podium;
   final VoidCallback? onLongPress;
 
+  /// How far apart the closed podium's rows rise (1, then 2, then 3).
+  static const podiumStep = Duration(milliseconds: 120);
+
+  @override
+  State<CompetitorRow> createState() => _CompetitorRowState();
+}
+
+class _CompetitorRowState extends State<CompetitorRow> {
+  /// One-time moments, decided when the row first builds on this screen ([RankMotionScope]) and
+  /// kept for the row's life, so a rebuild never cuts them short.
+  bool _sheen = false;
+  bool _rise = false;
+  bool _ring = false;
+  bool _decided = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_decided) return;
+    _decided = true;
+    final memo = RankMotionScope.maybeOf(context)?.memo;
+    if (memo == null) return;
+    final c = widget.competitor;
+    final gold = widget.podium && c.rank != null && c.rank! <= 3;
+    _sheen = c.me && memo.first('sheen:${c.handle}');
+    _ring = c.me && memo.first('ring:${c.handle}');
+    _rise = gold && memo.first('podium:${c.handle}');
+  }
+
   @override
   Widget build(BuildContext context) {
+    final competitor = widget.competitor;
+    final showPoints = widget.showPoints;
+    final podium = widget.podium;
+    final onLongPress = widget.onLongPress;
     final t = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
     final locale = Localizations.localeOf(context).languageCode;
@@ -146,7 +184,16 @@ class CompetitorRow extends StatelessWidget {
                   ),
           ),
           const SizedBox(width: YqSpace.s),
-          YqLevelAvatar(avatar: c.avatar, level: c.level.level, progress: c.level.progress, size: 36, stroke: 2, name: name),
+          YqLevelAvatar(
+            avatar: c.avatar,
+            level: c.level.level,
+            progress: c.level.progress,
+            size: 36,
+            stroke: 2,
+            name: name,
+            // The person's own ring draws in the first time this screen shows it.
+            drawIn: _ring ? Motion.ringDrawSmall : null,
+          ),
           const SizedBox(width: YqSpace.m),
           Expanded(
             child: Column(
@@ -202,13 +249,124 @@ class CompetitorRow extends StatelessWidget {
         ],
       ),
     );
+    // Motion (once per screen, from [RankMotionScope]): a row that moved glides from where it
+    // was; the person's own row catches one soft lapis sheen; a closed podium rises 1 → 2 → 3.
+    final shift = RankMotionScope.maybeOf(context)?.takeMove(c.handle) ?? 0;
+    final body = YqSlideIn(
+      play: _rise,
+      offset: const Offset(0, 0.6),
+      delay: CompetitorRow.podiumStep * ((c.rank ?? 1) - 1),
+      child: YqSheen(play: _sheen, color: YqColors.lapis, opacity: 0.14, radius: YqRadii.chip, delay: Motion.emphasised, child: row),
+    );
     return Semantics(
       label: semantics,
       excludeSemantics: true,
       onLongPress: onLongPress,
-      child: GestureDetector(behavior: HitTestBehavior.opaque, onLongPress: onLongPress, child: row),
+      child: GestureDetector(behavior: HitTestBehavior.opaque, onLongPress: onLongPress, child: YqShiftIn(rows: shift, child: body)),
     );
   }
+}
+
+/// Remembers a ranked list's order between snapshots so a row that moved glides from its old
+/// place, and which one-time moments (own-row sheen, podium rise, zone lines, own ring) already
+/// played on this screen. [RankMotionScope] holds one above the list.
+class RankMotion {
+  final MotionMemo memo = MotionMemo();
+  Map<String, int> _last = const {};
+  final Map<String, int> _moves = {};
+
+  /// A new order: rows whose index changed get a move (positive = climbed). The first order has
+  /// none. Moves are for the rows built in this frame only — a row scrolled to later is still.
+  void update(List<String> handles) {
+    final next = {for (var i = 0; i < handles.length; i++) handles[i]: i};
+    if (_last.isNotEmpty) {
+      for (final e in next.entries) {
+        final before = _last[e.key];
+        if (before != null && before != e.value) _moves[e.key] = before - e.value;
+      }
+      if (_moves.isNotEmpty) WidgetsBinding.instance.addPostFrameCallback((_) => _moves.clear());
+    }
+    _last = next;
+  }
+
+  /// The rows this handle moved by (0 when it stayed), once.
+  int takeMove(String handle) => _moves.remove(handle) ?? 0;
+}
+
+/// Gives a ranked list its [RankMotion]: [handles] in display order (rows moving between
+/// snapshots glide), and a memo so one-time moments play once per screen.
+class RankMotionScope extends StatefulWidget {
+  const RankMotionScope({super.key, required this.handles, required this.child});
+  final List<String> handles;
+  final Widget child;
+
+  static RankMotion? maybeOf(BuildContext context) => context.getInheritedWidgetOfExactType<_RankMotionData>()?.motion;
+
+  @override
+  State<RankMotionScope> createState() => _RankMotionScopeState();
+}
+
+class _RankMotionScopeState extends State<RankMotionScope> {
+  final RankMotion _motion = RankMotion();
+
+  @override
+  void initState() {
+    super.initState();
+    _motion.update(widget.handles);
+  }
+
+  @override
+  void didUpdateWidget(RankMotionScope old) {
+    super.didUpdateWidget(old);
+    if (!listEquals(old.handles, widget.handles)) _motion.update(widget.handles);
+  }
+
+  @override
+  Widget build(BuildContext context) => _RankMotionData(motion: _motion, child: YqMotionMemo(memo: _motion.memo, child: widget.child));
+}
+
+class _RankMotionData extends InheritedWidget {
+  const _RankMotionData({required this.motion, required super.child});
+  final RankMotion motion;
+
+  @override
+  bool updateShouldNotify(_RankMotionData old) => false;
+}
+
+/// A rank as the stage's large numeral: its digits roll into place; «—» before a snapshot.
+class RankNumeral extends StatelessWidget {
+  const RankNumeral({super.key, required this.rank});
+  final int? rank;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = rank;
+    final style = YqMoment.numeral();
+    return YqFadeSwap(
+      alignment: Alignment.center,
+      child: r == null
+          ? Text(AppLocalizations.of(context).cmNoValue, key: const ValueKey('rank-none'), style: style)
+          : YqRollingNumber(key: const ValueKey('rank'), value: r, style: style),
+    );
+  }
+}
+
+/// A status with a breathing lapis dot for a live period (opacity only, a few 2-s breaths, then
+/// it rests lit).
+class LivePill extends StatelessWidget {
+  const LivePill({super.key, required this.label, this.style});
+  final String label;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const YqBreathingDot(size: 6),
+          const SizedBox(width: 6),
+          Flexible(child: Text(label, style: style)),
+        ],
+      );
 }
 
 /// A quiet separator inside a league list: «يصعدون إلى {next}» / «يبدأون الأسبوع القادم في {prev}».
@@ -218,19 +376,30 @@ class ZoneLabel extends StatelessWidget {
   final String label;
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: YqSpace.s),
-        child: Row(
-          children: [
-            const Expanded(child: Divider(color: YqColors.line, height: 1)),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: YqSpace.m),
-              child: Text(label, style: const TextStyle(fontSize: 12, color: YqColors.muted, fontWeight: FontWeight.w500)),
-            ),
-            const Expanded(child: Divider(color: YqColors.line, height: 1)),
-          ],
-        ),
+  Widget build(BuildContext context) {
+    // The hairlines draw outward from the label the first time this screen shows them; an empty
+    // label is the plain line closing a zone.
+    final draw = YqMotionMemo.firstTime(context, 'zone:$label');
+    if (label.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: YqSpace.xs),
+        child: YqDrawLine(from: AlignmentDirectional.center, play: draw),
       );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: YqSpace.s),
+      child: Row(
+        children: [
+          Expanded(child: YqDrawLine(from: AlignmentDirectional.centerEnd, play: draw)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: YqSpace.m),
+            child: Text(label, style: const TextStyle(fontSize: 12, color: YqColors.muted, fontWeight: FontWeight.w500)),
+          ),
+          Expanded(child: YqDrawLine(from: AlignmentDirectional.centerStart, play: draw)),
+        ],
+      ),
+    );
+  }
 }
 
 /// «يُحدَّث الترتيب كل ليلة.» under every standings list.
@@ -394,27 +563,34 @@ class CompetitorSkeleton extends StatelessWidget {
 
 /// A stage moment with a muted (not gold) eyebrow: division names stay monochrome.
 class CommunityMoment extends StatelessWidget {
-  const CommunityMoment({super.key, this.eyebrow, required this.value, this.caption});
+  const CommunityMoment({super.key, this.eyebrow, this.live = false, required this.value, this.caption, this.count});
   final String? eyebrow;
+
+  /// A live period: the eyebrow carries the breathing dot ([LivePill]).
+  final bool live;
   final Widget value;
   final String? caption;
+
+  /// A caption whose number counts up into its sentence: (value, sentence); replaces [caption].
+  final (int, String Function(String n))? count;
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final eyebrowStyle = text.labelSmall?.copyWith(color: YqColors.ink, fontWeight: FontWeight.w700, fontSize: 12, letterSpacing: 0.6);
+    final captionStyle = text.bodySmall?.copyWith(fontSize: 13);
     return Column(
       children: [
         if (eyebrow != null)
-          Text(
-            eyebrow!,
-            textAlign: TextAlign.center,
-            style: text.labelSmall?.copyWith(color: YqColors.ink, fontWeight: FontWeight.w700, fontSize: 12, letterSpacing: 0.6),
-          ),
+          live ? LivePill(label: eyebrow!, style: eyebrowStyle) : Text(eyebrow!, textAlign: TextAlign.center, style: eyebrowStyle),
         const SizedBox(height: 2),
         value,
-        if (caption != null) ...[
+        if (count != null) ...[
           const SizedBox(height: YqSpace.xs),
-          Text(caption!, textAlign: TextAlign.center, style: text.bodySmall?.copyWith(fontSize: 13)),
+          CountUp(value: count!.$1, builder: count!.$2, textAlign: TextAlign.center, style: captionStyle),
+        ] else if (caption != null) ...[
+          const SizedBox(height: YqSpace.xs),
+          Text(caption!, textAlign: TextAlign.center, style: captionStyle),
         ],
       ],
     );

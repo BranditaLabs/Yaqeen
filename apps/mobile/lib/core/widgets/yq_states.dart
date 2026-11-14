@@ -120,9 +120,12 @@ class YqOfflineBanner extends StatelessWidget {
 /// the old one fades out underneath — no jump, no slide. Give each state its own [Key] (or a
 /// different widget type). Instant under reduce-motion.
 class YqFadeSwap extends StatelessWidget {
-  const YqFadeSwap({super.key, required this.child, this.alignment = Alignment.topCenter});
+  const YqFadeSwap({super.key, required this.child, this.alignment = Alignment.topCenter, this.expand = false});
   final Widget child;
   final AlignmentGeometry alignment;
+
+  /// Whole screens (a loading scaffold giving way to the loaded one): both fill the space.
+  final bool expand;
 
   static const duration = Duration(milliseconds: 200);
 
@@ -133,11 +136,14 @@ class YqFadeSwap extends StatelessWidget {
         switchOutCurve: Curves.easeIn,
         layoutBuilder: (current, previous) => Stack(
           alignment: alignment,
+          fit: expand ? StackFit.expand : StackFit.loose,
           children: [
             // The old state fades from where it was, at its own height, without sizing the swap
             // or taking taps; the new state alone decides the size.
             for (final p in previous)
-              Positioned(top: 0, left: 0, right: 0, child: IgnorePointer(child: ExcludeSemantics(child: p))),
+              expand
+                  ? Positioned.fill(child: IgnorePointer(child: ExcludeSemantics(child: p)))
+                  : Positioned(top: 0, left: 0, right: 0, child: IgnorePointer(child: ExcludeSemantics(child: p))),
             if (current != null) current,
           ],
         ),

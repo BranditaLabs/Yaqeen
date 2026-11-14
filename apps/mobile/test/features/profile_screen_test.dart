@@ -815,16 +815,19 @@ void main() {
       ],
     );
     await tester.pumpWidget(
-      MaterialApp.router(
-        routerConfig: router,
-        locale: const Locale('ar'),
-        supportedLocales: AppLocalizations.supportedLocales,
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
+      ProviderScope(
+        overrides: [kvStoreProvider.overrideWithValue(MemoryKvStore())],
+        child: MaterialApp.router(
+          routerConfig: router,
+          locale: const Locale('ar'),
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -832,6 +835,31 @@ void main() {
     await tester.tap(find.text('الكل'));
     await tester.pumpAndSettle();
     expect(find.text('all-badges'), findsOneWidget);
+  });
+
+  testWidgets('badges: a medal catches its light once on this phone, then never again', (tester) async {
+    final me = MeProfile.fromJson(fixture('me_profile'));
+    final store = MemoryKvStore();
+    Future<void> show() async {
+      await tester.pumpWidget(
+        harness(Scaffold(body: BadgesStrip(badges: me.recentBadges, count: me.badgesCount)), kv: store),
+      );
+      await tester.pump();
+      await tester.pump();
+    }
+
+    await show();
+    final medals = tester.widgetList<BadgeMedal>(find.byType(BadgeMedal)).toList();
+    expect(medals, hasLength(3));
+    expect(medals.every((m) => m.sweep), isTrue);
+    expect([for (final m in medals) m.sweepDelay], [Duration.zero, BadgeMedal.sweepStep, BadgeMedal.sweepStep * 2]);
+    await tester.pumpAndSettle(); // one pass each, then rest
+    expect(store.data[ProfileRepository.badgesSweptKey], isNotNull);
+    expect(ProfileRepository.wipedKeys, contains(ProfileRepository.badgesSweptKey));
+
+    await tester.pumpWidget(const SizedBox());
+    await show();
+    expect(tester.widgetList<BadgeMedal>(find.byType(BadgeMedal)).any((m) => m.sweep), isFalse);
   });
 
   testWidgets('level ladder: six levels, the current one in lapis, gold dots on the reached, the note', (tester) async {

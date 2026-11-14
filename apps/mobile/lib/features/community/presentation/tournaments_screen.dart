@@ -157,7 +157,11 @@ class TournamentCard extends ConsumerWidget {
                     runSpacing: YqSpace.xs,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Text(status, style: text.bodySmall?.copyWith(color: YqColors.ink, fontWeight: FontWeight.w600)),
+                      // A live tournament's status breathes a little (a few slow breaths, then lit).
+                      if (x.phase == TournamentPhase.live && !x.closed)
+                        LivePill(label: status, style: text.bodySmall?.copyWith(color: YqColors.ink, fontWeight: FontWeight.w600))
+                      else
+                        Text(status, style: text.bodySmall?.copyWith(color: YqColors.ink, fontWeight: FontWeight.w600)),
                       Text('·', style: text.bodySmall),
                       Text(participants, style: text.bodySmall),
                       if (x.joined)

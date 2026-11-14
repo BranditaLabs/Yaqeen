@@ -61,14 +61,15 @@ class TournamentScreen extends ConsumerWidget {
     final fresh = async.valueOrNull;
     if (fresh == null) {
       if (async.hasError) return simple(YqErrorState(onRetry: () => ref.invalidate(tournamentProvider(id))));
-      return const _Loading();
+      return const YqFadeSwap(expand: true, child: _Loading(key: ValueKey('loading')));
     }
-    return _Body(tournament: fresh.value, offline: fresh.offline);
+    // The loading screen gives way to the tournament with the shared 200 ms fade.
+    return YqFadeSwap(expand: true, child: _Body(key: const ValueKey('body'), tournament: fresh.value, offline: fresh.offline));
   }
 }
 
 class _Loading extends StatelessWidget {
-  const _Loading();
+  const _Loading({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -103,7 +104,7 @@ class _Loading extends StatelessWidget {
 }
 
 class _Body extends ConsumerWidget {
-  const _Body({required this.tournament, required this.offline});
+  const _Body({super.key, required this.tournament, required this.offline});
   final Tournament tournament;
   final bool offline;
 
@@ -116,6 +117,7 @@ class _Body extends ConsumerWidget {
     final x = tournament;
     final open = x.joinOpen(now);
     final ended = x.phase == TournamentPhase.ended || x.closed;
+    final live = x.phase == TournamentPhase.live && !ended;
     final body = x.body(locale).trim();
 
     Future<void> join() async {
@@ -127,15 +129,14 @@ class _Body extends ConsumerWidget {
       final me = x.me;
       moment = CommunityMoment(
         eyebrow: tournamentStatus(x, now, t),
-        value: AnimatedSwitcher(
-          duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : YqMotion.base,
-          child: Text(rankText(me?.rank, t), key: ValueKey(me?.rank), style: YqMoment.numeral()),
-        ),
-        caption: t.cmTournamentPoints(YqFormat.number(me?.points ?? 0)),
+        live: live,
+        value: RankNumeral(rank: me?.rank),
+        count: (me?.points ?? 0, t.cmTournamentPoints),
       );
     } else if (open) {
       moment = CommunityMoment(
         eyebrow: tournamentStatus(x, now, t),
+        live: live,
         // The moment itself invites; the one primary button stays in the body.
         value: Semantics(
           button: true,
@@ -152,73 +153,79 @@ class _Body extends ConsumerWidget {
     } else {
       moment = CommunityMoment(
         eyebrow: tournamentStatus(x, now, t),
+        live: live,
         value: Text(ended ? t.cmEnded : t.cmJoinClosed, style: YqMoment.display(context, size: 26)),
       );
     }
 
-    return Scaffold(
-      backgroundColor: YqColors.porcelain,
-      body: YqCanvas(
-        onRefresh: () async {
-          ref
-            ..invalidate(tournamentProvider(x.id))
-            ..invalidate(standingsProvider(x.id));
-        },
-        stage: YqStage(
-          compact: true,
-          child: Column(
-            children: [
-              YqStageBar(back: true, title: x.title(locale), subtitle: tournamentWindow(x, locale)),
-              const SizedBox(height: YqSpace.l),
-              moment,
-            ],
-          ),
-        ),
-        slivers: [
-          if (x.phase != TournamentPhase.upcoming) ..._standings(context, ref, x),
-          const SliverToBoxAdapter(child: CommunityFooter()),
-        ],
-        children: [
-          YqOfflineBanner(offline: offline),
-          if (body.isNotEmpty) ...[Text(body, style: text.bodyMedium?.copyWith(height: 1.7)), const SizedBox(height: YqSpace.m)],
-          Row(
-            children: [
-              const YqIcon(YqIcons.badge, size: 20, tone: YqIconTone.idle),
-              const SizedBox(width: YqSpace.s),
-              Expanded(child: Text(t.cmBadgeLabel(x.badge(locale)), style: text.bodyMedium)),
-            ],
-          ),
-          const SizedBox(height: YqSpace.s),
-          Text(t.cmParticipants(YqFormat.number(x.participants)), style: text.bodySmall),
-          const SizedBox(height: YqSpace.l),
-          if (x.joined) ...[
-            Row(
+    final standings = ref.watch(standingsProvider(x.id)).valueOrNull?.rows ?? const [];
+    // Standings rows that moved between snapshots glide; a closed podium rises 1 → 2 → 3, once.
+    return RankMotionScope(
+      handles: [for (final r in standings) r.handle],
+      child: Scaffold(
+        backgroundColor: YqColors.porcelain,
+        body: YqCanvas(
+          onRefresh: () async {
+            ref
+              ..invalidate(tournamentProvider(x.id))
+              ..invalidate(standingsProvider(x.id));
+          },
+          stage: YqStage(
+            compact: true,
+            child: Column(
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
-                  decoration: BoxDecoration(
-                    color: YqColors.lapis.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(YqRadii.pill),
-                  ),
-                  child: Text(t.cmJoined, style: const TextStyle(fontWeight: FontWeight.w700, color: YqColors.lapis)),
-                ),
+                YqStageBar(back: true, title: x.title(locale), subtitle: tournamentWindow(x, locale)),
+                const SizedBox(height: YqSpace.l),
+                moment,
               ],
             ),
-            if (!ended) ...[
-              const SizedBox(height: YqSpace.m),
-              YqButton.secondary(
-                label: t.cmLeaveTournament,
-                onPressed: () async {
-                  final ok = await confirmLeave(context, title: t.cmLeaveTournament, body: t.cmLeaveTournamentBody);
-                  if (ok) await leaveTournament(ref, x.id);
-                },
+          ),
+          slivers: [
+            if (x.phase != TournamentPhase.upcoming) ..._standings(context, ref, x),
+            const SliverToBoxAdapter(child: CommunityFooter()),
+          ],
+          children: [
+            YqOfflineBanner(offline: offline),
+            if (body.isNotEmpty) ...[Text(body, style: text.bodyMedium?.copyWith(height: 1.7)), const SizedBox(height: YqSpace.m)],
+            Row(
+              children: [
+                const YqIcon(YqIcons.badge, size: 20, tone: YqIconTone.idle),
+                const SizedBox(width: YqSpace.s),
+                Expanded(child: Text(t.cmBadgeLabel(x.badge(locale)), style: text.bodyMedium)),
+              ],
+            ),
+            const SizedBox(height: YqSpace.s),
+            Text(t.cmParticipants(YqFormat.number(x.participants)), style: text.bodySmall),
+            const SizedBox(height: YqSpace.l),
+            if (x.joined) ...[
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: YqSpace.m, vertical: YqSpace.xs),
+                    decoration: BoxDecoration(
+                      color: YqColors.lapis.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(YqRadii.pill),
+                    ),
+                    child: Text(t.cmJoined, style: const TextStyle(fontWeight: FontWeight.w700, color: YqColors.lapis)),
+                  ),
+                ],
               ),
-            ],
-          ] else if (open)
-            YqButton(label: t.cmJoinTournament, onPressed: join)
-          else if (!ended)
-            Text(t.cmJoinClosed, style: text.bodyMedium?.copyWith(color: YqColors.muted)),
-        ],
+              if (!ended) ...[
+                const SizedBox(height: YqSpace.m),
+                YqButton.secondary(
+                  label: t.cmLeaveTournament,
+                  onPressed: () async {
+                    final ok = await confirmLeave(context, title: t.cmLeaveTournament, body: t.cmLeaveTournamentBody);
+                    if (ok) await leaveTournament(ref, x.id);
+                  },
+                ),
+              ],
+            ] else if (open)
+              YqButton(label: t.cmJoinTournament, onPressed: join)
+            else if (!ended)
+              Text(t.cmJoinClosed, style: text.bodyMedium?.copyWith(color: YqColors.muted)),
+          ],
+        ),
       ),
     );
   }

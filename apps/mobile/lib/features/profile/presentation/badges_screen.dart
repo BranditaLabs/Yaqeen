@@ -2,9 +2,9 @@ import 'package:flutter/material.dart' hide Badge;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/providers.dart';
-import '../../../core/format.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/liquid_glass.dart';
+import '../../../core/widgets/yq_count.dart';
 import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/yq_states.dart';
@@ -21,16 +21,25 @@ final myBadgesProvider = FutureProvider.autoDispose<List<Badge>>((ref) async {
 
 /// `/profile/badges` (APP_SPEC §5.31.4): the earned badges in three sections — league, tournaments,
 /// journey — as gold medals with their date. Only earned badges are drawn (no locked placeholders).
-class BadgesScreen extends ConsumerWidget {
+class BadgesScreen extends ConsumerStatefulWidget {
   const BadgesScreen({super.key});
 
   static const columns = 3;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<BadgesScreen> createState() => _BadgesScreenState();
+}
+
+class _BadgesScreenState extends ConsumerState<BadgesScreen> with BadgeSweepLatch {
+  static const columns = BadgesScreen.columns;
+
+  @override
+  Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
     final badges = ref.watch(myBadgesProvider);
     final list = badges.valueOrNull;
+    // Medals new to this phone catch one light each, in reading order.
+    if (list != null) latchSweep(list);
     // Shimmer only while the first load is on its way; a failed load ends on «—» (the body retries).
     final Widget moment = badges.isLoading && !badges.hasValue
         ? const YqSkeleton(
@@ -43,7 +52,10 @@ class BadgesScreen extends ConsumerWidget {
             ),
           )
         : YqMoment(
-            value: Text(list == null ? t.pfNoRank : YqFormat.number(list.length), style: YqMoment.numeral()),
+            key: const ValueKey('badges-moment'),
+            value: list == null
+                ? Text(t.pfNoRank, style: YqMoment.numeral())
+                : YqRollingNumber(value: list.length, style: YqMoment.numeral()),
             caption: Text(t.pfBadgeUnit),
           );
 
@@ -64,11 +76,27 @@ class BadgesScreen extends ConsumerWidget {
             children: [
               YqStageBar(back: true, title: t.pfBadges),
               const SizedBox(height: YqSpace.l),
-              moment,
+              YqFadeSwap(alignment: Alignment.center, child: moment),
             ],
           ),
         ),
-        children: switch (badges) {
+        children: [
+          // Skeleton → medals with the shared 200 ms fade.
+          YqFadeSwap(
+            child: KeyedSubtree(
+              key: ValueKey(badges.hasValue ? 'list' : (badges.hasError ? 'error' : 'loading')),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: _body(t, badges),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _body(AppLocalizations t, AsyncValue<List<Badge>> badges) => switch (badges) {
           AsyncValue(:final valueOrNull?) => _sections(t, valueOrNull),
           AsyncError() => [
               LiquidGlass(child: YqErrorState(message: t.pfBadgesError, onRetry: () => ref.invalidate(myBadgesProvider))),
@@ -101,10 +129,7 @@ class BadgesScreen extends ConsumerWidget {
                 ),
               ),
             ],
-        },
-      ),
-    );
-  }
+        };
 
   List<Widget> _sections(AppLocalizations t, List<Badge> list) {
     if (list.isEmpty) return [LiquidGlass(child: YqEmptyState(icon: YqIcons.badge, title: t.pfBadgesEmpty))];
@@ -124,7 +149,16 @@ class BadgesScreen extends ConsumerWidget {
                 for (var c = 0; c < columns; c++)
                   Expanded(
                     child: i + c < items.length
-                        ? Center(child: BadgeMedal(badge: items[i + c], size: 64, showDate: true, width: 104))
+                        ? Center(
+                            child: BadgeMedal(
+                              badge: items[i + c],
+                              size: 64,
+                              showDate: true,
+                              width: 104,
+                              sweep: sweeps(items[i + c]),
+                              sweepDelay: BadgeMedal.sweepStep * (i + c).clamp(0, 8),
+                            ),
+                          )
                         : const SizedBox.shrink(),
                   ),
               ],

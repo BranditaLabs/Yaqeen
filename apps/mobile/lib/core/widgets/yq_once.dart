@@ -98,6 +98,13 @@ class _YqSheenState extends State<YqSheen> with SingleTickerProviderStateMixin, 
   Duration get delay => widget.delay;
 
   @override
+  void didUpdateWidget(YqSheen old) {
+    super.didUpdateWidget(old);
+    // Told to play after the first build (e.g. once a «seen» list has been read).
+    if (widget.play && !old.play) play();
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (!widget.play) return widget.child;
     final rtl = Directionality.of(context) == TextDirection.rtl;

@@ -3,18 +3,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/config_controller.dart';
 import '../../../core/config/remote_config.dart';
+import '../../../core/design/motion.dart';
 import '../../../core/di/providers.dart';
 import '../../../core/format.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/controls.dart';
 import '../../../core/widgets/liquid_glass.dart';
 import '../../../core/widgets/yq_icon.dart';
+import '../../../core/widgets/yq_once.dart';
 import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../onboarding/presentation/session_controller.dart';
 import '../../onboarding/presentation/sign_in_sheet.dart';
 import '../../profile/domain/me_profile.dart';
+import '../../profile/presentation/me_avatar.dart';
 import '../../profile/presentation/me_profile_controller.dart';
 import '../data/community_repository.dart';
 import '../domain/community_models.dart';
@@ -65,8 +68,18 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     });
   }
 
+  /// Whether the last build showed the loading board: it gives way to the loaded one with the
+  /// shared 200 ms fade; other changes (scope, joined, a note) simply update.
+  bool _loading = false;
+
   @override
   Widget build(BuildContext context) {
+    final screen = _screen(context);
+    return YqFadeSwap(expand: true, child: KeyedSubtree(key: ValueKey(_loading), child: screen));
+  }
+
+  Widget _screen(BuildContext context) {
+    _loading = false;
     final t = AppLocalizations.of(context);
     final locale = Localizations.localeOf(context).languageCode;
     final flagOn = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.leaderboard)));
@@ -145,6 +158,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     final fresh = async.valueOrNull;
     if (fresh == null) {
       if (async.hasError) return canvas([segmented, const SizedBox(height: YqSpace.l), YqErrorState(onRetry: refresh)]);
+      _loading = true;
       return canvas([segmented, const SizedBox(height: YqSpace.l), const CompetitorSkeleton(rows: 8)]);
     }
     final view = fresh.value;
@@ -157,41 +171,45 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
     final joined = !left && (_scope == LeaderboardScope.global ? view.joined : view.countryJoined);
     final me = joined ? view.me : null;
 
-    return canvas(
-      onRefresh: refresh,
-      [
-        YqOfflineBanner(offline: fresh.offline),
-        segmented,
-        const SizedBox(height: YqSpace.l),
-        if (!joined) ...[
-          _JoinCard(
-            country: _scope == LeaderboardScope.country,
-            needsBoard: _scope == LeaderboardScope.country && !globalOn,
-            busy: _busy,
-            error: _error,
-            // The country board is offered only on top of the level board (never both at once).
-            onJoin: () => _join(country: _scope == LeaderboardScope.country && globalOn),
-          ),
+    // Rows that moved glide; the person's own ring draws in and their pinned rank slides up, once.
+    return RankMotionScope(
+      handles: [for (final r in rows) r.handle],
+      child: canvas(
+        onRefresh: refresh,
+        [
+          YqOfflineBanner(offline: fresh.offline),
+          segmented,
           const SizedBox(height: YqSpace.l),
+          if (!joined) ...[
+            _JoinCard(
+              country: _scope == LeaderboardScope.country,
+              needsBoard: _scope == LeaderboardScope.country && !globalOn,
+              busy: _busy,
+              error: _error,
+              // The country board is offered only on top of the level board (never both at once).
+              onJoin: () => _join(country: _scope == LeaderboardScope.country && globalOn),
+            ),
+            const SizedBox(height: YqSpace.l),
+          ],
         ],
-      ],
-      slivers: [
-        SliverList.builder(
-          itemCount: rows.length,
-          itemBuilder: (context, i) {
-            final c = rows[i];
-            return CompetitorRow(
-              key: ValueKey(c.handle),
-              competitor: c,
-              showPoints: false,
-              onLongPress: c.me ? null : () => showReportSheet(context, c),
-            );
-          },
-        ),
-        const SliverToBoxAdapter(child: SnapshotLine()),
-        const SliverToBoxAdapter(child: CommunityFooter()),
-      ],
-      footer: joined ? _MyRank(rank: me?.rank) : null,
+        slivers: [
+          SliverList.builder(
+            itemCount: rows.length,
+            itemBuilder: (context, i) {
+              final c = rows[i];
+              return CompetitorRow(
+                key: ValueKey(c.handle),
+                competitor: c,
+                showPoints: false,
+                onLongPress: c.me ? null : () => showReportSheet(context, c),
+              );
+            },
+          ),
+          const SliverToBoxAdapter(child: SnapshotLine()),
+          const SliverToBoxAdapter(child: CommunityFooter()),
+        ],
+        footer: joined ? _MyRank(rank: me?.rank) : null,
+      ),
     );
   }
 
@@ -248,18 +266,34 @@ class _MyRank extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
     final label = rank == null ? t.cmRankAfterSnapshot : t.cmYourRank(YqFormat.number(rank!));
-    return Semantics(
-      liveRegion: true,
-      child: LiquidGlass(
-        radius: YqRadii.pill,
-        padding: const EdgeInsets.symmetric(horizontal: YqSpace.xl, vertical: YqSpace.m),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            color: rank == null ? YqColors.muted : YqColors.lapis,
+    // It slides up from the bottom once, with the person's own ring drawing in beside the rank.
+    return YqSlideIn(
+      offset: const Offset(0, 1.2),
+      delay: Motion.standard,
+      child: Semantics(
+        liveRegion: true,
+        label: label,
+        excludeSemantics: true,
+        child: LiquidGlass(
+          radius: YqRadii.pill,
+          padding: const EdgeInsetsDirectional.fromSTEB(YqSpace.s, YqSpace.s, YqSpace.xl, YqSpace.s),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const MeAvatar(size: 32, ring: true, stroke: 2, drawIn: Motion.ringDraw),
+              const SizedBox(width: YqSpace.m),
+              Flexible(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: rank == null ? YqColors.muted : YqColors.lapis,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

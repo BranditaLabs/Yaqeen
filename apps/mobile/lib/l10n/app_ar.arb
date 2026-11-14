@@ -2925,5 +2925,13 @@
   "qsClosePlayer": "إغلاق المشغّل",
   "qsOpenPlayer": "فتح المشغّل",
   "skWorking": "جارٍ التنفيذ",
-  "skLoading": "جارٍ التحميل"
+  "skLoading": "جارٍ التحميل",
+  "cmPodiumPlace": "أنهيت الأسبوع في المركز {rank}",
+  "@cmPodiumPlace": {
+    "placeholders": {
+      "rank": {
+        "type": "String"
+      }
+    }
+  }
 }

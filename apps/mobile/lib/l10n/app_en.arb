@@ -2898,5 +2898,13 @@
   "qsClosePlayer": "Close the player",
   "qsOpenPlayer": "Open the player",
   "skWorking": "Working",
-  "skLoading": "Loading"
+  "skLoading": "Loading",
+  "cmPodiumPlace": "You finished the week in place {rank}",
+  "@cmPodiumPlace": {
+    "placeholders": {
+      "rank": {
+        "type": "String"
+      }
+    }
+  }
 }
