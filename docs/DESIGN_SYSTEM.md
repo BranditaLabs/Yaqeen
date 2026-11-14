@@ -125,7 +125,7 @@ Content rises in once (`YqRise`, staggered 70 ms). Screen readers get it at once
 | --- | --- | --- |
 | `YqCanvas`, `YqStage`, `YqStageBar`, `YqMoment`, `YqHeading` | core/widgets/yq_stage.dart | The screen pattern above. |
 | `YqOrb` / `YqOrbRow` | core/widgets/yq_orb.dart | A 100-pt glass disc + title + one status line; gold glow when its goal is met; `YqOrb.number` for a numeral disc. |
-| `YqRing` | core/widgets/yq_ring.dart | An eased progress ring (lapis, or gold for worship/reward goals); sweeps with the reading direction. |
+| `YqRing` | core/widgets/yq_ring.dart | An eased progress ring (lapis, or gold for worship/reward goals); sweeps with the reading direction; optional first draw-in and level-up glint (§5). |
 | `LiquidOrb` | core/widgets/liquid_orb.dart | Fill level as still liquid (wird, daylight, hifz plan, download). |
 | `MisbahaPainter` | core/widgets/yq_misbaha.dart | Beads that turn gold as they are counted (Home orb, Azkar). |
 | `YqTimeline` / `YqStop` | core/widgets/yq_timeline.dart | The journey rail: line or pill stops, `done` (gold check), `highlight`, `trailing` controls, live `detail`, an optional «now» marker. |
@@ -135,17 +135,84 @@ Content rises in once (`YqRise`, staggered 70 ms). Screen readers get it at once
 | `FloatingTabBar` / `YqTab` | core/widgets/floating_tab_bar.dart | The **dock**: a floating porcelain-glass capsule (64 pt, max 520 wide, centred) with five equal slots — Home, Quran, Prayer, Challenge, and Profile with the person's avatar as its icon (`YqTab.avatar(avatar: MeAvatar(size: 24))`: lapis rim when active, white otherwise; their initial in ink on ice until the avatar paints — no gold disc). Each slot is a 24-pt icon over an 11-pt label, always shown (lapis + bold when active, muted otherwise). A soft lapis glass pill sits under the active slot and glides on a spring (jumps with reduce-motion). Press scales to 0.92 with a light haptic; tapping the open tab returns it to its first screen. It steps aside while the keyboard is up. |
 | `YqInsets` | core/widgets/yq_layout.dart | Shared geometry: `page` (the directional gutter) and `bottom(context)` — the one bottom inset for scrolling screens. Inside a tab the shell counts the dock as bottom safe area (`FloatingTabBar.clearanceFor`), so content always clears it. |
 | `HabitSlotCard` | features/routine/presentation | Picks a habit's time. |
-| `YqAvatar` / `YqLevelAvatar` / `YqSkeletonAvatarRows` | core/widgets/yq_avatar.dart | A profile picture (preset art, photo, or the initial in ink on ice; white rim; skeleton circle until the first frame); the same inside the level ring (lapis on a soft lapis track; gold + one 600 ms glint only when achieved, skipped under reduce-motion; level numeral at the bottom end); skeleton rows for people lists. `MeAvatar` is the caller's own. |
+| `YqAvatar` / `YqLevelAvatar` / `YqSkeletonAvatarRows` | core/widgets/yq_avatar.dart | A profile picture (preset art, photo, or the initial in ink on ice; white rim; skeleton circle until the first frame); the same inside the level ring (lapis on a soft lapis track; gold when achieved, with one light sweep and a soft swell only for a level just reached, skipped under reduce-motion; optional draw-in; level numeral at the bottom end); skeleton rows for people lists. `MeAvatar` is the caller's own. |
 | `QuranModeDock` / `MiniPlayer` / `YqSkeletonMushafPage` | features/quran, features/listen, core/widgets | Reader layers (glass pill ≤ 640 pt, lapis thumb on the dock spring, icons only when 1.3× text would overflow); the app-wide mini player above the dock (no live blur; the shell adds its height to the bottom inset); the page-shaped reader skeleton. |
 
 ## 5. Motion
 
-- Curves: `YqMotion.ease` (0.2, 0.7, 0.2, 1) for UI and `easeInOut` for sky.
-- Durations: 200 / 350 / 600 ms; sky changes 0.9–1 s.
-- Home sections rise in once (staggered 70 ms, 14 px), never again on tab switches.
-- Implicit animations only for value changes: rings, liquid, beads, the tape, the sun.
-  Painters never animate per frame while idle.
-- Reduce-motion: jump to the end state, no reveal.
+Premium here means **restrained, physical and purposeful**: springs that settle, light that passes
+once, numbers that roll into place. Never confetti, never a loop that runs forever, never motion
+that only decorates. Tokens live in `lib/core/design/motion.dart` (`Motion`); the older
+`YqMotion` set in `theme/tokens.dart` (200 / 350 / 600 ms, `YqMotion.ease`) stays for existing
+widgets.
+
+**Tokens**
+
+| Token | Value | For |
+| --- | --- | --- |
+| `Motion.quick` | 160 ms | a press going down, a label swap |
+| `Motion.standard` | 280 ms | most UI transitions; lapis ↔ gold blends |
+| `Motion.emphasised` | 450 ms | a value arriving, a glyph settling, a row gliding |
+| `Motion.fade` | 200 ms | skeleton → content (`YqFadeSwap`) |
+| `Motion.ringDraw` / `ringDrawSmall` | 900 / 600 ms | a level ring's first sweep (Profile stage / Home chip) |
+| `Motion.glint` / `glintHold` | 900 / 1600 ms | the level-up light; how long the ring stays gold |
+| `Motion.easeOut` | `Curves.easeOutCubic` | default UI curve |
+| `Motion.emphasisedCurve` | `Cubic(0.2, 0, 0, 1)` | emphasised moments |
+| `pressSpring`, `popSpring`, `sheetSpring`, `settleSpring` | `SpringDescription`s (and `SpringCurve`s) | press, release/pop, sheets (critically damped), an overshooting settle |
+
+**The reduce-motion rule.** `reduceMotion(context)` reads `MediaQuery.disableAnimationsOf`; use it
+everywhere (or `motionOr(context, d)`). Under it every moment **jumps to its end state**: rings
+drawn, numbers final, sheets open, faces flipped, no light, no reveal, and **no ticker left
+running** (`pumpAndSettle` completes). A toast that follows a light comes at once.
+
+**Rules**
+
+- Sky changes ease over 0.9–1 s with `easeInOut`; never a hard cut.
+- Content rises once as a page opens (`YqRise`, 14 px, 70 ms apart; orbs 10 px, 40 ms apart via
+  `YqOrbRow(rise: true)`), never again on tab switches or for lazy items scrolled into view.
+- Implicit animations only for value changes: rings, liquid, beads, the tape, the sun. Painters
+  never animate per frame while idle; continuously animating pieces sit behind a
+  `RepaintBoundary` and use `AnimatedBuilder` with a `child` (no `setState` per frame on a screen).
+- One-time moments in lazy lists are remembered per screen (`MotionMemo` / `YqMotionMemo`,
+  `RankMotionScope`), so scrolling back never replays them; illustrations below the fold start
+  when they scroll into view (`YqWhenVisible`).
+- Loops are bounded: the «live» dot breathes a few times and rests lit; the recording orbit turns
+  only while playing and on screen (`TickerMode`).
+- Haptics only on user actions, through `GlassTap` (a selection tick) or the existing
+  setting-aware calls; never on a moment that plays by itself.
+- Gold moves only for achievement: the level-up light, a medal's first light, a closed podium.
+
+**Primitives** (in `core/widgets` unless noted)
+
+| Primitive | Motion |
+| --- | --- |
+| `YqRing(drawIn:, glint:, change:)` | First show: the track fades in, then the arc sweeps from 0 (emphasised). Later values ease from the old value — never from 0 again. A colour change blends over 280 ms. `glint`: one comet of light (white into gold light) travels once round the ring. |
+| `YqLevelAvatar(drawIn:, glint:)` | The ring above, plus the picture swelling once (1.0 → 1.04 → 1.0, `YqPulse`) with the glint; a new picture cross-fades in from 0.94 (`YqAvatarSwap`) without redrawing the ring. |
+| `YqRollingNumber` | Digits roll up 0.9 em into place, 90 ms apart, 900 ms, `Cubic(0.2, 0.9, 0.25, 1.15)` — the public card's rolling digits. Later changes roll only the digits that changed (up for more, down for less). Tabular figures. |
+| `CountUp` | Counts to the value on first show and glides between values; tabular figures; the final text reserves its width, so nothing moves around it. |
+| `YqFlip` | Two faces of a disc turning about the vertical axis (perspective 0.001, 450 ms, with the reading direction). |
+| `YqFadeSwap` | Skeleton → content: a 200 ms cross-fade, the old state fading where it was (`expand` for whole screens). |
+| `YqSheen` | One band of light across a child (light on a gold medal, a soft lapis on the person's own row). |
+| `YqPulse`, `YqSlideIn`, `YqShiftIn`, `YqDrawLine`, `YqBreathingDot`, `YqWhenVisible` | A once-only swell; a slide + fade in (the pinned «ترتيبك» row, a podium step); a ranked row gliding from its old place; a hairline drawing outward; the «live» dot; start-when-seen. |
+| `GlassTap(pressScale:)` | Eases down (160 ms; cards 0.98, orbs 0.96, small badges 0.92) and springs back with a touch of overshoot. |
+| `showYqSheet(spring: true)` | The sheet opens on the critically damped `sheetSpring`. |
+| `YqPlayRing` | Play/pause morph, a lapis progress ring, and an optional hairline orbit turning once per 12 s while playing (stopped when paused or off-screen). For recordings and recitations. |
+| `YqLiveLevel` | 5–7 lapis bars driven by a `Stream<double>` of real amplitude, newest in the centre spreading outward, each eased (140 ms); still under reduce-motion. No ticker of its own. |
+
+**Moments**
+
+| Where | Moment |
+| --- | --- |
+| Profile stage | The 120-pt ring sweeps in once (900 ms). Level-up: the ring turns gold, one light sweeps round it and the picture swells, then the quiet toast «بلغت مستوى…»; gold leaves after 1.6 s. A new picture cross-fades in; the edit badge pops on its own press (0.92). |
+| Profile orbs | Rise 40 ms apart; press 0.96 + selection haptic. The level numeral and the points roll into place; «{n} للمستوى التالي» counts. Points flips about its vertical axis to «هذا الأسبوع». |
+| Home chip | The 48-pt ring sweeps in once (600 ms). A pending level-up (consumed by Home first) plays the same light + swell, then the toast. Home's three complications rise 40 ms apart and press to 0.96. |
+| League | The rank rolls in; «{n} نقطة هذا الأسبوع» counts. Rows that moved between snapshots glide from their old place (keyed by handle); the person's row catches one soft lapis sheen and their ring draws in; zone lines draw outward from their label. |
+| Week result | The sheet opens on a spring; the outcome glyph (up · stay · down) settles with an overshoot; a top-three finish rises on a three-step podium in sequence (only the person's own step is named). |
+| Tournaments | A live tournament's status and stage eyebrow breathe a 6-pt lapis dot (opacity only, 2-s breaths, a few, then lit). Standings behave like the league; a closed podium rises 1 → 2 → 3. |
+| Level board | The person's ring draws in; the pinned «ترتيبك» pill slides up from the bottom with their own ring drawing in beside it. |
+| Badges | A medal new to this phone catches one light sweep (90 ms apart), once ever (`profile.badgesSwept.v1`, wiped with the account); the count rolls in. |
+| Onboarding 05·ج | The preview's track fades in; a picked picture cross-fades in; preset pictures pop in 30 ms apart. When reached: a small ring fills through the six levels, lighting their dots, and settles back on level 1; a miniature league (neighbours are shapes, never people) slides in from the reading side with the person's picture and name, lit with one sheen when they switch the league on. Once per visit. |
+| Skeletons | Every skeleton in these features gives way to content with the 200 ms fade. |
 
 ## 6. Performance
 
