@@ -73,20 +73,33 @@ export async function snapshotTournaments(ctx: CommunityCtx, today: string): Pro
 
 /**
  * The public level: lifetime earned up to Cairo 00:00 today (today's earned points are held back
- * until the next snapshot). In batches of 5,000 users.
+ * until the next snapshot). Keyset batches of 5,000 users by `user_id` (each batch starts where
+ * the last ended — no rescan of rows already done), and only rows whose value changes are written
+ * (no nightly rewrite of every row). `public_day` is the day a row's value last changed. Returns
+ * the number of rows written.
  */
-export async function snapshotPublicLifetime(ctx: CommunityCtx, today: string): Promise<number> {
+export async function snapshotPublicLifetime(ctx: CommunityCtx, today: string, opts: { batchSize?: number } = {}): Promise<number> {
+  const size = opts.batchSize ?? TOTALS_BATCH;
+  let after = '00000000-0000-0000-0000-000000000000';
   let total = 0;
   for (;;) {
-    const r = await ctx.db.execute(sql`
-      update user_point_totals t
-      set public_lifetime = greatest(0, t.lifetime_earned - coalesce((select d.earned from points_earned_daily d where d.user_id = t.user_id and d.day = ${today}::date), 0)),
-          public_day = ${today}::date
-      where t.user_id in (
-        select user_id from user_point_totals where public_day is distinct from ${today}::date order by user_id limit ${TOTALS_BATCH})`);
-    const n = r.rowCount ?? 0;
-    total += n;
-    if (n < TOTALS_BATCH) break;
+    const r = await ctx.db.execute<{ last: string | null; seen: number; changed: number }>(sql`
+      with batch as (
+        select t.user_id,
+          greatest(0, t.lifetime_earned - coalesce((select d.earned from points_earned_daily d where d.user_id = t.user_id and d.day = ${today}::date), 0)) as v
+        from user_point_totals t where t.user_id > ${after}::uuid order by t.user_id limit ${size}
+      ),
+      upd as (
+        update user_point_totals t set public_lifetime = b.v, public_day = ${today}::date
+        from batch b where t.user_id = b.user_id and t.public_lifetime is distinct from b.v
+        returning 1
+      )
+      select (select b.user_id::text from batch b order by b.user_id desc limit 1) as last,
+        (select count(*) from batch)::int as seen, (select count(*) from upd)::int as changed`);
+    const row = r.rows[0];
+    total += Number(row?.changed ?? 0);
+    if (!row?.last || Number(row.seen) < size) break;
+    after = row.last;
   }
   return total;
 }
