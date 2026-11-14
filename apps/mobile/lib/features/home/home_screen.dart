@@ -40,6 +40,7 @@ import 'widgets/profile_chip.dart';
 import '../../core/design/living_sky.dart';
 import '../../core/design/motion.dart';
 import '../../core/widgets/ambient_background.dart';
+import '../../core/widgets/yq_orb.dart';
 import '../../core/widgets/yq_rise.dart';
 import '../../core/widgets/yq_stage.dart';
 import '../../core/widgets/yq_timeline.dart';
@@ -397,10 +398,11 @@ class _Complications extends ConsumerWidget {
         return Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.start,
+          // The three instruments rise in 40 ms apart as Home opens (never on tab switches).
           children: [
-            const Expanded(child: QiblaOrb()),
-            const Expanded(child: TasbeehOrb()),
-            Expanded(child: WirdOrb(done: done, goal: s.wirdGoalPages)),
+            const Expanded(child: YqRise(stagger: YqOrbRow.stagger, distance: 10, child: QiblaOrb())),
+            const Expanded(child: YqRise(order: 1, stagger: YqOrbRow.stagger, distance: 10, child: TasbeehOrb())),
+            Expanded(child: YqRise(order: 2, stagger: YqOrbRow.stagger, distance: 10, child: WirdOrb(done: done, goal: s.wirdGoalPages))),
           ],
         );
       },
