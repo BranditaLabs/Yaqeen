@@ -21,7 +21,7 @@ import {
 } from '@yaqeen/contracts';
 import type { Db } from '../db/client.js';
 import { auditLog, communityBlocks, communityMembers, communityReports, consentEvents, consents, publicProfiles, users } from '../db/schema.js';
-import { competitorHandle, firstName, nameProblem } from '../domain/community.js';
+import { competitorHandle, firstName, memberHandle, nameProblem } from '../domain/community.js';
 import { AppError, badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { type CommunityCtx, featureOn, reservedNames } from './community-settings.service.js';
 
@@ -362,13 +362,15 @@ const DEFAULT_CARD_SHOW = { level: true, streak: false, challengeDay: false, bad
 export async function ensureCompetitorHandle(tx: DbOrTx, ctx: CommunityCtx, uid: string, name: string | null): Promise<string> {
   const [have] = await tx.select({ handle: publicProfiles.handle }).from(publicProfiles).where(eq(publicProfiles.userId, uid));
   if (have) return have.handle;
+  const [u] = await tx.select({ hiddenAt: users.nameHiddenAt }).from(users).where(eq(users.id, uid));
+  const hidden = !!u?.hiddenAt;
   const reserved = new Set(await reservedNames(ctx));
   for (let i = 0; i < 12; i++) {
-    const handle = competitorHandle(name, Math.random);
+    const handle = hidden ? memberHandle(Math.random) : competitorHandle(name, Math.random);
     if (reserved.has(handle)) continue;
     const inserted = await tx
       .insert(publicProfiles)
-      .values({ userId: uid, handle, published: false, displayName: firstName(name) || 'Yaqeen', show: DEFAULT_CARD_SHOW })
+      .values({ userId: uid, handle, published: false, displayName: (hidden ? '' : firstName(name)) || 'Yaqeen', show: DEFAULT_CARD_SHOW })
       .onConflictDoNothing()
       .returning({ handle: publicProfiles.handle });
     if (inserted[0]) return inserted[0].handle;
