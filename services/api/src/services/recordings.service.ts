@@ -137,10 +137,17 @@ function requireMember(id: Identity) {
  */
 const OWNER_COLUMNS = sql`${COMPETITOR_COLUMNS_ANY}, null::int as points, null::int as rank`;
 const OWNER_JOINS = sql`join users u on u.id = r.user_id ${COMPETITOR_JOINS}`;
-/** The owner may be seen by members: active, attested, in the community (consent `community`), not banned. */
-const OWNER_SHAREABLE = sql.raw(`u.status = 'active' and u.adult_attested_at is not null
-  and exists (select 1 from consents c where c.user_id = u.id and c.kind = 'community' and c.granted)
-  and not exists (select 1 from community_members cm where cm.user_id = u.id and cm.banned_at is not null)`);
+/**
+ * A user (alias `a`) may be seen by members — as a recording's owner or a comment's author: active,
+ * attested, in the community (consent `community`), not banned. Leaving the community, a ban or a lost
+ * attestation hides their recordings and their comments everywhere (nothing public after leaving).
+ */
+function shareable(a: 'u' | 'a') {
+  return sql.raw(`${a}.status = 'active' and ${a}.adult_attested_at is not null
+  and exists (select 1 from consents c where c.user_id = ${a}.id and c.kind = 'community' and c.granted)
+  and not exists (select 1 from community_members cm where cm.user_id = ${a}.id and cm.banned_at is not null)`);
+}
+const OWNER_SHAREABLE = shareable('u');
 /** A recording members may hear. */
 const MEMBER_VISIBLE = sql.raw(`r.status = 'approved' and r.held_at is null and r.visibility in ('members', 'public')`);
 
@@ -178,7 +185,7 @@ async function reactionsFor(db: DbOrTx, ids: string[], viewerId: string | null):
   }
   const comments = await db.execute<{ recording_id: string; n: number }>(sql`
     select c.recording_id, count(*)::int as n from recording_comments c join users a on a.id = c.user_id
-    where c.recording_id in (${list}) and c.status = 'visible' and a.status = 'active' group by c.recording_id`);
+    where c.recording_id in (${list}) and c.status = 'visible' and ${shareable('a')} group by c.recording_id`);
   for (const r of comments.rows) out.get(r.recording_id)!.comments = Number(r.n);
   return out;
 }
@@ -726,7 +733,10 @@ function decodeCursor(cursor: string | undefined): { at: Date; id: string } | nu
   return { at: d, id: id! };
 }
 
-/** GET /v1/recordings/:id/comments — newest first; comments by blocked users (either way) are left out. */
+/**
+ * GET /v1/recordings/:id/comments — newest first; comments by blocked users (either way) and by authors
+ * who are no longer shareable (left the community, banned, attestation gone, inactive) are left out.
+ */
 export async function listComments(ctx: AppContext, viewerId: string, id: string, cursor?: string): Promise<RecordingCommentsPage> {
   await requireFeature(ctx).catch(() => {
     throw notFound('recording');
@@ -737,7 +747,7 @@ export async function listComments(ctx: AppContext, viewerId: string, id: string
   const rows = await ctx.db.execute<CommentRow>(sql`
     select c.id, c.text, c.created_at, ${OWNER_COLUMNS}
     from recording_comments c join users u on u.id = c.user_id ${COMPETITOR_JOINS}
-    where c.recording_id = ${id} and c.status = 'visible' and u.status = 'active'
+    where c.recording_id = ${id} and c.status = 'visible' and ${OWNER_SHAREABLE}
       and not exists (select 1 from community_blocks b where (b.user_id = ${viewerId} and b.blocked_user_id = u.id) or (b.user_id = u.id and b.blocked_user_id = ${viewerId}))
       ${after ? sql`and (c.created_at, c.id) < (${after.at}, ${after.id}::uuid)` : sql``}
     order by c.created_at desc, c.id desc limit ${COMMENTS_PAGE_SIZE + 1}`);
@@ -770,13 +780,18 @@ export async function postComment(ctx: AppContext, viewerId: string, id: string,
     if (found.rows.length !== check.mentions.length) throw badRequest('comment_rejected', 'mention', { problem: 'mention' });
   }
   const now = ctx.now();
-  const counts = await ctx.db.execute<{ minute: number; day: number }>(sql`
-    select count(*) filter (where created_at > ${new Date(now.getTime() - 60_000)})::int as minute,
-      count(*) filter (where created_at > ${new Date(now.getTime() - 86_400_000)})::int as day
-    from recording_comments where user_id = ${viewerId} and created_at > ${new Date(now.getTime() - 86_400_000)}`);
-  const c = counts.rows[0]!;
-  if (Number(c.minute) >= COMMENT_RATE.perMinute || Number(c.day) >= COMMENT_RATE.perDay) throw tooMany('comment_rate_limited');
-  const [row] = await ctx.db.insert(recordingComments).values({ recordingId: id, userId: viewerId, text: check.text, createdAt: now }).returning();
+  // Count and insert under the author's row lock (like `report`): parallel posts cannot all pass the limit.
+  const row = await ctx.db.transaction(async (tx) => {
+    await tx.execute(sql`select id from users where id = ${viewerId} for update`);
+    const counts = await tx.execute<{ minute: number; day: number }>(sql`
+      select count(*) filter (where created_at > ${new Date(now.getTime() - 60_000)})::int as minute,
+        count(*) filter (where created_at > ${new Date(now.getTime() - 86_400_000)})::int as day
+      from recording_comments where user_id = ${viewerId} and created_at > ${new Date(now.getTime() - 86_400_000)}`);
+    const c = counts.rows[0]!;
+    if (Number(c.minute) >= COMMENT_RATE.perMinute || Number(c.day) >= COMMENT_RATE.perDay) throw tooMany('comment_rate_limited');
+    const [inserted] = await tx.insert(recordingComments).values({ recordingId: id, userId: viewerId, text: check.text, createdAt: now }).returning();
+    return inserted;
+  });
   const me = await ctx.db.execute<OwnerRow>(sql`
     select ${OWNER_COLUMNS} from users u ${COMPETITOR_JOINS} where u.id = ${viewerId}`);
   return { id: row!.id, author: competitor(ctx, me.rows[0]!, viewerId), text: row!.text, createdAt: row!.createdAt.toISOString(), mine: true, canDelete: true };

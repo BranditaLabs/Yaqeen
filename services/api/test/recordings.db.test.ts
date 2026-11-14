@@ -405,6 +405,38 @@ describe.skipIf(!url)('recordings «تلاواتي» (Postgres)', () => {
     expect(off.commentsOn).toBe(false);
   });
 
+  it('comments of an author who left the community, was banned or lost the attestation are hidden (and not counted)', async () => {
+    const owner = await makeUser({ member: true });
+    const id = await approvedRecording(owner);
+    const authors = [await makeUser({ member: true }), await makeUser({ member: true }), await makeUser({ member: true })];
+    for (const a of authors) expect((await app.inject({ method: 'POST', url: `/v1/recordings/${id}/comments`, headers: auth(a.token), payload: { text: 'ما شاء الله' } })).statusCode).toBe(201);
+    const list = async () => (await app.inject({ method: 'GET', url: `/v1/recordings/${id}/comments`, headers: auth(owner.token) })).json().items.map((c: { author: { handle: string } }) => c.author.handle);
+    expect((await list()).sort()).toEqual(authors.map((a) => a.handle).sort());
+    // Left the community (consent withdrawn), banned, attestation gone.
+    await db.update(s.consents).set({ granted: false }).where(eq(s.consents.userId, authors[0]!.id));
+    await db.insert(s.communityMembers).values({ userId: authors[1]!.id, bannedAt: now });
+    await db.update(s.users).set({ adultAttestedAt: null }).where(eq(s.users.id, authors[2]!.id));
+    expect(await list()).toEqual([]);
+    expect((await rec.listMine(app.ctx, owner.id)).items[0]!.commentCount).toBe(0);
+    const view = (await app.inject({ method: 'GET', url: `/v1/community/members/${owner.handle}/recordings`, headers: auth(owner.token) })).json();
+    expect(view.items[0].commentCount).toBe(0);
+  });
+
+  it('comment rate limit holds under a burst of parallel posts', async () => {
+    const owner = await makeUser({ member: true });
+    const fan = await makeUser({ member: true });
+    const id = await approvedRecording(owner);
+    const res = await Promise.all(
+      Array.from({ length: 12 }, (_, i) =>
+        app.inject({ method: 'POST', url: `/v1/recordings/${id}/comments`, headers: auth(fan.token), payload: { text: `جزاك الله خيرا ${i}` } }),
+      ),
+    );
+    expect(res.filter((r) => r.statusCode === 201)).toHaveLength(5);
+    expect(res.filter((r) => r.statusCode === 429)).toHaveLength(7);
+    const [{ n }] = (await db.execute<{ n: number }>(sql`select count(*)::int as n from recording_comments where user_id = ${fan.id}`)).rows as [{ n: number }];
+    expect(n).toBe(5);
+  });
+
   it('comment pagination with a cursor', async () => {
     const owner = await makeUser({ member: true });
     const id = await approvedRecording(owner);
