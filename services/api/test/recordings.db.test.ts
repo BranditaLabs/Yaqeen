@@ -253,6 +253,30 @@ describe.skipIf(!url)('recordings «تلاواتي» (Postgres)', () => {
     expect(r.statusCode).toBe(202);
   });
 
+  it('the in-process queue never makes the last attempt: an outage leaves the recording for the sweeper', async () => {
+    const u = await makeUser({ member: true });
+    const saved = [...rec.RETRY_DELAYS_MS];
+    rec.RETRY_DELAYS_MS.fill(1); // the real backoff, in milliseconds
+    try {
+      const r = await upload(u.token, meta('exact_recitation')); // nothing queued: every attempt fails
+      for (let i = 0; i < 50 && asr.calls < saved.length + 1; i++) await new Promise((res) => setTimeout(res, 20));
+      await new Promise((res) => setTimeout(res, 50)); // a third in-process attempt would land here
+      await rec.drain(app.ctx);
+      const [row] = await db.select({ attempts: s.recordings.asrAttempts, status: s.recordings.status }).from(s.recordings).where(eq(s.recordings.id, r.json().id));
+      expect(row).toEqual({ attempts: 2, status: 'processing' });
+      expect(asr.calls).toBe(2);
+      // The sweeper (≥ 10 min later) makes the third: ASR back → approved, not sent to the human queue.
+      now = new Date(now.getTime() + 11 * 60_000);
+      asr.next = [];
+      asr.answer('exact_recitation');
+      await rec.sweep(app.ctx);
+      const [after] = await db.select({ status: s.recordings.status }).from(s.recordings).where(eq(s.recordings.id, r.json().id));
+      expect(after!.status).toBe('approved');
+    } finally {
+      rec.RETRY_DELAYS_MS.splice(0, rec.RETRY_DELAYS_MS.length, ...saved);
+    }
+  });
+
   it('the ASR finding the audio longer than the file said (413 too_long) rejects it as too_long at once', async () => {
     const u = await makeUser({ member: true });
     asr.next.push(new AsrTooLong());
@@ -269,6 +293,36 @@ describe.skipIf(!url)('recordings «تلاواتي» (Postgres)', () => {
     expect(res.statusCode).toBe(400);
     expect(res.json().error.code).toBe('recording_too_long');
     expect(asr.calls).toBe(0);
+  });
+
+  it('the sweeper keeps to its time budget; the admin rollover makes no AI calls', async () => {
+    const u = await makeUser({ member: true });
+    const ids: string[] = [];
+    for (let i = 0; i < 3; i++) ids.push((await upload(u.token, meta('exact_recitation'))).json().id);
+    await rec.drain(app.ctx); // each first attempt fails → processing, attempts 1
+    now = new Date(now.getTime() + 11 * 60_000);
+    // A hanging ASR: each call takes 150 ms and fails.
+    let slow = 0;
+    app.ctx.asr = {
+      verify: async () => {
+        slow++;
+        await new Promise((res) => setTimeout(res, 150));
+        throw new AsrUnavailable('timeout');
+      },
+    };
+    await rec.sweep(app.ctx, { budgetMs: 100 });
+    expect(slow).toBe(1); // the rest wait for the next run
+    // The admin «rollover» (an HTTP request) runs the job without touching the ASR.
+    slow = 0;
+    const [sa] = await db.insert(s.adminUsers).values({ name: 'sa', email: `sa${++seq}@x.com`, role: 'super_admin', passwordHash: 'x', totpSecret: 'x' }).returning();
+    const token = await signAdminToken({ sub: sa!.id, role: 'super_admin' }, env.ADMIN_JWT_SECRET);
+    now = new Date(now.getTime() + 11 * 60_000);
+    const roll = await app.inject({ method: 'POST', url: '/admin/competitions/leagues/rollover', headers: auth(token), payload: { reason: 'rollover now' } });
+    expect(roll.statusCode).toBe(200);
+    expect(slow).toBe(0);
+    const left = await db.select({ status: s.recordings.status }).from(s.recordings).where(sql`${s.recordings.id} in (${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)})`);
+    expect(left.every((x) => x.status === 'processing')).toBe(true);
+    for (const id of ids) await rec.remove(app.ctx, u.id, id); // leave no stuck checks for later sweeps
   });
 
   it('limits: 3 per profile, 10 uploads/verifications per Cairo day', async () => {

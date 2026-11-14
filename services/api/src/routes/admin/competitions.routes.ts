@@ -300,7 +300,8 @@ export const adminCompetitionsRoutes: FastifyPluginAsync = async (app) => {
   app.post('/leagues/rollover', { preHandler: superOnly }, async (req) => {
     const { reason } = AdminReason.parse(req.body);
     await db.transaction((tx) => audit(tx, req, { action: 'leagues.rollover', targetType: 'config', targetId: LEAGUES_CONFIG_KEY, reason }));
-    return runCommunityJob(ctx);
+    // Inside an HTTP request: no ASR calls (stuck «تلاواتي» checks wait for the scheduled job).
+    return runCommunityJob(ctx, { verifyRecordings: false });
   });
 
   /* ------------------------------------------------------------ leaderboard */

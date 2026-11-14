@@ -9,8 +9,8 @@
  *      public lifetime, level boards);
  *   4. close tournaments past their end in batches of 1,000 (finals, badges, consent);
  *   5. delete resolved reports older than 180 days;
- *   6. the «تلاواتي» sweep: retry recordings stuck in the AI check for more than 10 minutes (to the
- *      review queue after 3 failures), delete moderator-removed recordings after their 7-day restore
+ *   6. the «تلاواتي» sweep: retry recordings stuck in the AI check for more than 10 minutes, within a
+ *      3-minute budget (to the review queue after 3 failures; no AI calls from the admin «rollover»), delete moderator-removed recordings after their 7-day restore
  *      window and drop resolved recording reports after 180 days.
  * It never touches `points_ledger` and needs no Redis. A Postgres advisory lock makes overlapping
  * runs (or the admin «rollover») skip instead of racing.
@@ -47,8 +47,16 @@ export interface CommunityJobResult {
 /** The job's context: the community one plus the ASR client for the recordings sweep (null = none). */
 export type CommunityJobCtx = CommunityCtx & Pick<VerifyCtx, 'asr'>;
 
+/**
+ * What a run does beyond the defaults: the admin «rollover» runs inside an HTTP request and passes
+ * `verifyRecordings: false` — no ASR calls there (stuck AI checks wait for the scheduled job).
+ */
+export interface CommunityJobOptions {
+  verifyRecordings?: boolean;
+}
+
 /** The job body (also run by the admin «rollover»). */
-export async function runCommunity(ctx: CommunityJobCtx): Promise<CommunityJobResult> {
+export async function runCommunity(ctx: CommunityJobCtx, opts: CommunityJobOptions = {}): Promise<CommunityJobResult> {
   const week = weekWindow(ctx.now());
   await ensureWeek(ctx.db, ctx, week.startsOn, true);
   await ensureWeek(ctx.db, ctx, addDays(week.startsOn, 7), false);
@@ -57,14 +65,14 @@ export async function runCommunity(ctx: CommunityJobCtx): Promise<CommunityJobRe
   const t = await closeDueTournaments(ctx);
   const del = await ctx.db.execute(sql`
     delete from community_reports where resolved_at is not null and resolved_at < ${new Date(ctx.now().getTime() - REPORT_RETENTION_DAYS * 86_400_000)}`);
-  const recordings = await sweepRecordings(ctx);
+  const recordings = await sweepRecordings(ctx, { verify: opts.verifyRecordings ?? true });
   return { weeksClosed: closed.weeks, groupsClosed: closed.groups, snapshot, tournamentsClosed: t.closed, reportsDeleted: del.rowCount ?? 0, recordings };
 }
 
 /** Under the job lock (skips when another run holds it). */
-export async function runCommunityJob(ctx: CommunityJobCtx): Promise<{ ran: boolean; result?: CommunityJobResult }> {
+export async function runCommunityJob(ctx: CommunityJobCtx, opts: CommunityJobOptions = {}): Promise<{ ran: boolean; result?: CommunityJobResult }> {
   const pool = (ctx.db as unknown as { $client: pg.Pool }).$client;
-  const res = await withJobLock(pool, 'community', () => runCommunity(ctx));
+  const res = await withJobLock(pool, 'community', () => runCommunity(ctx, opts));
   return res.ran ? { ran: true, result: res.result } : { ran: false };
 }
 

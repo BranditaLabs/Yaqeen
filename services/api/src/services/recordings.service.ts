@@ -63,10 +63,17 @@ import { featureOn as flagOn } from './community-settings.service.js';
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 type DbOrTx = Db | Tx;
 
-/** Failed AI-check attempts before a recording goes to a reviewer instead. */
+/**
+ * Failed AI-check attempts before a recording goes to a reviewer instead. The in-process queue makes at
+ * most `1 + RETRY_DELAYS_MS.length` (2) of them, so the last one is always the sweeper's — at least
+ * 10 minutes after queueing, in production at the next hourly community job: a short ASR outage or a
+ * slow cold start does not send every shared recording to the human queue.
+ */
 export const MAX_ASR_ATTEMPTS = 3;
 /** The sweeper retries `processing` recordings queued longer ago than this. */
 export const SWEEP_AFTER_MS = 10 * 60_000;
+/** Wall-clock budget for the sweeper's AI checks per run (each may take up to `ASR_TIMEOUT_MS`); the rest wait for the next run. */
+export const SWEEP_BUDGET_MS = 180_000;
 /** Removed recordings and support-removed comment text are kept this long for «restore», then deleted. */
 export const REMOVED_RETENTION_DAYS = 7;
 /** Transcript snippet kept for the reviewer while in the queue. */
@@ -448,8 +455,11 @@ function queueOf(ctx: AppContext): Queue {
   return q;
 }
 
-/** Backoff before retry n (1-based): 5 s, 30 s; the sweeper takes over after that. */
-export const RETRY_DELAYS_MS = [5_000, 30_000];
+/**
+ * In-process backoff before retry n (1-based): one retry after 30 s. After that the recording stays
+ * `processing` and the sweeper takes over (it makes the last of `MAX_ASR_ATTEMPTS`).
+ */
+export const RETRY_DELAYS_MS = [30_000];
 
 /** Verify in the background, one at a time per process (bounded concurrency 1). */
 export function schedule(ctx: AppContext, id: string, delayMs = 0) {
@@ -566,10 +576,14 @@ export async function verifyOne(ctx: VerifyCtx, id: string): Promise<'done' | 'r
 
 /**
  * Sweeper (step 6 of the hourly community job): retry `processing` recordings stuck longer than 10 min (each
- * failure counts; after 3 → needs_review); delete recordings removed by a moderator past the 7-day
- * restore window and wipe the text of support-removed comments past it.
+ * failure counts; after 3 → needs_review) within a wall-clock budget (`SWEEP_BUDGET_MS`; the rest wait
+ * for the next run); delete recordings removed by a moderator past the 7-day restore window and wipe the
+ * text of support-removed comments past it. `verify: false` (the admin «rollover» request) makes no AI
+ * calls at all.
  */
-export async function sweep(ctx: VerifyCtx): Promise<{ retried: number; toReview: number; purged: number }> {
+export async function sweep(ctx: VerifyCtx, opts: { verify?: boolean; budgetMs?: number } = {}): Promise<{ retried: number; toReview: number; purged: number }> {
+  const verify = opts.verify ?? true;
+  const deadline = performance.now() + (opts.budgetMs ?? SWEEP_BUDGET_MS);
   const now = ctx.now();
   const stale = await ctx.db.execute<{ id: string; attempts: number }>(sql`
     select id, asr_attempts as attempts from recordings
@@ -582,6 +596,7 @@ export async function sweep(ctx: VerifyCtx): Promise<{ retried: number; toReview
       toReview++;
       continue;
     }
+    if (!verify || performance.now() >= deadline) continue;
     await ctx.db.update(recordings).set({ queuedAt: now }).where(eq(recordings.id, r.id));
     const out = await verifyOne(ctx, r.id);
     if (out === 'retry') retried++;
