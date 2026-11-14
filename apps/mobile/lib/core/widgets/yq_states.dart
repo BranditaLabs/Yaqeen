@@ -151,6 +151,43 @@ class YqFadeSwap extends StatelessWidget {
       );
 }
 
+/// The sliver form of [YqFadeSwap] for lazy lists that replace a skeleton: the list fades in over
+/// 200 ms when it first builds (no rebuild per frame). Instant under reduce-motion.
+class YqSliverFadeIn extends StatefulWidget {
+  const YqSliverFadeIn({super.key, required this.sliver});
+  final Widget sliver;
+
+  @override
+  State<YqSliverFadeIn> createState() => _YqSliverFadeInState();
+}
+
+class _YqSliverFadeInState extends State<YqSliverFadeIn> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, duration: YqFadeSwap.duration);
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) {
+      _c.value = 1;
+    } else {
+      _c.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      SliverFadeTransition(opacity: CurvedAnimation(parent: _c, curve: Curves.easeOut), sliver: widget.sliver);
+}
+
 /// Skeleton of the real layout: glass blocks under one 1.6 s shimmer (never a bare spinner on first paint).
 class YqSkeleton extends StatefulWidget {
   const YqSkeleton({super.key, required this.child});

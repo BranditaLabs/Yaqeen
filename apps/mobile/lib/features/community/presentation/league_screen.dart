@@ -357,6 +357,11 @@ class _History extends ConsumerWidget {
     final locale = Localizations.localeOf(context).languageCode;
     final async = ref.watch(leagueHistoryProvider);
     final items = async.valueOrNull?.value;
+    // The skeleton rows give way to the past weeks with the shared 200 ms fade.
+    return YqFadeSwap(child: KeyedSubtree(key: ValueKey(items == null), child: _body(context, t, locale, async, items)));
+  }
+
+  Widget _body(BuildContext context, AppLocalizations t, String locale, AsyncValue<Object?> async, List<LeagueHistoryItem>? items) {
     if (items == null) {
       if (async.hasError) return const SizedBox.shrink();
       return const Padding(

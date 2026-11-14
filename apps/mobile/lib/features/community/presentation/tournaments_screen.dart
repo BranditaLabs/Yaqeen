@@ -73,6 +73,7 @@ class _TournamentsScreenState extends ConsumerState<TournamentsScreen> {
         segmented,
         const SizedBox(height: YqSpace.l),
         const YqSkeleton(
+          key: ValueKey('tournaments-loading'),
           child: Column(
             children: [
               YqSkeletonBox(height: 120, radius: YqRadii.card),
@@ -91,10 +92,19 @@ class _TournamentsScreenState extends ConsumerState<TournamentsScreen> {
         YqOfflineBanner(offline: fresh.offline),
         segmented,
         const SizedBox(height: YqSpace.l),
-        if (list.isEmpty)
-          YqEmptyState(icon: YqIcons.trophy, title: t.cmTournamentsEmpty)
-        else
-          for (final x in list) ...[TournamentCard(tournament: x), const SizedBox(height: YqSpace.m)],
+        // The skeleton cards give way with the shared 200 ms fade.
+        YqFadeSwap(
+          child: Column(
+            key: ValueKey('tournaments-$_phase'),
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (list.isEmpty)
+                YqEmptyState(icon: YqIcons.trophy, title: t.cmTournamentsEmpty)
+              else
+                for (final x in list) ...[TournamentCard(tournament: x), const SizedBox(height: YqSpace.m)],
+            ],
+          ),
+        ),
         const CommunityFooter(),
       ],
     );

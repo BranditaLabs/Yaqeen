@@ -255,22 +255,25 @@ class _Body extends ConsumerWidget {
     final notifier = ref.read(standingsProvider(x.id).notifier);
     return [
       const SliverToBoxAdapter(child: SizedBox(height: YqSpace.xl)),
-      SliverList.builder(
-        itemCount: rows.length,
-        itemBuilder: (context, i) {
-          // Near the end of what's loaded: fetch the next snapshot page. After a failed page it
-          // waits for the retry row below — never a request per frame.
-          if (i >= rows.length - 5 && page.nextCursor != null && !page.loadingMore && !page.loadFailed) {
-            WidgetsBinding.instance.addPostFrameCallback((_) => notifier.loadMore());
-          }
-          final c = rows[i];
-          return CompetitorRow(
-            key: ValueKey(c.handle),
-            competitor: c,
-            podium: podium,
-            onLongPress: c.me ? null : () => showReportSheet(context, c),
-          );
-        },
+      // The skeleton rows give way with the shared 200 ms fade.
+      YqSliverFadeIn(
+        sliver: SliverList.builder(
+          itemCount: rows.length,
+          itemBuilder: (context, i) {
+            // Near the end of what's loaded: fetch the next snapshot page. After a failed page it
+            // waits for the retry row below — never a request per frame.
+            if (i >= rows.length - 5 && page.nextCursor != null && !page.loadingMore && !page.loadFailed) {
+              WidgetsBinding.instance.addPostFrameCallback((_) => notifier.loadMore());
+            }
+            final c = rows[i];
+            return CompetitorRow(
+              key: ValueKey(c.handle),
+              competitor: c,
+              podium: podium,
+              onLongPress: c.me ? null : () => showReportSheet(context, c),
+            );
+          },
+        ),
       ),
       if (page.loadingMore) const SliverToBoxAdapter(child: CompetitorSkeleton(rows: 2)),
       if (page.loadFailed)
