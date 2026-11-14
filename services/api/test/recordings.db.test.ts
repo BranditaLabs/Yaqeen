@@ -17,7 +17,7 @@ import { loadEnv } from '../src/config/env.js';
 import { createDb, type Db } from '../src/db/client.js';
 import * as s from '../src/db/schema.js';
 import { AlAdhanClient } from '../src/integrations/aladhan.js';
-import { type AsrClient, AsrUnavailable } from '../src/integrations/asr.js';
+import { type AsrClient, AsrTooLong, AsrUnavailable } from '../src/integrations/asr.js';
 import { FcmSender } from '../src/integrations/fcm.js';
 import { ShopifyClient } from '../src/integrations/shopify.js';
 import { buildMultipart } from '../src/lib/multipart.js';
@@ -251,6 +251,24 @@ describe.skipIf(!url)('recordings «تلاواتي» (Postgres)', () => {
     const [after] = await db.select({ status: s.recordings.status }).from(s.recordings).where(eq(s.recordings.id, r2.json().id));
     expect(after!.status).toBe('needs_review');
     expect(r.statusCode).toBe(202);
+  });
+
+  it('the ASR finding the audio longer than the file said (413 too_long) rejects it as too_long at once', async () => {
+    const u = await makeUser({ member: true });
+    asr.next.push(new AsrTooLong());
+    const r = await upload(u.token, meta('exact_recitation'));
+    await rec.drain(app.ctx);
+    expect((await rec.listMine(app.ctx, u.id)).items.find((x) => x.id === r.json().id)).toMatchObject({ status: 'rejected', rejectReason: 'too_long' });
+    expect(asr.calls).toBe(1);
+  });
+
+  it('a forged header length is refused at upload (the sample table and frames tell the truth)', async () => {
+    const u = await makeUser({ member: true });
+    const forged = buildM4a({ durationMs: 125_000, headerMs: 30_000, payload: 150_000 });
+    const res = await upload(u.token, meta('exact_recitation'), forged);
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe('recording_too_long');
+    expect(asr.calls).toBe(0);
   });
 
   it('limits: 3 per profile, 10 uploads/verifications per Cairo day', async () => {

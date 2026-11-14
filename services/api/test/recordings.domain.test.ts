@@ -7,10 +7,11 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { RECITATION_MATCH } from '@yaqeen/contracts';
 import { checkComment, foldDigits, foldTokens, hasBlockedWord, hasLink, hasPhone, parseBlocklist } from '../src/domain/comments.js';
-import { inspectM4a, matchesRecordingFormat } from '../src/domain/m4a.js';
+import { durations, inspectM4a, matchesRecordingFormat } from '../src/domain/m4a.js';
+import { checkAudio } from '../src/services/recordings.service.js';
 import { expectedAyat, validRange } from '../src/domain/quran-words.js';
 import { align, matchRecitation, normalizeArabic, normWord, opening, sameWord, splitWords } from '../src/domain/recitation-match.js';
-import { buildM4a } from './helpers/m4a.js';
+import { box, buildM4a, u32 } from './helpers/m4a.js';
 
 const dir = new URL('../../../packages/contracts/fixtures/recitation-match/', import.meta.url);
 const load = <T>(name: string): T => JSON.parse(readFileSync(fileURLToPath(new URL(name, dir)), 'utf8')) as T;
@@ -95,8 +96,57 @@ describe('recitation match — behaviour', () => {
 describe('m4a inspection', () => {
   it('reads duration, channels, rate and AAC-LC', () => {
     const info = inspectM4a(buildM4a({ durationMs: 12_345 }))!;
-    expect(info).toEqual({ durationMs: 12_345, channels: 1, sampleRate: 16_000, audioObjectType: 2 });
+    expect(info).toEqual({ durationMs: 12_345, headerDurationMs: 12_345, frames: 193, channels: 1, sampleRate: 16_000, audioObjectType: 2 });
     expect(matchesRecordingFormat(info)).toBe(true);
+    expect(durations(info, 250)).toEqual({ durationMs: 12_345, longestMs: 12_352, consistent: true });
+  });
+  it('the true length: a forged mdhd cannot pass a long clip as short', () => {
+    // ~125 s of AAC frames and timing behind a header claiming 30 s.
+    const forged = inspectM4a(buildM4a({ durationMs: 125_000, headerMs: 30_000, payload: 190_000 }))!;
+    expect(forged.headerDurationMs).toBe(30_000);
+    expect(forged.durationMs).toBe(125_000);
+    expect(durations(forged, 250)).toMatchObject({ longestMs: 125_056, consistent: false }); // 1954 frames × 64 ms
+    // Timing table forged short too: the frame count still tells.
+    const frames = inspectM4a(buildM4a({ durationMs: 125_000, headerMs: 30_000, sttsMs: 30_000 }))!;
+    expect(durations(frames, 250)).toMatchObject({ durationMs: 30_000, longestMs: 125_056, consistent: false });
+    // Inconsistent but short (header says 10 s, the audio is 20 s).
+    expect(durations(inspectM4a(buildM4a({ durationMs: 20_000, headerMs: 10_000 }))!, 250).consistent).toBe(false);
+  });
+  it('checkAudio refuses a forged length as too long, a self-contradicting file as bad format', () => {
+    const code = (b: Buffer) => {
+      try {
+        checkAudio(b);
+        return 'ok';
+      } catch (e) {
+        return (e as { code: string }).code;
+      }
+    };
+    expect(code(buildM4a({ durationMs: 125_000, headerMs: 30_000, payload: 190_000 }))).toBe('recording_too_long');
+    expect(code(buildM4a({ durationMs: 125_000, headerMs: 29_000, sttsMs: 29_000 }))).toBe('recording_too_long');
+    expect(code(buildM4a({ durationMs: 20_000, headerMs: 10_000 }))).toBe('recording_bad_format');
+    expect(code(buildM4a({ durationMs: 12_000, frames: 0, sttsMs: 0, headerMs: 0 }))).toBe('recording_bad_format');
+    expect(code(buildM4a({ soundTracks: 2 }))).toBe('recording_bad_format');
+    expect(code(buildM4a({ durationMs: 29_990 }))).toBe('ok');
+    expect(checkAudio(buildM4a({ durationMs: 9_500 }))).toBe(9_500);
+  });
+  it('truncated or malformed boxes are null, never a throw', () => {
+    // An mdhd cut short at the very end of the file (no mdat after it).
+    const hdlr = box('hdlr', Buffer.alloc(4), u32(0), Buffer.from('soun', 'latin1'));
+    const ftyp = box('ftyp', Buffer.from('M4A ', 'latin1'), u32(0));
+    for (const mdhd of [box('mdhd', Buffer.from([0, 0, 0, 0]), u32(0)), box('mdhd', Buffer.from([1, 0, 0, 0]), Buffer.alloc(18))]) {
+      const file = Buffer.concat([ftyp, box('moov', box('trak', box('mdia', hdlr, box('minf', box('stbl', box('stsd', Buffer.alloc(8)), box('stts', Buffer.alloc(8)), box('stsz', Buffer.alloc(12)))), mdhd)))]);
+      expect(() => inspectM4a(file)).not.toThrow();
+      expect(inspectM4a(file)).toBeNull();
+      expect(() => checkAudio(file)).toThrow(expect.objectContaining({ code: 'recording_bad_format' }));
+    }
+    // A stts claiming more entries than it holds; an hdlr too short to name its type.
+    const good = buildM4a();
+    const at = good.indexOf(Buffer.from('stts', 'latin1'));
+    const lying = Buffer.from(good);
+    lying.writeUInt32BE(1_000_000, at + 8);
+    expect(inspectM4a(lying)).toBeNull();
+    const tiny = Buffer.concat([ftyp, box('moov', box('trak', box('mdia', box('hdlr', Buffer.alloc(2)))))]);
+    expect(inspectM4a(tiny)).toBeNull();
   });
   it('64-bit mdhd', () => expect(inspectM4a(buildM4a({ durationMs: 31_500, v1: true }))!.durationMs).toBe(31_500));
   it('stereo, 44.1 kHz or HE-AAC are not the format', () => {

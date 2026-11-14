@@ -2,7 +2,9 @@
  * Client of the internal ASR service (services/asr): `POST {ASR_URL}/verify` with the raw .m4a and the
  * shared secret in `X-ASR-Token`. The service is self-hosted in our own Azure region with internal
  * ingress only; it stores and logs nothing. No user id or any other personal data is sent — only the
- * audio bytes. Failures are counted and surfaced as `AsrUnavailable` (the caller retries with backoff).
+ * audio bytes. Failures are counted and surfaced as `AsrUnavailable` (the caller retries with backoff);
+ * the two definite answers are `AsrUndecodable` (422) and `AsrTooLong` (413 `too_long`: the decoded audio
+ * is longer than the service's 31 s) — final, never retried.
  */
 import { AsrVerifyResponse } from '@yaqeen/contracts';
 import { externalCalls } from '../lib/metrics.js';
@@ -19,6 +21,17 @@ export class AsrUndecodable extends Error {
   constructor() {
     super('asr: undecodable audio');
     this.name = 'AsrUndecodable';
+  }
+}
+
+/**
+ * The service decoded the audio and it is longer than it accepts (HTTP 413 `too_long`): the file's own
+ * length fields understated it — the recording is rejected as `too_long`.
+ */
+export class AsrTooLong extends Error {
+  constructor() {
+    super('asr: audio too long');
+    this.name = 'AsrTooLong';
   }
 }
 
@@ -49,6 +62,13 @@ export class HttpAsrClient implements AsrClient {
     if (res.status === 422) {
       externalCalls.inc({ service: 'asr', outcome: 'ok' });
       throw new AsrUndecodable();
+    }
+    if (res.status === 413) {
+      const body = (await res.json().catch(() => null)) as { error?: { code?: string } } | null;
+      if (body?.error?.code === 'too_long') {
+        externalCalls.inc({ service: 'asr', outcome: 'ok' });
+        throw new AsrTooLong();
+      }
     }
     if (!res.ok) {
       externalCalls.inc({ service: 'asr', outcome: 'error' });

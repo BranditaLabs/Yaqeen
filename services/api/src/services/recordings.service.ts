@@ -49,10 +49,10 @@ import type { AppContext } from '../context.js';
 import type { Db } from '../db/client.js';
 import { recordingComments, recordingDaily, recordingReactions, recordingReports, recordings } from '../db/schema.js';
 import { checkComment } from '../domain/comments.js';
-import { inspectM4a, matchesRecordingFormat } from '../domain/m4a.js';
+import { durations, inspectM4a, matchesRecordingFormat } from '../domain/m4a.js';
 import { expectedAyat, validRange } from '../domain/quran-words.js';
 import { matchRecitation } from '../domain/recitation-match.js';
-import { AsrUndecodable } from '../integrations/asr.js';
+import { AsrTooLong, AsrUndecodable } from '../integrations/asr.js';
 import { audit } from '../lib/audit.js';
 import { AppError, badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { captureError } from '../lib/observability.js';
@@ -289,14 +289,19 @@ async function ownOne(ctx: AppContext, uid: string, id: string): Promise<Recordi
   return toRecording(row, extra.get(id)!);
 }
 
-/** Validate an upload's bytes: size, container, AAC-LC mono 16 kHz, duration. Returns the file's duration. */
+/**
+ * Validate an upload's bytes: size, container, AAC-LC mono 16 kHz, duration. The limit is checked
+ * against the longest of the header (`mdhd`), the sample timing (`stts`) and the decoded frames, and the
+ * three must agree — a forged header cannot pass a long clip as 30 s. Returns the file's duration.
+ */
 export function checkAudio(audio: Buffer): number {
   if (audio.length > RECORDING_MAX_BYTES) throw new AppError(413, 'recording_too_large');
   const info = inspectM4a(audio);
   if (!info || !matchesRecordingFormat(info)) throw badRequest('recording_bad_format');
-  if (info.durationMs > RECORDING_MAX_MS + RECORDING_DURATION_TOLERANCE_MS) throw badRequest('recording_too_long');
-  if (info.durationMs <= 0) throw badRequest('recording_bad_format');
-  return info.durationMs;
+  const d = durations(info, RECORDING_DURATION_TOLERANCE_MS);
+  if (d.longestMs > RECORDING_MAX_MS + RECORDING_DURATION_TOLERANCE_MS) throw badRequest('recording_too_long');
+  if (!d.consistent || d.durationMs <= 0 || info.frames <= 0) throw badRequest('recording_bad_format');
+  return d.durationMs;
 }
 
 /** POST /v1/me/recordings → 202 with the new recording. */
@@ -512,10 +517,11 @@ export async function verifyOne(ctx: VerifyCtx, id: string): Promise<'done' | 'r
   try {
     res = await ctx.asr.verify(rec.audio);
   } catch (err) {
-    if (err instanceof AsrUndecodable) {
+    if (err instanceof AsrUndecodable || err instanceof AsrTooLong) {
+      // Definite answers, never retried: undecodable → unclear; longer than the file claimed → too_long.
       await ctx.db
         .update(recordings)
-        .set({ status: 'rejected', rejectReason: 'unclear', queuedAt: null, verifiedAt: now, clientScore: null, clientWords: null })
+        .set({ status: 'rejected', rejectReason: err instanceof AsrTooLong ? 'too_long' : 'unclear', queuedAt: null, verifiedAt: now, clientScore: null, clientWords: null })
         .where(guard);
       return 'done';
     }
