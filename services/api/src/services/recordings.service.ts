@@ -110,6 +110,15 @@ async function identity(db: DbOrTx, uid: string): Promise<Identity> {
   return { isGuest: row.is_guest, active: row.status === 'active', attested: row.attested, community: row.community, banned: row.banned, handle: row.handle };
 }
 
+/**
+ * Listening to members' recordings and reading their comments need a signed-in account: a guest token
+ * (minted without signing in) or an inactive account is refused before anything is looked up.
+ */
+async function requireAccount(db: DbOrTx, uid: string) {
+  const id = await identity(db, uid);
+  if (id.isGuest || !id.active) throw forbidden('account_required');
+}
+
 /** Sharing, reacting and commenting need an account, the 18+ attestation and the community opt-in. */
 function requireMember(id: Identity) {
   if (id.isGuest) throw forbidden('account_required');
@@ -628,11 +637,12 @@ async function visibleOne(ctx: AppContext, viewerId: string, id: string): Promis
   return row;
 }
 
-/** GET /v1/community/members/:handle/recordings — any signed-in user may listen. */
+/** GET /v1/community/members/:handle/recordings — any signed-in user (not a guest) may listen. */
 export async function memberRecordings(ctx: AppContext, viewerId: string, handle: string): Promise<MemberRecordings> {
   await requireFeature(ctx).catch(() => {
     throw notFound('recordings');
   });
+  await requireAccount(ctx.db, viewerId);
   const h = handle.trim().replace(/^@/, '').toLowerCase();
   const owner = await ctx.db.execute<OwnerRow>(sql`
     select ${OWNER_COLUMNS} from users u ${COMPETITOR_JOINS}
@@ -654,6 +664,7 @@ export async function memberAudio(ctx: AppContext, viewerId: string, id: string)
   await requireFeature(ctx).catch(() => {
     throw notFound('recording');
   });
+  await requireAccount(ctx.db, viewerId);
   await visibleOne(ctx, viewerId, id);
   const [row] = await ctx.db.select({ audio: recordings.audio }).from(recordings).where(eq(recordings.id, id));
   return row!.audio;
@@ -719,6 +730,7 @@ export async function listComments(ctx: AppContext, viewerId: string, id: string
   await requireFeature(ctx).catch(() => {
     throw notFound('recording');
   });
+  await requireAccount(ctx.db, viewerId);
   const rec = await visibleOne(ctx, viewerId, id);
   const after = decodeCursor(cursor);
   const rows = await ctx.db.execute<CommentRow>(sql`

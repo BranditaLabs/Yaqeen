@@ -315,6 +315,21 @@ describe.skipIf(!url)('recordings «تلاواتي» (Postgres)', () => {
     await db.update(s.consents).set({ granted: true }).where(eq(s.consents.userId, owner.id));
   });
 
+  it('guests (a token minted without signing in) cannot list, hear or read the comments of members recordings', async () => {
+    const owner = await makeUser({ member: true });
+    const id = await approvedRecording(owner);
+    const guest = await makeUser({ guest: true });
+    for (const url of [`/v1/community/members/${owner.handle}/recordings`, `/v1/recordings/${id}/audio`, `/v1/recordings/${id}/comments`]) {
+      const r = await app.inject({ method: 'GET', url, headers: auth(guest.token) });
+      expect(r.statusCode, url).toBe(403);
+      expect(r.json().error.code, url).toBe('account_required');
+    }
+    // An inactive account neither.
+    const gone = await makeUser();
+    await db.update(s.users).set({ status: 'suspended' }).where(eq(s.users.id, gone.id));
+    expect((await app.inject({ method: 'GET', url: `/v1/recordings/${id}/audio`, headers: auth(gone.token) })).statusCode).toBe(403);
+  });
+
   it('reactions: idempotent, changeable, removable; need the community opt-in; blocked → blocked', async () => {
     const owner = await makeUser({ member: true });
     const fan = await makeUser({ member: true });
