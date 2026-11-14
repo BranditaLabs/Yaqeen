@@ -32,21 +32,26 @@ class CountUp extends StatelessWidget {
     final s = tabular(style);
     final last = _text(value);
     if (reduceMotion(context)) return Text(last, style: s, textAlign: textAlign);
+    final end = value.toDouble();
     return Semantics(
       label: last,
       excludeSemantics: true,
-      child: Stack(
-        alignment: alignment,
-        children: [
-          // The final text holds the width; the counting text is drawn over it.
-          Visibility.maintain(visible: false, child: Text(last, style: s, textAlign: textAlign)),
-          TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: value.toDouble()),
-            duration: Duration(milliseconds: 700 + math.min(value.abs(), 600)),
-            curve: Curves.easeOutCubic,
-            builder: (context, v, _) => Text(_text(v), style: s, textAlign: textAlign, maxLines: 1, softWrap: false),
-          ),
-        ],
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: end),
+        duration: Duration(milliseconds: 700 + math.min(value.abs(), 600)),
+        curve: Curves.easeOutCubic,
+        builder: (context, v, _) {
+          if (v == end) return Text(last, style: s, textAlign: textAlign);
+          // While counting, the final text (invisible) holds the width and the count is drawn
+          // over it; once done, the final text alone.
+          return Stack(
+            alignment: alignment,
+            children: [
+              Visibility.maintain(visible: false, child: Text(last, style: s, textAlign: textAlign)),
+              Text(_text(v), style: s, textAlign: textAlign, maxLines: 1, softWrap: false),
+            ],
+          );
+        },
       ),
     );
   }

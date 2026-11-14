@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:yaqeen/core/config/remote_config.dart';
+import 'package:yaqeen/core/design/motion.dart';
 import 'package:yaqeen/core/di/providers.dart';
 import 'package:yaqeen/core/network/api_client.dart';
 import 'package:yaqeen/core/network/connectivity.dart';
@@ -21,6 +22,8 @@ import 'package:yaqeen/core/storage/kv_store.dart';
 import 'package:yaqeen/core/theme/tokens.dart';
 import 'package:yaqeen/core/time/zoned.dart';
 import 'package:yaqeen/core/widgets/controls.dart';
+import 'package:yaqeen/core/widgets/yq_count.dart';
+import 'package:yaqeen/core/widgets/yq_avatar.dart';
 import 'package:yaqeen/core/widgets/liquid_glass.dart';
 import 'package:yaqeen/core/widgets/yq_icon.dart';
 import 'package:yaqeen/core/widgets/yq_layout.dart';
@@ -357,10 +360,43 @@ void main() {
     await dispose(tester);
   });
 
+  testWidgets('reduce-motion: the end state at once (ring, numbers, flip) and everything settles', (tester) async {
+    size(tester);
+    await kv.write(ProfileRepository.lastSeenLevelKey, '2'); // a level-up is owed too
+    await tester.pumpWidget(
+      harness(
+        Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(disableAnimations: true),
+            child: const NameRevertToaster(child: Scaffold(body: ProfileScreen())),
+          ),
+        ),
+        overrides: await signedIn(config: flags({Flags.leagues: true})),
+        kv: kv,
+      ),
+    );
+    await settle(tester);
+    // The toast comes at once (no light to wait for); numbers are plain text, not rolling.
+    expect(find.text('بلغت مستوى مواظب'), findsOneWidget);
+    expect(find.text('1,800 للمستوى التالي'), findsOneWidget);
+    expect(find.text('820'), findsOneWidget);
+    expect(find.byType(YqRollingNumber), findsWidgets);
+    expect(find.byType(Transform).evaluate().where((e) => e.widget is Transform && (e.widget as Transform).transform.storage[11] != 0), isEmpty);
+    await tester.tap(find.text('الرصيد'));
+    await tester.pump();
+    expect(find.text('هذا الأسبوع'), findsOneWidget); // flipped without turning
+    expect(find.text('145'), findsOneWidget);
+    await tester.pumpAndSettle(); // no ticker left running
+    await dispose(tester);
+  });
+
   testWidgets('level-up: the glint and «بلغت مستوى…» play once, then the level is marked seen', (tester) async {
     size(tester);
     await kv.write(ProfileRepository.lastSeenLevelKey, '2');
     await pumpProfile(tester, await signedIn());
+    // The light sweeps round the ring first; the quiet toast follows it.
+    expect(tester.widget<YqLevelAvatar>(find.byKey(const ValueKey('profile-avatar'))).achieved, isTrue);
+    await tester.pump(Motion.glint);
     expect(find.text('بلغت مستوى مواظب'), findsOneWidget);
     expect(await kv.read(ProfileRepository.lastSeenLevelKey), '3');
     await tester.pump(const Duration(seconds: 3));
