@@ -729,7 +729,8 @@ function decodeCursor(cursor: string | undefined): { at: Date; id: string } | nu
   if (!cursor) return null;
   const [at, id] = Buffer.from(cursor, 'base64url').toString('utf8').split('|');
   const d = new Date(at ?? '');
-  if (Number.isNaN(d.getTime()) || !/^[0-9a-f-]{36}$/i.test(id ?? '')) throw badRequest('invalid_cursor');
+  // The canonical UUID shape only: anything else would reach Postgres' ::uuid cast as a 500.
+  if (Number.isNaN(d.getTime()) || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id ?? '')) throw badRequest('invalid_cursor');
   return { at: d, id: id! };
 }
 

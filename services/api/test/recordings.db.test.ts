@@ -449,6 +449,13 @@ describe.skipIf(!url)('recordings «تلاواتي» (Postgres)', () => {
     const p2 = (await app.inject({ method: 'GET', url: `/v1/recordings/${id}/comments?cursor=${p1.nextCursor}`, headers: auth(owner.token) })).json();
     expect(p2.items.map((c: { text: string }) => c.text)).toEqual(['تعليق 20', 'تعليق 21']);
     expect(p2.nextCursor).toBeNull();
+    // A malformed cursor id is a 400, never a Postgres cast error.
+    for (const bad of ['-'.repeat(36), 'a'.repeat(36), 'zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz']) {
+      const cursor = Buffer.from(`2026-01-01T00:00:00.000Z|${bad}`, 'utf8').toString('base64url');
+      const r = await app.inject({ method: 'GET', url: `/v1/recordings/${id}/comments?cursor=${cursor}`, headers: auth(owner.token) });
+      expect(r.statusCode, bad).toBe(400);
+      expect(r.json().error.code).toBe('invalid_cursor');
+    }
   });
 
   it('3 reports hold a recording out of every view; support dismisses or removes (audited); reviewer approves needs_review', async () => {
