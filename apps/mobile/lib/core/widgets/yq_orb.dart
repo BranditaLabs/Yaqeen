@@ -4,6 +4,7 @@ import '../theme/tokens.dart';
 import '../theme/typography.dart';
 import 'liquid_glass.dart';
 import 'outer_shadow.dart';
+import 'yq_rise.dart';
 
 /// A complication (docs/DESIGN_SYSTEM.md §4): a glass disc with a live instrument inside, a title
 /// and one status line. Glows gold when its goal is met. Three per row at most ([YqOrbRow]).
@@ -102,18 +103,27 @@ class YqOrb extends StatelessWidget {
       ],
     );
     if (onTap == null && onLongPress == null) return frame;
-    return GlassTap(onTap: onTap, onLongPress: onLongPress, semanticLabel: semanticLabel, child: frame);
+    // An instrument under the thumb: a firmer press than a card (0.96), a selection haptic on tap.
+    return GlassTap(onTap: onTap, onLongPress: onLongPress, semanticLabel: semanticLabel, pressScale: 0.96, child: frame);
   }
 }
 
-/// Up to three orbs in equal columns (centred on 1/6, 3/6 and 5/6 of the row for three).
+/// Up to three orbs in equal columns (centred on 1/6, 3/6 and 5/6 of the row for three). With
+/// [rise] each orb rises in on the page's first build, 40 ms apart (`YqRise`; skipped under
+/// reduce-motion and for orbs that appear after the page has opened).
 class YqOrbRow extends StatelessWidget {
-  const YqOrbRow({super.key, required this.orbs});
+  const YqOrbRow({super.key, required this.orbs, this.rise = false});
   final List<Widget> orbs;
+  final bool rise;
+
+  static const stagger = Duration(milliseconds: 40);
 
   @override
   Widget build(BuildContext context) => Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [for (final o in orbs) Expanded(child: o)],
+        children: [
+          for (var i = 0; i < orbs.length; i++)
+            Expanded(child: rise ? YqRise(order: i, stagger: stagger, distance: 10, child: orbs[i]) : orbs[i]),
+        ],
       );
 }

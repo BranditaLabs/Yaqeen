@@ -18,6 +18,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../l10n/gen/app_localizations.dart';
+import '../design/motion.dart';
 import '../theme/tokens.dart';
 import 'floating_tab_bar.dart';
 import 'yq_button.dart';
@@ -113,6 +114,35 @@ class YqOfflineBanner extends StatelessWidget {
           : const SizedBox(width: double.infinity),
     );
   }
+}
+
+/// Skeleton → content (docs/DESIGN_SYSTEM.md §5): the new child cross-fades in over 200 ms while
+/// the old one fades out underneath — no jump, no slide. Give each state its own [Key] (or a
+/// different widget type). Instant under reduce-motion.
+class YqFadeSwap extends StatelessWidget {
+  const YqFadeSwap({super.key, required this.child, this.alignment = Alignment.topCenter});
+  final Widget child;
+  final AlignmentGeometry alignment;
+
+  static const duration = Duration(milliseconds: 200);
+
+  @override
+  Widget build(BuildContext context) => AnimatedSwitcher(
+        duration: (MediaQuery.maybeDisableAnimationsOf(context) ?? false) ? Duration.zero : duration,
+        switchInCurve: Curves.easeOut,
+        switchOutCurve: Curves.easeIn,
+        layoutBuilder: (current, previous) => Stack(
+          alignment: alignment,
+          children: [
+            // The old state fades from where it was, at its own height, without sizing the swap
+            // or taking taps; the new state alone decides the size.
+            for (final p in previous)
+              Positioned(top: 0, left: 0, right: 0, child: IgnorePointer(child: ExcludeSemantics(child: p))),
+            if (current != null) current,
+          ],
+        ),
+        child: child,
+      );
 }
 
 /// Skeleton of the real layout: glass blocks under one 1.6 s shimmer (never a bare spinner on first paint).
@@ -402,10 +432,17 @@ abstract final class YqToast {
 }
 
 /// Glass bottom sheet with a grabber and 28-pt top radius (spec §2.4 `YqSheet`).
-Future<T?> showYqSheet<T>(BuildContext context, {required WidgetBuilder builder, bool scrollable = false}) {
+Future<T?> showYqSheet<T>(BuildContext context, {required WidgetBuilder builder, bool scrollable = false, bool spring = false}) {
+  final still = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
   return showModalBottomSheet<T>(
     context: context,
     useRootNavigator: true,
+    // [spring]: a moment worth arriving (the week result) opens on a critically damped spring.
+    sheetAnimationStyle: still
+        ? AnimationStyle.noAnimation
+        : spring
+            ? AnimationStyle(duration: Motion.sheetCurve.settle, curve: Motion.sheetCurve, reverseDuration: Motion.standard)
+            : null,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     barrierColor: const Color(0x590A1530),
