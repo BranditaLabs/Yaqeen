@@ -50,6 +50,8 @@ import * as leaderboard from '../../services/leaderboard.service.js';
 import * as tournaments from '../../services/tournaments.service.js';
 import { sendPhoto } from '../public/me.routes.js';
 
+const BADGE_COUNTS_TTL_SEC = 600;
+
 const UserParam = z.object({ userId: z.string().uuid() });
 const IdParam = z.object({ id: z.string().uuid() });
 
@@ -429,11 +431,18 @@ export const adminCompetitionsRoutes: FastifyPluginAsync = async (app) => {
 
   app.get('/badges', { preHandler: read }, async () => {
     const stored = await db.execute<{ kind: string; n: number }>(sql`select kind, count(*)::int as n from user_badges group by kind`);
-    const streak = await db.execute<{ n: number }>(sql`select count(*)::int as n from points_ledger where reason = 'milestone' and ref_key like 'milestone:%'`);
-    const level = await db.execute<{ n: number }>(sql`select count(*)::int as n from user_point_totals where lifetime_earned >= 500`);
+    // The derived counts scan the ledger (no index leads with reason): an aggregate computed at most
+    // every 10 minutes, shared by every admin and replica (`catalogue`, bumped by points-program writes).
+    const derived = JSON.parse(
+      await ctx.cache.getJson('catalogue', 'admin:badges:derived', BADGE_COUNTS_TTL_SEC, async () => {
+        const streak = await db.execute<{ n: number }>(sql`select count(*)::int as n from points_ledger where reason = 'milestone' and ref_key like 'milestone:%'`);
+        const level = await db.execute<{ n: number }>(sql`select count(*)::int as n from user_point_totals where lifetime_earned >= 500`);
+        return { streak: Number(streak.rows[0]?.n ?? 0), level: Number(level.rows[0]?.n ?? 0) };
+      }),
+    ) as { streak: number; level: number };
     const counts = new Map(stored.rows.map((x) => [x.kind, Number(x.n)]));
-    counts.set('streak', Number(streak.rows[0]?.n ?? 0));
-    counts.set('level', Number(level.rows[0]?.n ?? 0));
+    counts.set('streak', derived.streak);
+    counts.set('level', derived.level);
     return { items: BADGE_KINDS.map((kind) => ({ kind, count: suppress(counts.get(kind) ?? 0) })) };
   });
 };
