@@ -221,7 +221,15 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - name: API image
         uses: docker/build-push-action@v6
-        with: { context: ., file: services/api/Dockerfile, push: false, tags: "yaqeen-api:ci", cache-from: type=gha, cache-to: "type=gha,mode=max" }
+        with: { context: ., file: services/api/Dockerfile, push: false, load: true, tags: "yaqeen-api:ci", cache-from: type=gha, cache-to: "type=gha,mode=max" }
+      # sharp (avatar photos) must load its prebuilt linuxmusl libvips inside the production image and
+      # strip EXIF while re-encoding a fixture (design §4.3).
+      - name: sharp smoke test in the API image
+        run: >-
+          docker run --rm --entrypoint node
+          -v "$PWD/services/api/scripts:/app/scripts:ro"
+          -v "$PWD/services/api/test/fixtures/avatar:/app/test/fixtures/avatar:ro"
+          yaqeen-api:ci scripts/sharp-smoke.mjs
       - name: Admin image
         uses: docker/build-push-action@v6
         with: { context: ., file: apps/admin/Dockerfile, push: false, tags: "yaqeen-admin:ci", cache-from: type=gha, cache-to: "type=gha,mode=max" }

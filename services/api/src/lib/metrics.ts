@@ -62,6 +62,54 @@ export function registerPoolMetrics(pool: pg.Pool) {
   g('yaqeen_pg_pool_waiting', 'Requests waiting for a Postgres connection', () => pool.waitingCount);
 }
 
+/**
+ * Community job health, computed from the database at scrape time and cached 60 s:
+ *   yaqeen_league_weeks_overdue           open weeks more than 2 h past their end
+ *   yaqeen_tournaments_overdue            published tournaments more than 2 h past their end, not closed
+ *   yaqeen_community_snapshot_age_hours   hours since the last nightly snapshot (-1 before the first)
+ * Idempotent: buildApp may run many times (tests); the gauges read the latest pool.
+ */
+type Queryable = { query: <R extends Record<string, unknown>>(text: string) => Promise<{ rows: R[] }> };
+let communitySource: Queryable | null = null;
+let communityCache: { at: number; weeks: number; tournaments: number; age: number } | null = null;
+
+async function communityHealth() {
+  if (!communitySource) return null;
+  if (communityCache && Date.now() - communityCache.at < 60_000) return communityCache;
+  try {
+    const { rows } = await communitySource.query<{ weeks: number; tournaments: number; age: number | null }>(`
+      select
+        (select count(*) from league_weeks where status = 'open' and ends_at < now() - interval '2 hours')::int as weeks,
+        (select count(*) from tournaments where status = 'published' and closed_at is null and ends_at < now() - interval '2 hours')::int as tournaments,
+        (select extract(epoch from now() - max(taken_at)) / 3600 from community_snapshot_days)::float8 as age`);
+    const r = rows[0];
+    communityCache = { at: Date.now(), weeks: Number(r?.weeks ?? 0), tournaments: Number(r?.tournaments ?? 0), age: r?.age === null || r?.age === undefined ? -1 : Number(r.age) };
+  } catch {
+    // keep the last values; a scrape must never fail on the database
+  }
+  return communityCache;
+}
+
+let communityGauges = false;
+export function registerCommunityMetrics(pool: Queryable) {
+  communitySource = pool;
+  if (communityGauges) return;
+  communityGauges = true;
+  const g = (name: string, help: string, pick: (h: NonNullable<typeof communityCache>) => number) =>
+    new Gauge({
+      name,
+      help,
+      registers: [registry],
+      async collect() {
+        const h = await communityHealth();
+        if (h) this.set(pick(h));
+      },
+    });
+  g('yaqeen_league_weeks_overdue', 'League weeks still open more than 2 h after they ended', (h) => h.weeks);
+  g('yaqeen_tournaments_overdue', 'Published tournaments not closed more than 2 h after they ended', (h) => h.tournaments);
+  g('yaqeen_community_snapshot_age_hours', 'Hours since the last nightly community snapshot (-1 = none yet)', (h) => h.age);
+}
+
 /** A tiny HTTP server for Prometheus scrapes (`GET /metrics`). */
 export function serveMetrics(port: number): Server {
   const server = createServer(async (req, res) => {

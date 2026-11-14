@@ -429,8 +429,14 @@ export const AdminTournamentBase = z.object({
 });
 export const AdminTournamentCreate = AdminTournamentBase;
 export type AdminTournamentCreate = z.infer<typeof AdminTournamentCreate>;
-/** `reason` is required by the server when the tournament is live. */
-export const AdminTournamentPatch = AdminTournamentBase.partial().extend({ reason: z.string().trim().min(3).max(500).optional() });
+/**
+ * `reason` is required by the server when the tournament is live. Only the fields sent change:
+ * `minPoints` loses its create-time default here, or every patch would reset it to 1 (and a live
+ * «end later» edit would carry a second field and be refused).
+ */
+export const AdminTournamentPatch = AdminTournamentBase.extend({ minPoints: z.number().int().min(1).max(100000) })
+  .partial()
+  .extend({ reason: z.string().trim().min(3).max(500).optional() });
 export type AdminTournamentPatch = z.infer<typeof AdminTournamentPatch>;
 
 export const AdminTournamentRow = Tournament.omit({ joined: true, me: true }).extend({

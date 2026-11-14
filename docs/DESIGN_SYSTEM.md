@@ -146,6 +146,12 @@ Content rises in once (`YqRise`, staggered 70 ms). Screen readers get it at once
 - Implicit animations only for value changes: rings, liquid, beads, the tape, the sun.
   Painters never animate per frame while idle.
 - Reduce-motion: jump to the end state, no reveal.
+- «تسميع» (`ReciteLayer`, own layer over the printed page — the glyphs never repaint): a
+  recognised word fades in and rises (12 % of the line pitch) over 420 ms, lapis settling to ink
+  (`easeOutCubic`); the glow on the next word glides 260 ms; «سمّع ثم تحقّق» reveals all words
+  one after another (35 ms apart, ≤ 1.4 s in all). The ticker runs only while something moves.
+  The mic orb's halo follows the voice level; a light haptic tick per completed ayah, a soft one
+  per counted repetition. Reduce motion: words appear, the glow jumps, no halo, no stagger.
 
 ## 6. Performance
 

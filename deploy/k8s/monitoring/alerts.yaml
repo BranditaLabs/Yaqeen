@@ -69,7 +69,26 @@ spec:
           expr: increase(kube_job_status_failed{namespace="yaqeen"}[1h]) > 0
           labels: { severity: ticket }
           annotations:
-            summary: "Job {{ $labels.job_name }} failed (campaign dispatcher / purge / migrate)"
+            summary: "Job {{ $labels.job_name }} failed (campaign dispatcher / purge / community / migrate)"
+        # Community job (docs/OPERATIONS.md › Community job): gauges read from Postgres at scrape time.
+        - alert: YaqeenLeagueWeekNotClosed
+          expr: max(yaqeen_league_weeks_overdue) > 0
+          for: 15m
+          labels: { severity: ticket }
+          annotations:
+            summary: "A league week is still open more than 2 h after it ended — check the yaqeen-community job"
+        - alert: YaqeenTournamentNotClosed
+          expr: max(yaqeen_tournaments_overdue) > 0
+          for: 15m
+          labels: { severity: ticket }
+          annotations:
+            summary: "A tournament is not closed more than 2 h after it ended — check the yaqeen-community job"
+        - alert: YaqeenCommunitySnapshotStale
+          expr: max(yaqeen_community_snapshot_age_hours) > 26
+          for: 15m
+          labels: { severity: ticket }
+          annotations:
+            summary: "The nightly community snapshot is older than 26 h — public standings are stale"
         - alert: YaqeenProbeDown
           expr: probe_success{service="yaqeen"} == 0
           for: 3m

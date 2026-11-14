@@ -10,7 +10,7 @@ import type { AppContext } from './context.js';
 import { type CacheNamespace, ResponseCache } from './lib/cache.js';
 import { errorHandler } from './lib/errors.js';
 import { type QuranFoundationClient, quranFoundationFromEnv } from './integrations/quran-foundation.js';
-import { httpDuration } from './lib/metrics.js';
+import { httpDuration, registerCommunityMetrics } from './lib/metrics.js';
 import { authPlugin } from './plugins/auth.js';
 import { adminAuthRoutes } from './routes/admin/auth.routes.js';
 import { adminCampaignRoutes } from './routes/admin/campaigns.routes.js';
@@ -23,12 +23,14 @@ import { adminCardsRoutes } from './routes/admin/cards.routes.js';
 import { adminAnalyticsRoutes } from './routes/admin/analytics.routes.js';
 import { adminUsersRoutes } from './routes/admin/users.routes.js';
 import { adminRecordingsRoutes } from './routes/admin/recordings.routes.js';
+import { adminCompetitionsRoutes } from './routes/admin/competitions.routes.js';
+import { communityRoutes } from './routes/public/community.routes.js';
 import { appRoutes } from './routes/public/app.routes.js';
 import { quranContentRoutes } from './routes/public/quran-content.routes.js';
 import { authRoutes } from './routes/public/auth.routes.js';
 import { encodeRoutes } from './routes/public/encode.routes.js';
 import { redactEncodeToken } from './services/tag-encoding.service.js';
-import { meRoutes } from './routes/public/me.routes.js';
+import { avatarUploadRoutes, meRoutes } from './routes/public/me.routes.js';
 import { profileRoutes } from './routes/public/profile.routes.js';
 import { recordingsRoutes } from './routes/public/recordings.routes.js';
 import { asrFromEnv } from './integrations/asr.js';
@@ -40,6 +42,9 @@ const INVALIDATES: [string, CacheNamespace[]][] = [
   ['/admin/content', ['content', 'config']], // splash verse is published through content review
   ['/admin/settings', ['config', 'calendar']], // flags, maintenance, Hijri offset
   ['/admin/rewards', ['config', 'catalogue']], // points program, cheapest reward
+  ['/admin/competitions', ['community', 'profile']], // tournaments, league settings, moderation of names/photos
+  ['/admin/cards', ['profile', 'community']], // a moderated card can change whether a photo is public
+  ['/admin/users', ['profile', 'community']],
 ];
 
 export async function buildApp(
@@ -81,6 +86,8 @@ export async function buildApp(
   });
 
   app.decorate('ctx', ctx);
+  // DB-derived community job gauges (overdue weeks/tournaments, snapshot age), read at scrape time.
+  registerCommunityMetrics((ctx.db as unknown as { $client: Parameters<typeof registerCommunityMetrics>[0] }).$client);
   app.setErrorHandler(errorHandler);
   app.addHook('onSend', async (req, reply) => {
     reply.header('x-request-id', req.id);
@@ -141,6 +148,9 @@ export async function buildApp(
   // Public app API
   await app.register(authRoutes, { prefix: '/v1/auth' });
   await app.register(meRoutes, { prefix: '/v1/me' });
+  // Raw image bodies (≤ 3 MiB) only for PUT /v1/me/avatar/photo — encapsulated parsers and limit.
+  await app.register(avatarUploadRoutes, { prefix: '/v1/me' });
+  await app.register(communityRoutes, { prefix: '/v1' });
   await app.register(encodeRoutes, { prefix: '/v1/encode' });
   await app.register(appRoutes, { prefix: '/v1' });
   await app.register(quranContentRoutes, { prefix: '/v1/content' });
@@ -161,6 +171,7 @@ export async function buildApp(
   await app.register(adminCardsRoutes, { prefix: '/admin/cards' });
   await app.register(adminAnalyticsRoutes, { prefix: '/admin/analytics' });
   await app.register(adminRecordingsRoutes, { prefix: '/admin/recordings' });
+  await app.register(adminCompetitionsRoutes, { prefix: '/admin/competitions' });
 
   return app;
 }

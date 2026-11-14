@@ -108,6 +108,41 @@ abstract final class RecitationAligner {
     return count;
   }
 
+  /// What is heard before the recitation proper and is not part of the passage: the isti'adha, and
+  /// the Basmala when the passage does not begin with it. Dropped from the start of what is heard
+  /// so «أعوذ بالله…» never reads as the first ayah heard differently.
+  static List<String> stripOpening(List<String> heard, List<String> expected) => heard.sublist(opening(heard, expected).drop);
+
+  static const _isti = ['أعوذ', 'بالله', 'من', 'الشيطان', 'الرجيم'];
+  static const _basmala = ['بسم', 'الله', 'الرحمن', 'الرحيم'];
+
+  /// How many words at the start of [heard] are the isti'adha / Basmala ([drop]), and whether what
+  /// is heard so far could still be one of them being said ([open]: wait before judging anything).
+  static ({int drop, bool open}) opening(List<String> heard, List<String> expected) {
+    bool eq(String a, String b) => _norm(a) == _norm(b);
+    bool startsWith(List<String> list, int at, List<String> phrase) {
+      if (list.length - at < phrase.length) return false;
+      for (var i = 0; i < phrase.length; i++) {
+        if (!eq(list[at + i], phrase[i])) return false;
+      }
+      return true;
+    }
+
+    final basmalaFirst = startsWith(expected, 0, _basmala);
+    var at = 0;
+    for (final phrase in [_isti, if (!basmalaFirst) _basmala]) {
+      if (startsWith(heard, at, phrase)) {
+        at += phrase.length;
+        continue;
+      }
+      final rest = heard.length - at;
+      if (rest > 0 && rest < phrase.length && [for (var i = 0; i < rest; i++) eq(heard[at + i], phrase[i])].every((x) => x)) {
+        return (drop: at, open: true);
+      }
+    }
+    return (drop: at, open: false);
+  }
+
   static int _editDistance(String a, String b) {
     var prev = List<int>.generate(b.length + 1, (i) => i);
     for (var i = 1; i <= a.length; i++) {

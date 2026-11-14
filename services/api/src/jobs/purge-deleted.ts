@@ -5,9 +5,12 @@
  * identities, sessions, devices, consents, worship records, activity, the opt-in cloud backup, voice recordings and the
  * public card (handle, name, bio, links) are deleted; their medal tags are unlinked and stay switched off; the user
  * row stays as an anonymous tombstone so the append-only points ledger and redemptions still
- * add up for accounting. Consent events (the legal record of what was agreed) are kept.
+ * add up for accounting. Consent events (the legal record of what was agreed) are kept. Every
+ * community row (photos, switches, blocks both ways, league/tournament rows, badges, reports in both
+ * roles, snapshots, rollups) is deleted and the identity columns nulled (purgeCommunity).
  *
- * The same daily run drops product events past retention and marks unused reward codes expired.
+ * The same daily run drops product events past retention, marks unused reward codes expired and
+ * deletes replaced/removed profile photos older than 7 days.
  */
 import { and, eq, inArray, lt, sql } from 'drizzle-orm';
 import { loadEnv } from '../config/env.js';
@@ -30,6 +33,7 @@ import { runJob } from '../lib/observability.js';
 import { RETENTION_DAYS, purgeOld } from '../services/product-analytics.service.js';
 import { expireDue } from '../services/rewards.service.js';
 import { wipe as wipeBackups } from '../services/backup.service.js';
+import { PHOTO_RETENTION_DAYS, purgeOldPhotos } from '../services/avatar.service.js';
 import { eraseAll as eraseRecordings } from '../services/recordings.service.js';
 import { withJobLock } from './lock.js';
 
@@ -47,6 +51,7 @@ export async function purgeDeleted(db: Db, now: Date): Promise<number> {
     }
     // The user row is a tombstone (no cascade), so the backup goes explicitly.
     await wipeBackups(tx, ids);
+    await purgeCommunity(tx, ids);
     // Already deleted at the erasure request; again here in case anything arrived since.
     for (const id of ids) await eraseRecordings(tx, id);
     await tx
@@ -61,6 +66,42 @@ export async function purgeDeleted(db: Db, now: Date): Promise<number> {
   return ids.length;
 }
 
+/**
+ * Every row with a user FK added in migration 0017 (design §4.4): the tombstone never cascades, so
+ * each table goes explicitly (purge.db test enumerates them), and the identity columns are nulled.
+ * `points_earned_daily` / `user_point_totals` are derived caches; `yq_rebuild_points_rollups()`
+ * would recreate them from the anonymised ledger, which is fine (no identity in them).
+ */
+export const COMMUNITY_USER_TABLES = [
+  ['avatar_photos', ['user_id']],
+  ['community_members', ['user_id']],
+  ['community_blocks', ['user_id', 'blocked_user_id']],
+  ['league_members', ['user_id']],
+  ['tournament_entries', ['user_id']],
+  ['user_badges', ['user_id']],
+  ['community_reports', ['reporter_id', 'target_user_id']],
+  ['leaderboard_snapshot', ['user_id']],
+  ['points_earned_daily', ['user_id']],
+  ['user_point_totals', ['user_id']],
+] as const;
+
+export async function purgeCommunity(tx: Parameters<Parameters<Db['transaction']>[0]>[0] | Db, ids: string[]): Promise<void> {
+  if (!ids.length) return;
+  const list = JSON.stringify(ids);
+  // The active photo FK goes first so the photos can be deleted.
+  await tx.execute(sql`
+    update users set avatar_photo_id = null, avatar_kind = 'initial', avatar_preset = null, country = null,
+      name_hidden_at = null, name_hidden_reason = null, photo_locked_at = null, adult_attested_at = null
+    where id in (select x::uuid from jsonb_array_elements_text(${list}::jsonb) as x)`);
+  for (const [table, cols] of COMMUNITY_USER_TABLES) {
+    const where = sql.join(
+      cols.map((c) => sql`${sql.raw(c)} in (select x::uuid from jsonb_array_elements_text(${list}::jsonb) as x)`),
+      sql` or `,
+    );
+    await tx.execute(sql`delete from ${sql.raw(table)} where ${where}`);
+  }
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   const env = loadEnv();
   const { db, pool } = createDb(env.DATABASE_URL);
@@ -69,6 +110,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (res.ran) {
     console.log(`[purge] removed ${await purgeOld(db, new Date())} product event(s) older than ${RETENTION_DAYS} days`);
     console.log(`[purge] expired ${await expireDue(db, new Date())} unused reward code(s)`);
+    console.log(`[purge] removed ${await purgeOldPhotos(db, new Date())} replaced/removed photo(s) older than ${PHOTO_RETENTION_DAYS} days`);
   }
   await pool.end();
 }

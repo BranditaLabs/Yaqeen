@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:yaqeen/core/config/remote_config.dart';
 import 'package:yaqeen/core/di/providers.dart';
+import 'package:yaqeen/core/platform/recitation_engine.dart';
 import 'package:yaqeen/core/settings/app_settings.dart';
 import 'package:yaqeen/core/storage/kv_store.dart';
 import 'package:yaqeen/core/storage/local_store.dart';
@@ -22,6 +24,7 @@ import 'package:yaqeen/features/quran/presentation/quran_providers.dart';
 import 'package:yaqeen/features/quran/presentation/reader_screen.dart';
 import 'package:yaqeen/features/quran/presentation/session/active_session.dart';
 import 'package:yaqeen/features/quran/presentation/session/quran_session_controller.dart';
+import 'package:yaqeen/features/recite/presentation/asr_model_controller.dart';
 
 import '../../helpers/fonts.dart';
 import '../../helpers/harness.dart';
@@ -224,6 +227,108 @@ void main() {
     await tester.pumpAndSettle();
     expect(session(tester)!.stage, SessionStage.repeat);
     expect(planIn(kv)!.stepsFor(today), isEmpty, reason: 'skipping listening does not tick it');
+    await leave(tester);
+  });
+
+  testWidgets('by voice: each full recitation counts in «تكرار ×10», the test listens, its card leads to the grade', (tester) async {
+    final kv = await withPlan(const HifzPlan(goal: HifzGoal.amma, perDay: 5));
+    await kv.write('recite.rationaleSeen', '1');
+    final listen = FakeListen();
+    final engine = ScriptedRecitationEngine();
+    tester.view.physicalSize = const Size(390, 844) * 3;
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      harness(
+        const ReaderScreen(initialPage: 604, session: 'hifz', passage: passage),
+        kv: kv,
+        overrides: [
+          clockProvider.overrideWithValue(() => now),
+          quranDataProvider.overrideWith((_) async => q),
+          mushafLayoutProvider.overrideWith((_) async => null),
+          listenControllerProvider.overrideWith(() => listen),
+          recitationEngineProvider.overrideWithValue(engine),
+          initialConfigProvider.overrideWithValue(RemoteConfig(features: Map.of(RemoteConfig.defaultFeatures)..[Flags.recite] = true)),
+          initialSettingsProvider.overrideWithValue(const AppSettings(readerHintSeen: true)),
+        ],
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    listen.set(listen.state.copyWith(roundsDone: 3, loopEnded: true, playing: false));
+    await tester.pumpAndSettle();
+    expect(session(tester)!.stage, SessionStage.repeat);
+    expect(engine.listening, isTrue, reason: 'the microphone counts repetitions by itself');
+    expect(find.text('يستمع لتكرارك'), findsOneWidget);
+
+    final full = [for (final r in passage.range) q.text(r)].join(' ');
+    var heard = '';
+    for (var i = 1; i <= 10; i++) {
+      heard = '$heard $full'.trim();
+      engine.emit(heard);
+      await tester.pump();
+      if (i < 10) expect(layers(tester).repeats, i);
+    }
+    await tester.pumpAndSettle();
+    expect(session(tester)!.stage, SessionStage.test);
+    expect(planIn(kv)!.stepsFor(today), {0, 1});
+
+    // «اختبار» is the recite layer: hidden words revealed by the voice.
+    expect(layers(tester).mode, QuranMode.recite);
+    expect(tester.widget<MushafPage>(find.byType(MushafPage).first).recite, isNotNull);
+    await tester.tap(find.bySemanticsLabel('ابدأ التسميع').first);
+    await tester.pumpAndSettle();
+    engine.emit(full);
+    await tester.pumpAndSettle();
+    expect(find.text('أتممت التسميع'), findsOneWidget);
+    await tester.tap(find.text('متابعة إلى التقييم'));
+    await tester.pumpAndSettle();
+    expect(find.text('اقتراح: متقنة · يوم'), findsOneWidget);
+    await tester.tap(find.text('تأكيد'));
+    await tester.pumpAndSettle();
+    expect(planIn(kv)!.portions.single.id, '114:1-5');
+    expect(find.text('أتممت جلستك'), findsOneWidget);
+    await tester.tap(find.text('إغلاق').last);
+    await tester.pumpAndSettle();
+    await leave(tester);
+  });
+
+  testWidgets('a model download that finishes during «تكرار ×10» brings the mic in at once', (tester) async {
+    final kv = await withPlan(const HifzPlan(goal: HifzGoal.amma, perDay: 5));
+    final listen = FakeListen();
+    final engine = ScriptedRecitationEngine(available: false);
+    tester.view.physicalSize = const Size(390, 844) * 3;
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      harness(
+        const ReaderScreen(initialPage: 604, session: 'hifz', passage: passage),
+        kv: kv,
+        overrides: [
+          clockProvider.overrideWithValue(() => now),
+          quranDataProvider.overrideWith((_) async => q),
+          mushafLayoutProvider.overrideWith((_) async => null),
+          listenControllerProvider.overrideWith(() => listen),
+          recitationEngineProvider.overrideWithValue(engine),
+          initialConfigProvider.overrideWithValue(RemoteConfig(features: Map.of(RemoteConfig.defaultFeatures)..[Flags.recite] = true)),
+          initialSettingsProvider.overrideWithValue(const AppSettings(readerHintSeen: true)),
+        ],
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    listen.set(listen.state.copyWith(roundsDone: 3, loopEnded: true, playing: false));
+    await tester.pumpAndSettle();
+    expect(session(tester)!.stage, SessionStage.repeat);
+    final mic = find.byTooltip('يُحتسب التكرار حين تتلو المقطع كاملاً');
+    expect(mic, findsNothing, reason: 'no model on the phone yet: «كرّرت» only');
+
+    // The download finishes while the stage is open: nothing else rebuilds the reader.
+    engine.available = true;
+    await container(tester).read(asrModelControllerProvider.notifier).refresh();
+    await tester.pump();
+    expect(mic, findsOneWidget);
+    expect(engine.listening, isFalse, reason: 'the mic waits for a tap; it never opens by itself');
     await leave(tester);
   });
 }

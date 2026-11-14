@@ -6,6 +6,7 @@ import { competitionRights } from '@/lib/access';
 import { api, tryApi } from '@/lib/api';
 import { longDate, num } from '@/lib/format';
 import { hijriDays } from '@/lib/hijri';
+import { isUuid } from '@/lib/ids';
 import { divisionName } from '@/lib/labels';
 import { SnapshotLine, StandingsTable } from '../../../parts';
 
@@ -20,12 +21,10 @@ interface GroupView {
   rows: (AdminStandingRow & { outcome: 'up' | 'stay' | 'down' | null })[];
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 /** One league group, read-only: the nightly snapshot during the week, the finals once closed. */
 export default async function LeagueGroupPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (!UUID.test(id)) notFound();
+  if (!isUuid(id)) notFound();
   const [me, res, settings] = await Promise.all([
     api<AdminMe>('/admin/auth/me'),
     tryApi<GroupView>(`/admin/competitions/leagues/groups/${id}`),

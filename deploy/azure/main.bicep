@@ -532,8 +532,8 @@ var jobs = concat(
   [
     { name: 'yaqeen-migrate', command: ['node', 'dist/db/migrate.js'], cron: '' }
     { name: 'yaqeen-purge', command: ['node', 'dist/jobs/purge-deleted.js'], cron: '17 1 * * *' }
-    // «تلاواتي» sweeper: retries stuck AI checks, deletes moderator-removed recordings after 7 days.
-    { name: 'yaqeen-recordings', command: ['node', 'dist/jobs/recordings.js'], cron: '*/10 * * * *' }
+    // Leagues close, nightly snapshot, tournaments close (hourly; Postgres only, so not behind redisOn).
+    { name: 'yaqeen-community', command: ['node', 'dist/jobs/community.js'], cron: '7 * * * *' }
   ],
   enableCampaigns && redisOn ? [{ name: 'yaqeen-campaigns', command: ['node', 'dist/jobs/campaign-dispatcher.js'], cron: '*/10 * * * *' }] : []
 )
