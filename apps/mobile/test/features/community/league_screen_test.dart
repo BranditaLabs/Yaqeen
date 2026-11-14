@@ -15,7 +15,6 @@ import 'package:yaqeen/features/profile/data/profile_repository.dart';
 import 'package:yaqeen/features/profile/presentation/me_profile_controller.dart';
 import 'package:yaqeen/core/widgets/yq_once.dart';
 import 'package:yaqeen/features/profile/domain/avatar.dart';
-import 'package:yaqeen/features/profile/domain/me_profile.dart';
 
 import '../../helpers/fonts.dart';
 import '../../helpers/harness.dart';
