@@ -189,15 +189,15 @@ running** (`pumpAndSettle` completes). A toast that follows a light comes at onc
 | `YqRing(drawIn:, glint:, change:)` | First show: the track fades in, then the arc sweeps from 0 (emphasised). Later values ease from the old value — never from 0 again. A colour change blends over 280 ms. `glint`: one comet of light (white into gold light) travels once round the ring. |
 | `YqLevelAvatar(drawIn:, glint:)` | The ring above, plus the picture swelling once (1.0 → 1.04 → 1.0, `YqPulse`) with the glint; a new picture cross-fades in from 0.94 (`YqAvatarSwap`) without redrawing the ring. `glint` is off by default (a top-level gold ring is quiet): only the Profile stage and the Home chip pass it, for a level just reached. |
 | `YqRollingNumber` | Digits roll up 0.9 em into place, 90 ms apart, 900 ms, `Cubic(0.2, 0.9, 0.25, 1.15)` — the public card's rolling digits. Later changes roll only the digits that changed (up for more, down for less). Tabular figures. |
-| `CountUp` | Counts to the value on first show and glides between values; tabular figures; the final text reserves its width, so nothing moves around it. |
+| `CountUp` | Counts to the value on first show and glides between values; tabular figures; the final text alone sizes it and the count is drawn over it, wrapped the same way (`maxLines`/`overflow` apply to every text), so nothing moves around it, nor when it lands. |
 | `YqFlip` | Two faces of a disc turning about the vertical axis (perspective 0.001, 450 ms, with the reading direction). |
-| `YqFadeSwap` | Skeleton → content: a 200 ms cross-fade, the old state fading where it was (`expand` for whole screens). |
+| `YqFadeSwap` | Skeleton → content: a 200 ms cross-fade, the old state fading where `alignment` puts it (`expand` for whole screens). The outgoing state keeps its element (never remounted: scroll, controllers and one-time moments carry on); only the incoming one sizes the swap. Keep controls the person is using (a segmented control) outside the swap. |
 | `YqSheen` | One band of light across a child (light on a gold medal, a soft lapis on the person's own row). |
-| `YqPulse`, `YqSlideIn`, `YqShiftIn`, `YqDrawLine`, `YqBreathingDot`, `YqWhenVisible` | A once-only swell; a slide + fade in (the pinned «ترتيبك» row, a podium step); a ranked row gliding from its old place; a hairline drawing outward; the «live» dot; start-when-seen. |
+| `YqPulse`, `YqSlideIn`, `YqShiftIn`, `YqDrawLine`, `YqBreathingDot`, `YqWhenVisible` | A once-only swell; a slide + fade in (the pinned «ترتيبك» row, a podium step); a ranked row gliding from its old place (at most 3 rows; a longer move fades in; `RankMotionScope(listId:)` makes another board a new baseline, never a glide); a hairline drawing outward; the «live» dot; start-when-seen. |
 | `GlassTap(pressScale:)` | Eases down (160 ms; cards 0.98, orbs 0.96, small badges 0.92) and springs back with a touch of overshoot. |
 | `showYqSheet(spring: true)` | The sheet opens on the critically damped `sheetSpring`. |
-| `YqPlayRing` | Play/pause morph, a lapis progress ring, and an optional hairline orbit turning once per 12 s while playing (stopped when paused or off-screen). For recordings and recitations. |
-| `YqLiveLevel` | 5–7 lapis bars driven by a `Stream<double>` of real amplitude, newest in the centre spreading outward, each eased (140 ms); still under reduce-motion. No ticker of its own. |
+| `YqPlayRing` | Play/pause morph, a lapis progress ring that follows the reported position exactly (no ease to trail it), and an optional hairline orbit turning once per 12 s while playing (stopped when paused or off-screen). For recordings and recitations. |
+| `YqLiveLevel` | 5–7 lapis bars driven by a `Stream<double>` of real amplitude, newest in the centre spreading outward, each eased (140 ms); still under reduce-motion (samples ignored, the stream listened to once, so a single-subscription microphone stream is safe). No ticker of its own. |
 
 **Moments**
 
@@ -210,7 +210,7 @@ running** (`pumpAndSettle` completes). A toast that follows a light comes at onc
 | Week result | The sheet opens on a spring; the outcome glyph (up · stay · down) settles with an overshoot; a top-three finish rises on a three-step podium in sequence (only the person's own step is named). |
 | Tournaments | A live tournament's status and stage eyebrow breathe a 6-pt lapis dot (opacity only, 2-s breaths, a few, then lit). Standings behave like the league; a closed podium rises 1 → 2 → 3. |
 | Level board | The person's ring draws in; the pinned «ترتيبك» pill slides up from the bottom with their own ring drawing in beside it. |
-| Badges | A medal new to this phone catches one light sweep (90 ms apart), once ever (`profile.badgesSwept.v1`, wiped with the account); the count rolls in. |
+| Badges | A medal new to this phone catches one light sweep (90 ms apart), once ever (`profile.badgesSwept.v1`, wiped with the account; the in-memory set updates with it, so «الكل» after the Profile strip stays still, and a medal the lazy strip rebuilds keeps its light spent); the count rolls in. |
 | Onboarding 05·ج | The preview's track fades in; a picked picture cross-fades in; preset pictures pop in 30 ms apart. When reached: a small ring fills through the six levels, lighting their dots, and settles back on level 1; a miniature league (neighbours are shapes, never people) slides in from the reading side with the person's picture and name, lit with one sheen when they switch the league on. Once per visit. |
 | Skeletons | Every skeleton in these features gives way to content with the 200 ms fade. |
 
