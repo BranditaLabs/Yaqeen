@@ -32,6 +32,13 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], baseURL: ADMIN, storageState: '.auth/admin.json', launchOptions: { executablePath } },
     },
     {
+      // «التلاوات» moderation queue (after the admin specs: it changes queue state).
+      name: 'recitations',
+      testMatch: /recitations\.spec\.ts/,
+      dependencies: ['admin'],
+      use: { ...devices['Desktop Chrome'], baseURL: ADMIN, storageState: '.auth/admin.json', launchOptions: { executablePath } },
+    },
+    {
       // Public card pages after the admin's moderation (a hidden photo must stop being served).
       name: 'cards',
       testMatch: /cards\.spec\.ts/,

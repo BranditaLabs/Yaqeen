@@ -22,6 +22,8 @@ export type Fixture = {
   pictured: Member & { photoId: string };
   tournamentId: string;
   groupId: string;
+  /** «التلاوات»: a flagged recording, a held one, a hidden comment, and a religious reviewer's session. */
+  recitations: { flagged: string; held: string; comment: string; reviewerToken: string };
 };
 
 export const ADMIN_URL = 'http://localhost:3100';

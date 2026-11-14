@@ -40,9 +40,9 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
 }
 
 /** Raw GET with the admin session (route handlers that stream bytes, e.g. the photo proxy). */
-export async function apiRaw(path: string): Promise<Response> {
+export async function apiRaw(path: string, extraHeaders?: Record<string, string>): Promise<Response> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  return fetch(`${API_URL}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, cache: 'no-store' });
+  return fetch(`${API_URL}${path}`, { headers: { ...(extraHeaders ?? {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) }, cache: 'no-store' });
 }
 
 /** For server actions: returns `{ error }` instead of throwing so forms can show it. */

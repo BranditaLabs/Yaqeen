@@ -51,10 +51,11 @@ await db.query(`insert into tag_batches (batch, kind, status) values ('e2e', 'me
 await db.query(`insert into profile_tags (code, kind, batch, user_id, linked_at) values ($1, 'medal', 'e2e', $2, now())`, [tagCode, user.id]);
 
 const competitions = await seedCompetitions();
+const recitations = await seedRecitations(competitions.runner, competitions.removed);
 await db.end();
 
 mkdirSync(join(here, '..', '.auth'), { recursive: true });
-writeFileSync(join(here, '..', '.auth', 'fixture.json'), JSON.stringify({ email, password, totpSecret, handle, tagCode, ...competitions }, null, 2));
+writeFileSync(join(here, '..', '.auth', 'fixture.json'), JSON.stringify({ email, password, totpSecret, handle, tagCode, ...competitions, recitations }, null, 2));
 console.log(`e2e database ready: ${dbName} (admin ${email}, card /u/${handle}, tag /t/${tagCode}, tournament ${competitions.tournamentId})`);
 
 /** HS256 admin session token, as the API signs it (dev secret; staff roles without a TOTP login each). */
@@ -186,4 +187,42 @@ async function seedCompetitions() {
   await db.query(`insert into community_snapshot_days (day) values ($1::date)`, [today]);
 
   return { today, tokens, runner, removed, pictured, tournamentId: tournament.id, groupId: group.id };
+}
+
+/**
+ * «التلاوات» (design doc §16): a recording the AI check sent to review (members, with a transcript), an
+ * approved public recording held by 3 reports, and a comment on it hidden by reports. A religious
+ * reviewer joins the staff. The audio is a stub MPEG-4 header (the admin player only needs the bytes).
+ */
+async function seedRecitations(runner, removed) {
+  const {
+    rows: [boss],
+  } = await db.query('select password_hash, totp_secret from admin_users where email = $1', [email]);
+  const {
+    rows: [reviewer],
+  } = await db.query(
+    `insert into admin_users (name, email, password_hash, totp_secret, role) values ('E2E religious_reviewer', 'e2e-religious-reviewer@yaqeenarabia.com', $1, $2, 'religious_reviewer') returning id`,
+    [boss.password_hash, boss.totp_secret],
+  );
+  const audio = Buffer.concat([Buffer.from([0, 0, 0, 24]), Buffer.from('ftypM4A ', 'latin1'), Buffer.alloc(4), Buffer.from('M4A mp42', 'latin1'), Buffer.alloc(2048, 0x21)]);
+  const rec = async (status, visibility, extra = {}) => {
+    const {
+      rows: [r],
+    } = await db.query(
+      `insert into recordings (user_id, surah, from_ayah, to_ayah, duration_ms, audio, bytes, status, visibility, position, score, speech, transcript, held_at, verified_at)
+       values ($1, $2, $3, $4, 12000, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) returning id`,
+      [extra.user ?? runner.id, extra.surah, extra.from, extra.to, audio, audio.length, status, visibility, extra.position ?? 1, extra.score ?? null, 0.7, extra.transcript ?? null, extra.held ? new Date() : null, status === 'approved' ? new Date() : null],
+    );
+    return r.id;
+  };
+  const flagged = await rec('needs_review', 'members', { surah: 112, from: 1, to: 4, score: 0.56, transcript: 'نص تجريبي من الفحص الآلي' });
+  const held = await rec('approved', 'public', { surah: 1, from: 1, to: 7, score: 0.95, held: true, position: 2 });
+  const {
+    rows: [comment],
+  } = await db.query(`insert into recording_comments (recording_id, user_id, text, status) values ($1, $2, 'تعليق مُبلَّغ عنه للاختبار', 'hidden') returning id`, [held, removed.id]);
+  for (const reason of ['spam', 'inappropriate']) {
+    await db.query(`insert into recording_reports (target, target_id, reporter_id, reason) values ('comment', $1, $2, $3) on conflict do nothing`, [comment.id, reason === 'spam' ? runner.id : removed.id, reason]);
+  }
+  await db.query(`insert into recording_reports (target, target_id, reporter_id, reason) values ('recording', $1, $2, 'not_recitation')`, [held, removed.id]);
+  return { flagged, held, comment: comment.id, reviewerToken: adminToken(reviewer.id, 'religious_reviewer') };
 }
