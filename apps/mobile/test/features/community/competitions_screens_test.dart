@@ -83,7 +83,14 @@ Finder goldMarks() => find.byWidgetPredicate((w) {
       return d is BoxDecoration && d.border is Border && (d.border! as Border).top.color == YqColors.gold;
     });
 
-Future<void> pump(WidgetTester tester, CommunityRig rig, Widget screen, {String locale = 'ar', Map<String, dynamic>? profile}) async {
+Future<void> pump(
+  WidgetTester tester,
+  CommunityRig rig,
+  Widget screen, {
+  String locale = 'ar',
+  Map<String, dynamic>? profile,
+  bool settle = true,
+}) async {
   tester.view.physicalSize = const Size(390 * 3, 2400 * 3);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
@@ -108,7 +115,8 @@ Future<void> pump(WidgetTester tester, CommunityRig rig, Widget screen, {String 
       overrides: [...rig.overrides, cityRepositoryProvider.overrideWithValue(cities)],
     ),
   );
-  await tester.pumpAndSettle();
+  // A held request would time out while settling under a shimmer: tests holding one pump by hand.
+  if (settle) await tester.pumpAndSettle();
 }
 
 void main() {
@@ -136,6 +144,37 @@ void main() {
       await tester.tap(find.text('انتهت').first);
       await tester.pumpAndSettle();
       expect(find.text('تحدّي المولد'), findsOneWidget);
+    });
+
+    testWidgets('list: the skeleton cards fade into the list (one swap, the segmented control kept)', (tester) async {
+      final rig = CommunityRig(routes: {'GET /v1/tournaments': (_) => jsonResponse(tournaments())});
+      final gate = rig.gates['GET /v1/tournaments'] = Completer<void>();
+      await pump(tester, rig, const TournamentsScreen(), settle: false);
+      await tester.pump();
+      expect(find.byKey(const ValueKey('tournaments-loading')), findsOneWidget);
+      final segmented = tester.element(find.byType(YqSegmented<TournamentPhase>));
+      gate.complete();
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      // Mid-fade: the skeleton is still fading out under the list.
+      expect(find.byKey(const ValueKey('tournaments-loading')), findsOneWidget);
+      expect(find.text('خريف الخير'), findsOneWidget);
+      expect(tester.element(find.byType(YqSegmented<TournamentPhase>)), same(segmented));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('tournaments-loading')), findsNothing);
+    });
+
+    testWidgets('an upcoming tournament never asks for standings', (tester) async {
+      final upcoming = tournaments().firstWhere((x) => x['phase'] == 'upcoming');
+      final id = upcoming['id'] as String;
+      final rig = CommunityRig(routes: {
+        'GET /v1/tournaments/$id': (_) => jsonResponse(upcoming),
+        'GET /v1/tournaments/$id/standings': (_) => jsonResponse(standings()),
+      },);
+      await pump(tester, rig, TournamentScreen(id: id));
+      expect(find.text('رمضان 1448'), findsWidgets);
+      expect(rig.calls.where((c) => c.contains('/standings')), isEmpty);
     });
 
     testWidgets('list: empty copy when nothing is announced', (tester) async {

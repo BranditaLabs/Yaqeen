@@ -158,7 +158,10 @@ class _Body extends ConsumerWidget {
       );
     }
 
-    final standings = ref.watch(standingsProvider(x.id)).valueOrNull?.rows ?? const [];
+    // Standings are asked for only where they are shown (never for an upcoming tournament).
+    final standings = x.phase == TournamentPhase.upcoming
+        ? const <PublicCompetitor>[]
+        : (ref.watch(standingsProvider(x.id)).valueOrNull?.rows ?? const <PublicCompetitor>[]);
     // Standings rows that moved between snapshots glide; a closed podium rises 1 → 2 → 3, once.
     return RankMotionScope(
       handles: [for (final r in standings) r.handle],

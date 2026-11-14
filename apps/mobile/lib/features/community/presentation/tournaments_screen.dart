@@ -67,45 +67,42 @@ class _TournamentsScreenState extends ConsumerState<TournamentsScreen> {
       selected: _phase,
       onChanged: (p) => setState(() => _phase = p),
     );
-    if (fresh == null) {
-      if (async.hasError) return canvas([YqErrorState(onRetry: () => ref.invalidate(tournamentsProvider))]);
-      return canvas([
-        segmented,
-        const SizedBox(height: YqSpace.l),
-        const YqSkeleton(
-          key: ValueKey('tournaments-loading'),
-          child: Column(
-            children: [
-              YqSkeletonBox(height: 120, radius: YqRadii.card),
-              SizedBox(height: YqSpace.m),
-              YqSkeletonBox(height: 120, radius: YqRadii.card),
-            ],
-          ),
-        ),
-      ]);
-    }
-    final list = fresh.value.where((x) => x.phase == _phase).toList();
+    if (fresh == null && async.hasError) return canvas([YqErrorState(onRetry: () => ref.invalidate(tournamentsProvider))]);
+    final list = fresh?.value.where((x) => x.phase == _phase).toList();
     Future<void> refresh() async => ref.invalidate(tournamentsProvider);
+    // Loading and loaded share one tree: the banner, the segmented control and one swap in the
+    // same places, so the skeleton cards give way to the list with the shared 200 ms fade (and a
+    // phase switch cross-fades the same way).
     return canvas(
       onRefresh: refresh,
       [
-        YqOfflineBanner(offline: fresh.offline),
+        YqOfflineBanner(offline: fresh?.offline ?? false),
         segmented,
         const SizedBox(height: YqSpace.l),
-        // The skeleton cards give way with the shared 200 ms fade.
         YqFadeSwap(
-          child: Column(
-            key: ValueKey('tournaments-$_phase'),
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (list.isEmpty)
-                YqEmptyState(icon: YqIcons.trophy, title: t.cmTournamentsEmpty)
-              else
-                for (final x in list) ...[TournamentCard(tournament: x), const SizedBox(height: YqSpace.m)],
-            ],
-          ),
+          child: list == null
+              ? const YqSkeleton(
+                  key: ValueKey('tournaments-loading'),
+                  child: Column(
+                    children: [
+                      YqSkeletonBox(height: 120, radius: YqRadii.card),
+                      SizedBox(height: YqSpace.m),
+                      YqSkeletonBox(height: 120, radius: YqRadii.card),
+                    ],
+                  ),
+                )
+              : Column(
+                  key: ValueKey('tournaments-$_phase'),
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (list.isEmpty)
+                      YqEmptyState(icon: YqIcons.trophy, title: t.cmTournamentsEmpty)
+                    else
+                      for (final x in list) ...[TournamentCard(tournament: x), const SizedBox(height: YqSpace.m)],
+                  ],
+                ),
         ),
-        const CommunityFooter(),
+        if (list != null) const CommunityFooter(),
       ],
     );
   }
