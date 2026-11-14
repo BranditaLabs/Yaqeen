@@ -88,9 +88,9 @@ export const PackKind = z.enum(['tafsir', 'font', 'audio', 'translation']);
 export type PackKind = z.infer<typeof PackKind>;
 
 /** Feature flags the app reads from /v1/config. Unknown keys are ignored by the app. */
-export const FEATURE_FLAGS = ['challenge', 'rewards', 'hifz', 'listen', 'bonuses', 'recite', 'ramadan', 'tafsirFull', 'leagues', 'tournaments', 'leaderboard'] as const;
+export const FEATURE_FLAGS = ['challenge', 'rewards', 'hifz', 'listen', 'bonuses', 'recite', 'ramadan', 'tafsirFull', 'leagues', 'tournaments', 'leaderboard', 'recordings'] as const;
 /** Off unless the admin turns them on (the app defaults every unknown flag to its own default). */
-export const FEATURE_DEFAULTS_OFF = ['bonuses', 'recite', 'ramadan', 'tafsirFull', 'leagues', 'tournaments', 'leaderboard'] as const satisfies readonly FeatureFlag[];
+export const FEATURE_DEFAULTS_OFF = ['bonuses', 'recite', 'ramadan', 'tafsirFull', 'leagues', 'tournaments', 'leaderboard', 'recordings'] as const satisfies readonly FeatureFlag[];
 export type FeatureFlag = (typeof FEATURE_FLAGS)[number];
 
 /**

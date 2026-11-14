@@ -1,0 +1,63 @@
+{
+  "items": [
+    {
+      "id": "6f1c2a4e-3b7d-4c8e-9a10-1b2c3d4e5f60",
+      "surah": 1,
+      "fromAyah": 1,
+      "toAyah": 4,
+      "durationMs": 9800,
+      "status": "approved",
+      "rejectReason": null,
+      "visibility": "public",
+      "commentsOn": true,
+      "position": 1,
+      "reactions": { "mashallah": 4, "barakallah": 2, "ahsant": 1 },
+      "myReaction": null,
+      "commentCount": 3,
+      "createdAt": "2026-11-13T19:20:00.000Z",
+      "audioPath": "/v1/me/recordings/6f1c2a4e-3b7d-4c8e-9a10-1b2c3d4e5f60/audio",
+      "words": [
+        { "ayah": 1, "index": 0, "startMs": 300, "endMs": 720 },
+        { "ayah": 1, "index": 1, "startMs": 780, "endMs": 1200 },
+        { "ayah": 2, "index": 0, "startMs": 2300, "endMs": 2720 }
+      ]
+    },
+    {
+      "id": "7a2d3b5f-4c8e-4d9f-8b21-2c3d4e5f6071",
+      "surah": 112,
+      "fromAyah": 1,
+      "toAyah": 4,
+      "durationMs": 8200,
+      "status": "processing",
+      "rejectReason": null,
+      "visibility": "members",
+      "commentsOn": true,
+      "position": 2,
+      "reactions": { "mashallah": 0, "barakallah": 0, "ahsant": 0 },
+      "myReaction": null,
+      "commentCount": 0,
+      "createdAt": "2026-11-14T07:55:00.000Z",
+      "audioPath": "/v1/me/recordings/7a2d3b5f-4c8e-4d9f-8b21-2c3d4e5f6071/audio",
+      "words": null
+    },
+    {
+      "id": "8b3e4c6a-5d9f-4eaf-9c32-3d4e5f607182",
+      "surah": 113,
+      "fromAyah": 1,
+      "toAyah": 5,
+      "durationMs": 11000,
+      "status": "rejected",
+      "rejectReason": "not_matching",
+      "visibility": "private",
+      "commentsOn": false,
+      "position": 3,
+      "reactions": { "mashallah": 0, "barakallah": 0, "ahsant": 0 },
+      "myReaction": null,
+      "commentCount": 0,
+      "createdAt": "2026-11-14T08:01:00.000Z",
+      "audioPath": "/v1/me/recordings/8b3e4c6a-5d9f-4eaf-9c32-3d4e5f607182/audio",
+      "words": null
+    }
+  ],
+  "leftToday": 7
+}

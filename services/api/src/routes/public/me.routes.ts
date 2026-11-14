@@ -44,6 +44,7 @@ import * as profile from '../../services/profile.service.js';
 import * as tags from '../../services/tags.service.js';
 import * as analytics from '../../services/product-analytics.service.js';
 import * as backup from '../../services/backup.service.js';
+import * as recordings from '../../services/recordings.service.js';
 
 /** Bump when the privacy policy text changes; stored with every consent event. */
 export const POLICY_VERSION = community.POLICY_VERSION;
@@ -354,6 +355,8 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
       ...(await exportUser(db, uid, { includeWorship: true })),
       // The opt-in cloud backup, opened — only here, never in the admin export.
       backups: await backup.exportFor(app.ctx, uid),
+      // «تلاواتي»: the user's recordings (with the audio), reactions, comments and reports — only here.
+      recitations: await recordings.exportFor(app.ctx, uid),
     };
   });
 
@@ -383,6 +386,8 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
       await tx.execute(sql`update league_members set snapshot_points = null, snapshot_rank = null where user_id = ${uid}`);
       await tx.execute(sql`update tournament_entries set snapshot_points = null, snapshot_rank = null where user_id = ${uid}`);
       await community.recomputeCommunityConsent(tx, uid, 'erasure');
+      // Voice recordings, reactions and comments go at once (not after the grace period).
+      await recordings.eraseAll(tx, uid);
     });
     await app.ctx.cache.bumpNamespace('profile'); // the public card disappears at once
     await app.ctx.cache.bumpNamespace('community');

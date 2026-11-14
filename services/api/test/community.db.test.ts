@@ -12,6 +12,7 @@ import { runCommunity } from '../src/jobs/community.js';
 import { closeDueWeeks, ensurePlacement, ensureWeek } from '../src/services/leagues.service.js';
 import { takeNightlySnapshot } from '../src/services/snapshots.service.js';
 import { closeDueTournaments } from '../src/services/tournaments.service.js';
+import { POLICY_VERSION } from '../src/services/community.service.js';
 import {
   type Harness,
   TEST_DB_URL,
@@ -68,7 +69,7 @@ describe.skipIf(!TEST_DB_URL)('community: opt-in, snapshots and the weekly close
     expect(me.handle).toMatch(/^omar-\d{4}$/);
     expect(me.community.leagues).toBe(true);
     // The consent event of a join carries the attestation and the source.
-    expect(await consentEventsFor(h, omar.id)).toEqual([{ granted: true, source: 'onboarding', attested_adult: true, policy_version: '2026-11-13' }]);
+    expect(await consentEventsFor(h, omar.id)).toEqual([{ granted: true, source: 'onboarding', attested_adult: true, policy_version: POLICY_VERSION }]);
     const audit = await h.db.execute(sql`select 1 from audit_log where actor_user_id = ${omar.id} and action = 'user.attest_adult'`);
     expect(audit.rows).toHaveLength(1);
 
@@ -314,7 +315,7 @@ describe.skipIf(!TEST_DB_URL)('community: tournaments (Postgres)', () => {
     const joined = await h.app.inject({ method: 'POST', url: `/v1/tournaments/${t.id}/join`, headers: auth(u1.token), payload: { acknowledge: true, attestAdult: true } });
     expect(joined.statusCode).toBe(200);
     expect(joined.json()).toMatchObject({ joined: true, participants: 1, me: { rank: null, points: 0 } });
-    expect(await consentEventsFor(h, u1.id)).toEqual([{ granted: true, source: 'settings', attested_adult: true, policy_version: '2026-11-13' }]);
+    expect(await consentEventsFor(h, u1.id)).toEqual([{ granted: true, source: 'settings', attested_adult: true, policy_version: POLICY_VERSION }]);
 
     const others: { id: string; token: string }[] = [];
     for (let i = 0; i < 11; i++) {

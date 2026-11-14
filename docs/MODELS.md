@@ -56,3 +56,20 @@ decoding settings, transcripts aligned with a port of the app's `RecitationAlign
 - **Gate status: not passed for release.** The reciter number passes; the flag `recite` stays off
   until a set of ordinary users' recordings (consented, kept off the repository, deleted after the
   run) also scores ≥ 90 %: `eval.py --model-dir build/asr --local <folder>`.
+
+## Server model — the «تلاواتي» AI check (`services/asr`)
+
+Shared recordings (visibility `members`/`public`) are checked once on our own servers; private ones are
+stored for their owner only and never sent to the check. The app's verdict from the on-device model above is
+diagnostics only and never approves anything.
+
+| | |
+| --- | --- |
+| Weights | [`tarteel-ai/whisper-base-ar-quran`](https://huggingface.co/tarteel-ai/whisper-base-ar-quran) at revision `5c3c53fdf9272c4f6ee0bee09a1e5a4a615ee25c` — Whisper base fine-tuned by Tarteel on Quran recitation |
+| Licence | **Apache-2.0** (model card, checked 2026-11-14); base `openai/whisper-base` (MIT upstream) |
+| Runtime | faster-whisper 1.1.1 (MIT) on CTranslate2, int8, CPU, greedy, `language=ar`, Silero VAD filter, word timestamps |
+| Conversion | `ct2-transformers-converter --quantization int8` at image build (`services/asr/Dockerfile`), baked into the image (≈ 75 MB) |
+| Matching | `services/api/src/domain/recitation-match.ts` — a port of the app's `RecitationAligner` (incl. the isti'adha/Basmala opening rule); shared vectors `packages/contracts/fixtures/recitation-match/*.json` pass on both sides |
+| Hosting | Container App `yaqeen-asr`, internal ingress, scale to zero (docs/OPERATIONS.md › ASR); nothing stored or logged |
+
+Same facts in `services/asr/README.md` and `docs/CONTENT_SOURCES.md` › Models.

@@ -1,0 +1,4 @@
+# The HTTP-contract tests run with a stub transcriber: no model, no faster-whisper needed.
+fastapi==0.115.6
+httpx==0.28.1
+pytest==8.3.4

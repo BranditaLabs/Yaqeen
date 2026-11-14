@@ -1,0 +1,22 @@
+{
+  "items": [
+    {
+      "id": "9c4f5d7b-6eaf-4fb0-8d43-4e5f60718293",
+      "author": {
+        "handle": "sara-1180",
+        "name": null,
+        "avatar": { "kind": "initial" },
+        "level": { "level": 1, "progress": 0.1 },
+        "points": null,
+        "rank": null,
+        "me": true
+      },
+      "text": "ما شاء الله، تلاوة خاشعة",
+      "createdAt": "2026-11-14T08:10:00.000Z",
+      "mine": true,
+      "canDelete": true
+    }
+  ],
+  "nextCursor": "MjAyNi0xMS0xNFQwODoxMDowMC4wMDBafDljNGY1ZDdiLTZlYWYtNGZiMC04ZDQzLTRlNWY2MDcxODI5Mw",
+  "commentsOn": true
+}

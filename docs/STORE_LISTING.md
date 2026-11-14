@@ -75,7 +75,8 @@ Golden screenshots in `apps/mobile/test/goldens/` are the reference framing.
 
 - Guest mode works without signing in (tap «المتابعة كضيف»). Sign in with Apple is offered next to Google.
 - Points have no cash value and are never sold; rewards are single-use discount codes for our own Shopify store.
-- Features behind admin switches (recitation check, Ramadan, bonuses) may be off during review.
+- Features behind admin switches (recitation check, Ramadan, bonuses, «تلاواتي» recorded recitations) may be off during review.
+- «تلاواتي»: members may record their own voice reciting verses they choose (≤ 30 s, 3 at most). Recordings are private by default; shared ones are checked by our own server-side speech recognition and a human reviewer, and members can react, comment, report and block (UGC moderation: filter, reports, blocks, removal by our team).
 - NFC is used only to read a Yaqeen key medal/card's link when the user taps «قرّب الميدالية من الهاتف» in Profile › بطاقة يقين › ميدالياتي (the printed code works too), and by our staff to write the link onto blank chips (a staff-only screen opened from our admin dashboard). No other tags are read and nothing is read in the background.
 - Worship data stays on the device or, for the challenge, on our server only to award points; it is never sent to ad platforms. Signed-in users may turn on «نسخ احتياطي سحابي» (Profile → Privacy, off by default): an encrypted copy of their reading, notes, hifz, azkar counts, routine and Ramadan log, visible only to them and deleted when they turn it off.
 
@@ -99,6 +100,8 @@ Answer for the build being submitted. The ad SDKs (Firebase Analytics for Google
 | User content → Other User Content (community: display name, avatar, level and period points shown to other participants; reports and blocks) | Yes, only if the user joins a league, tournament or the level board (off by default) | Yes | No | App functionality |
 | User content → Other user content (Quran notes, highlights, bookmarks — opt-in cloud backup) | Yes, only with «نسخ احتياطي سحابي» (signed-in, off by default) | Yes | No | App functionality |
 | Sensitive info (religious practice: reading progress, hifz, azkar counts, Ramadan log, routine — opt-in cloud backup) | Yes, only with «نسخ احتياطي سحابي» | Yes | No | App functionality |
+| User content → Audio Data («تلاواتي»: the user's own recorded recitations, ≤ 30 s, private by default; a shared one is transcribed once by our own speech service to check the verses) | Yes, only if the user records one | Yes | No | App functionality |
+| User content → Other User Content (reactions and comments on recitations; reports) | Yes, only if the user reacts or comments (community opt-in) | Yes | No | App functionality |
 
 **Build with ad SDK values** (Google and/or Meta, only with `ads_measurement`) — add:
 
@@ -127,6 +130,8 @@ The app asks for ATT only after the in-app consent (already built), declares `NS
 | Personal info → Religious or political beliefs (the same backup reveals religious practice) | Yes, only with «نسخ احتياطي سحابي» | No | Yes | App functionality |
 | App activity → App interactions | Yes | No | Yes (consent) | Analytics |
 | App info & performance → Crash logs, Diagnostics | Yes | No | No | App functionality, Analytics |
+| Audio → Voice or sound recordings («تلاواتي»: the user's own recitations; checked by our own speech service, no third party) | Yes, only if the user records one | Shared with other users only by user choice (members or the public card, after the 18+ attestation and the community opt-in) | Yes | App functionality |
+| Messages / User-generated content → Other user-generated content (reactions and comments on recitations; reports) | Yes, only if the user reacts or comments | Shared with other users (comments are visible on the recitation) | Yes | App functionality |
 | Photos and videos → Photos (profile photo) | Yes, only if the user sets one | Shared with other users only by user choice (a published card or a competition they join, after the 18+ attestation) | Yes | App functionality |
 | Personal info → Name (display name in competitions) | Yes | Shared with other users only by user choice (competitions they join) | Yes | App functionality |
 | Messages / User-generated content → Other user-generated content (community profile: name, avatar, level, period points; reports, blocks) | Yes, only when the user joins (off by default) | Shared with other users only by user choice | Yes | App functionality |

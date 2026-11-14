@@ -60,6 +60,13 @@ const EnvSchema = z.object({
   QF_CLIENT_SECRET: z.string().default(''),
   QF_ENV: z.enum(['production', 'prelive']).default('production'),
   QF_PUBLIC_BASE_URL: z.union([z.literal(''), z.string().url()]).default('https://api.quran.com/api/v4'),
+  // «تلاواتي» AI check: the internal ASR service (services/asr, scale-to-zero Container App in our own
+  // region). Empty URL (dev/test) = no AI check: shared recordings wait for a reviewer, never auto-approved.
+  ASR_URL: z.union([z.literal(''), z.string().url()]).default(''),
+  /** Shared secret sent as `X-ASR-Token` (Key Vault `env-ASR-TOKEN`, the same value on both apps). */
+  ASR_TOKEN: z.string().default(''),
+  /** One verify call, including a cold start of the scale-to-zero service. */
+  ASR_TIMEOUT_MS: z.coerce.number().int().min(1000).default(120_000),
   // Public profile cards (NFC/QR): the host that serves /u/<handle> (point a vanity domain here),
   // the store and the app-store links its CTA opens.
   PUBLIC_PROFILE_BASE_URL: z.string().url().default('https://yaqeenarabia.com'),

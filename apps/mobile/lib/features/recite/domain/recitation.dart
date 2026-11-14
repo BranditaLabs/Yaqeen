@@ -118,17 +118,19 @@ abstract final class RecitationAligner {
 
   /// How many words at the start of [heard] are the isti'adha / Basmala ([drop]), and whether what
   /// is heard so far could still be one of them being said ([open]: wait before judging anything).
+  /// Heard words compare by exact key; whether the passage itself begins with the Basmala uses [same],
+  /// since the mushaf writes «ٱلرَّحۡمَٰنِ» with a dagger alef (key «الرحمان»).
   static ({int drop, bool open}) opening(List<String> heard, List<String> expected) {
     bool eq(String a, String b) => _norm(a) == _norm(b);
-    bool startsWith(List<String> list, int at, List<String> phrase) {
+    bool startsWith(List<String> list, int at, List<String> phrase, {bool fuzzy = false}) {
       if (list.length - at < phrase.length) return false;
       for (var i = 0; i < phrase.length; i++) {
-        if (!eq(list[at + i], phrase[i])) return false;
+        if (!(fuzzy ? same(list[at + i], phrase[i]) : eq(list[at + i], phrase[i]))) return false;
       }
       return true;
     }
 
-    final basmalaFirst = startsWith(expected, 0, _basmala);
+    final basmalaFirst = startsWith(expected, 0, _basmala, fuzzy: true);
     var at = 0;
     for (final phrase in [_isti, if (!basmalaFirst) _basmala]) {
       if (startsWith(heard, at, phrase)) {

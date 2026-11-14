@@ -64,7 +64,8 @@ jobs:
         id: exists
         run: |
           if docker buildx imagetools inspect "$REGISTRY/yaqeen-api:${{ steps.tag.outputs.tag }}" >/dev/null 2>&1 &&
-             docker buildx imagetools inspect "$REGISTRY/yaqeen-admin:${{ steps.tag.outputs.tag }}" >/dev/null 2>&1; then
+             docker buildx imagetools inspect "$REGISTRY/yaqeen-admin:${{ steps.tag.outputs.tag }}" >/dev/null 2>&1 &&
+             docker buildx imagetools inspect "$REGISTRY/yaqeen-asr:${{ steps.tag.outputs.tag }}" >/dev/null 2>&1; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
       - name: API image
@@ -96,6 +97,17 @@ jobs:
           labels: org.opencontainers.image.revision=${{ env.SHA }}
           cache-from: type=gha,scope=admin
           cache-to: type=gha,scope=admin,mode=max
+      - name: ASR image («تلاواتي» speech check, model baked in)
+        if: steps.exists.outputs.skip != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: services/asr/Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/yaqeen-asr:${{ steps.tag.outputs.tag }}
+          labels: org.opencontainers.image.revision=${{ env.SHA }}
+          cache-from: type=gha,scope=asr
+          cache-to: type=gha,scope=asr,mode=max
       # Fail on critical vulnerabilities that have a fix; everything is reported to Security › Code scanning.
       - name: Scan API image
         uses: aquasecurity/trivy-action@0.28.0

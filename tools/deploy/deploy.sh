@@ -39,7 +39,7 @@ WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 cp -r "$ROOT/deploy/k8s" "$WORK/k8s"
 OV="$WORK/k8s/overlays/$ENVIRONMENT"
-sed -i -E "s#(name: $REGISTRY/yaqeen-api, newTag: )[^ }]+#\1$TAG#; s#(name: $REGISTRY/yaqeen-admin, newTag: )[^ }]+#\1$TAG#" "$OV/kustomization.yaml"
+sed -i -E "s#(name: $REGISTRY/yaqeen-api, newTag: )[^ }]+#\1$TAG#; s#(name: $REGISTRY/yaqeen-admin, newTag: )[^ }]+#\1$TAG#; s#(name: $REGISTRY/yaqeen-asr, newTag: )[^ }]+#\1$TAG#" "$OV/kustomization.yaml"
 kubectl kustomize "$OV" > "$WORK/all.yaml"
 grep -q "image: $REGISTRY/yaqeen-api:$TAG" "$WORK/all.yaml" || { echo "image pin failed"; exit 1; }
 

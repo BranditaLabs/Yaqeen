@@ -7,6 +7,7 @@ namespace: yaqeen-staging
 images:
   - { name: ghcr.io/branditalabs/yaqeen-api, newTag: latest }
   - { name: ghcr.io/branditalabs/yaqeen-admin, newTag: latest }
+  - { name: ghcr.io/branditalabs/yaqeen-asr, newTag: latest }
 patches:
   - target: { kind: HorizontalPodAutoscaler, name: yaqeen-api }
     patch: |

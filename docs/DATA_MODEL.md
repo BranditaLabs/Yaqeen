@@ -89,6 +89,20 @@ Design: `docs/design/2026-11-profile-community-quran.md` §2; APP_SPEC §5.24, �
 
 All 0017 tables with a user FK are emptied for a user by the erasure purge at tombstone time (users are tombstoned, so cascades never fire).
 
+### Recordings «تلاواتي» (migration `0018_recordings`)
+
+Design `docs/design/2026-11-profile-community-quran.md` §16. Users' own recorded recitations — user content in their own voice, not Yaqeen's religious content; never in analytics or ad sinks; admins see a recording only while it is in the moderation queue.
+
+| Table | Notes |
+| --- | --- |
+| `recordings` | `user_id` (cascade), `surah`, `from_ayah`, `to_ayah` (one surah, ordered), `duration_ms` (≤ 31 000, read from the file), `audio` `bytea` as uploaded (AAC-LC .m4a, `bytes` ≤ 200 000 — Postgres like avatar photos, no storage service), `status` processing·private_ready·approved·needs_review·rejected·removed, `reject_reason`, `score` (coverage) / `speech` (VAD share), `words` jsonb `[{ayah,index,startMs,endMs}]` (karaoke, once verified), `visibility` private·members·public, `comments_on`, `position` 1–3, `asr_attempts` / `queued_at` (retries; the sweeper takes over after 10 min, review after 3 failures), **queue-only** `transcript` / `client_score` / `client_words` (dropped when a reviewer decides or the check decides), `held_at` (3 distinct reports), `verified_at`, `removed_at` (moderator removal; deleted after 7 days). Indexes `(user_id, position)`, `(status, created_at)`. |
+| `recording_reactions` | PK `(recording_id, user_id)`, `kind` mashallah·barakallah·ahsant — one per viewer, changeable. |
+| `recording_comments` | `recording_id` (cascade), `user_id`, `text` ≤ 280, `status` visible·hidden (3 reports)·removed (author/owner: text wiped at once; support: text kept 7 days for «restore», then wiped). Index `(user_id, created_at desc)` counts the 5/min, 50/day limits. |
+| `recording_reports` | `target` recording·comment, `target_id`, `reporter_id`, `reason` not_recitation·inappropriate·spam·other; unique per (target, target_id, reporter); index `(reporter_id, created_at desc)` counts 20 per 24 h; `resolved_at`/`resolved_by`/`resolution`; resolved reports deleted after 180 days. |
+| `recording_daily` | PK `(user_id, day)` (Africa/Cairo): uploads + share-verifications, ≤ 10; survives deletes. |
+
+Erasure deletes every recording (with its reactions, comments and reports), every reaction, comment and report by the user and the daily counter **at the request**, and again at tombstone time. Export (`/v1/me/export` → `recitations`) carries the recordings' metadata and audio (base64), reactions, comments and reports made. Blocks reuse `community_blocks`.
+
 ## Points rules — defaults
 
 Everything below is **edited from the dashboard** (النقاط والمكافآت). Global settings live in `app_config` key `points` (`dailyTotal`, `qadaDayPoints`, `qadaWindowDays`, `challengeLengthDays`). Changes apply to the next request; points already earned never change.

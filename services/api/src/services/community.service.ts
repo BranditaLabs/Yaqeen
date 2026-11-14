@@ -29,7 +29,7 @@ export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 export type DbOrTx = Db | Tx;
 
 /** Bump when the privacy policy text changes; stored with every consent event (re-exported by me.routes). */
-export const POLICY_VERSION = '2026-11-13';
+export const POLICY_VERSION = '2026-11-14';
 
 /* ------------------------------------------------------------- projection */
 

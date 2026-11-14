@@ -2,6 +2,7 @@ import type { Redis } from 'ioredis';
 import type { Env } from './config/env.js';
 import type { Db } from './db/client.js';
 import type { AlAdhanClient } from './integrations/aladhan.js';
+import type { AsrClient } from './integrations/asr.js';
 import type { FcmSender } from './integrations/fcm.js';
 import type { QuranFoundationClient } from './integrations/quran-foundation.js';
 import type { ShopifyClient } from './integrations/shopify.js';
@@ -17,6 +18,8 @@ export interface AppContext {
   fcm: FcmSender;
   /** Quran.com / Quran Foundation content (audio, timings, tafsir). Created from env by buildApp when not given. */
   qf: QuranFoundationClient;
+  /** «تلاواتي» AI check (services/asr); null = none (shared recordings wait for a reviewer). Created from env by buildApp when not given. */
+  asr?: AsrClient | null;
   /** Hot public responses (L1 memory + L2 Redis). Created by buildApp when not given. */
   cache: ResponseCache;
   /** Injectable clock for tests. */

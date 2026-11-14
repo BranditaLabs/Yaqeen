@@ -23,6 +23,7 @@ const FEATURE_LABEL: Record<string, string> = {
   leagues: 'الدوري الأسبوعي',
   tournaments: 'البطولات الموسمية',
   leaderboard: 'لوحة المستويات',
+  recordings: 'تلاواتي (تلاوات الأعضاء بأصواتهم)',
 };
 const ROLLOUT_FLAGS = ['recite'];
 

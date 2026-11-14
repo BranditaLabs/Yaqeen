@@ -12,6 +12,8 @@ export const NAV_ACCESS: Record<string, AdminRole[]> = {
   '/campaigns': ['super_admin', 'marketing'],
   '/rewards': ['super_admin', 'marketing', 'support'],
   '/competitions': ['super_admin', 'marketing', 'support'],
+  // «تلاواتي» moderation queue: verification by religious reviewers, reports/comments by support.
+  '/recitations': ['super_admin', 'religious_reviewer', 'support'],
   '/analytics': ['super_admin', 'marketing', 'support'],
   '/cards': ['super_admin', 'marketing', 'support'],
   '/tags': ['super_admin', 'marketing', 'support'],

@@ -67,6 +67,19 @@ Design `docs/design/2026-11-profile-community-quran.md` §1, §5; APP_SPEC §5.2
 - **Retention.** Replaced or removed photos: 7 days. Resolved reports: 180 days. Snapshots are rebuilt nightly.
 - **CSP.** The admin and `/u/<handle>` have no `img-src` CSP today; if one is added it must include the API host (public avatar URLs).
 
+## Voice recordings «تلاواتي» (2026-11-13)
+
+Design `docs/design/2026-11-profile-community-quran.md` §16; APP_SPEC §5.24, §5.26, §5.31.
+
+- **What it is.** A member may record **their own voice** reciting verses they choose (≤ 30 s, up to 3 on the profile). It is **user-generated content, not Yaqeen's religious content**: CLAUDE.md rules 4 and 9 govern what Yaqeen publishes (azkar, duas, the daily task, the splash verse, Quran text, tafsir and recitation audio we ship) and are unaffected — a user's own recitation is theirs. Owner decision, 2026-11-13.
+- **Purpose and processing.** Stored in our own Postgres (as uploaded, AAC-LC .m4a, ≤ 200 KB). Recordings are **private by default** and never leave the account until the owner shares them. When the owner shares one (members or public), our **own** speech service (`services/asr`, a Quran-tuned Whisper on CPU, running in our Azure region, UAE North) transcribes it once to check it recites the chosen verses; it stores nothing and logs nothing about the audio or the transcript, and receives only the audio bytes (no account id). No third-party speech API is used. A borderline result goes to a human reviewer (`religious_reviewer`) who hears it; the transcript is kept only while it waits in that queue. The app's on-device pre-check result is kept only while queued and never approves anything.
+- **Who can hear it.** Private: only the owner. Members: signed-in Yaqeen members — not guest sessions (the owner must be in the community with the 18+ attestation; blocks hide both ways). Leaving the community, a ban or a withdrawn attestation takes the owner's shared recordings off members' views and the web card, and the member's comments off every recording. Public: also on the owner's web card `/u/<handle>` (an unguessable audio URL served only while public and approved). Admins hear a recording only while it is in the moderation queue (flagged by the check or reported) — never a user's list.
+- **Reactions, comments, reports.** Fixed reactions (one per member, changeable); short text comments filtered on our server (links, phone numbers, @mentions of non-members and a word list; 5 per minute and 50 per day); the owner can delete any comment or switch comments off. Three reports hide a comment or hold a recording until support decides. Every moderation decision is audited.
+- **Never analytics, never ads.** No recording, reaction, comment or report event reaches product analytics or any ad platform (rule 1).
+- **Retention.** Until the owner deletes the recording (hard delete: audio, reactions, comments). Moderator-removed recordings: 7 days (restore window), then deleted. Support-removed comment text: 7 days. Resolved reports: 180 days.
+- **Export and erasure.** The export carries every recording (metadata + audio), reactions, comments and reports the user made. Erasure deletes all of them at the request (not after the grace period) and again at tombstone time.
+- **Processor table.** No new processor: the speech check runs on our own infrastructure (Azure, same subscription and region as the API).
+
 ## Ads & tracking
 
 Code: `apps/mobile/lib/core/analytics/analytics.dart` (the gate) and `lib/core/analytics/sinks/` (one sink per SDK, each behind a tiny interface so tests never touch the SDK).
