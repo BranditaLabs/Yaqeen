@@ -62,32 +62,8 @@ spec:
                 - configMapRef: { name: yaqeen-api-config }
                 - secretRef: { name: yaqeen-api-secrets }
 ---
-# «تلاواتي» sweeper: retry recordings stuck in the AI check, send them to review after 3 failures,
-# delete moderator-removed recordings after their 7-day restore window.
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: yaqeen-recordings
-spec:
-  schedule: "*/10 * * * *"
-  concurrencyPolicy: Forbid
-  jobTemplate:
-    spec:
-      template:
-        metadata:
-          labels: { app: yaqeen-recordings }
-        spec:
-          restartPolicy: Never
-          containers:
-            - name: recordings
-              image: ghcr.io/branditalabs/yaqeen-api:latest
-              command: ["node", "dist/jobs/recordings.js"]
-              envFrom:
-                - configMapRef: { name: yaqeen-api-config }
-                - secretRef: { name: yaqeen-api-secrets }
----
 # Community: closes due league weeks (one group per transaction), the nightly public snapshot (once per
-# Cairo day) and due tournaments. Hourly at :07; Postgres advisory lock + Forbid, so runs never overlap.
+# Cairo day), due tournaments and the «تلاواتي» sweep (stuck AI checks, removed recordings; calls yaqeen-asr). Hourly at :07; Postgres advisory lock + Forbid, so runs never overlap.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -101,6 +77,8 @@ spec:
       backoffLimit: 1
       activeDeadlineSeconds: 3000
       template:
+        metadata:
+          labels: { app: yaqeen-community }
         spec:
           restartPolicy: Never
           containers:

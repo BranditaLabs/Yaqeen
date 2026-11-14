@@ -61,5 +61,5 @@ spec:
   ingress:
     - from:
         - podSelector: { matchLabels: { app: yaqeen-api } }
-        - podSelector: { matchLabels: { app: yaqeen-recordings } }
+        - podSelector: { matchLabels: { app: yaqeen-community } }
       ports: [{ port: 8080 }]

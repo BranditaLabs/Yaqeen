@@ -4,7 +4,7 @@
 //
 //   infra      ACR, Key Vault, Postgres, identities (+ VNet, Log Analytics, environment unless shared)
 //   apps       api (public), admin (public), redis (VNet-internal TCP; own environment only),
-//              asr («تلاواتي» speech check: internal, scale-to-zero), migrate + purge + recordings (+ campaigns) jobs
+//              asr («تلاواتي» speech check: internal, scale-to-zero), migrate + purge + community (+ campaigns) jobs
 //   domains    'none' → 'add' (hostnames, no cert) → 'bind' (managed certificates, SNI)
 
 targetScope = 'resourceGroup'

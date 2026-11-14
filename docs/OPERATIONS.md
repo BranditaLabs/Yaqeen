@@ -203,6 +203,9 @@ overlapping run or the admin «تشغيل التدوير الآن» skip). It ne
 4. **Close due tournaments** in batches of 1,000 entries (finals, badges), then `closed_at` and the entrants' `community`
    consent (source `system`) in one short transaction. A crash resumes from entries without finals.
 5. Resolved reports older than 180 days are deleted. (Replaced/removed photos older than 7 days go in the daily purge job.)
+6. **«تلاواتي» sweep**: recordings stuck in `processing` for more than 10 minutes are checked again through `yaqeen-asr`
+   (to the review queue after 3 failed attempts); moderator-removed recordings are deleted after their 7-day restore
+   window; resolved recording reports after 180 days. The job carries the same `ASR_URL`/`ASR_TOKEN` as the API.
 
 Alerts: `YaqeenLeagueWeekNotClosed` / `YaqeenTournamentNotClosed` (still open > 2 h past the end),
 `YaqeenCommunitySnapshotStale` (> 26 h); `YaqeenJobFailed` covers failed runs. Fix the cause, then let the next hourly run

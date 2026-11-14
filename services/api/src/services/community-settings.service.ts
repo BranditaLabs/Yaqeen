@@ -16,7 +16,7 @@ export type CommunityCtx = Pick<AppContext, 'db' | 'now' | 'cache' | 'env'>;
 export const LEAGUES_CONFIG_KEY = 'leagues';
 
 export type CommunityFlag = 'leagues' | 'tournaments' | 'leaderboard';
-type Flag = CommunityFlag | 'publicCards' | 'medalActivation';
+type Flag = CommunityFlag | 'publicCards' | 'medalActivation' | 'recordings';
 
 /** A feature flag from `app_config 'features'`; flags in `FEATURE_DEFAULTS_OFF` are off unless set. */
 export async function featureOn(ctx: CommunityCtx, flag: Flag): Promise<boolean> {

@@ -15,7 +15,6 @@
     "db:seed": "tsx src/db/seed.ts",
     "job:campaigns": "tsx src/jobs/campaign-dispatcher.ts",
     "job:purge": "tsx src/jobs/purge-deleted.ts",
-    "job:recordings": "tsx src/jobs/recordings.ts",
     "content:export": "tsx src/scripts/export-content-seed.ts",
     "load": "tsx load/run.ts",
     "job:community": "tsx src/jobs/community.ts",

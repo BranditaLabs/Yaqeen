@@ -24,6 +24,7 @@ import { buildMultipart } from '../src/lib/multipart.js';
 import { signAdminToken, signUserToken } from '../src/lib/tokens.js';
 import { resetActivityCache } from '../src/services/activity.service.js';
 import * as rec from '../src/services/recordings.service.js';
+import { runCommunity } from '../src/jobs/community.js';
 import { buildM4a } from './helpers/m4a.js';
 
 const url = process.env.TEST_DATABASE_URL;
@@ -535,5 +536,55 @@ describe.skipIf(!url)('recordings «تلاواتي» (Postgres)', () => {
     const out = await rec.sweep(app.ctx);
     expect(out.purged).toBeGreaterThanOrEqual(1);
     expect((await db.select().from(s.recordings).where(eq(s.recordings.id, id))).length).toBe(0);
+  });
+  it('real community paths: join (attest + level board) to share, block via the API, leave hides, the job sweeps', async () => {
+    await db.update(s.appConfig).set({ value: { recordings: true, leaderboard: true } }).where(eq(s.appConfig.key, 'features'));
+    await app.ctx.cache.bumpNamespace('config');
+    try {
+      const owner = await makeUser();
+      await db.update(s.users).set({ displayName: 'Omar Farouk' }).where(eq(s.users.id, owner.id));
+      const viewer = await makeUser();
+      // Not in the community yet: sharing refused with the stable codes.
+      expect((await upload(owner.token, meta('exact_recitation'))).json().error.code).toBe('attestation_required');
+      const join = await app.inject({ method: 'PUT', url: '/v1/me/community', headers: auth(owner.token), payload: { attestAdult: true, leaderboard: true, source: 'settings' } });
+      expect(join.statusCode).toBe(200);
+      const [card] = await db.select({ handle: s.publicProfiles.handle }).from(s.publicProfiles).where(eq(s.publicProfiles.userId, owner.id));
+      expect(card!.handle).toMatch(/^omar-\d{4}$/); // the community's competitor handle, not a recordings one
+      asr.answer('exact_recitation');
+      const up = await upload(owner.token, meta('exact_recitation'));
+      expect(up.statusCode).toBe(202);
+      await rec.drain(app.ctx);
+      const view = await app.inject({ method: 'GET', url: `/v1/community/members/${card!.handle}/recordings`, headers: auth(viewer.token) });
+      expect(view.statusCode).toBe(200);
+      // The owner is the community's public competitor projection (name, level ring, no points/rank).
+      expect(view.json().owner).toEqual({ handle: card!.handle, name: 'Omar Farouk', avatar: { kind: 'initial' }, level: { level: 1, progress: 0 }, points: null, rank: null, me: false });
+      // A block through the community API hides both ways.
+      expect((await app.inject({ method: 'POST', url: '/v1/community/blocks', headers: auth(owner.token), payload: { handle: card!.handle } })).statusCode).toBe(400); // not self
+      const viewerJoin = await app.inject({ method: 'PUT', url: '/v1/me/community', headers: auth(viewer.token), payload: { attestAdult: true, leaderboard: true, displayName: 'Viewer Two', source: 'settings' } });
+      expect(viewerJoin.statusCode).toBe(200);
+      const [vcard] = await db.select({ handle: s.publicProfiles.handle }).from(s.publicProfiles).where(eq(s.publicProfiles.userId, viewer.id));
+      expect((await app.inject({ method: 'POST', url: '/v1/community/blocks', headers: auth(owner.token), payload: { handle: vcard!.handle } })).statusCode).toBe(204);
+      expect((await app.inject({ method: 'GET', url: `/v1/community/members/${card!.handle}/recordings`, headers: auth(viewer.token) })).statusCode).toBe(404);
+      expect((await app.inject({ method: 'PUT', url: `/v1/recordings/${up.json().id}/reaction`, headers: auth(viewer.token), payload: { kind: 'ahsant' } })).json().error.code).toBe('blocked');
+      expect((await app.inject({ method: 'DELETE', url: `/v1/community/blocks/${vcard!.handle}`, headers: auth(owner.token) })).statusCode).toBe(204);
+      expect((await app.inject({ method: 'PUT', url: `/v1/recordings/${up.json().id}/reaction`, headers: auth(viewer.token), payload: { kind: 'ahsant' } })).statusCode).toBe(200);
+      // Leaving the community (derived consent off) hides the recordings from members and refuses sharing.
+      const leave = await app.inject({ method: 'PUT', url: '/v1/me/community', headers: auth(owner.token), payload: { leaderboard: false, source: 'settings' } });
+      expect(leave.statusCode).toBe(200);
+      expect((await app.inject({ method: 'GET', url: `/v1/recordings/${up.json().id}/audio`, headers: auth(viewer.token) })).statusCode).toBe(404);
+      expect((await upload(owner.token, meta('exact_recitation'))).json().error.code).toBe('community_required');
+      // The hourly community job carries the recordings sweep (stuck AI checks → retried).
+      const stuck = await upload(viewer.token, meta('exact_recitation'));
+      await rec.drain(app.ctx); // attempt 1 fails (nothing queued)
+      now = new Date(now.getTime() + 11 * 60_000);
+      asr.answer('exact_recitation');
+      const res = await runCommunity({ env: app.ctx.env, db, cache: app.ctx.cache, now: () => now, asr });
+      expect(res.recordings.retried).toBe(0);
+      const [after] = await db.select({ status: s.recordings.status }).from(s.recordings).where(eq(s.recordings.id, stuck.json().id));
+      expect(after!.status).toBe('approved');
+    } finally {
+      await db.update(s.appConfig).set({ value: { recordings: true } }).where(eq(s.appConfig.key, 'features'));
+      await app.ctx.cache.bumpNamespace('config');
+    }
   });
 });

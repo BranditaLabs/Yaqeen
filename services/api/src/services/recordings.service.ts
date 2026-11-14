@@ -21,14 +21,12 @@ import {
   type AdminRecordingDecision,
   type AdminRecordingItem,
   type AdminRecordingQueue,
-  type Avatar,
   AUTO_HIDE_REPORTS,
   COMMENT_RATE,
   COMMENTS_PAGE_SIZE,
   type MemberRecordings,
   type MyRecordings,
   PROFILE_RECORDINGS_MAX,
-  type PublicCompetitor,
   type PublicRecording,
   type ReactionCounts,
   type ReactionKind,
@@ -46,11 +44,10 @@ import {
   type RecordingReportReason,
   type RecordingStatus,
   type RecordingWord,
-  levelFor,
 } from '@yaqeen/contracts';
 import type { AppContext } from '../context.js';
 import type { Db } from '../db/client.js';
-import { appConfig, recordingComments, recordingDaily, recordingReactions, recordingReports, recordings } from '../db/schema.js';
+import { recordingComments, recordingDaily, recordingReactions, recordingReports, recordings } from '../db/schema.js';
 import { checkComment } from '../domain/comments.js';
 import { inspectM4a, matchesRecordingFormat } from '../domain/m4a.js';
 import { expectedAyat, validRange } from '../domain/quran-words.js';
@@ -59,6 +56,8 @@ import { AsrUndecodable } from '../integrations/asr.js';
 import { audit } from '../lib/audit.js';
 import { AppError, badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { captureError } from '../lib/observability.js';
+import { COMPETITOR_COLUMNS_ANY, COMPETITOR_JOINS, type CompetitorRow, toCompetitor } from './community.service.js';
+import { featureOn as flagOn } from './community-settings.service.js';
 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 type DbOrTx = Db | Tx;
@@ -83,11 +82,7 @@ export function cairoDay(now: Date): string {
 
 /** Remote-config flag `recordings` (off by default, contracts `FEATURE_DEFAULTS_OFF`). */
 export async function featureOn(ctx: AppContext): Promise<boolean> {
-  const json = await ctx.cache.getJson('config', 'feature:recordings', 30, async () => {
-    const [row] = await ctx.db.select({ value: appConfig.value }).from(appConfig).where(eq(appConfig.key, 'features'));
-    return ((row?.value ?? {}) as Record<string, boolean>).recordings === true;
-  });
-  return JSON.parse(json) as boolean;
+  return flagOn(ctx, 'recordings');
 }
 
 async function requireFeature(ctx: AppContext) {
@@ -124,59 +119,26 @@ function requireMember(id: Identity) {
   if (!id.community || !id.handle) throw forbidden('community_required');
 }
 
-/** Owner columns used by every member view (aliases: u owner, pp card, ap photo, t totals). */
-const OWNER_COLUMNS = sql.raw(`u.id as owner_id, pp.handle, u.display_name, (u.name_hidden_at is not null) as name_hidden,
-  u.avatar_kind, u.avatar_preset, u.avatar_photo_id,
-  coalesce(ap.status = 'active' and u.adult_attested_at is not null, false) as photo_ok,
-  coalesce(t.public_lifetime, 0)::int as public_lifetime`);
-const OWNER_JOINS = sql.raw(`join users u on u.id = r.user_id
-  join public_profiles pp on pp.user_id = u.id
-  left join avatar_photos ap on ap.id = u.avatar_photo_id
-  left join user_point_totals t on t.user_id = u.id`);
-/** The owner may be seen by members: active, attested, in the community, not banned. */
+/**
+ * The owner/author of a member view is the community's public competitor projection
+ * (`community.service`): the same handle, name (null while support hides it), avatar (a photo only
+ * when the public avatar route would serve it) and nightly level ring as every competition list —
+ * without points or rank. Aliases: u = users, pp = public_profiles, ap, pcm, t (`COMPETITOR_JOINS`).
+ */
+const OWNER_COLUMNS = sql`${COMPETITOR_COLUMNS_ANY}, null::int as points, null::int as rank`;
+const OWNER_JOINS = sql`join users u on u.id = r.user_id ${COMPETITOR_JOINS}`;
+/** The owner may be seen by members: active, attested, in the community (consent `community`), not banned. */
 const OWNER_SHAREABLE = sql.raw(`u.status = 'active' and u.adult_attested_at is not null
   and exists (select 1 from consents c where c.user_id = u.id and c.kind = 'community' and c.granted)
   and not exists (select 1 from community_members cm where cm.user_id = u.id and cm.banned_at is not null)`);
 /** A recording members may hear. */
 const MEMBER_VISIBLE = sql.raw(`r.status = 'approved' and r.held_at is null and r.visibility in ('members', 'public')`);
 
-type OwnerRow = {
-  owner_id: string;
-  handle: string;
-  display_name: string | null;
-  name_hidden: boolean;
-  avatar_kind: string;
-  avatar_preset: string | null;
-  avatar_photo_id: string | null;
-  photo_ok: boolean;
-  public_lifetime: number;
-};
+type OwnerRow = CompetitorRow;
 
-/** Public photo URL (served by the community's public avatar route). */
-function avatarUrl(ctx: AppContext, photoId: string, size: 96 | 256): string {
-  return `${ctx.env.PUBLIC_PROFILE_BASE_URL.replace(/\/$/, '')}/v1/public/avatars/${photoId}/${size}.webp`;
-}
-
-function avatarOf(ctx: AppContext, row: OwnerRow): Avatar {
-  if (row.avatar_kind === 'photo' && row.avatar_photo_id && row.photo_ok) {
-    return { kind: 'photo', id: row.avatar_photo_id, url: avatarUrl(ctx, row.avatar_photo_id, 256), smallUrl: avatarUrl(ctx, row.avatar_photo_id, 96) };
-  }
-  if (row.avatar_kind === 'initial' || !row.avatar_preset) return { kind: 'initial' };
-  return { kind: 'preset', id: row.avatar_preset } as Avatar;
-}
-
-/** The community's public competitor shape, without points or rank. */
-function competitor(ctx: AppContext, row: OwnerRow, viewerId: string | null): PublicCompetitor {
-  const l = levelFor(Number(row.public_lifetime));
-  return {
-    handle: row.handle,
-    name: row.name_hidden ? null : row.display_name,
-    avatar: avatarOf(ctx, row),
-    level: { level: l.level, progress: Math.round(l.progress * 1000) / 1000 },
-    points: null,
-    rank: null,
-    me: viewerId !== null && row.owner_id === viewerId,
-  };
+/** The public competitor shape without points or rank. */
+function competitor(ctx: AppContext, row: OwnerRow, viewerId: string | null) {
+  return toCompetitor(ctx, row, viewerId);
 }
 
 async function blockedEitherWay(db: DbOrTx, a: string, b: string): Promise<boolean> {
@@ -445,6 +407,9 @@ async function deleteRecordings(tx: DbOrTx, where: ReturnType<typeof sql>) {
 
 /* ------------------------------------------------------------ verification */
 
+/** What the AI check needs (the community job builds one without HTTP clients). */
+export type VerifyCtx = Pick<AppContext, 'db' | 'now' | 'cache' | 'asr'>;
+
 interface Queue {
   chain: Promise<void>;
   pending: number;
@@ -514,7 +479,7 @@ export async function drain(ctx: AppContext): Promise<void> {
  * One AI check of a `processing` recording. Updates are guarded on `status = 'processing'` so an
  * owner switching back to private meanwhile wins. Returns what happened.
  */
-export async function verifyOne(ctx: AppContext, id: string): Promise<'done' | 'retry' | 'skipped'> {
+export async function verifyOne(ctx: VerifyCtx, id: string): Promise<'done' | 'retry' | 'skipped'> {
   const [rec] = await ctx.db
     .select({ audio: recordings.audio, surah: recordings.surah, fromAyah: recordings.fromAyah, toAyah: recordings.toAyah, durationMs: recordings.durationMs, status: recordings.status, attempts: recordings.asrAttempts })
     .from(recordings)
@@ -577,11 +542,11 @@ export async function verifyOne(ctx: AppContext, id: string): Promise<'done' | '
 }
 
 /**
- * Sweeper (community/recordings job): retry `processing` recordings stuck longer than 10 min (each
+ * Sweeper (step 6 of the hourly community job): retry `processing` recordings stuck longer than 10 min (each
  * failure counts; after 3 → needs_review); delete recordings removed by a moderator past the 7-day
  * restore window and wipe the text of support-removed comments past it.
  */
-export async function sweep(ctx: AppContext): Promise<{ retried: number; toReview: number; purged: number }> {
+export async function sweep(ctx: VerifyCtx): Promise<{ retried: number; toReview: number; purged: number }> {
   const now = ctx.now();
   const stale = await ctx.db.execute<{ id: string; attempts: number }>(sql`
     select id, asr_attempts as attempts from recordings
@@ -649,7 +614,7 @@ function toPublic(ctx: AppContext, r: VisibleRow, viewerId: string, extra: { cou
     audioPath: `/v1/recordings/${r.id}/audio`,
     words: r.words ?? null,
     owner: competitor(ctx, r, viewerId),
-    mine: r.owner_id === viewerId,
+    mine: r.user_id === viewerId,
   };
 }
 
@@ -659,7 +624,7 @@ async function visibleOne(ctx: AppContext, viewerId: string, id: string): Promis
     select ${VISIBLE_COLUMNS}, ${OWNER_COLUMNS} from recordings r ${OWNER_JOINS}
     where r.id = ${id} and ${MEMBER_VISIBLE} and ${OWNER_SHAREABLE}`);
   const row = r.rows[0];
-  if (!row || (await blockedEitherWay(ctx.db, viewerId, row.owner_id))) throw notFound('recording');
+  if (!row || (await blockedEitherWay(ctx.db, viewerId, row.user_id))) throw notFound('recording');
   return row;
 }
 
@@ -670,14 +635,13 @@ export async function memberRecordings(ctx: AppContext, viewerId: string, handle
   });
   const h = handle.trim().replace(/^@/, '').toLowerCase();
   const owner = await ctx.db.execute<OwnerRow>(sql`
-    select ${OWNER_COLUMNS} from users u join public_profiles pp on pp.user_id = u.id
-    left join avatar_photos ap on ap.id = u.avatar_photo_id left join user_point_totals t on t.user_id = u.id
+    select ${OWNER_COLUMNS} from users u ${COMPETITOR_JOINS}
     where pp.handle = ${h} and ${OWNER_SHAREABLE}`);
   const o = owner.rows[0];
-  if (!o || (await blockedEitherWay(ctx.db, viewerId, o.owner_id))) throw notFound('member');
+  if (!o || (await blockedEitherWay(ctx.db, viewerId, o.user_id))) throw notFound('member');
   const rows = await ctx.db.execute<VisibleRow>(sql`
     select ${VISIBLE_COLUMNS}, ${OWNER_COLUMNS} from recordings r ${OWNER_JOINS}
-    where r.user_id = ${o.owner_id} and ${MEMBER_VISIBLE} order by r.position, r.created_at`);
+    where r.user_id = ${o.user_id} and ${MEMBER_VISIBLE} order by r.position, r.created_at`);
   const extra = await reactionsFor(
     ctx.db,
     rows.rows.map((r) => r.id),
@@ -704,7 +668,7 @@ async function engage(ctx: AppContext, viewerId: string, id: string): Promise<Vi
     where r.id = ${id} and ${MEMBER_VISIBLE} and ${OWNER_SHAREABLE}`);
   const row = r.rows[0];
   if (!row) throw notFound('recording');
-  if (await blockedEitherWay(ctx.db, viewerId, row.owner_id)) throw forbidden('blocked');
+  if (await blockedEitherWay(ctx.db, viewerId, row.user_id)) throw forbidden('blocked');
   return row;
 }
 
@@ -759,8 +723,7 @@ export async function listComments(ctx: AppContext, viewerId: string, id: string
   const after = decodeCursor(cursor);
   const rows = await ctx.db.execute<CommentRow>(sql`
     select c.id, c.text, c.created_at, ${OWNER_COLUMNS}
-    from recording_comments c join users u on u.id = c.user_id join public_profiles pp on pp.user_id = u.id
-    left join avatar_photos ap on ap.id = u.avatar_photo_id left join user_point_totals t on t.user_id = u.id
+    from recording_comments c join users u on u.id = c.user_id ${COMPETITOR_JOINS}
     where c.recording_id = ${id} and c.status = 'visible' and u.status = 'active'
       and not exists (select 1 from community_blocks b where (b.user_id = ${viewerId} and b.blocked_user_id = u.id) or (b.user_id = u.id and b.blocked_user_id = ${viewerId}))
       ${after ? sql`and (c.created_at, c.id) < (${after.at}, ${after.id}::uuid)` : sql``}
@@ -771,8 +734,8 @@ export async function listComments(ctx: AppContext, viewerId: string, id: string
     author: competitor(ctx, c, viewerId),
     text: c.text,
     createdAt: new Date(c.created_at).toISOString(),
-    mine: c.owner_id === viewerId,
-    canDelete: c.owner_id === viewerId || rec.owner_id === viewerId,
+    mine: c.user_id === viewerId,
+    canDelete: c.user_id === viewerId || rec.user_id === viewerId,
   }));
   const last = page.at(-1);
   return { items, nextCursor: rows.rows.length > COMMENTS_PAGE_SIZE && last ? encodeCursor(last.created_at, last.id) : null, commentsOn: rec.comments_on };
@@ -802,8 +765,7 @@ export async function postComment(ctx: AppContext, viewerId: string, id: string,
   if (Number(c.minute) >= COMMENT_RATE.perMinute || Number(c.day) >= COMMENT_RATE.perDay) throw tooMany('comment_rate_limited');
   const [row] = await ctx.db.insert(recordingComments).values({ recordingId: id, userId: viewerId, text: check.text, createdAt: now }).returning();
   const me = await ctx.db.execute<OwnerRow>(sql`
-    select ${OWNER_COLUMNS} from users u join public_profiles pp on pp.user_id = u.id
-    left join avatar_photos ap on ap.id = u.avatar_photo_id left join user_point_totals t on t.user_id = u.id where u.id = ${viewerId}`);
+    select ${OWNER_COLUMNS} from users u ${COMPETITOR_JOINS} where u.id = ${viewerId}`);
   return { id: row!.id, author: competitor(ctx, me.rows[0]!, viewerId), text: row!.text, createdAt: row!.createdAt.toISOString(), mine: true, canDelete: true };
 }
 
@@ -836,7 +798,7 @@ export async function report(ctx: AppContext, viewerId: string, target: 'recordi
     if (!c || c.status === 'removed') throw notFound('comment');
     if (c.author === viewerId) return;
     targetId = c.id;
-  } else if (rec.owner_id === viewerId) {
+  } else if (rec.user_id === viewerId) {
     return;
   }
   const now = ctx.now();
