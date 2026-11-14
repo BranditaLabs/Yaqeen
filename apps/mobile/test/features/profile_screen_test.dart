@@ -289,6 +289,30 @@ void main() {
     expect(find.text('بطاقة يقين'), findsOneWidget);
   });
 
+  testWidgets('the edit badge: its whole target opens the picture sheet, and pressing it leaves the ring still', (tester) async {
+    size(tester);
+    await pumpProfile(tester, await signedIn());
+    final badge = find.byKey(const ValueKey('profile-edit-badge'));
+    final ring = find.ancestor(of: find.byKey(const ValueKey('profile-avatar')), matching: find.byType(GlassTap)).first;
+    final target = tester.getRect(badge);
+    expect(target.size, const Size.square(YqSpace.touch));
+    // RTL: the badge hangs past the ring's bottom-left corner; that outer strip still answers.
+    final ringRect = tester.getRect(find.byKey(const ValueKey('profile-avatar')));
+    expect(target.bottom, greaterThan(ringRect.bottom));
+    final corner = target.bottomLeft + const Offset(2, -2);
+    expect(corner.dy, greaterThan(ringRect.bottom));
+    final press = await tester.startGesture(corner);
+    await tester.pump(const Duration(milliseconds: 200)); // held past the tap deadline
+    double scaleOf(Finder tap) =>
+        tester.widget<AnimatedScale>(find.descendant(of: tap, matching: find.byType(AnimatedScale)).first).scale;
+    expect(scaleOf(badge), 0.92);
+    expect(scaleOf(ring), 1); // only the badge pops
+    await press.up();
+    await settle(tester, 2);
+    expect(find.text('صورتك'), findsWidgets);
+    await dispose(tester);
+  });
+
   /* ------------------------------------------------------------- signed in */
 
   testWidgets('signed in: avatar in the level ring, caption with handle, Level · Points · League orbs', (tester) async {

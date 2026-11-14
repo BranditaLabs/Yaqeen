@@ -296,6 +296,9 @@ class _Stage extends ConsumerWidget {
 
   static const size = 120.0;
 
+  /// How far the edit badge's 44-pt target hangs past the ring's end and bottom edges.
+  static const _badgeOutset = 6.0;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context);
@@ -329,58 +332,78 @@ class _Stage extends ConsumerWidget {
       levelName: level.name(locale),
     );
 
+    // The edit badge hangs [badgeOutset] past the ring's end and bottom; the box grows by that
+    // much (both sides across, below only) so its whole 44-pt target is hit-testable, and the gap
+    // under it shrinks by the same amount, so nothing else moves.
+    const outset = _badgeOutset;
     return Column(
       children: [
-        GlassTap(
-          onTap: () => showAvatarSheet(context, ref),
-          semanticLabel: t.pfSemanticsJoin(
-            t.lvlRingSemantics(YqFormat.number(level.level), level.name(locale), YqFormat.number((level.progress * 100).round())),
-            t.pfEditPhoto,
-          ),
-          child: ExcludeSemantics(
-            child: SizedBox.square(
-              dimension: size,
-              child: Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.center,
-                children: [
-                  picture,
-                  // Uploading a photo: the ring shimmers in lapis until it lands.
-                  if (uploading)
-                    const IgnorePointer(
-                      key: ValueKey('profile-uploading'),
-                      child: YqSkeleton(child: YqRing(value: 1, size: size, stroke: 4, color: YqColors.lapis)),
-                    ),
-                  // The edit badge pops on its own press (0.92, springing back).
-                  PositionedDirectional(
-                    end: -6,
-                    bottom: -6,
-                    child: GlassTap(
-                      onTap: () => showAvatarSheet(context, ref),
-                      pressScale: 0.92,
-                      child: const SizedBox.square(
-                        dimension: YqSpace.touch,
-                        child: Center(
-                          child: SizedBox.square(
-                            dimension: 32,
-                            child: LiquidGlass(
-                              radius: YqRadii.pill,
-                              padding: EdgeInsets.zero,
-                              highlight: false,
-                              opacity: 0.9,
-                              child: Center(child: YqIcon(YqIcons.edit, size: 16)),
+        SizedBox(
+          width: size + 2 * outset,
+          height: size + outset,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Align(
+                alignment: Alignment.topCenter,
+                child: GlassTap(
+                  onTap: () => showAvatarSheet(context, ref),
+                  semanticLabel: t.pfSemanticsJoin(
+                    t.lvlRingSemantics(YqFormat.number(level.level), level.name(locale), YqFormat.number((level.progress * 100).round())),
+                    t.pfEditPhoto,
+                  ),
+                  child: ExcludeSemantics(
+                    child: SizedBox.square(
+                      dimension: size,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          picture,
+                          // Uploading a photo: the ring shimmers in lapis until it lands.
+                          if (uploading)
+                            const IgnorePointer(
+                              key: ValueKey('profile-uploading'),
+                              child: YqSkeleton(child: YqRing(value: 1, size: size, stroke: 4, color: YqColors.lapis)),
                             ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // The edit badge pops on its own press (0.92, springing back) — a sibling above the
+              // ring, not inside its tap, so the ring and picture stay still while it does. Same
+              // action as the ring, already announced there.
+              PositionedDirectional(
+                end: 0,
+                bottom: 0,
+                child: ExcludeSemantics(
+                  child: GlassTap(
+                    key: const ValueKey('profile-edit-badge'),
+                    onTap: () => showAvatarSheet(context, ref),
+                    pressScale: 0.92,
+                    child: const SizedBox.square(
+                      dimension: YqSpace.touch,
+                      child: Center(
+                        child: SizedBox.square(
+                          dimension: 32,
+                          child: LiquidGlass(
+                            radius: YqRadii.pill,
+                            padding: EdgeInsets.zero,
+                            highlight: false,
+                            opacity: 0.9,
+                            child: Center(child: YqIcon(YqIcons.edit, size: 16)),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
-        const SizedBox(height: YqSpace.m),
+        const SizedBox(height: YqSpace.m - outset),
         GlassTap(
           onTap: () => showEditNameSheet(context),
           semanticLabel: t.pfSemanticsJoin(profile.nameHidden ? t.avHiddenName : name, t.pfNameTitle),
