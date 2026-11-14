@@ -28,6 +28,7 @@ import {
   type CompetitorRow,
   type DbOrTx,
   blockedBothWays,
+  lockUser,
   personalise,
 } from './community.service.js';
 
@@ -105,6 +106,8 @@ export type Placement = { state: 'off' } | { state: 'closing' } | { state: 'plac
  * The request path (design §4.2): place an opted-in member in this week's group. While an earlier
  * week past its end is still open, answer `closing` and don't place (the close step places
  * continuing members at their new division). A member who left this week rejoins the same group.
+ * Any write (rejoin, placement) re-reads the switch, ban and account status under the users row
+ * lock in the same transaction, so a concurrent turn-off, ban or erasure is never undone.
  */
 export async function ensurePlacement(ctx: CommunityCtx, uid: string): Promise<Placement> {
   const now = ctx.now();
@@ -120,20 +123,32 @@ export async function ensurePlacement(ctx: CommunityCtx, uid: string): Promise<P
     select 1 from league_weeks where status = 'open' and starts_on < ${week.startsOn} and ends_at <= ${now} limit 1`);
   if (pending.rows.length) return { state: 'closing' };
 
-  const have = await ctx.db.execute<{ group_id: string; left: boolean }>(sql`
-    select group_id, (left_at is not null) as left from league_members where starts_on = ${week.startsOn} and user_id = ${uid}`);
-  if (have.rows[0]) {
-    if (have.rows[0].left) {
-      await ctx.db.execute(sql`update league_members set left_at = null where starts_on = ${week.startsOn} and user_id = ${uid}`);
-      await ctx.cache.bumpNamespace('community');
+  const memberRow = (db: DbOrTx) =>
+    db.execute<{ group_id: string; left: boolean }>(sql`
+      select group_id, (left_at is not null) as left from league_members where starts_on = ${week.startsOn} and user_id = ${uid}`);
+  const have = (await memberRow(ctx.db)).rows[0];
+  if (have && !have.left) return { state: 'placed', startsOn: week.startsOn, groupId: have.group_id };
+
+  const groupId = await ctx.db.transaction(async (tx) => {
+    // Lock first, then read in a new statement: a locking read re-fetches only the locked row after
+    // a wait, while the joined community_members row would still come from the old snapshot.
+    await lockUser(tx, uid);
+    const s = await tx.execute<{ leagues: boolean; banned: boolean; division: number; status: string }>(sql`
+      select cm.leagues, (cm.banned_at is not null) as banned, cm.division, u.status::text as status
+      from users u join community_members cm on cm.user_id = u.id where u.id = ${uid}`);
+    const cur = s.rows[0];
+    if (!cur || !cur.leagues || cur.banned || cur.status !== 'active') return null;
+    const again = (await memberRow(tx)).rows[0];
+    if (again) {
+      if (again.left) await tx.execute(sql`update league_members set left_at = null where starts_on = ${week.startsOn} and user_id = ${uid}`);
+      return again.group_id;
     }
-    return { state: 'placed', startsOn: week.startsOn, groupId: have.rows[0].group_id };
-  }
-  await ctx.db.transaction((tx) => placeInto(tx, week.startsOn, Number(member.division), [uid], settings.groupSize, now));
+    await placeInto(tx, week.startsOn, Number(cur.division), [uid], settings.groupSize, now);
+    return (await memberRow(tx)).rows[0]!.group_id;
+  });
+  if (!groupId) return { state: 'off' };
   await ctx.cache.bumpNamespace('community');
-  const row = await ctx.db.execute<{ group_id: string }>(sql`
-    select group_id from league_members where starts_on = ${week.startsOn} and user_id = ${uid}`);
-  return { state: 'placed', startsOn: week.startsOn, groupId: row.rows[0]!.group_id };
+  return { state: 'placed', startsOn: week.startsOn, groupId };
 }
 
 /* -------------------------------------------------------------- standings */
