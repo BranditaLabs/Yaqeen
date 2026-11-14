@@ -737,6 +737,19 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> with WidgetsBinding
   /// «انتهيت» (or leaving the test): the grade sheet with the suggestion; after «تأكيد» the grade
   /// goes to the hifz plan — today's passage is memorised, a review rated — and the session ends.
   Future<bool> _finishTest() async {
+    // «انتهيت» while reciting ends the attempt, which itself asks for the grade: one sheet at a time.
+    if (_finishingTest) return false;
+    _finishingTest = true;
+    try {
+      return await _finishTestOnce();
+    } finally {
+      _finishingTest = false;
+    }
+  }
+
+  bool _finishingTest = false;
+
+  Future<bool> _finishTestOnce() async {
     final s = ref.read(activeSessionProvider);
     if (s == null || !s.kind.guided || s.stage != SessionStage.test) return false;
     final reciting = ref.read(quranSessionControllerProvider).mode == QuranMode.recite;
