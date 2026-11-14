@@ -349,7 +349,9 @@ export const adminCompetitionsRoutes: FastifyPluginAsync = async (app) => {
     const now = ctx.now();
     const adminId = adminOf(req).sub;
     return db.transaction(async (tx) => {
-      const exists = await tx.execute(sql`select 1 from users where id = ${userId} for update`);
+      // `no key update`: serialises with the user's own community writes, never blocks the close
+      // job's badge inserts (their FK check) — a ban racing a tournament close can't deadlock.
+      const exists = await tx.execute(sql`select 1 from users where id = ${userId} for no key update`);
       if (!exists.rows.length) throw notFound('user');
       const before = await competitor(tx, userId, now);
       const extra: Record<string, unknown> = {};

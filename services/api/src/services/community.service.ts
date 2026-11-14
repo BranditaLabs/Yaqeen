@@ -169,6 +169,21 @@ export async function userByHandle(db: DbOrTx, handle: string): Promise<{ id: st
 
 /* ---------------------------------------------------------------- consent */
 
+/**
+ * Serialise every change of one user's community state on their `users` row. `no key update` (not
+ * `for update`) so foreign-key checks from the close job's badge inserts never wait on it.
+ * Lock order: a tournament row first (join, leave, cancel, close), then the user(s).
+ */
+export async function lockUser(tx: DbOrTx, uid: string): Promise<void> {
+  await tx.execute(sql`select 1 from users where id = ${uid} for no key update`);
+}
+
+/** `lockUser` for every user a SQL fragment selects (a `user_id` column), in id order. */
+export async function lockUsers(tx: DbOrTx, usersQuery: SQL): Promise<void> {
+  await tx.execute(sql`
+    select u.id from users u where u.id in (select q.user_id from (${usersQuery}) q) order by u.id for no key update`);
+}
+
 /** Granted while leagues or the level board is on (not banned) or a live tournament entry holds. */
 export async function communityGranted(db: DbOrTx, uid: string): Promise<boolean> {
   const r = await db.execute<{ granted: boolean }>(sql`
@@ -193,6 +208,9 @@ export async function recomputeCommunityConsent(
   source: ConsentEventSource,
   opts: { attestedAdult?: boolean; force?: boolean } = {},
 ): Promise<{ granted: boolean; changed: boolean }> {
+  // Without the lock a join and a set-based recompute (close, cancel) can each miss the other's
+  // uncommitted row and leave the stored consent wrong (write skew).
+  await lockUser(tx, uid);
   const granted = await communityGranted(tx, uid);
   const [cur] = await tx
     .select({ granted: consents.granted })
@@ -222,6 +240,8 @@ export async function recomputeCommunityConsent(
  * `users` is a SQL fragment selecting a `user_id` column.
  */
 export async function recomputeCommunityConsentMany(tx: DbOrTx, usersQuery: SQL, source: ConsentEventSource): Promise<number> {
+  // The per-user lock of recomputeCommunityConsent; the state below is read after it (new snapshot).
+  await lockUsers(tx, usersQuery);
   const r = await tx.execute<{ n: number }>(sql`
     with target as (select distinct user_id from (${usersQuery}) q),
     state as (
@@ -296,6 +316,9 @@ interface MemberState {
 }
 
 async function memberState(db: DbOrTx, uid: string, lock = false): Promise<MemberState> {
+  // Lock in its own statement, then read: after waiting, a locking read re-fetches only the locked
+  // `users` row — the joined community_members row (a ban, a switch) would come from the old snapshot.
+  if (lock) await lockUser(db, uid);
   const r = await db.execute<{
     leagues: boolean | null;
     leaderboard: boolean | null;
@@ -312,8 +335,7 @@ async function memberState(db: DbOrTx, uid: string, lock = false): Promise<Membe
            (u.adult_attested_at is not null) as attested, u.country, u.is_guest, u.display_name,
            (u.name_hidden_at is not null) as name_hidden, u.status::text as status
     from users u left join community_members cm on cm.user_id = u.id
-    where u.id = ${uid}
-    ${lock ? sql`for update of u` : sql``}`);
+    where u.id = ${uid}`);
   const row = r.rows[0];
   if (!row) throw notFound('user');
   return {
