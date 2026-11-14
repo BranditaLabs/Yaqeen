@@ -358,6 +358,8 @@ const DEFAULT_CARD_SHOW = { level: true, streak: false, challengeDay: false, bad
 /**
  * Every competitor has a stable @handle: an existing card handle is kept; otherwise a draft
  * (unpublished) card row with `competitorHandle(name)` — the first word + 4 digits, never the full name.
+ * While support hides the name the new handle is `member-…` and the card name neutral, so a hidden
+ * name never reaches a public row through the handle.
  */
 export async function ensureCompetitorHandle(tx: DbOrTx, ctx: CommunityCtx, uid: string, name: string | null): Promise<string> {
   const [have] = await tx.select({ handle: publicProfiles.handle }).from(publicProfiles).where(eq(publicProfiles.userId, uid));
