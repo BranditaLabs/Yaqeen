@@ -23,6 +23,7 @@ import 'core/notifications/notification_planner.dart';
 import 'features/notifications/data/reminder_service.dart';
 import 'core/settings/app_settings.dart';
 import 'core/network/connectivity.dart';
+import 'core/platform/asr/sherpa_recitation_engine.dart';
 import 'core/platform/device_services.dart';
 import 'core/platform/just_audio_engine.dart';
 import 'core/platform/location_service.dart';
@@ -129,6 +130,10 @@ Future<void> _start() async {
       photoPickerProvider.overrideWithValue(PluginPhotoPicker()),
       filesDirProvider.overrideWithValue(getApplicationSupportDirectory),
       pushServiceProvider.overrideWithValue(push),
+      // On-device recitation recognition: loads nothing until a recitation starts (spec §6.8).
+      recitationEngineProvider.overrideWith(
+        (ref) => SherpaRecitationEngine(store: ref.watch(asrModelStoreProvider), kv: ref.watch(kvStoreProvider)),
+      ),
       // Ad SDKs whose build values exist; each stays off until `ads_measurement` is granted.
       adSinksProvider.overrideWithValue(
         buildAdSinks(

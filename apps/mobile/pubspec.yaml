@@ -54,6 +54,11 @@ dependencies:
   nfc_manager: 4.2.1
   # Profile photo (BSD-3, free): system Photo Picker on Android (no permission), PHPicker/camera on iOS.
   image_picker: ^1.1.2
+  # On-device recitation recognition (docs/MODELS.md): sherpa-onnx runtime (Apache-2.0) running the
+  # Quran-tuned Whisper tiny + Silero VAD, and 16 kHz PCM from the microphone (record, BSD-3).
+  # Audio and results never leave the device (spec §6.8).
+  sherpa_onnx: 2.0.1
+  record: ^7.2.0
 
 dev_dependencies:
   flutter_test:

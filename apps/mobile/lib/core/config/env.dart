@@ -41,6 +41,11 @@ abstract final class Env {
   static const mushafFontBaseUrl =
       String.fromEnvironment('MUSHAF_FONT_BASE_URL', defaultValue: 'https://static.qurancdn.com/fonts/quran/hafs/v2/ttf/');
 
+  /// Where the on-device recitation model (docs/MODELS.md, `tools/asr/convert.py`) is downloaded
+  /// from: a folder holding the files of `AsrModelManifest.yaqeen`, checked against the SHA-256s
+  /// pinned in the app. Empty (default): the interim pinned upstream revision (`AsrModelManifest.interim`).
+  static const asrModelBaseUrl = String.fromEnvironment('ASR_MODEL_BASE_URL');
+
   /// Sentry DSN for crash/error reports; empty = reporting off (dev, tests).
   static const sentryDsn = String.fromEnvironment('SENTRY_DSN');
 
