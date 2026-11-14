@@ -16,6 +16,7 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../l10n/gen/app_localizations.dart';
 import '../design/motion.dart';
@@ -116,9 +117,14 @@ class YqOfflineBanner extends StatelessWidget {
   }
 }
 
-/// Skeleton → content (docs/DESIGN_SYSTEM.md §5): the new child cross-fades in over 200 ms while
+//// Skeleton → content (docs/DESIGN_SYSTEM.md §5): the new child cross-fades in over 200 ms while
 /// the old one fades out underneath — no jump, no slide. Give each state its own [Key] (or a
 /// different widget type). Instant under reduce-motion.
+///
+/// Every state sits in the same slot widget at the same depth, so a state that turns from current
+/// to outgoing keeps its element (no remount: its scroll position, controllers and one-time
+/// moments carry on while it fades). Only the current state decides the size; outgoing states are
+/// laid out with the constraints they had, placed by [alignment], and take no taps or semantics.
 class YqFadeSwap extends StatelessWidget {
   const YqFadeSwap({super.key, required this.child, this.alignment = Alignment.topCenter, this.expand = false});
   final Widget child;
@@ -134,21 +140,222 @@ class YqFadeSwap extends StatelessWidget {
         duration: (MediaQuery.maybeDisableAnimationsOf(context) ?? false) ? Duration.zero : duration,
         switchInCurve: Curves.easeOut,
         switchOutCurve: Curves.easeIn,
-        layoutBuilder: (current, previous) => Stack(
+        layoutBuilder: (current, previous) => _FadeStack(
           alignment: alignment,
-          fit: expand ? StackFit.expand : StackFit.loose,
+          expand: expand,
           children: [
-            // The old state fades from where it was, at its own height, without sizing the swap
-            // or taking taps; the new state alone decides the size.
-            for (final p in previous)
-              expand
-                  ? Positioned.fill(child: IgnorePointer(child: ExcludeSemantics(child: p)))
-                  : Positioned(top: 0, left: 0, right: 0, child: IgnorePointer(child: ExcludeSemantics(child: p))),
-            if (current != null) current,
+            for (final p in previous) _FadeSlot(key: p.key, active: false, child: p),
+            if (current != null) _FadeSlot(key: current.key, active: true, child: current),
           ],
         ),
         child: child,
       );
+}
+
+/// One state of a [YqFadeSwap]: the same widget at the same depth whether it is current or
+/// outgoing, so flipping [active] only updates properties and never remounts the state.
+class _FadeSlot extends StatelessWidget {
+  const _FadeSlot({super.key, required this.active, required this.child});
+  final bool active;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => _FadeSlotData(
+        active: active,
+        child: IgnorePointer(ignoring: !active, child: ExcludeSemantics(excluding: !active, child: child)),
+      );
+}
+
+class _FadeSlotParentData extends ContainerBoxParentData<RenderBox> {
+  bool active = true;
+}
+
+class _FadeSlotData extends ParentDataWidget<_FadeSlotParentData> {
+  const _FadeSlotData({required this.active, required super.child});
+  final bool active;
+
+  @override
+  void applyParentData(RenderObject renderObject) {
+    final data = renderObject.parentData! as _FadeSlotParentData;
+    if (data.active == active) return;
+    data.active = active;
+    final parent = renderObject.parent;
+    if (parent is RenderObject) parent.markNeedsLayout();
+  }
+
+  @override
+  Type get debugTypicalAncestorWidgetClass => _FadeStack;
+}
+
+class _FadeStack extends MultiChildRenderObjectWidget {
+  const _FadeStack({required this.alignment, required this.expand, super.children});
+  final AlignmentGeometry alignment;
+  final bool expand;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderFadeStack(alignment: alignment, expand: expand, textDirection: Directionality.maybeOf(context));
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderFadeStack renderObject) {
+    renderObject
+      ..alignment = alignment
+      ..expand = expand
+      ..textDirection = Directionality.maybeOf(context);
+  }
+}
+
+/// A stack sized by its active (current) children only. Outgoing children get the same
+/// constraints the current one gets, are placed by [alignment] and clipped to the box when they
+/// overflow it (like `Stack`'s default clip).
+class _RenderFadeStack extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _FadeSlotParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _FadeSlotParentData> {
+  _RenderFadeStack({required AlignmentGeometry alignment, required bool expand, TextDirection? textDirection})
+      : _alignment = alignment,
+        _expand = expand,
+        _textDirection = textDirection;
+
+  AlignmentGeometry _alignment;
+  set alignment(AlignmentGeometry v) {
+    if (v == _alignment) return;
+    _alignment = v;
+    markNeedsLayout();
+  }
+
+  bool _expand;
+  set expand(bool v) {
+    if (v == _expand) return;
+    _expand = v;
+    markNeedsLayout();
+  }
+
+  TextDirection? _textDirection;
+  set textDirection(TextDirection? v) {
+    if (v == _textDirection) return;
+    _textDirection = v;
+    markNeedsLayout();
+  }
+
+  bool _overflows = false;
+  final LayerHandle<ClipRectLayer> _clip = LayerHandle<ClipRectLayer>();
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _FadeSlotParentData) child.parentData = _FadeSlotParentData();
+  }
+
+  BoxConstraints _inner(BoxConstraints c) => _expand ? BoxConstraints.tight(c.biggest) : c.loosen();
+
+  List<RenderBox> get _kids {
+    final out = <RenderBox>[];
+    var child = firstChild;
+    while (child != null) {
+      out.add(child);
+      child = (child.parentData! as _FadeSlotParentData).nextSibling;
+    }
+    return out;
+  }
+
+  static bool _active(RenderBox child) => (child.parentData! as _FadeSlotParentData).active;
+
+  Size _sizeFor(BoxConstraints constraints, Size Function(RenderBox child, BoxConstraints inner) measure) {
+    if (_expand) return constraints.biggest;
+    final inner = _inner(constraints);
+    var w = 0.0, h = 0.0;
+    var any = false;
+    for (final child in _kids) {
+      if (!_active(child)) continue;
+      any = true;
+      final s = measure(child, inner);
+      if (s.width > w) w = s.width;
+      if (s.height > h) h = s.height;
+    }
+    if (!any) return constraints.biggest.isFinite ? constraints.biggest : constraints.smallest;
+    return constraints.constrain(Size(w, h));
+  }
+
+  @override
+  Size computeDryLayout(covariant BoxConstraints constraints) =>
+      _sizeFor(constraints, (child, inner) => child.getDryLayout(inner));
+
+  @override
+  void performLayout() {
+    final inner = _inner(constraints);
+    final kids = _kids;
+    if (_expand) {
+      size = constraints.biggest;
+    } else {
+      size = _sizeFor(constraints, (child, c) {
+        child.layout(c, parentUsesSize: true);
+        return child.size;
+      });
+    }
+    final align = _alignment.resolve(_textDirection);
+    _overflows = false;
+    for (final child in kids) {
+      if (_expand || !_active(child)) child.layout(inner, parentUsesSize: true);
+      final data = child.parentData! as _FadeSlotParentData;
+      data.offset = align.alongOffset(Offset(size.width - child.size.width, size.height - child.size.height));
+      if (child.size.width > size.width || child.size.height > size.height) _overflows = true;
+    }
+  }
+
+  double _maxOverActive(double Function(RenderBox child) f) {
+    var m = 0.0;
+    for (final child in _kids) {
+      if (!_active(child)) continue;
+      final v = f(child);
+      if (v > m) m = v;
+    }
+    return m;
+  }
+
+  @override
+  double computeMinIntrinsicWidth(double height) => _maxOverActive((c) => c.getMinIntrinsicWidth(height));
+
+  @override
+  double computeMaxIntrinsicWidth(double height) => _maxOverActive((c) => c.getMaxIntrinsicWidth(height));
+
+  @override
+  double computeMinIntrinsicHeight(double width) => _maxOverActive((c) => c.getMinIntrinsicHeight(width));
+
+  @override
+  double computeMaxIntrinsicHeight(double width) => _maxOverActive((c) => c.getMaxIntrinsicHeight(width));
+
+  @override
+  double? computeDistanceToActualBaseline(TextBaseline baseline) {
+    for (final child in _kids) {
+      if (!_active(child)) continue;
+      final d = child.getDistanceToActualBaseline(baseline);
+      if (d != null) return d + (child.parentData! as _FadeSlotParentData).offset.dy;
+    }
+    return null;
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (_overflows) {
+      _clip.layer = context.pushClipRect(needsCompositing, offset, Offset.zero & size, defaultPaint, oldLayer: _clip.layer);
+    } else {
+      _clip.layer = null;
+      defaultPaint(context, offset);
+    }
+  }
+
+  @override
+  Rect? describeApproximatePaintClip(RenderObject child) => _overflows ? Offset.zero & size : null;
+
+  @override
+  void dispose() {
+    _clip.layer = null;
+    super.dispose();
+  }
 }
 
 /// The sliver form of [YqFadeSwap] for lazy lists that replace a skeleton: the list fades in over

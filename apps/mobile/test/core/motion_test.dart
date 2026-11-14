@@ -226,6 +226,40 @@ void main() {
       await tester.pump(const Duration(milliseconds: 120));
       expect(find.byKey(const ValueKey('s')), findsNothing);
     });
+
+    testWidgets('YqFadeSwap: the outgoing state keeps its element, its size rule and its alignment', (tester) async {
+      Widget s(bool ready) => harness(
+            Align(
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: 200,
+                child: YqFadeSwap(
+                  alignment: Alignment.center,
+                  child: ready
+                      ? const SizedBox(key: ValueKey('big'), width: 200, height: 100)
+                      : const _Stateful(key: ValueKey('small')),
+                ),
+              ),
+            ),
+          );
+      await tester.pumpWidget(s(false));
+      final before = tester.state(find.byType(_Stateful));
+      final swap = find.byType(YqFadeSwap);
+      expect(tester.getSize(swap), const Size(200, 20));
+
+      await tester.pumpWidget(s(true));
+      await tester.pump(const Duration(milliseconds: 50));
+      // Same State object: the old screen was not remounted when it started fading out.
+      expect(tester.state(find.byType(_Stateful)), same(before));
+      // The incoming state alone sizes the swap; the outgoing one stays centred, not pinned to the top.
+      expect(tester.getSize(swap), const Size(200, 100));
+      final box = tester.getRect(find.byType(_Stateful));
+      final whole = tester.getRect(swap);
+      expect(box.center.dy, closeTo(whole.center.dy, 0.01));
+      expect(box.center.dx, closeTo(whole.center.dx, 0.01));
+      await tester.pumpAndSettle();
+      expect(find.byType(_Stateful), findsNothing);
+    });
   });
 
   group('YqPlayRing', () {
@@ -312,3 +346,14 @@ void main() {
 }
 
 String _points(String n) => '$n نقطة';
+
+class _Stateful extends StatefulWidget {
+  const _Stateful({super.key});
+  @override
+  State<_Stateful> createState() => _StatefulState();
+}
+
+class _StatefulState extends State<_Stateful> {
+  @override
+  Widget build(BuildContext context) => const SizedBox(width: 40, height: 20);
+}
