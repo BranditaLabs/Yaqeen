@@ -25,7 +25,7 @@ export interface SiteLinks {
 }
 
 /** Bumped whenever the privacy policy or terms change (shown on the pages). */
-export const LEGAL_VERSION = '2026-10-31';
+export const LEGAL_VERSION = '2026-11-13';
 
 const NAV: Record<PageLang, Record<SitePage, string>> = {
   ar: { home: 'الرئيسية', privacy: 'الخصوصية', terms: 'الشروط', support: 'المساعدة', 'delete-account': 'حذف الحساب' },
@@ -157,10 +157,12 @@ export function renderHome(lang: PageLang, links: SiteLinks): string {
 
 /* -------------------------------------------------------- legal documents */
 
-type Section = [heading: string, paragraphs: string[]];
+/** A section; the optional third item is a stable anchor id (e.g. `community` for /terms#community). */
+type Section = [heading: string, paragraphs: string[], id?: string];
 
 function doc(lang: PageLang, page: SitePage, links: SiteLinks, title: string, intro: string, sections: Section[]): string {
-  const toc = sections.map(([h], i) => `<li><a href="#s${i + 1}">${h}</a></li>`).join('');
+  const anchor = (i: number) => sections[i]![2] ?? `s${i + 1}`;
+  const toc = sections.map(([h], i) => `<li><a href="#${anchor(i)}">${h}</a></li>`).join('');
   const body = `
 <article class="doc">
 <h1>${title}</h1>
@@ -169,7 +171,7 @@ function doc(lang: PageLang, page: SitePage, links: SiteLinks, title: string, in
 <nav class="toc" aria-label="${lang === 'ar' ? 'المحتويات' : 'Contents'}"><ol>${toc}</ol></nav>
 ${sections
   .map(
-    ([h, ps], i) => `<section id="s${i + 1}"><h2><span class="num">${i + 1}.</span> ${h}</h2>${ps.map((p) => `<p>${p}</p>`).join('')}</section>`,
+    ([h, ps], i) => `<section id="${anchor(i)}"><h2><span class="num">${i + 1}.</span> ${h}</h2>${ps.map((p) => `<p>${p}</p>`).join('')}</section>`,
   )
   .join('\n')}
 </article>`;
@@ -187,11 +189,20 @@ export function renderPrivacy(lang: PageLang, links: SiteLinks): string {
         'إعداداتك التي تُزامَن: اللغة، واسم المدينة التي اخترتها، والمنطقة الزمنية، وطريقة الحساب، وتعديل التاريخ الهجري.',
         'رحلة 365 يوماً: المهام التي تسجّل إتمامها ونقاطك والمكافآت التي استبدلتها — لاحتساب النقاط فقط. هذه بيانات تكشف ممارسة دينية؛ لذلك لا تُشارك مع أي منصة إعلان، ولا يرى فريقنا إلا أرقاماً مجمّعة، ولا تظهر في بطاقتك العامة.',
         'بطاقة يقين العامة (اختيارية): الاسم والصورة الرمزية والحقول التي تختار إظهارها، وعدّاد الزيارات فقط. الميداليات والبطاقات المادية تحمل رمزاً عشوائياً لا هويتك.',
+        'ملفّك: اسمك وصورتك الرمزية (واحدة من صور يقين الجاهزة أو صورة ترفعها). نعيد ترميز الصورة المرفوعة على خوادمنا إلى نسختين صغيرتين (WebP)، ونحذف منها كل البيانات الوصفية (مثل الموقع ونوع الكاميرا) قبل حفظها في قاعدة بياناتنا، ولا نرسلها إلى أي خدمة أخرى. لا تظهر صورتك لغيرك إلا إذا أكّدت أن عمرك 18 عاماً أو أكثر (أو أن لديك موافقة وليّ أمرك) وكنت ظاهراً في المنافسات أو في بطاقة منشورة.',
         'الجهاز: رمز الإشعارات (FCM) ونظام التشغيل وإصدار التطبيق، لإرسال الإشعارات التي وافقت عليها.',
         'سجل الموافقات: كل تغيير في موافقاتك مع وقته ومصدره، كدليل قانوني على ما وافقت عليه.',
         'النسخ الاحتياطي السحابي (اختياري، للحسابات المسجّلة بـ Google أو Apple فقط، مغلق حتى تفتحه في «حسابي ← الخصوصية»): نسخة من تقدّمك المحفوظ على الجهاز — القراءة والعلامات والملاحظات والختمة والحفظ وعدّاد الأذكار والأدعية المفضّلة والقارئ المختار وروتينك وسجل رمضان والمسبحة — لتعود معك على هاتف جديد. لا تشمل موقعك ولا التحميلات. تُشفَّر قبل حفظها على خوادمنا، ولا يراها غيرك ولا فريقنا، ولا تُستخدم في التحليلات أو الإعلانات، وتُضمَّن في تصدير بياناتك، وتُحذف من خوادمنا فور إيقافها أو حذف حسابك.',
       ]],
-      ['الموافقات المنفصلة', ['ست موافقات مستقلة يمكنك تغييرها في «حسابي ← الخصوصية» في أي وقت: تذكيرات العبادة (إشعارات محلية على جهازك)، رسائل التحدي والمكافآت، عروض المتجر، قياس الإعلانات، وتحسين التطبيق، والنسخ الاحتياطي السحابي (للحسابات المسجّلة). كلها مغلقة حتى تفتحها، عدا ما تختاره أثناء الإعداد.']],
+      ['الموافقات المنفصلة', ['سبع موافقات مستقلة يمكنك تغييرها في «حسابي ← الخصوصية» في أي وقت: تذكيرات العبادة (إشعارات محلية على جهازك)، رسائل التحدي والمكافآت، عروض المتجر، قياس الإعلانات، وتحسين التطبيق، والنسخ الاحتياطي السحابي (للحسابات المسجّلة)، والمنافسات (تُمنح حين تنضم إلى دوري أو بطولة أو لوحة المستويات، وسحبها يُخرجك منها كلها). كلها مغلقة حتى تفتحها، عدا ما تختاره أثناء الإعداد.']],
+      ['المنافسات (اختيارية)', [
+        'الدوري الأسبوعي والبطولات الموسمية ولوحة المستويات اختيارية ومغلقة حتى تنضم إليها بحساب مسجّل. يرى المشاركون الآخرون اسمك (أو @معرّفك) وصورتك الرمزية ومستواك ونقاط الفترة فقط — لا صلواتك ولا أذكارك ولا مهامك، ولا أي تفصيل يومي.',
+        'الترتيب العام ونقاط الفترة والمستوى الظاهر لغيرك تُحدَّث مرة كل ليلة (بتوقيت القاهرة)، ولا يظهر لغيرك أي شيء لحظي. نقاطك الحالية تراها أنت وحدك.',
+        'لوحة بلدك اختيارية بمفتاح مستقل، وتعتمد على البلد المرتبط بالمدينة التي اخترتها، ولا تظهر إلا إذا شارك فيها 20 شخصاً على الأقل.',
+        'الانضمام يتطلب تأكيد أن عمرك 18 عاماً أو أكثر أو أن لديك موافقة وليّ أمرك؛ نحفظ وقت هذا التأكيد. [صياغة التأكيد قيد مراجعة المستشار القانوني.]',
+        'يمكنك حظر أي مشارك (فلا يرى أحدكما الآخر في المنافسات) أو الإبلاغ عن اسمه أو صورته. يراجع فريق الدعم البلاغات، وقد يخفي اسماً أو صورة أو يوقف المشاركة، وكل إجراء يُسجَّل في سجل التدقيق. لا يرى فريقنا في المنافسات إلا النقاط والمستويات، لا تفاصيل العبادة.',
+        'يمكنك المغادرة في أي وقت فتختفي من الترتيب فوراً. لا تُمنح في المنافسات نقاط إضافية؛ الجوائز شارات تذكارية فقط.',
+      ]],
       ['الإعلانات', ['مع موافقة «قياس الإعلانات» فقط، نرسل إلى Google وMeta وTikTok أحداثاً تسويقية محدّدة مسبقاً (مثل فتح التطبيق لأول مرة أو الانضمام إلى التحدي أو الشراء من المتجر) — ولا نرسل أبداً أي نشاط عبادة. على iOS لا يظهر طلب التتبع إلا بعد موافقتك داخل التطبيق.']],
       ['تحسين التطبيق', ['مع موافقة «تحسين التطبيق» فقط، نسجّل كيف تتنقّل بين أقسام غير تعبّدية (خطوات الإعداد، البطاقة، المتجر، الإعدادات) بمعرّف عشوائي للجهاز غير مرتبط بحسابك، ونحذفها بعد 180 يوماً. قد نرسلها إلى PostHog (الاتحاد الأوروبي) دون عنوان IP. لا نتتبع أقسام العبادة.']],
       ['تقارير الأعطال', ['نستخدم Sentry لتقارير الأعطال: نوع الخطأ والجهاز وإصدار التطبيق، بعد حذف أي بيانات شخصية أو تعبّدية، ودون لقطات شاشة.']],
@@ -199,9 +210,9 @@ export function renderPrivacy(lang: PageLang, links: SiteLinks): string {
         'الاستضافة: [مزوّد الاستضافة ومنطقتها]. الإشعارات: Google Firebase Cloud Messaging. تسجيل الدخول: Google وApple. أكواد المكافآت والمتجر: Shopify. الأعطال: Sentry (الاتحاد الأوروبي). تحسين التطبيق: PostHog (الاتحاد الأوروبي، بموافقتك). الإعلانات: Google وMeta وTikTok (بموافقتك فقط).',
         'بعض هؤلاء خارج مصر؛ ننقل إليهم أقل قدر لازم وفق ضمانات القانون [وتصريح النقل عند الحاجة].',
       ]],
-      ['مدة الاحتفاظ', ['نحتفظ ببيانات حسابك ما دام قائماً. عند طلب الحذف تُخفى بطاقتك وتُعطّل ميدالياتك فوراً، وبعد 30 يوماً تُحذف هويتك وجلساتك وأجهزتك وموافقاتك الحالية وسجل المهام والنسخة الاحتياطية السحابية، ويبقى سجل النقاط والاستبدالات مجهول الهوية لأغراض محاسبية، ويبقى سجل الموافقات كدليل قانوني. أحداث «تحسين التطبيق» تُحذف بعد 180 يوماً. والنسخة الاحتياطية السحابية تُحذف فور إيقافها.']],
-      ['حقوقك', [`لك أن تطّلع على بياناتك وتصدّرها («حسابي ← تصدير بياناتي»)، وأن تصحّحها، وأن تحذف حسابك (<a href="/delete-account?lang=ar">كيف أحذف حسابي</a>)، وأن تسحب أي موافقة. للاستفسار أو الاعتراض: ${mail}. ويحق لك تقديم شكوى إلى مركز حماية البيانات الشخصية.`]],
-      ['الأطفال', ['يقين موجّه لمن هم في سن [السن الأدنى] فأكثر. [يُراجَع مع المستشار القانوني.]']],
+      ['مدة الاحتفاظ', ['نحتفظ ببيانات حسابك ما دام قائماً. عند طلب الحذف تُخفى بطاقتك وتُعطّل ميدالياتك فوراً، وبعد 30 يوماً تُحذف هويتك وجلساتك وأجهزتك وموافقاتك الحالية وسجل المهام والنسخة الاحتياطية السحابية، ويبقى سجل النقاط والاستبدالات مجهول الهوية لأغراض محاسبية، ويبقى سجل الموافقات كدليل قانوني. أحداث «تحسين التطبيق» تُحذف بعد 180 يوماً. والنسخة الاحتياطية السحابية تُحذف فور إيقافها. الصور التي تستبدلها أو تحذفها أو يخفيها فريق الدعم تُحذف نهائياً بعد 7 أيام، والبلاغات المحسومة بعد 180 يوماً. عند طلب حذف الحساب تخرج من كل المنافسات فوراً وتُزال صورتك وبلدك وقوائم الحظر وبيانات الترتيب، ويُحذف الباقي (الشارات والسجل والبلاغات) بعد 30 يوماً.']],
+      ['حقوقك', [`لك أن تطّلع على بياناتك وتصدّرها («حسابي ← تصدير بياناتي»، ويشمل صورتك وإعدادات المنافسات وسجل الدوري والبطولات والشارات ومن حظرتهم والبلاغات التي قدّمتها)، وأن تصحّحها، وأن تحذف حسابك (<a href="/delete-account?lang=ar">كيف أحذف حسابي</a>)، وأن تسحب أي موافقة. للاستفسار أو الاعتراض: ${mail}. ويحق لك تقديم شكوى إلى مركز حماية البيانات الشخصية.`]],
+      ['الأطفال', ['يقين موجّه لمن هم في سن [السن الأدنى] فأكثر. [يُراجَع مع المستشار القانوني.] لا تظهر صورة من لم يؤكّد أن عمره 18 عاماً أو أكثر (أو أن لديه موافقة وليّ أمره) لأحد، ولا يمكنه الانضمام إلى المنافسات.']],
       ['التغييرات', ['إن غيّرنا هذه السياسة تغييراً جوهرياً سنُعلمك في التطبيق قبل سريانه، ونحدّث تاريخها أعلاه.']],
     ]);
   }
@@ -213,11 +224,20 @@ export function renderPrivacy(lang: PageLang, links: SiteLinks): string {
       'Synced settings: language, the city name you picked, time zone, calculation method and Hijri adjustment.',
       'The 365-day journey: the tasks you mark done, your points and the rewards you redeemed — only to award points. This reveals religious practice, so it is never shared with any ad platform, our team only ever sees totals, and it never appears on your public card.',
       'Your public Yaqeen card (optional): the name, avatar and the fields you choose to show, plus a visit counter only. Physical medals and cards carry a random code, not your identity.',
+      'Your profile: your name and avatar (one of Yaqeen’s preset pictures or a photo you upload). We re-encode an uploaded photo on our servers into two small WebP copies and strip all its metadata (such as location and camera) before storing it in our database; it is never sent to another service. Others see your photo only if you confirmed you are 18 or older (or have a guardian’s consent) and you are visible in competitions or on a published card.',
       'Device: push token (FCM), operating system and app version, to deliver the notifications you agreed to.',
       'Consent record: every change to your consents with its time and source, as legal evidence of what you agreed to.',
       'Cloud backup (optional, only for accounts signed in with Google or Apple, off until you turn it on in Profile → Privacy): a copy of the progress kept on your phone — reading, bookmarks, notes, khatma, memorisation, dhikr counts, favourite duas, chosen reciter, your routine, Ramadan log and tasbeeh — so it comes back on a new phone. Never your location or downloads. It is encrypted before it is stored on our servers, seen by no one but you (not our team), never used for analytics or advertising, included in your data export, and deleted from our servers as soon as you turn it off or delete your account.',
     ]],
-    ['Separate consents', ['Six independent consents you can change at any time in Profile → Privacy: worship reminders (local notifications on your phone), challenge & rewards messages, store offers, ads measurement, app improvement, and cloud backup (signed-in accounts). Each is off until you turn it on, apart from what you choose during setup.']],
+    ['Separate consents', ['Seven independent consents you can change at any time in Profile → Privacy: worship reminders (local notifications on your phone), challenge & rewards messages, store offers, ads measurement, app improvement, cloud backup (signed-in accounts), and competitions (given when you join a league, a tournament or the level board; withdrawing it takes you out of all of them). Each is off until you turn it on, apart from what you choose during setup.']],
+    ['Competitions (optional)', [
+      'The weekly league, seasonal tournaments and the level board are optional and off until you join them with a signed-in account. Other participants see only your name (or @handle), avatar, level and the period’s points — never your prayers, azkar or tasks, and no day-by-day detail.',
+      'Public standings, period points and the level others see are refreshed once a night (Cairo time); nothing live is shown to others. Only you see your current points.',
+      'Your country board is optional with its own switch, uses the country of the city you picked, and only exists once at least 20 people take part in it.',
+      'Joining requires confirming that you are 18 or older or have a guardian’s consent; we keep the time of that confirmation. [Wording under counsel review.]',
+      'You can block any participant (neither of you then sees the other in competitions) or report their name or photo. Support reviews reports and may hide a name or photo or suspend participation; every action is recorded in an audit log. In competitions our team only ever sees points and levels, never worship detail.',
+      'You can leave at any time and disappear from the standings at once. Competitions award no extra points; rewards are commemorative badges only.',
+    ]],
     ['Advertising', ['Only with “ads measurement”, we send Google, Meta and TikTok a fixed list of marketing events (such as first open, joining the challenge, or a store purchase) — never any worship activity. On iOS the tracking prompt only appears after you agreed inside the app.']],
     ['App improvement', ['Only with “app improvement”, we record how you move through non-worship areas (setup steps, the card, the store, settings) under a random install id that is not linked to your account, and delete it after 180 days. It may be forwarded to PostHog (EU) without IP addresses. Worship areas are never tracked.']],
     ['Crash reports', ['We use Sentry for crash reports: the error, device and app version, with personal and worship data removed and no screenshots.']],
@@ -225,9 +245,9 @@ export function renderPrivacy(lang: PageLang, links: SiteLinks): string {
       'Hosting: [hosting provider and region]. Notifications: Google Firebase Cloud Messaging. Sign-in: Google and Apple. Reward codes and the store: Shopify. Crashes: Sentry (EU). App improvement: PostHog (EU, with your consent). Advertising: Google, Meta and TikTok (with your consent only).',
       'Some are outside Egypt; we send them the minimum needed under the law’s safeguards [and a transfer authorisation where required].',
     ]],
-    ['How long we keep it', ['We keep your account data while it exists. When you ask to delete it, your card is hidden and your medals switched off at once; after 30 days your identity, sessions, devices, current consents, task history and cloud backup are deleted, while the points ledger and redemptions stay anonymised for accounting and the consent record stays as legal evidence. App-improvement events are deleted after 180 days. The cloud backup is deleted as soon as you turn it off.']],
-    ['Your rights', [`You can see and export your data (Profile → Export my data), correct it, delete your account (<a href="/delete-account?lang=en">how to delete your account</a>) and withdraw any consent. Questions or objections: ${mail}. You may also complain to the Personal Data Protection Centre.`]],
-    ['Children', ['Yaqeen is meant for people aged [minimum age] and over. [To be confirmed with counsel.]']],
+    ['How long we keep it', ['We keep your account data while it exists. When you ask to delete it, your card is hidden and your medals switched off at once; after 30 days your identity, sessions, devices, current consents, task history and cloud backup are deleted, while the points ledger and redemptions stay anonymised for accounting and the consent record stays as legal evidence. App-improvement events are deleted after 180 days. The cloud backup is deleted as soon as you turn it off. Photos you replace or remove, or that support hides, are deleted for good after 7 days, and resolved reports after 180 days. When you ask to delete your account you leave every competition at once and your photo, country, blocks and standings data are removed; the rest (badges, history, reports) is deleted after 30 days.']],
+    ['Your rights', [`You can see and export your data (Profile → Export my data — including your photo, competition settings, league and tournament history, badges, the people you blocked and the reports you filed), correct it, delete your account (<a href="/delete-account?lang=en">how to delete your account</a>) and withdraw any consent. Questions or objections: ${mail}. You may also complain to the Personal Data Protection Centre.`]],
+    ['Children', ['Yaqeen is meant for people aged [minimum age] and over. [To be confirmed with counsel.] The photo of anyone who has not confirmed they are 18 or older (or have a guardian’s consent) is never shown to others, and they cannot join competitions.']],
     ['Changes', ['If we change this policy materially we will tell you in the app before it applies, and update the date above.']],
   ]);
 }
@@ -245,6 +265,12 @@ export function renderTerms(lang: PageLang, links: SiteLinks): string {
         'نحتفظ بحق إلغاء نقاط تحقّقت بالتحايل أو بإساءة الاستخدام، مع إمكانية الاعتراض عبر الدعم.',
       ]],
       ['بطاقة يقين والميداليات', ['أنت مسؤول عن محتوى بطاقتك العامة. يحق لنا إخفاء بطاقة مسيئة أو اسم مستخدم مضلّل. الميدالية أو البطاقة المادية تُفعّل لحساب واحد؛ إن فقدتها عطّلها من التطبيق، ولا تُنقل لمن يجدها.']],
+      ['المنافسات والسلوك', [
+        'الدوري الأسبوعي والبطولات ولوحة المستويات اختيارية، تنضم إليها وتغادرها متى شئت، وتتطلب أن تؤكّد أن عمرك 18 عاماً أو أكثر أو أن لديك موافقة وليّ أمرك. هي تنافس لطيف على الخير: لا نقاط إضافية فيها، وجوائزها شارات تذكارية لا قيمة نقدية لها.',
+        'اختر اسماً وصورة لائقين: لا ألفاظ مسيئة، ولا صور غير لائقة أو لغيرك دون إذنه، ولا انتحال لشخص آخر أو لفريق يقين أو لأي جهة رسمية.',
+        'إن أزعجك مشارك فاحظره أو أبلغ عن اسمه أو صورته من قائمة الترتيب. يحق لفريق الدعم إخفاء اسم أو صورة، أو تغيير المعرّف، أو إيقاف المشاركة في المنافسات، مع تسجيل كل إجراء؛ وللاعتراض راسلنا.',
+        'الترتيب يُحسب من النقاط المكتسبة في الفترة ويُحدَّث كل ليلة، والتعادل يتشارك المرتبة. نحتفظ بحق إلغاء نتائج تحقّقت بالتحايل.',
+      ], 'community'],
       ['الاستخدام المقبول', ['لا تسئ استخدام الخدمة: لا محاولات اختراق، ولا أتمتة لجمع النقاط، ولا محتوى مسيء أو مخالف للقانون في بطاقتك.']],
       ['الملكية', ['العلامة «يقين» وشعارها وتصميم التطبيق ملك لنا. نصوص المصحف والتلاوات مرخّصة من أصحابها.']],
       ['حدود المسؤولية', ['نقدّم الخدمة «كما هي». [حدود المسؤولية وفق ما يقرّه المستشار القانوني.]']],
@@ -262,6 +288,12 @@ export function renderTerms(lang: PageLang, links: SiteLinks): string {
       'We may remove points gained through abuse, and you can dispute this through support.',
     ]],
     ['Yaqeen cards and medals', ['You are responsible for what your public card shows. We may hide an abusive card or a misleading handle. A physical medal or card activates for one account; if you lose it, switch it off in the app — it is never passed to whoever finds it.']],
+    ['Competitions and conduct', [
+      'The weekly league, tournaments and the level board are optional; you can join and leave whenever you like, and joining requires confirming that you are 18 or older or have a guardian’s consent. They are a gentle competition in doing good: they award no extra points, and their rewards are commemorative badges with no cash value.',
+      'Choose a respectful name and picture: no offensive words, no inappropriate photos or photos of others without their permission, and no impersonation of another person, the Yaqeen team or any official body.',
+      'If a participant bothers you, block them or report their name or photo from the standings. Support may hide a name or photo, change a handle, or suspend participation in competitions, and every action is logged; contact us to dispute it.',
+      'Standings are computed from the points earned in the period and refreshed every night; ties share a rank. We may void results gained through abuse.',
+    ], 'community'],
     ['Acceptable use', ['Don’t misuse the service: no attempts to break in, no automation to collect points, no abusive or unlawful content on your card.']],
     ['Ownership', ['The Yaqeen name, logo and app design are ours. The mushaf texts and recitations are licensed from their owners.']],
     ['Liability', ['The service is provided “as is”. [Limits of liability as approved by counsel.]']],

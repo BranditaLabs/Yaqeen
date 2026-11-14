@@ -21,6 +21,7 @@ import { adminOf } from '../../plugins/auth.js';
 import * as cardStats from '../../services/card-stats.service.js';
 import { CARDS_CONFIG_KEY, readCardsSettings } from '../../services/cards-settings.service.js';
 import { profileUrl } from '../../services/profile.service.js';
+import { adminPhotoUrls, avatarOf } from '../../services/community.service.js';
 
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 
@@ -66,12 +67,13 @@ export const adminCardsRoutes: FastifyPluginAsync = async (app) => {
         p: publicProfiles,
         // Correlated subquery: columns are qualified by hand (drizzle renders them bare here).
         tags: sql<number>`(select count(*) from profile_tags t where t.user_id = public_profiles.user_id and t.disabled_at is null)::int`,
+        av: sql<{ avatar_kind: string; avatar_preset: string | null; avatar_photo_id: string | null; photo_active: boolean }>`(select json_build_object('avatar_kind', u.avatar_kind, 'avatar_preset', u.avatar_preset, 'avatar_photo_id', u.avatar_photo_id, 'photo_active', coalesce((select ap.status = 'active' from avatar_photos ap where ap.id = u.avatar_photo_id), false)) from users u where u.id = public_profiles.user_id)`,
       })
       .from(publicProfiles)
       .where(conds.length ? and(...conds) : undefined)
       .orderBy(desc(publicProfiles.updatedAt))
       .limit(q.limit + 1);
-    const items = rows.slice(0, q.limit).map(({ p, tags }) => ({
+    const items = rows.slice(0, q.limit).map(({ p, tags, av }) => ({
       userId: p.userId,
       handle: p.handle,
       displayName: p.displayName,
@@ -83,6 +85,8 @@ export const adminCardsRoutes: FastifyPluginAsync = async (app) => {
       views: p.views,
       tags,
       updatedAt: p.updatedAt.toISOString(),
+      // Support sees the photo through the admin photo route (any status within 7 days).
+      avatar: av ? avatarOf(av, av.photo_active, (pid) => adminPhotoUrls(p.userId, pid)) : { kind: 'initial' as const },
     }));
     return { items, nextCursor: rows.length > q.limit ? items[items.length - 1]!.updatedAt : null };
   });

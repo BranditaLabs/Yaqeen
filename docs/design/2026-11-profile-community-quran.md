@@ -88,7 +88,7 @@ The avatar art from `yaqeen-avatars.zip` is already committed at d552ca0: `apps/
   - `hide_name`: `users.name_hidden_at`. The public name becomes null (clients render «عضو يقين»). The user cannot rename until restored (`name_locked`). **Also rotates the handle** to `member-` + 6 random chars unless the card is published and not moderated; the old and new handle go in the audit row.
   - `restore_name` (the handle is not rotated back).
   - `hide_photo`: the active photo becomes `status='removed'`, `removed_by` = admin, `users.photo_locked_at` set. The avatar falls back to the preset or initial. Uploads are refused with `photo_locked` until restored.
-  - `restore_photo`: re-activates the most recent photo with `removed_by is not null` and `removed_at` under 7 days old, and unlocks uploads; never a photo the user removed themselves. Otherwise `409 nothing_to_restore`.
+  - `restore_photo`: re-activates the most recent photo with `removed_by is not null` and `removed_at` under 7 days old, and unlocks uploads; never a photo the user removed themselves. Otherwise `409 nothing_to_restore`. Refused for an account that is not active (`409 account_inactive`: an erasure request keeps the photo removed). If the user chose another avatar after the hide (not the one the hide left them), only uploads are unlocked and the photo stays removed.
   - `ban`: `community_members.banned_at`. Leaves all standings immediately; rejoin refused with `community_banned`.
   - `unban`.
 - Support sees the photos it moderates through an admin-only photo route (§3.4) that serves any status within the 7-day retention.

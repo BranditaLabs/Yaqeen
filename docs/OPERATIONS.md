@@ -81,9 +81,9 @@ guest-link 10/min/IP, redeem 5/min, admin login 5 per 5 min.
 | --- | --- | --- |
 | Logs | stdout (pino JSON) | every response carries `x-request-id` (honoured from the load balancer); tokens, ID tokens, passwords and TOTP codes redacted |
 | Errors | **Sentry** — projects `yaqeen-api`, `yaqeen-admin`, `yaqeen-app` | API 5xx + unhandled rejections (route template + request id), cron jobs as **cron monitors** (missed/failed runs alert), admin server + browser errors, app crashes (Dart + native). Release = commit SHA (API/admin) or `yaqeen@version+build` (app); deploys are marked by the pipeline. Set `SENTRY_DSN` (API secret), `ADMIN_SENTRY_DSN` / `APP_SENTRY_DSN` (CI variables). Scrubbing: docs/SECURITY_PRIVACY.md. |
-| Metrics | **Prometheus** scrape of `:9100/metrics` (`METRICS_PORT`, never through the ingress) | `yaqeen_http_request_duration_seconds{method,route,status}`, `yaqeen_cache_lookups_total{namespace,result}`, `yaqeen_pg_pool_{total,idle,waiting}`, `yaqeen_external_calls_total{service,outcome}`, `yaqeen_product_events_total{event}`, `yaqeen_conversions_total{platform,outcome}` (sent · failed · duplicate), Node defaults (`yaqeen_*`) |
+| Metrics | **Prometheus** scrape of `:9100/metrics` (`METRICS_PORT`, never through the ingress) | `yaqeen_http_request_duration_seconds{method,route,status}`, `yaqeen_cache_lookups_total{namespace,result}`, `yaqeen_pg_pool_{total,idle,waiting}`, `yaqeen_external_calls_total{service,outcome}`, `yaqeen_product_events_total{event}`, `yaqeen_conversions_total{platform,outcome}` (sent · failed · duplicate), community job health `yaqeen_league_weeks_overdue` · `yaqeen_tournaments_overdue` · `yaqeen_community_snapshot_age_hours` (read from Postgres at scrape time, cached 60 s), Node defaults (`yaqeen_*`) |
 | Dashboards | **Grafana** — `deploy/k8s/monitoring/dashboards/yaqeen-api.json` (sidecar-loaded ConfigMap) | rate, errors, latency, slowest routes, cache, pool, event loop, memory, probes |
-| Alerts | `deploy/k8s/monitoring/alerts.yaml` (PrometheusRule) | **page**: 5xx > 1 % 5 min · p99 > 1 s 10 min · Postgres pool waiting · HPA at max 15 min · probe down 3 min. **ticket**: load shedding · cache miss storm · Shopify failing · pod restarts · job failed · TLS < 14 days |
+| Alerts | `deploy/k8s/monitoring/alerts.yaml` (PrometheusRule) | **page**: 5xx > 1 % 5 min · p99 > 1 s 10 min · Postgres pool waiting · HPA at max 15 min · probe down 3 min. **ticket**: load shedding · cache miss storm · Shopify failing · pod restarts · job failed · TLS < 14 days · league week not closed · tournament not closed · community snapshot older than 26 h |
 | Uptime | blackbox `Probe` (in cluster, every minute) + `.github/workflows/synthetics.yml` (outside, every 10 min) | `/health`, `/ready`, `/v1/config`, Hijri, card 404 page, `/get-app`, admin login. External failures open one `outage` issue per environment and close it on recovery; run the same checks by hand: `API_URL=… ADMIN_URL=… bash tools/synthetics/check.sh` |
 | Product | admin «التحليلات» (aggregates, counts < 20 withheld) + PostHog EU (`POSTHOG_KEY`) | consented `PRODUCT_EVENTS` only — docs/ANALYTICS_EVENTS.md |
 | Ad conversions | admin «النقاط والمكافآت» strip «قياس المشتريات للإعلانات» (flag, salt, platforms configured, last send) + `yaqeen_conversions_total` | server-side `purchase` to Meta / GA4 / TikTok — docs/ANALYTICS_EVENTS.md › Server-side purchase; failures go to Sentry as `conversions: <platform> <status>` |
@@ -152,7 +152,7 @@ Everything is in `deploy/azure/main.bicep`, driven by `tools/deploy/azure.sh <en
 | `yaqeen-api` | public HTTPS, port 4000; probes `/health` + `/ready`; 1–3 replicas (prod 2–10) |
 | `yaqeen-admin` | public HTTPS, port 3000; calls the API in-environment at `http://yaqeen-api`; optional IP allow-list (`ADMIN_ALLOWED_CIDRS`) |
 | `yaqeen-redis` | Redis 7, **VNet-internal TCP only** (`yaqeen-redis:6379`), password, no persistence (own environment only) |
-| `yaqeen-migrate` (manual), `yaqeen-purge` (01:17 UTC), `yaqeen-campaigns` (prod only, every 10 min) | jobs on the API image |
+| `yaqeen-migrate` (manual), `yaqeen-purge` (01:17 UTC), `yaqeen-community` (hourly at :07, Postgres only), `yaqeen-campaigns` (prod only, every 10 min) | jobs on the API image |
 | `psql-yaqeen-<env>-*` | Postgres 16 Flexible Server (staging B1ms, prod D2ds_v5), TLS enforced, 7/35-day backups |
 | `kv-yaqeen-*` | Key Vault (RBAC): every secret; apps read it through managed identities |
 | `cryaqeen<env>*` | Container registry (images `yaqeen-api:<commit>`, `yaqeen-admin:<commit>`, `redis:7-alpine`) |
@@ -183,6 +183,44 @@ then `azure.sh <env> domains` binds the hostnames with free managed certificates
 Before production: private access (delegated subnet + private DNS) or a NAT gateway with one allowed IP,
 and a least-privilege `yaqeen_app` role for the API (the admin role only for migrations).
 
+## Community job (leagues, tournaments, level board)
+
+`yaqeen-community` (`node dist/jobs/community.js`, locally `pnpm --filter @yaqeen/api job:community`) runs hourly at
+:07 (k8s CronJob with `concurrencyPolicy: Forbid`, Azure job `yaqeen-community`; a Postgres advisory lock makes an
+overlapping run or the admin «تشغيل التدوير الآن» skip). It needs only Postgres and never writes `points_ledger`.
+
+1. **Weeks.** The current and next `league_weeks` rows exist; the current week takes `app_config 'leagues'` once and
+   keeps it (admin changes apply from the next week to start).
+2. **Close due weeks** (Saturday 00:00 Cairo), oldest first, **one group per transaction** (`for update skip locked`):
+   finals from `points_earned_daily`, outcomes with the week's own settings, division ±1, badges (`on conflict do
+   nothing`), continuing members packed into next week's groups. A crash resumes from the unclosed groups. Until the
+   week is closed, `GET /v1/leagues/current` answers `closing`.
+3. **Nightly snapshot**, once per Cairo day (`community_snapshot_days`): league and tournament `snapshot_*` (points up to
+   Cairo 00:00), `user_point_totals.public_lifetime`, `leaderboard_snapshot` (global + countries with ≥ 20 country-board
+   participants). The first run after Cairo midnight (00:07 Cairo = 22:07 UTC in winter, 21:07 in summer) takes it; every
+   public standing and public level ring reads these, so a new point never moves a public list before the next night.
+4. **Close due tournaments** in batches of 1,000 entries (finals, badges), then `closed_at` and the entrants' `community`
+   consent (source `system`) in one short transaction. A crash resumes from entries without finals.
+5. Resolved reports older than 180 days are deleted. (Replaced/removed photos older than 7 days go in the daily purge job.)
+
+Alerts: `YaqeenLeagueWeekNotClosed` / `YaqeenTournamentNotClosed` (still open > 2 h past the end),
+`YaqeenCommunitySnapshotStale` (> 26 h); `YaqeenJobFailed` covers failed runs. Fix the cause, then let the next hourly run
+catch up (or run the job by hand).
+
+**Rollups.** `points_earned_daily` and `user_point_totals` are caches kept by the `yq_points_rollup` trigger on
+`points_ledger` (never balances). If they are ever suspect (manual SQL on the ledger, a restore), recompute both from the
+ledger — safe at any time; it locks both tables while it runs:
+
+```sql
+select yq_rebuild_points_rollups();
+```
+
+`public_lifetime` is reset to `lifetime_earned` by the rebuild and re-stamped by the next nightly snapshot.
+
+**Photos** (`avatar_photos`, ≈ 30 KB per user in `bytea`) are re-encoded by `sharp` (prebuilt linuxmusl libvips; CI runs
+`scripts/sharp-smoke.mjs` inside the image). Public photo URLs are cached 5 min, so a support removal disappears within
+5 minutes. A future CDN goes behind `avatarUrl()` (needs owner approval).
+
 ## Runbooks
 
 | Symptom | Do |
@@ -197,6 +235,8 @@ and a least-privilege `yaqeen_app` role for the API (the admin role only for mig
 | Error spike after a deploy | Sentry › Releases › compare the new release with the previous one; roll back first, investigate after. |
 | `outage` issue opened | Synthetics failed from outside: check the probe dashboard (in-cluster view) to tell a cluster outage from an ingress/DNS/TLS one. |
 | Conversions failing (`yaqeen_conversions_total{outcome="failed"}`) | Sentry shows `conversions: <platform> HTTP 4xx` (token revoked / wrong pixel: regenerate and update the secret) or `timeout`/`HTTP 5xx` (platform side). A failed order is retried only if Shopify replays its webhook (max 3 attempts); purchases are never queued. To stop all sends: turn `serverConversions` off in الإعدادات. |
+| Leagues stuck on «closing» / week not closed | `yaqeen_league_weeks_overdue` > 0. Check the `yaqeen-community` job logs/Sentry monitor; the close resumes per group, so re-running the job (or super admin «تشغيل التدوير الآن» with a reason) finishes it. Never edit `league_members` finals by hand. |
+| Public standings stale | `yaqeen_community_snapshot_age_hours` > 26: the job did not run after Cairo midnight. Run it once; it takes today's snapshot. |
 | Need to pause a feature | Dashboard → الإعدادات → turn the flag off (apps pick it up within the config cache window), or maintenance mode for a full stop — Quran, prayer and azkar keep working offline. |
 
 ## Release checklist (ops)

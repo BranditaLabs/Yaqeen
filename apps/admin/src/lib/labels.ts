@@ -28,7 +28,9 @@ export const COMPETITION_ERROR: Record<string, string> = {
   reason_required: 'اكتب السبب',
   report_resolved: 'عولج هذا البلاغ من قبل',
   role_not_allowed: 'لا تملك صلاحية هذا الإجراء',
-  validation: 'تحقق من الحقول',
+  // The API's ZodError code (lib/errors.ts errorHandler).
+  validation_failed: 'تحقق من الحقول',
+  account_inactive: 'الحساب غير نشط (طلب حذف أو موقوف) — تبقى الصورة محذوفة',
   not_found: 'غير موجود',
 };
 
