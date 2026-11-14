@@ -46,6 +46,10 @@ abstract final class Env {
   /// pinned in the app. Empty (default): the interim pinned upstream revision (`AsrModelManifest.interim`).
   static const asrModelBaseUrl = String.fromEnvironment('ASR_MODEL_BASE_URL');
 
+  /// Internal release builds only: allow the interim third-party export when `ASR_MODEL_BASE_URL`
+  /// is not set (store builds leave it off, so they offer no model until ours is hosted).
+  static const asrAllowInterim = bool.fromEnvironment('ASR_ALLOW_INTERIM');
+
   /// Sentry DSN for crash/error reports; empty = reporting off (dev, tests).
   static const sentryDsn = String.fromEnvironment('SENTRY_DSN');
 

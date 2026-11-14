@@ -84,7 +84,8 @@ class AsrModelStore {
     if (!manifest.published) throw StateError('no model published for this build');
     if (!allowMetered && !await isUnmetered()) throw const WifiRequired();
     await kv.write(downloadingKey, manifest.id);
-    if (allowMetered) await kv.write(meteredKey, '1');
+    // The choice belongs to this download only: a later one on Wi-Fi never inherits an old «yes».
+    await kv.write(meteredKey, allowMetered ? '1' : '0');
     final d = await dir();
     await d.create(recursive: true);
     final got = <String, int>{};
@@ -138,6 +139,7 @@ class AsrModelStore {
   Future<void> delete() async {
     queue?.cancelGroup('asr');
     await kv.delete(downloadingKey);
+    await kv.delete(meteredKey);
     final base = Directory('${(await root()).path}/asr');
     if (await base.exists()) await base.delete(recursive: true);
   }

@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../config/env.dart';
 import '../recitation_engine.dart';
 
@@ -107,8 +109,17 @@ class AsrModelManifest {
     ],
   );
 
-  /// The model this build downloads.
-  static AsrModelManifest get current => Env.asrModelBaseUrl.isEmpty ? interim : yaqeen;
+  /// The model this build downloads: ours from `ASR_MODEL_BASE_URL`; without it, debug/profile
+  /// builds use the interim third-party export. A release build never downloads that export unless
+  /// `ASR_ALLOW_INTERIM=true` is set for an internal build (docs/MODELS.md: not for production) —
+  /// otherwise nothing is published and no «تسميع» entry shows.
+  static AsrModelManifest get current => resolve(baseUrl: Env.asrModelBaseUrl, release: kReleaseMode, allowInterim: Env.asrAllowInterim);
+
+  @visibleForTesting
+  static AsrModelManifest resolve({required String baseUrl, required bool release, required bool allowInterim}) {
+    if (baseUrl.isNotEmpty) return yaqeen;
+    return release && !allowInterim ? yaqeen : interim;
+  }
 }
 
 // tools/asr/manifest.json (yaqeen-asr-v1) — update together with the hosted files.
