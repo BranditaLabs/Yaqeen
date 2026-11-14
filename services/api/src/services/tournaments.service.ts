@@ -89,43 +89,77 @@ function base(t: TournamentRecord, now: Date) {
   };
 }
 
-async function toTournament(ctx: CommunityCtx, t: TournamentRecord, uid: string): Promise<Tournament> {
+type EntryRow = { tournament_id: string; left: boolean; snapshot_rank: number | null; final_rank: number | null; final_points: number | null };
+
+/**
+ * The caller's part of each tournament (joined, rank, own live points) in two queries whatever the
+ * number of tournaments: their entries, then the live sums for the joined ones without finals.
+ */
+async function toTournaments(ctx: CommunityCtx, ts: TournamentRecord[], uid: string): Promise<Tournament[]> {
+  if (!ts.length) return [];
   const now = ctx.now();
-  const e = await ctx.db.execute<{ left: boolean; snapshot_rank: number | null; final_rank: number | null; final_points: number | null }>(sql`
-    select (left_at is not null) as left, snapshot_rank, final_rank, final_points from tournament_entries where tournament_id = ${t.id} and user_id = ${uid}`);
-  const entry = e.rows[0];
-  const joined = !!entry && !entry.left;
-  let me: Tournament['me'] = null;
-  if (joined) {
-    const closed = t.closed_at !== null;
-    let points: number;
-    if (closed && entry.final_points !== null) points = Number(entry.final_points);
-    else {
+  const ids = JSON.stringify(ts.map((t) => t.id));
+  const e = await ctx.db.execute<EntryRow>(sql`
+    select tournament_id, (left_at is not null) as left, snapshot_rank, final_rank, final_points from tournament_entries
+    where user_id = ${uid} and tournament_id in (select x::uuid from jsonb_array_elements_text(${ids}::jsonb) as x)`);
+  const entries = new Map(e.rows.map((r) => [r.tournament_id, r]));
+  const tomorrow = addDays(localToday(now), 1);
+  const windows = ts
+    .filter((t) => {
+      const entry = entries.get(t.id);
+      return entry && !entry.left && !(t.closed_at !== null && entry.final_points !== null);
+    })
+    .map((t) => {
       const w = windowDays(t);
-      const tomorrow = addDays(localToday(now), 1);
-      const r = await ctx.db.execute<{ pts: number }>(sql`
-        select coalesce(sum(earned), 0)::int as pts from points_earned_daily
-        where user_id = ${uid} and day >= ${w.from}::date and day < ${w.to < tomorrow ? w.to : tomorrow}::date`);
-      points = Number(r.rows[0]?.pts ?? 0);
-    }
-    const rank = closed ? entry.final_rank : entry.snapshot_rank;
-    me = { rank: rank === null ? null : Number(rank), points };
+      return { id: t.id, f: w.from, t: w.to < tomorrow ? w.to : tomorrow };
+    });
+  const live = new Map<string, number>();
+  if (windows.length) {
+    const r = await ctx.db.execute<{ id: string; pts: number }>(sql`
+      select x.id::text as id, coalesce((select sum(d.earned) from points_earned_daily d
+        where d.user_id = ${uid} and d.day >= x.f::date and d.day < x.t::date), 0)::int as pts
+      from jsonb_to_recordset(${JSON.stringify(windows)}::jsonb) as x(id uuid, f text, t text)`);
+    for (const row of r.rows) live.set(row.id, Number(row.pts));
   }
-  return { ...base(t, now), joined, me };
+  return ts.map((t) => {
+    const entry = entries.get(t.id);
+    const joined = !!entry && !entry.left;
+    let me: Tournament['me'] = null;
+    if (entry && joined) {
+      const closed = t.closed_at !== null;
+      const points = closed && entry.final_points !== null ? Number(entry.final_points) : (live.get(t.id) ?? 0);
+      const rank = closed ? entry.final_rank : entry.snapshot_rank;
+      me = { rank: rank === null ? null : Number(rank), points };
+    }
+    return { ...base(t, now), joined, me };
+  });
+}
+
+async function toTournament(ctx: CommunityCtx, t: TournamentRecord, uid: string): Promise<Tournament> {
+  return (await toTournaments(ctx, [t], uid))[0]!;
 }
 
 /* ----------------------------------------------------------------- public */
 
-/** Published tournaments: live + upcoming + ended in the last 30 days (live first). */
+/**
+ * Published tournaments: live + upcoming + ended in the last 30 days (live first). The shared part
+ * (the rows and their participant counts) is cached in `community` for a minute — joins, leaves and
+ * the job bump it — so opening the tab doesn't count every tournament's entrants each time; the
+ * caller's own part is added after the cached read.
+ */
 export async function list(ctx: CommunityCtx, uid: string): Promise<Tournament[]> {
   const now = ctx.now();
-  const r = await ctx.db.execute<TournamentRecord>(sql`
-    select t.*, (select count(*) from tournament_entries e where e.tournament_id = t.id and e.left_at is null)::int as participants
-    from tournaments t
-    where t.status = 'published' and t.ends_at > ${new Date(now.getTime() - 30 * 86_400_000)}
-    order by case when t.starts_at <= ${now} and t.ends_at > ${now} then 0 when t.starts_at > ${now} then 1 else 2 end, t.starts_at desc
-    limit 50`);
-  return Promise.all(r.rows.map((t) => toTournament(ctx, t, uid)));
+  const minute = Math.floor(now.getTime() / 60_000);
+  const json = await ctx.cache.getJson('community', `tournaments:${minute}`, 60, async (): Promise<TournamentRecord[]> => {
+    const r = await ctx.db.execute<TournamentRecord>(sql`
+      select t.*, (select count(*) from tournament_entries e where e.tournament_id = t.id and e.left_at is null)::int as participants
+      from tournaments t
+      where t.status = 'published' and t.ends_at > ${new Date(now.getTime() - 30 * 86_400_000)}
+      order by case when t.starts_at <= ${now} and t.ends_at > ${now} then 0 when t.starts_at > ${now} then 1 else 2 end, t.starts_at desc
+      limit 50`);
+    return r.rows;
+  });
+  return toTournaments(ctx, JSON.parse(json) as TournamentRecord[], uid);
 }
 
 export async function get(ctx: CommunityCtx, uid: string, id: string): Promise<Tournament> {
