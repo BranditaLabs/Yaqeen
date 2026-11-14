@@ -343,12 +343,17 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('the progress ring follows progress', (tester) async {
+    testWidgets('the progress ring follows progress exactly, with nothing left running between updates', (tester) async {
       await tester.pumpWidget(ring(playing: false, orbit: false, progress: 0.25));
       expect(ringValue(tester), closeTo(0.25, 0.001));
-      await tester.pumpWidget(ring(playing: false, orbit: false, progress: 0.75));
-      await tester.pumpAndSettle();
-      expect(ringValue(tester), closeTo(0.75, 0.001));
+      // Position updates every 200 ms: the arc is at each one at once, never trailing behind.
+      for (final p in [0.3, 0.35, 0.4]) {
+        await tester.pumpWidget(ring(playing: false, orbit: false, progress: p));
+        expect(ringValue(tester), closeTo(p, 0.001));
+        await tester.pump(const Duration(milliseconds: 200));
+      }
+      await tester.pump(Motion.standard); // the glyph's morph, if any, done
+      expect(tester.binding.transientCallbackCount, 0); // updates stopped: no ring ticker
     });
   });
 
@@ -373,6 +378,35 @@ void main() {
       expect(barHeight(tester, 2), greaterThan(rest)); // the last word spreads outward
       await tester.pump(const Duration(milliseconds: 50));
       expect(tester.binding.transientCallbackCount, 0); // between samples nothing runs
+    });
+
+    testWidgets('reduce-motion on and off mid-recording: one subscription to a single-subscription stream', (tester) async {
+      final levels = StreamController<double>(); // single subscription, like a microphone's
+      addTearDown(levels.close);
+      Widget meter({required bool reduce}) {
+        // The same tree either way: only the MediaQuery flag changes, so the meter keeps its state.
+        return harness(
+          Builder(
+            builder: (context) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(disableAnimations: reduce),
+              child: Center(child: YqLiveLevel(levels: levels.stream)),
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(meter(reduce: false));
+      final rest = barHeight(tester, 2);
+      await tester.pumpWidget(meter(reduce: true));
+      levels.add(1);
+      await tester.pump();
+      expect(barHeight(tester, 2), closeTo(28 * (YqLiveLevel.floor + (1 - YqLiveLevel.floor) * 0.35), 0.01)); // the rest shape
+      await tester.pumpWidget(meter(reduce: false)); // would throw if it listened again
+      expect(tester.takeException(), isNull);
+      levels.add(0.9);
+      await tester.pump();
+      await tester.pump(YqLiveLevel.ease);
+      expect(barHeight(tester, 2), greaterThan(rest));
     });
 
     testWidgets('reduce-motion: a still rest shape that does not listen', (tester) async {

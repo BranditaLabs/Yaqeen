@@ -118,8 +118,11 @@ class _YqPlayRingState extends State<YqPlayRing> with TickerProviderStateMixin {
                     ),
                   ),
                 ),
+              // The arc follows the position the player reports as it is (no ease): an eased
+              // change restarted on every position update would trail and pulse.
               YqRing(
                 value: widget.progress,
+                change: Duration.zero,
                 size: ring,
                 stroke: widget.stroke,
                 color: YqColors.lapis,

@@ -12,7 +12,9 @@ import '../theme/tokens.dart';
 /// voice reads as a soft wave; every height eases to its target. Silence rests low and still.
 ///
 /// No ticker of its own: it moves only when a sample arrives. Under reduce-motion it is a static
-/// rest shape and does not listen. Decorative: the caller labels the recording state.
+/// rest shape: it does not start listening, and once listening it ignores samples rather than
+/// cancelling, so a single-subscription stream (a microphone's) is never listened to twice when
+/// reduce-motion is switched back off. Decorative: the caller labels the recording state.
 class YqLiveLevel extends StatefulWidget {
   const YqLiveLevel({
     super.key,
@@ -66,14 +68,14 @@ class _YqLiveLevelState extends State<YqLiveLevel> {
     }
   }
 
+  /// Reduce-motion as of the last dependency change.
+  bool _still = false;
+
   void _listen() {
-    if (reduceMotion(context)) {
-      _sub?.cancel();
-      _sub = null;
-      return;
-    }
+    _still = reduceMotion(context);
+    if (_still) return;
     _sub ??= widget.levels.listen((v) {
-      if (!mounted) return;
+      if (!mounted || _still) return;
       setState(() => _history = [v.isNaN ? 0.0 : v.clamp(0.0, 1.0), ..._history.take(_reach - 1)]);
     });
   }
