@@ -4,3 +4,4 @@ export * from './events.js';
 export * from './rollout.js';
 export * from './profile.js';
 export * from './community.js';
+export * from './recordings.js';

@@ -1,0 +1,61 @@
+# Comment blocklist for «تلاواتي» (services/api/src/domain/comments.ts). One entry per line, matched
+# against whole words after normalisation (tashkeel, alef/ya/ta-marbuta forms, tatweel, repeated
+# letters and leetspeak are folded; letters spread out with spaces or dots are joined). Write entries in
+# any spelling: they are normalised the same way when loaded. Lines starting with # are comments.
+# A modest seed: extend it here (and redeploy) — no third-party service.
+
+# English
+fuck
+fucker
+fucking
+motherfucker
+shit
+bullshit
+bitch
+bastard
+asshole
+dick
+dickhead
+pussy
+cunt
+whore
+slut
+wanker
+twat
+retard
+faggot
+nigger
+nigga
+porn
+nude
+nudes
+
+# Arabic
+شرموط
+شرموطة
+شراميط
+عاهرة
+قحبة
+منيوك
+متناك
+نيك
+كس
+زب
+طيز
+عرص
+معرص
+خول
+لبوة
+وسخ
+حقير
+حقيرة
+كلب
+كلبة
+حمار
+خنزير
+ابن الكلب
+يلعن
+زبالة
+سافل
+سافلة
+واطي

@@ -23,6 +23,7 @@ import {
   pgEnum,
   pgTable,
   primaryKey,
+  real,
   smallint,
   text,
   timestamp,
@@ -1065,4 +1066,149 @@ export const communityReports = pgTable(
     check('community_reports_reason_ck', sql`${t.reason} in ('name', 'photo', 'other')`),
     check('community_reports_resolution_ck', sql`${t.resolution} in ('dismissed', 'actioned')`),
   ],
+);
+
+/* ------------------------------------------------------- «تلاواتي» recordings */
+/*
+ * Users' own recorded recitations (design doc §16, APP_SPEC §5.24/§5.31). User-generated content in
+ * the owner's own voice — not Yaqeen's religious content. Never in analytics or ad sinks; admins see a
+ * recording only while it is in the moderation queue (needs_review, or reported/held). The audio is
+ * stored as uploaded (AAC-LC .m4a, ≤ 200 KB) — Postgres like avatar photos, no storage service.
+ * `transcript`, `client_score` and `client_words` exist only while the recording waits for a reviewer.
+ */
+
+export const recordings = pgTable(
+  'recordings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    surah: smallint('surah').notNull(),
+    fromAyah: smallint('from_ayah').notNull(),
+    toAyah: smallint('to_ayah').notNull(),
+    durationMs: integer('duration_ms').notNull(),
+    audio: bytea('audio').notNull(),
+    bytes: integer('bytes').notNull(),
+    /** contracts `RecordingStatus`. */
+    status: text('status').notNull(),
+    rejectReason: text('reject_reason'),
+    /** Coverage of the chosen verses (AI check), 0..1. */
+    score: real('score'),
+    /** Speech ÷ duration (VAD), 0..1. */
+    speech: real('speech'),
+    /** Karaoke timings `[{ayah, index, startMs, endMs}]`, set once verified. */
+    words: jsonb('words'),
+    visibility: text('visibility').notNull().default('private'),
+    commentsOn: boolean('comments_on').notNull().default(true),
+    position: smallint('position').notNull(),
+    /** Failed AI-check attempts (the sweeper gives up after 3 → needs_review). */
+    asrAttempts: smallint('asr_attempts').notNull().default(0),
+    /** When the recording entered `processing` (the sweeper retries after 10 min). */
+    queuedAt: ts('queued_at'),
+    /** Queue-only diagnostics, dropped when a reviewer decides. */
+    transcript: text('transcript'),
+    clientScore: real('client_score'),
+    clientWords: jsonb('client_words'),
+    /** 3 distinct open reports hold an approved recording out of every view until support decides. */
+    heldAt: ts('held_at'),
+    createdAt: createdAt(),
+    verifiedAt: ts('verified_at'),
+    removedAt: ts('removed_at'),
+  },
+  (t) => [
+    index('recordings_user_idx').on(t.userId, t.position),
+    index('recordings_queue_idx').on(t.status, t.createdAt),
+    check('recordings_status_ck', sql`${t.status} in ('processing', 'private_ready', 'approved', 'needs_review', 'rejected', 'removed')`),
+    check('recordings_reject_reason_ck', sql`${t.rejectReason} in ('not_matching', 'unclear', 'silence', 'too_long', 'removed_by_moderator')`),
+    check('recordings_visibility_ck', sql`${t.visibility} in ('private', 'members', 'public')`),
+    check('recordings_range_ck', sql`${t.surah} between 1 and 114 and ${t.fromAyah} >= 1 and ${t.fromAyah} <= ${t.toAyah}`),
+    check('recordings_duration_ck', sql`${t.durationMs} between 0 and 31000`),
+    check('recordings_bytes_ck', sql`${t.bytes} <= 200000`),
+    check('recordings_position_ck', sql`${t.position} between 1 and 3`),
+  ],
+);
+
+/** One reaction per viewer per recording (contracts `REACTION_KINDS`). */
+export const recordingReactions = pgTable(
+  'recording_reactions',
+  {
+    recordingId: uuid('recording_id')
+      .notNull()
+      .references(() => recordings.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.recordingId, t.userId] }),
+    index('recording_reactions_user_idx').on(t.userId),
+    check('recording_reactions_kind_ck', sql`${t.kind} in ('mashallah', 'barakallah', 'ahsant')`),
+  ],
+);
+
+/** Comments. `hidden`: 3 reports (pending support); `removed`: author, owner or support (text wiped). */
+export const recordingComments = pgTable(
+  'recording_comments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    recordingId: uuid('recording_id')
+      .notNull()
+      .references(() => recordings.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    text: text('text').notNull(),
+    status: text('status').notNull().default('visible'),
+    createdAt: createdAt(),
+    removedAt: ts('removed_at'),
+  },
+  (t) => [
+    index('recording_comments_list_idx').on(t.recordingId, t.createdAt.desc(), t.id),
+    // Also serves the 5/min and 50/day rate limits, counted in the database.
+    index('recording_comments_user_idx').on(t.userId, t.createdAt.desc()),
+    check('recording_comments_status_ck', sql`${t.status} in ('visible', 'hidden', 'removed')`),
+    check('recording_comments_text_ck', sql`char_length(${t.text}) <= 280`),
+  ],
+);
+
+/** Reports of a recording or a comment; one report per reporter and target. */
+export const recordingReports = pgTable(
+  'recording_reports',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    target: text('target').notNull(),
+    targetId: uuid('target_id').notNull(),
+    reporterId: uuid('reporter_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    reason: text('reason').notNull(),
+    createdAt: createdAt(),
+    resolvedAt: ts('resolved_at'),
+    resolvedBy: uuid('resolved_by').references(() => adminUsers.id),
+    resolution: text('resolution'),
+  },
+  (t) => [
+    uniqueIndex('recording_reports_uq').on(t.target, t.targetId, t.reporterId),
+    index('recording_reports_open_idx').on(t.target, t.targetId).where(sql`${t.resolvedAt} is null`),
+    index('recording_reports_reporter_idx').on(t.reporterId, t.createdAt.desc()),
+    check('recording_reports_target_ck', sql`${t.target} in ('recording', 'comment')`),
+    check('recording_reports_reason_ck', sql`${t.reason} in ('not_recitation', 'inappropriate', 'spam', 'other')`),
+    check('recording_reports_resolution_ck', sql`${t.resolution} in ('dismissed', 'actioned')`),
+  ],
+);
+
+/** Uploads + share-verifications per Africa/Cairo day (contracts `RECORDING_UPLOADS_PER_DAY`); survives deletes. */
+export const recordingDaily = pgTable(
+  'recording_daily',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    day: date('day', { mode: 'string' }).notNull(),
+    count: smallint('count').notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.day] })],
 );
