@@ -9,6 +9,7 @@ import { competitionRights } from '@/lib/access';
 import { api, tryApi } from '@/lib/api';
 import { longDate, num } from '@/lib/format';
 import { cairoDate, hijriDays, tournamentPresets } from '@/lib/hijri';
+import { isUuid } from '@/lib/ids';
 import { BADGE_LABEL, COMPETITION_ERROR, TOURNAMENT_STATUS, tournamentDisplay } from '@/lib/labels';
 import { cancelTournament, closeTournament, publishTournament, updateTournament } from '../../actions';
 import { Medal, SnapshotLine, StandingsTable } from '../../parts';
@@ -28,8 +29,9 @@ const dash = (n: number | null) => (n === null ? '—' : num(n));
 /** One tournament: status, window, edit/publish/close/cancel, aggregate stats and snapshot standings. */
 export default async function TournamentPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ publishError?: string }> }) {
   const [{ id }, { publishError }] = await Promise.all([params, searchParams]);
+  if (!isUuid(id)) notFound();
   const [me, res] = await Promise.all([api<AdminMe>('/admin/auth/me'), tryApi<AdminTournamentRow>(`/admin/competitions/tournaments/${id}`)]);
-  if (res.code === 'not_found' || res.code === 'validation') notFound();
+  if (res.code === 'not_found' || res.code === 'validation_failed') notFound();
   if (!res.data) {
     return (
       <>
