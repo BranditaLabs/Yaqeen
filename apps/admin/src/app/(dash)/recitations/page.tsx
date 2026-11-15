@@ -1,4 +1,3 @@
-import { Suspense } from 'react';
 import {
   type AdminCommentItem,
   type AdminMe,
@@ -8,7 +7,7 @@ import {
   verseRef,
 } from '@yaqeen/contracts';
 import { ActionForm } from '@/components/action-form';
-import { Badge, Button, Card, CardTitle, Notice, PageHeader, SkeletonRows } from '@/components/ui';
+import { Badge, Button, Card, CardTitle, Notice, PageHeader } from '@/components/ui';
 import { requireSection, recitationRights } from '@/lib/access';
 import { api } from '@/lib/api';
 import { dateTime, num } from '@/lib/format';
@@ -47,15 +46,10 @@ export default async function RecitationsPage() {
         لا تظهر هنا إلا العناصر التي تحتاج قراراً. كل قرار يُسجَّل في سجل التدقيق مع السبب. اعتماد التلاوة أو رفضها للمراجع الشرعي، والبلاغات
         والتعليقات للدعم.
       </Notice>
-      <Suspense
-        fallback={
-          <Card>
-            <SkeletonRows rows={4} />
-          </Card>
-        }
-      >
-        <Queue rights={rights} />
-      </Suspense>
+      {/* No Suspense here: every row carries a decision form, and with Next 15.5.4 a server-action
+          form inside a boundary that streams again in the action response never leaves `pending`
+          (apps/admin/README.md › Known framework issues). */}
+      <Queue rights={rights} />
     </div>
   );
 }

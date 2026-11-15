@@ -13,7 +13,9 @@ Next.js 15 dashboard (Arabic RTL, Tailwind 4 tokens). Run `pnpm dev:admin`; buil
   - «المسابقات» has no route `loading.tsx`; skeletons come from in-page `<Suspense>` around
     read-only parts only (this week's league numbers, tournament stats, the level board, badges).
   - Anything that renders a form (league settings, rollover, support's moderation rows, support's
-    standings rows) renders outside Suspense, so support's views of those lists have no skeleton.
+    standings rows, every «التلاوات» queue row) renders outside Suspense, so support's views of
+    those lists have no skeleton.
   - When Next is upgraded: put `app/(dash)/competitions/loading.tsx` back, wrap the support views in
-    Suspense, and run the E2E «المسابقات» suite (league settings save, photo hide, standings name hide).
+    Suspense (and the «التلاوات» queue), and run the E2E «المسابقات» and «التلاوات» suites (league
+    settings save, photo hide, standings name hide, recording approve, comment remove, reports dismiss).
     If they pass, drop this note and the comments that point here.
