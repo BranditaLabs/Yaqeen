@@ -48,13 +48,17 @@ const clock = (ms: number) => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
 
-/** Ayah numbers (Western digits) that light up in turn — only with one start per ayah of the range. */
+/**
+ * Ayah numbers (Western digits) that light up in turn — only with one start per ayah of the range. The
+ * row follows the page direction (right to left on the Arabic card, like the rings); each chip is a
+ * single Western-digit run, so it needs no bidi isolation.
+ */
 function ayat(r: CardRecitation): string {
   const at = r.ayahStarts;
   const count = r.toAyah - r.fromAyah + 1;
   if (!at || at.length !== count || count < 2 || at.some((v) => !Number.isFinite(v) || v < 0)) return '';
   const items = at.map((_, i) => `<li>${num(r.fromAyah + i)}</li>`).join('');
-  return `<ol class="ayat" aria-hidden="true" dir="ltr" data-at="${at.map((v) => Math.round(v)).join(',')}">${items}</ol>`;
+  return `<ol class="ayat" aria-hidden="true" data-at="${at.map((v) => Math.round(v)).join(',')}">${items}</ol>`;
 }
 
 export function renderRecitations(items: CardRecitation[], lang: 'ar' | 'en', getApp: string): string {
@@ -130,18 +134,17 @@ export const RECITATIONS_CSS = `
 .rx b{font-family:Jost,sans-serif;font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
 .rx-cta{display:block;margin:8px 4px 2px;font-size:12px;font-weight:700;color:var(--accent);text-decoration:none}
 .rec audio{display:none}
-@supports (animation-timeline:view()){
-.rec{animation:reveal linear both;animation-timeline:view();animation-range:entry 0% entry 70%}
-}
 @media (prefers-reduced-motion:reduce){.rec,.rx,.play .hair{animation:none}.play,.ico,.ico::before,.ico::after,.play .prog,.play .hair,.meta b,.ayat li{transition:none}.ayat li.on{transform:none}}
 `;
 
 /**
  * The player: one recitation at a time (starting one pauses the rest, however it was started), an SVG
  * progress ring, ayah numbers following the timings, aria-pressed and keyboard-friendly. It draws per
- * frame only while playing; with reduced motion the ring steps on timeupdate instead.
+ * frame only while playing; with reduced motion the ring steps on timeupdate instead. The empty passive
+ * touchstart listener lets iOS Safari apply `.play:active` (the 160 ms press shrink) on touch.
  */
 export const RECITATIONS_JS = `(function(){
+document.addEventListener('touchstart',function(){},{passive:true});
 var mq=window.matchMedia?window.matchMedia('(prefers-reduced-motion: reduce)'):null;
 var all=[].slice.call(document.querySelectorAll('.rec'));
 function still(){return !!(mq&&mq.matches);}

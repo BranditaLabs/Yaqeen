@@ -141,7 +141,9 @@ describe('«تلاواتي» on the public card', () => {
 
   it('ayah numbers follow the verified timings (Western digits), only for a range with one start per ayah', () => {
     const html = renderRecitations([rec()], 'ar', links.getApp);
-    expect(html).toContain('<ol class="ayat" aria-hidden="true" dir="ltr" data-at="0,2400,5100,8000"><li>1</li><li>2</li><li>3</li><li>4</li></ol>');
+    // The row follows the page direction (RTL on the Arabic card), never forced left to right.
+    expect(html).toContain('<ol class="ayat" aria-hidden="true" data-at="0,2400,5100,8000"><li>1</li><li>2</li><li>3</li><li>4</li></ol>');
+    expect(html).not.toMatch(/<ol class="ayat"[^>]*\sdir=/);
     expect(renderRecitations([rec({ ayahStarts: null })], 'ar', links.getApp)).not.toContain('class="ayat"');
     expect(renderRecitations([rec({ ayahStarts: [0, 10] })], 'ar', links.getApp)).not.toContain('class="ayat"'); // wrong length
     expect(renderRecitations([rec({ fromAyah: 2, toAyah: 2, ayahStarts: [0] })], 'ar', links.getApp)).not.toContain('class="ayat"');
@@ -157,6 +159,12 @@ describe('«تلاواتي» on the public card', () => {
     expect(RECITATIONS_CSS).toContain('animation:rise var(--t-emph) var(--ease-emph) both;animation-delay:calc(.5s + var(--i,0) * 40ms)');
     expect(RECITATIONS_CSS).toContain('transition:clip-path var(--t-std) var(--ease-emph)');
     expect(RECITATIONS_CSS).toContain('transition:stroke-dashoffset var(--t-std) var(--ease-emph)');
+    // Rows keep the token rise in every browser (no scroll-driven override that drops it or desyncs the chips).
+    expect(RECITATIONS_CSS).not.toContain('animation-timeline');
+    expect(RECITATIONS_CSS.match(/\.rec\{[^}]*\}/g)!.join('')).not.toContain('reveal');
+    // The press shrink (quick token); a passive touchstart listener lets iOS Safari apply :active.
+    expect(RECITATIONS_CSS).toContain('.play:active{transform:scale(.92)}');
+    expect(RECITATIONS_JS).toContain("document.addEventListener('touchstart',function(){},{passive:true});");
     // The hairline turns once per 12 s, and only while playing.
     expect(RECITATIONS_CSS).toContain('animation:hairline 12s linear infinite paused');
     expect(RECITATIONS_CSS).toContain('.rec.playing .hair{opacity:.55;animation-play-state:running}');

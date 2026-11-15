@@ -75,6 +75,13 @@ test.describe('public card «بطاقة يقين» — «تلاواتي» player
   test('plays one recitation at a time: ring, hairline and ayah numbers follow, then it resets', async ({ page }) => {
     const { first, second, problems } = await open(page);
     await expect(first.locator('.ayat li')).toHaveText(['1', '2', '3', '4']);
+    // Rows rise on the emphasised token with their stagger, even where scroll-driven animations exist.
+    expect(await first.evaluate((el) => getComputedStyle(el).animationName)).toBe('rise');
+    // On the Arabic card the numbers run right to left, in the reading direction (like the rings).
+    expect(await page.locator('html').getAttribute('dir')).toBe('rtl');
+    const xs = await first.locator('.ayat li').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().left));
+    expect(xs[0]!).toBeGreaterThan(xs[1]!);
+    expect(xs[1]!).toBeGreaterThan(xs[2]!);
     await expect(first.locator('.play')).toHaveAttribute('aria-pressed', 'false');
     expect(await hairState(first)).toBe('paused');
 

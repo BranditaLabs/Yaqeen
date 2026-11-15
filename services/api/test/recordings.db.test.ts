@@ -609,7 +609,7 @@ describe.skipIf(!url)('recordings «تلاواتي» (Postgres)', () => {
     expect(html).not.toContain(inReview);
     expect(html.match(/<article class="rec"/g)).toHaveLength(1);
     // The verified word timings light the ayah numbers in turn (reference only, no Quran text).
-    expect(html).toMatch(/<ol class="ayat" aria-hidden="true" dir="ltr" data-at="0(,\d+){3}"><li>1<\/li><li>2<\/li><li>3<\/li><li>4<\/li><\/ol>/);
+    expect(html).toMatch(/<ol class="ayat" aria-hidden="true" data-at="0(,\d+){3}"><li>1<\/li><li>2<\/li><li>3<\/li><li>4<\/li><\/ol>/);
     expect(html).toContain('--ease-emph:cubic-bezier(.2,0,0,1)');
     expect(html).toContain('prefers-reduced-motion');
     // A same-origin path (CSP media-src 'self', CORP same-origin), never an absolute URL on another host.
