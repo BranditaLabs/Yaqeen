@@ -22,8 +22,14 @@ import 'recordings_providers.dart';
 /// their picture in the level ring, name and «تلاواته» — the approved recordings they share with
 /// members — each opening the listener. Report and block from the listener's menu. Listening needs
 /// only an account (a guest is asked to sign in); a blocked or departed member is simply gone.
-Future<void> showMemberRecordingsSheet(BuildContext context, PublicCompetitor member) =>
-    showYqSheet<void>(context, scrollable: true, builder: (_) => MemberRecordingsSheet(member: member));
+/// Closing it stops a clip played from the list and drops the member clips fetched for listening.
+Future<void> showMemberRecordingsSheet(BuildContext context, PublicCompetitor member) async {
+  final container = ProviderScope.containerOf(context);
+  await showYqSheet<void>(context, scrollable: true, builder: (_) => MemberRecordingsSheet(member: member));
+  final player = container.read(recordingPlayerProvider.notifier);
+  if (container.read(recordingPlayerProvider).key?.startsWith('rec/') ?? false) await player.stop();
+  container.read(recordingsRepositoryProvider).clearListened().ignore();
+}
 
 class MemberRecordingsSheet extends ConsumerWidget {
   const MemberRecordingsSheet({super.key, required this.member});
@@ -134,7 +140,7 @@ class MemberRecordingTile extends ConsumerWidget {
               progress: play.progressOf(key, r.durationMs),
               onPressed: () => ref
                   .read(recordingPlayerProvider.notifier)
-                  .toggle(key, () => ref.read(recordingsRepositoryProvider).audioFile(r.id, r.audioPath), title: t.recTitle),
+                  .toggle(key, () => ref.read(recordingsRepositoryProvider).memberAudioFile(r.id, r.audioPath), title: t.recTitle),
             ),
             const SizedBox(width: YqSpace.m),
             Expanded(

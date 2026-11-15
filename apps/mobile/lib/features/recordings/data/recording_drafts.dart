@@ -133,6 +133,14 @@ class RecordingDrafts {
   DateTime? _retryAfter;
   Future<List<Recording>>? _running;
 
+  /// The tail of the write queue: every read-modify-write of the list runs after the one before it
+  /// (a save from the recorder racing a flush's remove must not lose either).
+  Future<void> _tail = Future.value();
+
+  /// Uploads in flight by draft id: a second tap (or the queue) on the same take shares the first
+  /// upload instead of sending the take twice.
+  final _uploading = <String, Future<Recording>>{};
+
   final _changes = StreamController<void>.broadcast();
 
   /// Fires after every change to the drafts.
@@ -155,29 +163,45 @@ class RecordingDrafts {
     _changes.add(null);
   }
 
-  Future<void> add(RecordingDraft d) async => _save([...await all(), d]);
-
-  Future<void> replace(RecordingDraft d) async => _save([for (final x in await all()) x.id == d.id ? d : x]);
-
-  /// Removes the draft and its file.
-  Future<void> remove(String id) async {
-    final list = await all();
-    for (final d in list.where((d) => d.id == id)) {
-      final f = File(d.path);
-      if (f.existsSync()) {
-        try {
-          f.deleteSync();
-        } on FileSystemException {
-          // best effort
-        }
-      }
-    }
-    await _save([for (final d in list) if (d.id != id) d]);
+  /// Runs [change] on the current list and stores what it returns, one change at a time.
+  Future<void> _mutate(List<RecordingDraft> Function(List<RecordingDraft> list) change) {
+    final run = _tail.then((_) async => _save(change(await all())));
+    _tail = run.catchError((Object _) {});
+    return run;
   }
 
-  /// Uploads one draft now (a person's tap, or the queue). On success the draft is gone and the
-  /// server's recording returned; a refusal marks it failed; no network keeps it queued.
-  Future<Recording> upload(RecordingDraft d) async {
+  Future<void> add(RecordingDraft d) => _mutate((list) => [...list, d]);
+
+  /// Replaces the draft with the same id; one already removed (uploaded) stays gone.
+  Future<void> replace(RecordingDraft d) => _mutate((list) => [for (final x in list) x.id == d.id ? d : x]);
+
+  /// Removes the draft and its file.
+  Future<void> remove(String id) => _mutate((list) {
+        for (final d in list.where((d) => d.id == id)) {
+          final f = File(d.path);
+          if (f.existsSync()) {
+            try {
+              f.deleteSync();
+            } on FileSystemException {
+              // best effort
+            }
+          }
+        }
+        return [for (final d in list) if (d.id != id) d];
+      });
+
+  /// Uploads one draft now (a person's tap, or the queue). On success the draft is gone, its
+  /// on-device timings are kept for the new recording, and the server's recording returned; a
+  /// refusal marks it failed; no network keeps it queued. The same draft already uploading shares
+  /// that upload. The draft's id travels as `clientId`, so a retry after a timeout the server had
+  /// already kept returns that recording instead of a second one.
+  Future<Recording> upload(RecordingDraft d) =>
+      _uploading[d.id] ??= _upload(d).whenComplete(() {
+        // A block body: returning the removed future would make whenComplete wait on itself.
+        _uploading.remove(d.id);
+      });
+
+  Future<Recording> _upload(RecordingDraft d) async {
     final f = File(d.path);
     if (!f.existsSync()) {
       await remove(d.id);
@@ -194,7 +218,10 @@ class RecordingDrafts {
         commentsOn: d.commentsOn,
         clientScore: d.clientScore,
         clientWords: d.clientWords,
+        clientId: d.id,
       );
+      final words = d.clientWords;
+      if (words != null) await repo.saveLocalWords(r.id, words);
       await remove(d.id);
       return r;
     } on RecordingException catch (e) {

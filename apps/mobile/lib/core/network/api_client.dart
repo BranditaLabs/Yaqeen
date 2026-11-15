@@ -99,9 +99,10 @@ class ApiClient {
 
   /// Sends `multipart/form-data` (the one upload that needs it: a recording's JSON `meta` and its
   /// `audio`, `POST /v1/me/recordings`) and decodes the JSON answer.
-  Future<dynamic> postMultipart(String path, List<MultipartPart> parts, {String? boundary}) {
+  /// [timeout] overrides the client's for this call (a clip on a slow mobile link).
+  Future<dynamic> postMultipart(String path, List<MultipartPart> parts, {String? boundary, Duration? timeout}) {
     final b = boundary ?? 'yaqeen-${List.generate(16, (_) => _boundaryChars[_rand.nextInt(_boundaryChars.length)]).join()}';
-    return _send('POST', path, bytes: multipartBody(b, parts), contentType: 'multipart/form-data; boundary=$b');
+    return _send('POST', path, bytes: multipartBody(b, parts), contentType: 'multipart/form-data; boundary=$b', timeout: timeout);
   }
 
   static final _rand = Random();
@@ -139,6 +140,7 @@ class ApiClient {
     String? contentType,
     bool raw = false,
     bool retried = false,
+    Duration? timeout,
   }) async {
     final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
     // A refresh in flight: wait for it rather than send a token that is about to be replaced.
@@ -161,7 +163,7 @@ class ApiClient {
 
     final http.Response res;
     try {
-      res = await http.Response.fromStream(await _http.send(req).timeout(timeout));
+      res = await http.Response.fromStream(await _http.send(req).timeout(timeout ?? this.timeout));
     } on SocketException {
       throw const OfflineException();
     } on TimeoutException {
@@ -184,6 +186,7 @@ class ApiClient {
           contentType: contentType,
           raw: raw,
           retried: true,
+          timeout: timeout,
         );
       }
     }

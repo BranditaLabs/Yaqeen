@@ -14,9 +14,19 @@ class RecordingException implements Exception {
   final int? status;
   final String? problem;
 
-  /// Worth trying again later (no network, the server busy or rate-limiting).
+  /// Caps the server answers with their own stable code (429 included): a retry before the cap
+  /// resets is refused again, so these are never queued or retried on their own.
+  static const hardLimits = {
+    RecordingFailure.dailyLimit,
+    RecordingFailure.commentRateLimited,
+    RecordingFailure.rateLimited,
+  };
+
+  /// Worth trying again later: no network, the server busy, a timeout, or a gateway's generic 429
+  /// (never one of the [hardLimits]).
   bool get transient {
     if (failure == RecordingFailure.offline) return true;
+    if (hardLimits.contains(failure)) return false;
     final s = status;
     return s != null && (s >= 500 || s == 429 || s == 408);
   }
@@ -54,6 +64,9 @@ class RecordingsRepository {
 
   static const mineKey = 'recordings.mine.v1';
   static const mePath = '/v1/me/recordings';
+
+  /// A 30-second clip is ≈ 120 KB: on a slow mobile link that is longer than the API's usual 12 s.
+  static const uploadTimeout = Duration(seconds: 60);
 
   /// KV keys holding account data (wiped on sign-out and erasure).
   static const wipedKeys = [mineKey, 'recordings.drafts.v1', wordsKey];
@@ -102,10 +115,14 @@ class RecordingsRepository {
     bool commentsOn = true,
     double? clientScore,
     List<RecordingWord>? clientWords,
+    String? clientId,
   }) =>
       _call(() async {
         final shared = visibility != RecordingVisibility.private;
         final meta = <String, Object?>{
+          // The take's id on this phone (contracts `clientId`): the server answers a repeat of the
+          // same take with the recording it already kept.
+          if (clientId != null) 'clientId': clientId,
           'surah': surah,
           'fromAyah': fromAyah,
           'toAyah': toAyah,
@@ -116,10 +133,14 @@ class RecordingsRepository {
           if (shared && clientScore != null) 'clientScore': double.parse(clientScore.clamp(0, 1).toStringAsFixed(3)),
           if (shared && clientWords != null && clientWords.isNotEmpty) 'clientWords': [for (final w in clientWords.take(400)) w.toJson()],
         };
-        final json = await api.postMultipart(mePath, [
-          MultipartPart.json('meta', meta),
-          MultipartPart('audio', audio, contentType: RecordingFormat.mime, filename: 'recitation.m4a'),
-        ]);
+        final json = await api.postMultipart(
+          mePath,
+          [
+            MultipartPart.json('meta', meta),
+            MultipartPart('audio', audio, contentType: RecordingFormat.mime, filename: 'recitation.m4a'),
+          ],
+          timeout: uploadTimeout,
+        );
         final r = Recording.fromJson((json as Map).cast<String, dynamic>());
         await _upsert(r);
         return r;
@@ -231,7 +252,8 @@ class RecordingsRepository {
   /// Where drafts (takes not uploaded yet) live.
   Future<Directory> draftsDir() => _dir('drafts');
 
-  /// The recording's audio as a local file: fetched once with the session, then played from disk.
+  /// The owner's own recording as a local file: fetched once with the session, then played from
+  /// disk (gone with [delete] and [wipe]).
   Future<File> audioFile(String id, String audioPath) => _call(() async {
         final f = File('${(await _dir('cache')).path}${Platform.pathSeparator}$id.m4a');
         if (f.existsSync() && f.lengthSync() > 0) return f;
@@ -239,6 +261,33 @@ class RecordingsRepository {
         await f.writeAsBytes(bytes, flush: true);
         return f;
       });
+
+  /// Another member's recording, fetched fresh for this listen only (`recordings/listen/`): never
+  /// kept beyond it, so a recording its owner deleted or made private, a moderator removed, or a
+  /// block hid is not left on this phone. Only the clip being played is there; [clearListened]
+  /// empties the folder when the listener or the member's sheet closes.
+  Future<File> memberAudioFile(String id, String audioPath) => _call(() async {
+        final dir = await _dir('listen');
+        await _clear(dir);
+        final bytes = await api.getBytes(audioPath);
+        final f = File('${dir.path}${Platform.pathSeparator}$id.m4a');
+        f.writeAsBytesSync(bytes, flush: true);
+        return f;
+      });
+
+  /// Drops every member clip fetched for listening.
+  Future<void> clearListened() async => _clear(await _dir('listen'));
+
+  Future<void> _clear(Directory dir) async {
+    if (!dir.existsSync()) return;
+    for (final e in dir.listSync()) {
+      try {
+        e.deleteSync(recursive: true);
+      } on FileSystemException {
+        // best effort (a file the player still holds goes next time)
+      }
+    }
+  }
 
   Future<void> _dropAudio(String id) async {
     final f = File('${(await _dir('cache')).path}${Platform.pathSeparator}$id.m4a');

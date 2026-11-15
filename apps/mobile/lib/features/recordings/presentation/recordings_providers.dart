@@ -203,7 +203,6 @@ class MyRecordingsController extends AutoDisposeAsyncNotifier<MyRecordingsView> 
   /// Uploads a draft on the person's tap (a guest's take after signing in, a failed one again).
   Future<Recording> uploadDraft(RecordingDraft d) async {
     final r = await _drafts.upload(d);
-    if (d.clientWords != null) await _repo.saveLocalWords(r.id, d.clientWords!);
     added(r);
     return r;
   }
@@ -212,6 +211,27 @@ class MyRecordingsController extends AutoDisposeAsyncNotifier<MyRecordingsView> 
 }
 
 final myRecordingsProvider = AsyncNotifierProvider.autoDispose<MyRecordingsController, MyRecordingsView>(MyRecordingsController.new);
+
+/// Uploads takes queued offline wherever the person is in the app — the network back
+/// (`force: true`), the app resumed, the 15-minute foreground timer (`AppGate`, beside the Outbox) —
+/// so «ستُرفع عند الاتصال» holds even when the Profile is not open. An account with the flag on only.
+class RecordingsSync {
+  RecordingsSync(this._ref);
+  final Ref _ref;
+
+  Future<void> flush({bool force = false}) async {
+    if (!_ref.read(sessionProvider).canEarnPoints || !_ref.read(recordingsOnProvider)) return;
+    final List<Recording> sent;
+    try {
+      sent = await _ref.read(recordingDraftsProvider).flush(force: force);
+    } on Object {
+      return; // the queue keeps them for the next try
+    }
+    if (sent.isNotEmpty && _ref.exists(myRecordingsProvider)) await _ref.read(myRecordingsProvider.notifier).refresh();
+  }
+}
+
+final recordingsSyncProvider = Provider(RecordingsSync.new);
 
 /* -------------------------------------------------------------- members */
 

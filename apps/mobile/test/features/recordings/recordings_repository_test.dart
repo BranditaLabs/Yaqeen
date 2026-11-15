@@ -8,6 +8,7 @@ import 'package:yaqeen/core/network/api_client.dart';
 import 'package:yaqeen/features/recordings/data/recording_drafts.dart';
 import 'package:yaqeen/features/recordings/data/recordings_repository.dart';
 import 'package:yaqeen/features/recordings/domain/recording_models.dart';
+import 'package:yaqeen/features/recordings/presentation/recordings_providers.dart';
 
 import 'recordings_rig.dart';
 
@@ -118,7 +119,13 @@ void main() {
       expect(e.transient, isFalse);
       expect(const RecordingException(RecordingFailure.offline).transient, isTrue);
       expect(const RecordingException(RecordingFailure.unknown, status: 503).transient, isTrue);
-      expect(const RecordingException(RecordingFailure.dailyLimit, status: 429).transient, isTrue);
+      // A gateway's generic 429 is retried later; the server's own caps are not (a retry is refused
+      // again until the cap resets).
+      expect(const RecordingException(RecordingFailure.unknown, status: 429).transient, isTrue);
+      expect(RecordingException.from(ApiException(429, 'error')).transient, isTrue);
+      expect(RecordingException.from(ApiException(429, 'recording_daily_limit')).transient, isFalse);
+      expect(RecordingException.from(ApiException(429, 'comment_rate_limited')).transient, isFalse);
+      expect(RecordingException.from(ApiException(429, 'rate_limited')).transient, isFalse);
       expect(RecordingException.from(ApiException(404, 'not_found')).failure, RecordingFailure.notFound);
       expect(RecordingException.from(const OfflineException()).failure, RecordingFailure.offline);
     });
@@ -163,28 +170,54 @@ void main() {
       expect(jsonDecode(rig.requests['POST /v1/recordings/r1/comments/c1/report']!.body), {'reason': 'spam'});
     });
 
-    test('audio is fetched once with the session, then played from disk', () async {
+    test("the owner's audio is fetched once with the session, then played from disk", () async {
       var fetched = 0;
       final rig = RecordingsRig(routes: {
-        'GET /v1/recordings/r1/audio': (_) {
+        'GET /v1/me/recordings/r1/audio': (_) {
           fetched++;
           return http.Response.bytes([1, 2, 3], 200);
         },
       },);
       final repo = repoOf(rig);
-      final a = await repo.audioFile('r1', '/v1/recordings/r1/audio');
-      final b = await repo.audioFile('r1', '/v1/recordings/r1/audio');
+      final a = await repo.audioFile('r1', '/v1/me/recordings/r1/audio');
+      final b = await repo.audioFile('r1', '/v1/me/recordings/r1/audio');
       expect(a.path, b.path);
       expect(await a.readAsBytes(), [1, 2, 3]);
       expect(fetched, 1);
     });
+
+    test("a member's audio is fetched for each listen and never kept beyond it", () async {
+      var fetched = 0;
+      var gone = false;
+      final rig = RecordingsRig(routes: {
+        'GET /v1/recordings/r1/audio': (_) {
+          fetched++;
+          return gone ? errorResponse(404, 'not_found') : http.Response.bytes([1, 2, 3], 200);
+        },
+        'GET /v1/recordings/r2/audio': (_) => http.Response.bytes([4], 200),
+      },);
+      final repo = repoOf(rig);
+      final a = await repo.memberAudioFile('r1', '/v1/recordings/r1/audio');
+      expect(await a.readAsBytes(), [1, 2, 3]);
+      // Another clip: only the one being played is on the phone.
+      final b = await repo.memberAudioFile('r2', '/v1/recordings/r2/audio');
+      expect(a.existsSync(), isFalse);
+      await repo.clearListened();
+      expect(b.existsSync(), isFalse);
+      // Its owner deleted it (or a block, or a moderator): the next listen does not play a copy.
+      gone = true;
+      await expectLater(repo.memberAudioFile('r1', '/v1/recordings/r1/audio'), throwsA(isA<RecordingException>()));
+      expect(fetched, 2);
+      final cache = Directory('${rig.dir.path}/recordings/cache');
+      expect(cache.existsSync() && cache.listSync().isNotEmpty, isFalse);
+    });
   });
 
   group('drafts (outbox for takes)', () {
-    Future<RecordingDraft> draft(RecordingsRig rig, {DraftState state = DraftState.queued}) async {
-      final f = File('${rig.dir.path}/take.m4a')..writeAsBytesSync([9, 9]);
+    Future<RecordingDraft> draft(RecordingsRig rig, {DraftState state = DraftState.queued, String id = 'd1'}) async {
+      final f = File('${rig.dir.path}/$id.m4a')..writeAsBytesSync([9, 9]);
       return RecordingDraft(
-        id: 'd1',
+        id: id,
         surah: 112,
         fromAyah: 1,
         toAyah: 4,
@@ -224,11 +257,101 @@ void main() {
       expect(d.failure, RecordingFailure.limit);
     });
 
+    test('the upload sends the draft id as clientId and keeps the on-device timings', () async {
+      final rig = RecordingsRig(routes: {'POST /v1/me/recordings': (_) => jsonResponse({...created, 'status': 'private_ready'}, 202)});
+      final repo = repoOf(rig);
+      final drafts = RecordingDrafts(store: rig.kv, repo: repo, now: () => rig.now);
+      final base = await draft(rig, state: DraftState.local);
+      final d = RecordingDraft(
+        id: base.id,
+        surah: base.surah,
+        fromAyah: base.fromAyah,
+        toAyah: base.toAyah,
+        durationMs: base.durationMs,
+        path: base.path,
+        visibility: base.visibility,
+        commentsOn: base.commentsOn,
+        createdAt: base.createdAt,
+        state: DraftState.local,
+        clientWords: const [RecordingWord(ayah: 1, index: 0, startMs: 0, endMs: 400)],
+      );
+      await drafts.add(d);
+      final r = await drafts.upload(d);
+      expect(jsonDecode(utf8.decode(parts(rig.requests['POST /v1/me/recordings']!)['meta']!.data))['clientId'], 'd1');
+      expect(await repo.localWords(r.id), hasLength(1));
+    });
+
+    test('a double tap on «ارفعها» sends the take once', () async {
+      final rig = RecordingsRig(routes: {'POST /v1/me/recordings': (_) => jsonResponse({...created, 'status': 'private_ready'}, 202)});
+      final drafts = RecordingDrafts(store: rig.kv, repo: repoOf(rig), now: () => rig.now);
+      final d = await draft(rig, state: DraftState.local);
+      await drafts.add(d);
+      final both = await Future.wait([drafts.upload(d), drafts.upload(d)]);
+      expect(both[0].id, both[1].id);
+      expect(rig.calls.where((c) => c == 'POST /v1/me/recordings'), hasLength(1));
+      expect(await drafts.all(), isEmpty);
+    });
+
+    test('a save racing a flush loses neither the new take nor brings the uploaded one back', () async {
+      final rig = RecordingsRig();
+      final drafts = RecordingDrafts(store: rig.kv, repo: repoOf(rig), now: () => rig.now);
+      final a = await draft(rig, id: 'da');
+      final b = await draft(rig, id: 'db');
+      final c = await draft(rig, id: 'dc');
+      await drafts.add(a);
+      await drafts.add(c);
+      // The recorder saves B while the queue removes A (uploaded) and marks C failed.
+      await Future.wait([drafts.add(b), drafts.remove('da'), drafts.replace(c.copyWith(state: DraftState.failed))]);
+      final all = await drafts.all();
+      expect(all.map((d) => d.id), unorderedEquals(['db', 'dc']));
+      expect(all.firstWhere((d) => d.id == 'dc').state, DraftState.failed);
+    });
+
+    test('the daily cap marks a queued take failed and does not stall the ones after it', () async {
+      var n = 0;
+      final rig = RecordingsRig(routes: {
+        'POST /v1/me/recordings': (_) => ++n == 1 ? errorResponse(429, 'recording_daily_limit') : jsonResponse({...created, 'status': 'private_ready'}, 202),
+      },);
+      final drafts = RecordingDrafts(store: rig.kv, repo: repoOf(rig), now: () => rig.now);
+      await drafts.add(await draft(rig, id: 'da'));
+      await drafts.add(await draft(rig, id: 'db'));
+      expect(await drafts.flush(force: true), hasLength(1));
+      final left = (await drafts.all()).single;
+      expect(left.id, 'da');
+      expect(left.state, DraftState.failed);
+      expect(left.failure, RecordingFailure.dailyLimit);
+      expect(n, 2);
+    });
+
     test('local drafts (a guest\'s) are never uploaded by the queue', () async {
       final rig = RecordingsRig(routes: {'POST /v1/me/recordings': (_) => jsonResponse(created, 202)});
       final drafts = RecordingDrafts(store: rig.kv, repo: repoOf(rig), now: () => rig.now);
       await drafts.add(await draft(rig, state: DraftState.local));
       expect(await drafts.flush(force: true), isEmpty);
+      expect(rig.calls, isEmpty);
+    });
+
+    test('the network back uploads queued takes wherever the person is (not only on the Profile)', () async {
+      final rig = RecordingsRig(routes: {'POST /v1/me/recordings': (_) => jsonResponse({...created, 'status': 'private_ready'}, 202)});
+      final c = rig.container();
+      addTearDown(c.dispose);
+      final drafts = c.read(recordingDraftsProvider);
+      await drafts.add(await draft(rig));
+      rig.offlineAll = true;
+      expect(await drafts.flush(), isEmpty); // failed once: a backoff window starts
+      rig.offlineAll = false;
+      expect(await drafts.flush(), isEmpty); // the window holds an unforced try
+      await c.read(recordingsSyncProvider).flush(force: true); // AppGate: connectivity regained
+      expect(await drafts.all(), isEmpty);
+      expect(rig.calls.where((x) => x == 'POST /v1/me/recordings'), hasLength(2));
+    });
+
+    test('a guest\'s phone never uploads from the sync (their takes wait for «ارفعها»)', () async {
+      final rig = RecordingsRig(signedIn: false, routes: {'POST /v1/me/recordings': (_) => jsonResponse(created, 202)});
+      final c = rig.container();
+      addTearDown(c.dispose);
+      await c.read(recordingDraftsProvider).add(await draft(rig));
+      await c.read(recordingsSyncProvider).flush(force: true);
       expect(rig.calls, isEmpty);
     });
 
