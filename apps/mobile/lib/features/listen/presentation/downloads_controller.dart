@@ -48,6 +48,8 @@ class DownloadsController extends Notifier<Map<String, ReciterDownload>> {
     final listen = ref.read(listenStoreProvider);
     final allowMetered = await listen.allowMetered();
     await listen.setDownloading(r.id, true);
+    // Every surah's ayah timings next to the files, so the whole download keeps ayah sync offline.
+    if (r.isQf) ref.read(reciterRepositoryProvider).saveOfflineTimings(r).ignore();
     var have = await d.downloadedSurahs(r.id);
     final inFlight = <int, double>{};
     var painted = DateTime.fromMillisecondsSinceEpoch(0);
@@ -64,14 +66,14 @@ class DownloadsController extends Notifier<Map<String, ReciterDownload>> {
         if (!have.contains(s))
           queue
               .add(
-                'audio:${r.id}:$s',
-                group: r.id,
-                run: (cancel, progress) => d.downloadSurah(r, s, cancel: cancel, allowMetered: allowMetered, onProgress: progress),
-                onProgress: (received, total) {
-                  if (total != null && total > 0) inFlight[s] = received / total;
-                  paint();
-                },
-              )
+            surahDownloadKey(r.id, s),
+            group: r.id,
+            run: (cancel, progress) => d.downloadSurah(r, s, cancel: cancel, allowMetered: allowMetered, onProgress: progress),
+            onProgress: (received, total) {
+              if (total != null && total > 0) inFlight[s] = received / total;
+              paint();
+            },
+          )
               .then((_) {
             inFlight.remove(s);
             have = {...have, s};
@@ -101,6 +103,32 @@ class DownloadsController extends Notifier<Map<String, ReciterDownload>> {
     }
   }
 
+  /// One surah, now (the player's «تنزيل السورة», a guided session without audio): at the head of
+  /// the app-wide [DownloadQueue] (key `<reciter>/<surah>`, in the reciter's group), so leaving the
+  /// screen never stops it and a full download already queuing it simply joins. Progress is in
+  /// [surahDownloadsProvider]; throws [WifiRequired] and other failures to the caller.
+  Future<void> downloadSurah(Reciter r, int surah) async {
+    final key = surahDownloadKey(r.id, surah);
+    final progress = ref.read(surahDownloadsProvider.notifier);
+    progress.set(key, 0);
+    try {
+      final allowMetered = await ref.read(listenStoreProvider).allowMetered();
+      await ref.read(downloadQueueProvider).add(
+            key,
+            group: r.id,
+            urgent: true,
+            run: (cancel, onProgress) =>
+                ref.read(audioDownloadsProvider).downloadSurah(r, surah, cancel: cancel, allowMetered: allowMetered, onProgress: onProgress),
+            onProgress: (received, total) {
+              if (total != null && total > 0) progress.set(key, received / total);
+            },
+          );
+      progress.set(key, 1);
+    } finally {
+      progress.clear(key);
+    }
+  }
+
   void cancel(String id) {
     ref.read(downloadQueueProvider).cancelGroup(id);
     ref.read(listenStoreProvider).setDownloading(id, false).ignore();
@@ -114,3 +142,15 @@ class DownloadsController extends Notifier<Map<String, ReciterDownload>> {
 }
 
 final downloadsControllerProvider = NotifierProvider<DownloadsController, Map<String, ReciterDownload>>(DownloadsController.new);
+
+String surahDownloadKey(String reciterId, int surah) => '$reciterId/$surah';
+
+/// Single-surah downloads in flight: key → fraction (0…1).
+class SurahDownloads extends Notifier<Map<String, double>> {
+  @override
+  Map<String, double> build() => const {};
+  void set(String key, double v) => state = {...state, key: v.clamp(0.0, 1.0)};
+  void clear(String key) => state = {...state}..remove(key);
+}
+
+final surahDownloadsProvider = NotifierProvider<SurahDownloads, Map<String, double>>(SurahDownloads.new);

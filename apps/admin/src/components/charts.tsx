@@ -2,7 +2,15 @@ import { num } from '@/lib/format';
 
 /** Server-rendered SVG charts — no client JS, tokens only, Western digits. */
 
-export function LineChart({ points, height = 180 }: { points: { date: string; value: number | null }[]; height?: number }) {
+export function LineChart({
+  points,
+  height = 180,
+  label = 'المستخدمون النشطون يومياً',
+}: {
+  points: { date: string; value: number | null }[];
+  height?: number;
+  label?: string;
+}) {
   const W = 640;
   const H = height;
   const pad = { top: 16, right: 12, bottom: 26, left: 40 };
@@ -17,7 +25,7 @@ export function LineChart({ points, height = 180 }: { points: { date: string; va
   const every = Math.ceil(points.length / 7);
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label="المستخدمون النشطون يومياً" style={{ direction: 'ltr' }}>
+    <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={label} style={{ direction: 'ltr' }}>
       {ticks.map((t) => (
         <g key={t}>
           <line x1={pad.left} x2={W - pad.right} y1={y(t)} y2={y(t)} stroke="var(--yq-line)" strokeDasharray="3 4" />

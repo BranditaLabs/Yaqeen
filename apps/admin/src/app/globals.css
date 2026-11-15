@@ -83,4 +83,31 @@ body::before {
   .label {
     @apply mb-1.5 block text-xs font-medium text-muted;
   }
+  /* Shaped loading placeholder: one shimmer, sweeping with the reading direction (RTL: right → left). */
+  .skeleton {
+    background-color: var(--yq-ice);
+    background-image: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.75) 50%, transparent 100%);
+    background-size: 200% 100%;
+    background-repeat: no-repeat;
+    animation: yq-shimmer 1.4s ease-in-out infinite;
+  }
+  [dir='rtl'] .skeleton {
+    animation-direction: reverse;
+  }
+}
+
+@keyframes yq-shimmer {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    background-image: none;
+  }
 }

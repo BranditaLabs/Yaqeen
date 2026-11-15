@@ -1,0 +1,98 @@
+[
+  {
+    "id": "m01",
+    "gender": "m",
+    "ar": "طاقية بيضاء",
+    "en": "White kufi"
+  },
+  {
+    "id": "m02",
+    "gender": "m",
+    "ar": "غترة وعقال",
+    "en": "Ghutra & agal"
+  },
+  {
+    "id": "m03",
+    "gender": "m",
+    "ar": "عمامة",
+    "en": "Imama"
+  },
+  {
+    "id": "m04",
+    "gender": "m",
+    "ar": "لحية مشذّبة",
+    "en": "Trimmed beard"
+  },
+  {
+    "id": "m05",
+    "gender": "m",
+    "ar": "طاقية ذهبية",
+    "en": "Gold kufi"
+  },
+  {
+    "id": "m06",
+    "gender": "m",
+    "ar": "شاب",
+    "en": "Young"
+  },
+  {
+    "id": "m07",
+    "gender": "m",
+    "ar": "شيخ وقور",
+    "en": "Elder"
+  },
+  {
+    "id": "m08",
+    "gender": "m",
+    "ar": "عمامة كحلية",
+    "en": "Navy imama"
+  },
+  {
+    "id": "f01",
+    "gender": "f",
+    "ar": "حجاب كحلي",
+    "en": "Navy hijab"
+  },
+  {
+    "id": "f02",
+    "gender": "f",
+    "ar": "حجاب سماوي",
+    "en": "Sky hijab"
+  },
+  {
+    "id": "f03",
+    "gender": "f",
+    "ar": "خمار",
+    "en": "Khimar"
+  },
+  {
+    "id": "f04",
+    "gender": "f",
+    "ar": "نقاب",
+    "en": "Niqab"
+  },
+  {
+    "id": "f05",
+    "gender": "f",
+    "ar": "شيلة ذهبية",
+    "en": "Gold shayla"
+  },
+  {
+    "id": "f06",
+    "gender": "f",
+    "ar": "حجاب أبيض",
+    "en": "White hijab"
+  },
+  {
+    "id": "f07",
+    "gender": "f",
+    "ar": "فتاة",
+    "en": "Young"
+  },
+  {
+    "id": "f08",
+    "gender": "f",
+    "ar": "سيدة وقورة",
+    "en": "Elder"
+  }
+]

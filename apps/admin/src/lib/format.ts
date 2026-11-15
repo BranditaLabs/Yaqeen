@@ -3,8 +3,9 @@ const nf = new Intl.NumberFormat('en-US');
 export const num = (n: number) => nf.format(n);
 export const pct = (n: number) => `${n.toFixed(1)}%`;
 
-const df = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric' });
-const dtf = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+/** Cairo time, whatever the server's zone (containers run in UTC). */
+const df = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Cairo' });
+const dtf = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Cairo' });
 export const date = (iso: string | Date) => df.format(new Date(iso));
 export const dateTime = (iso: string | Date) => dtf.format(new Date(iso));
 

@@ -25,7 +25,7 @@ spec:
       containers:
         - name: api
           image: ghcr.io/branditalabs/yaqeen-api:latest # CI pins the commit SHA (kustomization.yaml)
-          ports: [{ name: http, containerPort: 4000 }]
+          ports: [{ name: http, containerPort: 4000 }, { name: metrics, containerPort: 9100 }]
           envFrom:
             - configMapRef: { name: yaqeen-api-config }
             - secretRef: { name: yaqeen-api-secrets }
@@ -53,9 +53,11 @@ apiVersion: v1
 kind: Service
 metadata:
   name: yaqeen-api
+  labels: { app: yaqeen-api }
 spec:
   selector: { app: yaqeen-api }
-  ports: [{ name: http, port: 80, targetPort: http }]
+  # `metrics` stays cluster-internal: the ingress routes only `http`.
+  ports: [{ name: http, port: 80, targetPort: http }, { name: metrics, port: 9100, targetPort: metrics }]
 ---
 # One pod sustains ~2k req/s of the app mix (services/api/load). Scale on CPU early so latency
 # stays low through the daily peaks (after Fajr, around Maghrib, Friday) and campaign bursts.

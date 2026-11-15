@@ -1,0 +1,68 @@
+{
+  "total": 214,
+  "snapshotDay": "2026-11-16",
+  "rows": [
+    {
+      "handle": "omar-5521",
+      "name": "عمر",
+      "avatar": {
+        "kind": "preset",
+        "id": "m05"
+      },
+      "level": {
+        "level": 4,
+        "progress": 0.2
+      },
+      "points": 420,
+      "rank": 1,
+      "me": false
+    },
+    {
+      "handle": "member-x7k2p9",
+      "name": null,
+      "avatar": {
+        "kind": "initial"
+      },
+      "level": {
+        "level": 2,
+        "progress": 0.6
+      },
+      "points": 420,
+      "rank": 1,
+      "me": false
+    },
+    {
+      "handle": "sara-1093",
+      "name": "Sara",
+      "avatar": {
+        "kind": "photo",
+        "id": "4f9e8d7c-6b5a-4c3d-8e2f-0a1b2c3d4e5f",
+        "url": "https://api.yaqeenarabia.com/v1/public/avatars/4f9e8d7c-6b5a-4c3d-8e2f-0a1b2c3d4e5f/256.webp",
+        "smallUrl": "https://api.yaqeenarabia.com/v1/public/avatars/4f9e8d7c-6b5a-4c3d-8e2f-0a1b2c3d4e5f/96.webp"
+      },
+      "level": {
+        "level": 6,
+        "progress": 1
+      },
+      "points": 310,
+      "rank": 3,
+      "me": false
+    }
+  ],
+  "me": {
+    "handle": "ahmed-4821",
+    "name": "أحمد",
+    "avatar": {
+      "kind": "preset",
+      "id": "m03"
+    },
+    "level": {
+      "level": 3,
+      "progress": 0.4
+    },
+    "points": 600,
+    "rank": 17,
+    "me": true
+  },
+  "nextCursor": "100:omar-5521"
+}

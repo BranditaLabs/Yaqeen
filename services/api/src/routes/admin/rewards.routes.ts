@@ -15,12 +15,14 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { BonusRuleUpdate, BonusKind, GrantCreate, type GrantSegment, MilestonesUpdate, ProgramUpdate, RewardUpsert, type ShopifyStatus } from '@yaqeen/contracts';
 import type { AppContext } from '../../context.js';
-import { appConfig, bonusRules, pointGrants, redemptions, rewards, streakMilestones, taskRules, users } from '../../db/schema.js';
+import { appConfig, bonusRules, conversionSends, pointGrants, redemptions, rewards, streakMilestones, taskRules, users } from '../../db/schema.js';
+import { configuredPlatforms } from '../../domain/conversions.js';
 import { validateTaskRules } from '../../domain/points.js';
 import { audit } from '../../lib/audit.js';
 import { badRequest, notFound } from '../../lib/errors.js';
 import { adminOf } from '../../plugins/auth.js';
-import { POINTS_CONFIG_KEY, getAllRules, getMilestones, getPointsSettings, totalByReason } from '../../services/program.service.js';
+import { conversionsOn } from '../../services/conversions.service.js';
+import { POINTS_CONFIG_KEY, ensureBonusRules, getAllRules, getMilestones, getPointsSettings, totalByReason } from '../../services/program.service.js';
 
 /** WHERE clause (on `users u`) for a grant segment. */
 function grantWhere(ctx: AppContext, segment: GrantSegment): SQL {
@@ -53,6 +55,7 @@ export const adminRewardsRoutes: FastifyPluginAsync = async (app) => {
   /* ------------------------------------------------------------ program */
 
   app.get('/program', { preHandler: read }, async () => {
+    await ensureBonusRules(db);
     const [settings, tasks, bonuses, milestones, totals] = await Promise.all([
       getPointsSettings(app.ctx),
       getAllRules(app.ctx),
@@ -154,12 +157,21 @@ export const adminRewardsRoutes: FastifyPluginAsync = async (app) => {
   /** Connection pill «متصل · yaqin-brand.com». Never throws: a broken connection is a status. */
   app.get('/shopify/status', { preHandler: read }, async (): Promise<ShopifyStatus> => {
     const shop = app.ctx.shopify;
-    const base = { configured: shop.configured, connected: false, shopName: null, domain: shop.domain || null, scopes: [] as string[] };
+    const [w] = await db.select({ at: sql<Date | null>`max(${redemptions.usedAt})` }).from(redemptions);
+    const webhook = { configured: Boolean(app.ctx.env.SHOPIFY_WEBHOOK_SECRET), lastUsedAt: w?.at ? new Date(w.at).toISOString() : null };
+    const [c] = await db.select({ at: sql<Date | null>`max(${conversionSends.sentAt})` }).from(conversionSends);
+    const conversions = {
+      enabled: await conversionsOn(app.ctx),
+      salted: Boolean(app.ctx.env.CONVERSIONS_ID_SALT),
+      platforms: configuredPlatforms(app.ctx.env),
+      lastSentAt: c?.at ? new Date(c.at).toISOString() : null,
+    };
+    const base = { configured: shop.configured, connected: false, shopName: null, domain: shop.domain || null, scopes: [] as string[], webhook, conversions };
     const last = () => ({ lastError: shop.lastError?.message ?? null, lastErrorAt: shop.lastError?.at.toISOString() ?? null });
     if (!shop.configured) return { ...base, ...last() };
     try {
       const info = await shop.shopInfo();
-      return { configured: true, connected: true, shopName: info.shopName, domain: info.domain, scopes: info.scopes, ...last() };
+      return { configured: true, connected: true, shopName: info.shopName, domain: info.domain, scopes: info.scopes, webhook, conversions, ...last() };
     } catch {
       return { ...base, ...last() };
     }

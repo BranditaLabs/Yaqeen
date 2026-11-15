@@ -33,6 +33,35 @@ COUNTRIES_AR = {
     "MY": "ماليزيا", "ID": "إندونيسيا", "PK": "باكستان", "IN": "الهند", "BD": "بنغلاديش", "NG": "نيجيريا",
 }
 
+# English country names for the city picker (the source has iso2 codes only).
+COUNTRIES_EN = {
+    "AE": "United Arab Emirates", "AF": "Afghanistan", "AL": "Albania", "AM": "Armenia", "AO": "Angola",
+    "AR": "Argentina", "AT": "Austria", "AU": "Australia", "AZ": "Azerbaijan", "BA": "Bosnia and Herzegovina",
+    "BD": "Bangladesh", "BE": "Belgium", "BF": "Burkina Faso", "BG": "Bulgaria", "BH": "Bahrain", "BI": "Burundi",
+    "BJ": "Benin", "BO": "Bolivia", "BR": "Brazil", "BY": "Belarus", "CA": "Canada", "CD": "DR Congo",
+    "CF": "Central African Republic", "CG": "Congo", "CH": "Switzerland", "CI": "Côte d'Ivoire", "CL": "Chile",
+    "CM": "Cameroon", "CN": "China", "CO": "Colombia", "CR": "Costa Rica", "CU": "Cuba", "CZ": "Czechia",
+    "DE": "Germany", "DJ": "Djibouti", "DK": "Denmark", "DO": "Dominican Republic", "DZ": "Algeria", "EC": "Ecuador",
+    "EE": "Estonia", "EG": "Egypt", "ER": "Eritrea", "ES": "Spain", "ET": "Ethiopia", "FI": "Finland", "FR": "France",
+    "GA": "Gabon", "GB": "United Kingdom", "GE": "Georgia", "GH": "Ghana", "GN": "Guinea", "GR": "Greece",
+    "GT": "Guatemala", "GW": "Guinea-Bissau", "HK": "Hong Kong", "HN": "Honduras", "HR": "Croatia", "HT": "Haiti",
+    "HU": "Hungary", "ID": "Indonesia", "IE": "Ireland", "IL": "Israel", "IN": "India", "IQ": "Iraq", "IR": "Iran",
+    "IT": "Italy", "JM": "Jamaica", "JO": "Jordan", "JP": "Japan", "KE": "Kenya", "KG": "Kyrgyzstan", "KH": "Cambodia",
+    "KP": "North Korea", "KR": "South Korea", "KW": "Kuwait", "KZ": "Kazakhstan", "LA": "Laos", "LB": "Lebanon",
+    "LR": "Liberia", "LT": "Lithuania", "LV": "Latvia", "LY": "Libya", "MA": "Morocco", "MD": "Moldova",
+    "MG": "Madagascar", "MK": "North Macedonia", "ML": "Mali", "MM": "Myanmar", "MN": "Mongolia", "MO": "Macau",
+    "MR": "Mauritania", "MU": "Mauritius", "MW": "Malawi", "MX": "Mexico", "MY": "Malaysia", "MZ": "Mozambique",
+    "NE": "Niger", "NG": "Nigeria", "NI": "Nicaragua", "NL": "Netherlands", "NO": "Norway", "NP": "Nepal",
+    "NZ": "New Zealand", "OM": "Oman", "PA": "Panama", "PE": "Peru", "PH": "Philippines", "PK": "Pakistan",
+    "PL": "Poland", "PR": "Puerto Rico", "PS": "Palestine", "PT": "Portugal", "PY": "Paraguay", "QA": "Qatar",
+    "RO": "Romania", "RS": "Serbia", "RU": "Russia", "RW": "Rwanda", "SA": "Saudi Arabia", "SD": "Sudan",
+    "SE": "Sweden", "SG": "Singapore", "SK": "Slovakia", "SL": "Sierra Leone", "SN": "Senegal", "SO": "Somalia",
+    "SV": "El Salvador", "SY": "Syria", "TD": "Chad", "TG": "Togo", "TH": "Thailand", "TJ": "Tajikistan",
+    "TM": "Turkmenistan", "TN": "Tunisia", "TR": "Türkiye", "TW": "Taiwan", "TZ": "Tanzania", "UA": "Ukraine",
+    "UG": "Uganda", "US": "United States", "UY": "Uruguay", "UZ": "Uzbekistan", "VE": "Venezuela", "VN": "Vietnam",
+    "YE": "Yemen", "ZA": "South Africa", "ZM": "Zambia", "ZW": "Zimbabwe",
+}
+
 AR_NAMES = {
     ("EG", "Cairo"): "القاهرة", ("EG", "Alexandria"): "الإسكندرية", ("EG", "El Giza"): "الجيزة",
     ("EG", "Bur Said"): "بورسعيد", ("EG", "Luxor"): "الأقصر", ("EG", "El Mansura"): "المنصورة", ("EG", "Suez"): "السويس",
@@ -92,14 +121,16 @@ def main() -> None:
         if key in seen or not c.get("timezone"):
             continue
         seen.add(key)
-        rows.append([c["city_ascii"], AR_NAMES.get(key), c["iso2"], round(c["lat"], 4), round(c["lng"], 4), c["timezone"]])
+        # Natural Earth marks disputed places (e.g. Hargeysa, Pristina) with iso2 -99: no country.
+        iso2 = c["iso2"] if isinstance(c["iso2"], str) else ""
+        rows.append([c["city_ascii"], AR_NAMES.get(key), iso2, round(c["lat"], 4), round(c["lng"], 4), c["timezone"]])
         if len(rows) >= LIMIT:
             break
     missing = [k for k in AR_NAMES if k not in seen]
     if missing:
         print("note: Arabic names with no matching city (check spelling):", missing)
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps({"countriesAr": COUNTRIES_AR, "cities": rows}, ensure_ascii=False, separators=(",", ":")))
+    OUT.write_text(json.dumps({"countriesAr": COUNTRIES_AR, "countriesEn": COUNTRIES_EN, "cities": rows}, ensure_ascii=False, separators=(",", ":")))
     mena = sum(1 for r in rows if r[2] in MENA)
     print(f"wrote {OUT.relative_to(ROOT)}: {len(rows)} cities ({mena} in MENA, {sum(1 for r in rows if r[1])} with Arabic names)")
 

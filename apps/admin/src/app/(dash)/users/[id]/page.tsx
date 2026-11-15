@@ -1,11 +1,15 @@
 import Link from 'next/link';
-import type { LedgerEntry } from '@yaqeen/contracts';
+import type { AdminCompetitorRow, AdminMe, Avatar as AvatarValue, LeagueSettings, LedgerEntry } from '@yaqeen/contracts';
 import { ActionForm } from '@/components/action-form';
-import { Badge, Button, Card, CardTitle, Kpi, Notice, PageHeader, Table, Td } from '@/components/ui';
-import { api } from '@/lib/api';
+import { CompetitorActions } from '@/components/competitor-actions';
+import { Avatar, Badge, Button, Card, CardTitle, Kpi, Notice, PageHeader, Table, Td } from '@/components/ui';
+import { competitionRights } from '@/lib/access';
+import { api, tryApi } from '@/lib/api';
 import { date, dateTime, num } from '@/lib/format';
-import { adjustPoints, setStatus } from '../actions';
-import { USER_STATUS as STATUS } from '@/lib/labels';
+import { adjustPoints, setStatus, unpublishCard } from '../actions';
+import { restoreCard } from '../../cards/actions';
+import { USER_STATUS as STATUS, divisionName } from '@/lib/labels';
+import { CompetitorFlags, PhotoHistory, competitorState } from '../../competitions/parts';
 
 interface UserDetail {
   id: string;
@@ -20,6 +24,15 @@ interface UserDetail {
   balance: number;
   ledger: LedgerEntry[];
   redemptions: { id: string; code: string; status: string; costPoints: number; createdAt: string }[];
+  publicProfile: { handle: string; published: boolean; views: number; url: string; moderated?: boolean; moderationReason?: string | null } | null;
+  tags?: { code: string; kind: string; scans: number; linkedAt: string | null; active: boolean }[];
+  /** Servers before 0017 send neither. */
+  avatar?: AvatarValue;
+  competitions?: AdminCompetitorRow & {
+    country: string | null;
+    currentWeek: { division: number; rank: number | null; points: number | null } | null;
+    badges: number;
+  };
 }
 
 const REASON: Record<LedgerEntry['reason'], string> = {
@@ -39,11 +52,13 @@ function daysUntil(iso: string): number {
 
 export default async function UserDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const u = await api<UserDetail>(`/admin/users/${id}`);
+  const [u, me] = await Promise.all([api<UserDetail>(`/admin/users/${id}`), api<AdminMe>('/admin/auth/me')]);
+  const { canModerate } = competitionRights(me.role);
 
   return (
     <>
       <PageHeader
+        icon={<Avatar avatar={u.avatar} name={u.displayName} size={48} photos={canModerate} />}
         title={u.displayName ?? 'مستخدم'}
         subtitle={`${u.emailMasked ?? 'بدون بريد'} · انضم ${date(u.joinedAt)}`}
         action={
@@ -136,6 +151,57 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
             </ActionForm>
           </Card>
 
+          {u.publicProfile && (
+            <Card>
+              <CardTitle>بطاقة يقين العامة</CardTitle>
+              <p className="text-sm">
+                <a href={u.publicProfile.url} target="_blank" rel="noreferrer" dir="ltr" className="num text-lapis">
+                  @{u.publicProfile.handle}
+                </a>{' '}
+                {u.publicProfile.moderated ? (
+                  <Badge tone="red">موقوفة بقرار إداري</Badge>
+                ) : (
+                  <Badge tone={u.publicProfile.published ? 'green' : 'gray'}>{u.publicProfile.published ? 'منشورة' : 'مخفية'}</Badge>
+                )}
+              </p>
+              <p className="mt-1 text-sm text-muted">
+                فُتحت <span className="num">{num(u.publicProfile.views)}</span> مرة
+              </p>
+              {(u.tags ?? []).length > 0 && (
+                <ul className="mt-3 space-y-1 text-sm">
+                  {u.tags!.map((t) => (
+                    <li key={t.code} className="flex items-center justify-between gap-2">
+                      <Link href={`/tags?code=${t.code}`} className="num text-lapis" dir="ltr">
+                        {t.code.slice(0, 4)}-{t.code.slice(4)}
+                      </Link>
+                      <span className="text-muted">
+                        {t.kind === 'medal' ? 'ميدالية' : 'بطاقة'} · <span className="num">{num(t.scans)}</span> مسح{' '}
+                        <Badge tone={t.active ? 'green' : 'red'}>{t.active ? 'مفعّلة' : 'موقوفة'}</Badge>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {u.publicProfile.moderated && (
+                <>
+                  {u.publicProfile.moderationReason && <p className="mt-2 text-sm text-error">السبب: {u.publicProfile.moderationReason}</p>}
+                  <ActionForm action={restoreCard.bind(null, u.id)} className="mt-3 space-y-3" success="رُفع الإيقاف">
+                    <input name="reason" placeholder="سبب رفع الإيقاف (يُسجَّل في سجل التدقيق)" required minLength={3} className="field" />
+                    <Button variant="ghost">رفع الإيقاف</Button>
+                  </ActionForm>
+                </>
+              )}
+              {u.publicProfile.published && (
+                <ActionForm action={unpublishCard.bind(null, u.id)} className="mt-3 space-y-3">
+                  <input name="reason" placeholder="سبب الإخفاء (يُسجَّل في سجل التدقيق)" required minLength={3} className="field" />
+                  <Button variant="danger">إخفاء البطاقة</Button>
+                </ActionForm>
+              )}
+            </Card>
+          )}
+
+          {u.competitions && <CompetitionsCard c={u.competitions} canModerate={canModerate} />}
+
           <Card>
             <CardTitle>الاستبدالات</CardTitle>
             {u.redemptions.length === 0 ? (
@@ -154,5 +220,66 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
         </div>
       </div>
     </>
+  );
+}
+
+/** «المسابقات» on the user page: opt-ins, attestation, division, moderation flags — points only. */
+async function CompetitionsCard({ c, canModerate }: { c: NonNullable<UserDetail['competitions']>; canModerate: boolean }) {
+  // The division as marketing named it (the leagues tab uses the same names); defaults on failure.
+  const names = (await tryApi<LeagueSettings>('/admin/competitions/leagues/settings')).data?.divisionNames;
+  const yes = (b: boolean) => (b ? 'نعم' : 'لا');
+  return (
+    <Card>
+      <CardTitle>المسابقات</CardTitle>
+      <Notice tone="blue">لا تظهر هنا أي بيانات عبادة — النقاط فقط.</Notice>
+      <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+        <dt className="text-muted">الدوري الأسبوعي</dt>
+        <dd>{yes(c.leagues)}</dd>
+        <dt className="text-muted">لوحة المستويات</dt>
+        <dd>{yes(c.leaderboard)}</dd>
+        <dt className="text-muted">لوحة الدولة</dt>
+        <dd>
+          {yes(c.leaderboardCountry)}
+          {c.country && (
+            <span dir="ltr" className="num ms-1 text-muted">
+              ({c.country})
+            </span>
+          )}
+        </dd>
+        <dt className="text-muted">أكّد العمر</dt>
+        <dd>{yes(c.attestedAdult)}</dd>
+        <dt className="text-muted">القسم</dt>
+        <dd>{divisionName(c.division, names)}</dd>
+        <dt className="text-muted">هذا الأسبوع (لقطة الليلة)</dt>
+        <dd>
+          {c.currentWeek ? (
+            <>
+              المركز <span className="num">{c.currentWeek.rank === null ? '—' : num(c.currentWeek.rank)}</span> ·{' '}
+              <span className="num">{c.currentWeek.points ? num(c.currentWeek.points) : '—'}</span> نقطة
+            </>
+          ) : (
+            '—'
+          )}
+        </dd>
+        <dt className="text-muted">الشارات</dt>
+        <dd className="num">{num(c.badges)}</dd>
+        <dt className="text-muted">بلاغات مفتوحة</dt>
+        <dd className="num">{num(c.openReports)}</dd>
+      </dl>
+      <div className="mt-4">
+        <CompetitorFlags c={c} />
+      </div>
+      {canModerate && (
+        <div className="mt-4 space-y-4">
+          <PhotoHistory c={c} />
+          <details>
+            <summary className="cursor-pointer text-sm text-lapis">إجراء</summary>
+            <div className="mt-3">
+              <CompetitorActions state={competitorState(c)} compact />
+            </div>
+          </details>
+        </div>
+      )}
+    </Card>
   );
 }

@@ -1,5 +1,7 @@
 import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
+
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
@@ -35,9 +37,19 @@ class PluginSocialAuth implements SocialAuth {
       final token = account.authentication.idToken;
       return token == null ? null : SocialCredential(idToken: token, displayName: account.displayName);
     } on GoogleSignInException catch (e) {
-      if (e.code == GoogleSignInExceptionCode.canceled) return null;
+      debugPrint('YQ-AUTH google ${e.code.name}: ${e.description}');
+      if (e.code == GoogleSignInExceptionCode.canceled && !isGoogleSetupFailure(e.description)) return null;
       rethrow;
     }
+  }
+
+  /// Credential Manager reports some setup problems as a cancellation — chiefly "[16] Account reauth
+  /// failed" when the app's signing-key SHA isn't registered with the OAuth project. Those are
+  /// failures, not the user closing the sheet, so the welcome screen says so instead of doing nothing.
+  @visibleForTesting
+  static bool isGoogleSetupFailure(String? description) {
+    final d = description?.toLowerCase() ?? '';
+    return d.contains('[16]') || d.contains('reauth') || d.contains('developer console');
   }
 
   @override
@@ -52,6 +64,7 @@ class PluginSocialAuth implements SocialAuth {
       final name = [c.givenName, c.familyName].whereType<String>().where((s) => s.isNotEmpty).join(' ');
       return c.identityToken == null ? null : SocialCredential(idToken: c.identityToken!, displayName: name.isEmpty ? null : name);
     } on SignInWithAppleAuthorizationException catch (e) {
+      debugPrint('YQ-AUTH apple ${e.code.name}: ${e.message}');
       if (e.code == AuthorizationErrorCode.canceled) return null;
       rethrow;
     }

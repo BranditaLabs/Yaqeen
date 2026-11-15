@@ -101,10 +101,14 @@ class ContentItem {
 
 /// Ordered, typed view over the synced items.
 class ContentLibrary {
-  ContentLibrary(List<ContentItem> items)
+  ContentLibrary(List<ContentItem> items, {this.synced = false})
       : items = [...items]..sort((a, b) => a.sortOrder != b.sortOrder ? a.sortOrder - b.sortOrder : a.title.compareTo(b.title));
 
   final List<ContentItem> items;
+
+  /// The server answered this session: an empty library then means nothing reviewed is published
+  /// yet, not that the device is offline.
+  final bool synced;
 
   bool get isEmpty => items.isEmpty;
 

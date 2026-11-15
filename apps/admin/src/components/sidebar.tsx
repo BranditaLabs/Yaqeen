@@ -13,6 +13,11 @@ const ITEMS: { href: string; label: string; icon: IconName }[] = [
   { href: '/content', label: 'المحتوى', icon: 'book' },
   { href: '/campaigns', label: 'الحملات', icon: 'bell' },
   { href: '/rewards', label: 'النقاط والمكافآت', icon: 'gift' },
+  { href: '/competitions', label: 'المسابقات', icon: 'trophy' },
+  { href: '/recitations', label: 'التلاوات', icon: 'mic' },
+  { href: '/analytics', label: 'التحليلات', icon: 'chart' },
+  { href: '/cards', label: 'البطاقات العامة', icon: 'card' },
+  { href: '/tags', label: 'الميداليات والبطاقات', icon: 'tag' },
   { href: '/settings', label: 'الإعدادات', icon: 'gear' },
 ];
 

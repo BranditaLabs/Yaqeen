@@ -97,12 +97,22 @@ var redeemCalls = 0;
 http.Response json(Object body, [int status = 200]) =>
     http.Response.bytes(utf8.encode(jsonEncode(body)), status, headers: {'content-type': 'application/json; charset=utf-8'});
 
-http.Client server({String? redeemError}) => MockClient((req) async {
+http.Client server({String? redeemError, bool noDailyTask = false, bool enrolled = true}) => MockClient((req) async {
       requests.add(req);
       final p = req.url.path;
-      if (p == '/v1/challenge/summary') return json(summary);
+      if (p == '/v1/challenge/summary') {
+        if (!noDailyTask) return json({...summary, 'enrolled': enrolled});
+        final tasks = [
+          ...summary['tasks']! as List,
+          {'key': 'daily_task', 'labelAr': 'مهمة اليوم', 'labelEn': 'Daily task', 'points': 25},
+        ];
+        return json({...summary, 'tasks': tasks, 'enrolled': enrolled});
+      }
+      if (p == '/v1/challenge/enroll') throw http.ClientException('offline');
       if (p == '/v1/challenge/calendar') return json(calendar);
-      if (p == '/v1/daily-task') return json({'date': '2026-10-20', 'taskAr': '[مهمة اليوم]', 'taskEn': '[Task]'});
+      if (p == '/v1/daily-task') {
+        return noDailyTask ? http.Response('null', 200) : json({'date': '2026-10-20', 'taskAr': '[مهمة اليوم]', 'taskEn': '[Task]'});
+      }
       if (p == '/v1/rewards') return json(rewards);
       if (p.endsWith('/redeem')) {
         redeemCalls++;
@@ -150,15 +160,19 @@ void main() {
     redeemCalls = 0;
   });
 
-  Future<List<Override>> base({String? redeemError}) async {
+  Future<List<Override>> base({String? redeemError, bool noDailyTask = false, bool enrolled = true, Session? session}) async {
     final secure = MemoryKvStore();
     await secure.write('auth.access', 'token');
     return [
       clockProvider.overrideWithValue(() => DateTime.utc(2026, 10, 20, 9)),
-      initialSessionProvider.overrideWithValue(const Session(provider: SignInProvider.google, userId: 'u1', displayName: 'أحمد')),
+      initialSessionProvider.overrideWithValue(session ?? const Session(provider: SignInProvider.google, userId: 'u1', displayName: 'أحمد')),
       tokenStoreProvider.overrideWithValue(TokenStore(secure)),
       apiClientProvider.overrideWith(
-        (ref) => ApiClient(baseUrl: 'https://api.test', tokens: ref.watch(tokenStoreProvider), client: server(redeemError: redeemError)),
+        (ref) => ApiClient(
+          baseUrl: 'https://api.test',
+          tokens: ref.watch(tokenStoreProvider),
+          client: server(redeemError: redeemError, noDailyTask: noDailyTask, enrolled: enrolled),
+        ),
       ),
     ];
   }
@@ -194,6 +208,42 @@ void main() {
     expect(find.text('انتهى هذا اليوم، ولم تُحتسب المهمة'), findsOneWidget);
     expect(find.text('20 من 55'), findsOneWidget); // reverted
     await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets("challenge: no published daily task → nothing to tick, not in today's total", (tester) async {
+    phone(tester);
+    await tester.pumpWidget(harness(const Scaffold(body: ChallengeScreen()), overrides: await base(noDailyTask: true)));
+    await settle(tester);
+    expect(find.text('مهمة اليوم'), findsWidgets);
+    expect(find.text('لا مهمة منشورة اليوم'), findsOneWidget);
+    expect(find.text('20 من 55'), findsOneWidget);
+    await tester.ensureVisible(find.text('لا مهمة منشورة اليوم'));
+    await tester.tap(find.text('لا مهمة منشورة اليوم'));
+    await settle(tester);
+    expect(requests.where((r) => r.url.path.endsWith('daily_task/complete')), isEmpty);
+  });
+
+  testWidgets('join: offline says so instead of failing silently, and the button comes back', (tester) async {
+    phone(tester);
+    final o = await base(enrolled: false);
+    await tester.pumpWidget(harness(const Scaffold(body: ChallengeScreen()), overrides: o));
+    await settle(tester);
+    await tester.tap(find.text('ابدأ التحدي'));
+    await settle(tester);
+    expect(find.text('الانضمام إلى التحدي يحتاج اتصالاً بالإنترنت'), findsOneWidget);
+    expect(find.text('ابدأ التحدي'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('guest: «تسجيل الدخول» opens the link sheet (keeps the guest account), not onboarding', (tester) async {
+    phone(tester);
+    final o = await base(session: const Session(provider: SignInProvider.guest, userId: 'g1'));
+    await tester.pumpWidget(harness(const Scaffold(body: ChallengeScreen()), overrides: o));
+    await settle(tester);
+    await tester.tap(find.text('تسجيل الدخول'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('سجّل الدخول لتحفظ نقاطك'), findsOneWidget);
   });
 
   testWidgets('calendar: Saturday-first grid, statuses, qada CTA inside the window', (tester) async {

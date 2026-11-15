@@ -9,6 +9,7 @@ import { badRequest, conflict, unauthorized } from '../../lib/errors.js';
 import { opaqueToken, sha256 } from '../../lib/crypto.js';
 import { ACCESS_TTL_SEC, REFRESH_TTL_DAYS, signUserToken } from '../../lib/tokens.js';
 import { userId } from '../../plugins/auth.js';
+import { recomputeCommunityConsent } from '../../services/community.service.js';
 
 export const authRoutes: FastifyPluginAsync = async (app) => {
   const { db, env } = app.ctx;
@@ -52,8 +53,12 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     if (existing) {
       if (existing.status === 'suspended' || existing.status === 'deleted') throw unauthorized('account_suspended');
       if (existing.status === 'deletion_requested') {
-        // Signing in again within the grace period cancels the erasure request.
-        await db.update(users).set({ status: 'active', deletionRequestedAt: null, updatedAt: app.ctx.now() }).where(eq(users.id, existing.id));
+        // Signing in again within the grace period cancels the erasure request. The user stays out of
+        // competitions until they opt in again, and a removed photo stays removed (design §1.3).
+        await db.transaction(async (tx) => {
+          await tx.update(users).set({ status: 'active', deletionRequestedAt: null, updatedAt: app.ctx.now() }).where(eq(users.id, existing.id));
+          await recomputeCommunityConsent(tx, existing.id, 'erasure');
+        });
       }
       return issueSession(existing);
     }
@@ -121,12 +126,39 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
           { userId: existing.id, delta: points, reason: 'grant', refKey: `merge:${guestId}`, note: 'Points from guest session' },
         ]);
       }
+      // The guest's earned days follow the points (summing on a shared day) so this week's and a
+      // tournament's points keep counting; the `grant` above is not an EARNED reason, so nothing is
+      // counted twice — it only raises the level (LEVEL_REASONS). Same as yq_rebuild_points_rollups().
+      await tx.execute(sql`
+        insert into points_earned_daily (user_id, day, earned)
+        select ${existing.id}::uuid, day, earned from points_earned_daily where user_id = ${guestId}
+        on conflict (user_id, day) do update set earned = points_earned_daily.earned + excluded.earned`);
+      await tx.execute(sql`delete from points_earned_daily where user_id = ${guestId}`);
       await tx.update(users).set({ mergedInto: existing.id, updatedAt: app.ctx.now() }).where(eq(users.id, guestId));
       await tx.update(refreshTokens).set({ revokedAt: app.ctx.now() }).where(and(eq(refreshTokens.userId, guestId), isNull(refreshTokens.revokedAt)));
       await tx.insert(auditLog).values({ actorUserId: guestId, action: 'auth.link', targetType: 'user', targetId: existing.id, after: { provider: body.provider, merged: true, points }, ip: req.ip });
       return { id: existing.id, displayName: existing.displayName, isGuest: existing.isGuest };
     });
     return issueSession(target);
+  });
+
+  /**
+   * Sign in with Apple on Android runs Apple's web flow (Services ID). Apple form-posts the result
+   * here; we bounce it straight back into the app through the sign_in_with_apple plugin's intent
+   * (`signinwithapple://callback`), which hands the id_token to the app — the app then calls
+   * /sign-in like on iOS. Nothing is stored or verified here, and only Apple's known fields pass.
+   */
+  await app.register(async (cb) => {
+    cb.addContentTypeParser('application/x-www-form-urlencoded', { parseAs: 'string' }, (_req, body, done) => done(null, body));
+    cb.post('/apple/callback', { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } }, async (req, reply) => {
+      const form = new URLSearchParams(typeof req.body === 'string' ? req.body : '');
+      const out = new URLSearchParams();
+      for (const k of ['code', 'id_token', 'state', 'user', 'error']) {
+        const v = form.get(k);
+        if (v) out.set(k, v);
+      }
+      return reply.redirect(`intent://callback?${out}#Intent;package=${env.ANDROID_APP_ID};scheme=signinwithapple;end`, 307);
+    });
   });
 
   /** Rotate refresh token (old one is revoked; reuse of a revoked token is rejected). */

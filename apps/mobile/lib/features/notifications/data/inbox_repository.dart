@@ -1,3 +1,4 @@
+import '../../../core/notifications/push_service.dart';
 import '../../../core/storage/local_store.dart';
 import '../domain/inbox_item.dart';
 
@@ -17,6 +18,9 @@ class InboxRepository {
     final ids = current.map((i) => i.id).toSet();
     await _save([...current, ...items.where((i) => !ids.contains(i.id))]);
   }
+
+  /// Files remote pushes (a push already there — same message id — is kept as is).
+  Future<void> addPushes(Iterable<PushMessage> pushes) => addAll(pushes.map(inboxItemForPush));
 
   Future<void> markRead(String id) async => _save([for (final i in await all()) i.id == id ? i.markRead() : i]);
 

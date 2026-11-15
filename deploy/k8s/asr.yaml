@@ -1,0 +1,65 @@
+# Yaqeen ASR — the internal «تلاواتي» speech check (services/asr). Cluster-internal only: no ingress,
+# and a NetworkPolicy lets only the API pods (and the recordings sweeper job) reach it. One replica;
+# on Azure Container Apps it scales to zero instead (deploy/azure/main.bicep).
+# ASR_TOKEN comes from the `yaqeen-asr-secrets` Secret (the same value as ASR_TOKEN in yaqeen-api-secrets):
+#   kubectl -n yaqeen create secret generic yaqeen-asr-secrets --from-literal=ASR_TOKEN="$(openssl rand -hex 32)"
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yaqeen-asr
+  labels: { app: yaqeen-asr }
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector: { matchLabels: { app: yaqeen-asr } }
+  template:
+    metadata:
+      labels: { app: yaqeen-asr }
+    spec:
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: asr
+          image: ghcr.io/branditalabs/yaqeen-asr:latest # CI pins the commit SHA (kustomization.yaml)
+          ports: [{ name: http, containerPort: 8080 }]
+          env:
+            - { name: ASR_THREADS, value: "1" }
+          envFrom:
+            - secretRef: { name: yaqeen-asr-secrets }
+          resources:
+            requests: { cpu: 500m, memory: 1Gi }
+            limits: { memory: 2Gi }
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 10
+          startupProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 2
+            failureThreshold: 60
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts: [{ name: tmp, mountPath: /tmp }]
+      volumes: [{ name: tmp, emptyDir: { medium: Memory, sizeLimit: 64Mi } }]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: yaqeen-asr
+  labels: { app: yaqeen-asr }
+spec:
+  selector: { app: yaqeen-asr }
+  ports: [{ name: http, port: 80, targetPort: http }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: yaqeen-asr-from-api
+spec:
+  podSelector: { matchLabels: { app: yaqeen-asr } }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: { matchLabels: { app: yaqeen-api } }
+        - podSelector: { matchLabels: { app: yaqeen-community } }
+      ports: [{ port: 8080 }]

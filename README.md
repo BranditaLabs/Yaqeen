@@ -44,7 +44,7 @@ docker compose up -d                      # Postgres + Redis
 cp services/api/.env.example services/api/.env
 cp apps/admin/.env.example apps/admin/.env.local
 pnpm db:migrate
-SEED_ADMIN_EMAIL=you@yaqin-brand.com SEED_ADMIN_PASSWORD='a-long-password' pnpm db:seed
+SEED_ADMIN_EMAIL=you@yaqeenarabia.com SEED_ADMIN_PASSWORD='a-long-password' pnpm db:seed
 #   ↑ prints an otpauth:// link — add it to your authenticator app for 2FA
 
 pnpm dev:api        # http://localhost:4000/health

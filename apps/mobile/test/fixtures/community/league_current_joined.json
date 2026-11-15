@@ -1,0 +1,113 @@
+{
+  "state": "joined",
+  "startsOn": "2026-11-14",
+  "endsAt": "2026-11-20T22:00:00.000Z",
+  "snapshotDay": "2026-11-16",
+  "division": 3,
+  "divisionAr": "ذهب",
+  "divisionEn": "Gold",
+  "nextAr": "زمرّد",
+  "nextEn": "Emerald",
+  "prevAr": "فضة",
+  "prevEn": "Silver",
+  "size": 30,
+  "promoteZone": 5,
+  "demoteZone": 5,
+  "myLivePoints": 335,
+  "rows": [
+    {
+      "handle": "omar-5521",
+      "name": "عمر",
+      "avatar": {
+        "kind": "preset",
+        "id": "m05"
+      },
+      "level": {
+        "level": 4,
+        "progress": 0.2
+      },
+      "points": 420,
+      "rank": 1,
+      "me": false
+    },
+    {
+      "handle": "member-x7k2p9",
+      "name": null,
+      "avatar": {
+        "kind": "initial"
+      },
+      "level": {
+        "level": 2,
+        "progress": 0.6
+      },
+      "points": 420,
+      "rank": 1,
+      "me": false
+    },
+    {
+      "handle": "sara-1093",
+      "name": "Sara",
+      "avatar": {
+        "kind": "photo",
+        "id": "4f9e8d7c-6b5a-4c3d-8e2f-0a1b2c3d4e5f",
+        "url": "https://api.yaqeenarabia.com/v1/public/avatars/4f9e8d7c-6b5a-4c3d-8e2f-0a1b2c3d4e5f/256.webp",
+        "smallUrl": "https://api.yaqeenarabia.com/v1/public/avatars/4f9e8d7c-6b5a-4c3d-8e2f-0a1b2c3d4e5f/96.webp"
+      },
+      "level": {
+        "level": 6,
+        "progress": 1
+      },
+      "points": 310,
+      "rank": 3,
+      "me": false
+    },
+    {
+      "handle": "ahmed-4821",
+      "name": "أحمد",
+      "avatar": {
+        "kind": "preset",
+        "id": "m03"
+      },
+      "level": {
+        "level": 3,
+        "progress": 0.4
+      },
+      "points": 290,
+      "rank": 4,
+      "me": true
+    },
+    {
+      "handle": "laila-0042",
+      "name": "ليلى",
+      "avatar": {
+        "kind": "preset",
+        "id": "f02"
+      },
+      "level": {
+        "level": 1,
+        "progress": 0.1
+      },
+      "points": 0,
+      "rank": null,
+      "me": false
+    }
+  ],
+  "lastWeek": {
+    "startsOn": "2026-11-07",
+    "division": 2,
+    "newDivision": 3,
+    "rank": 2,
+    "outcome": "up",
+    "badge": {
+      "kind": "league_top3",
+      "refKey": "league:2026-11-07",
+      "awardedAt": "2026-11-14T00:07:00.000Z",
+      "meta": {
+        "startsOn": "2026-11-07",
+        "division": 2,
+        "rank": 2,
+        "size": 28
+      }
+    }
+  }
+}

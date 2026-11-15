@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -9,15 +12,24 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app/app_gate.dart';
 import 'app/bootstrap.dart';
 import 'app/router.dart';
+import 'core/analytics/product_analytics.dart';
+import 'core/analytics/sinks/ad_sinks.dart';
+import 'core/analytics/sinks/firebase_measurement.dart';
+import 'core/analytics/sinks/meta_app_events_plugin.dart';
 import 'core/di/providers.dart';
+import 'core/notifications/firebase_push_service.dart';
 import 'core/notifications/local_notifier.dart';
 import 'core/notifications/notification_planner.dart';
 import 'features/notifications/data/reminder_service.dart';
 import 'core/settings/app_settings.dart';
 import 'core/network/connectivity.dart';
+import 'core/platform/asr/sherpa_recitation_engine.dart';
 import 'core/platform/device_services.dart';
 import 'core/platform/just_audio_engine.dart';
 import 'core/platform/location_service.dart';
+import 'core/platform/plugin_photo_picker.dart';
+import 'core/platform/plugin_voice_recorder.dart';
+import 'core/platform/sentry_error_reporter.dart';
 import 'core/platform/social_auth.dart';
 import 'core/settings/settings_controller.dart';
 import 'core/settings/settings_repository.dart';
@@ -27,12 +39,20 @@ import 'core/network/api_client.dart';
 import 'core/config/env.dart';
 import 'core/storage/kv_store.dart';
 import 'core/storage/local_store.dart';
+import 'core/theme/scroll.dart';
 import 'core/theme/theme.dart';
 import 'core/time/zoned.dart';
 import 'features/onboarding/data/auth_repository.dart';
+import 'features/onboarding/presentation/session_controller.dart';
+import 'features/recordings/presentation/recordings_providers.dart';
 import 'l10n/gen/app_localizations.dart';
+import 'core/platform/home_widget_publisher.dart';
+import 'core/platform/nfc_service.dart';
 
-void main() => Boot.guard(_start);
+void main() {
+  Boot.reporter = SentryErrorReporter();
+  Boot.guard(_start);
+}
 
 Future<void> _start() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,7 +69,10 @@ Future<void> _start() async {
 
   // Everything the first frame needs is read from the device — no network, no plugin set-up on the
   // critical path, and every step time-boxed with a safe fallback (lib/app/bootstrap.dart).
-  final KvStore kv = await Boot.step<KvStore>('prefs', () async => PrefsKvStore(await SharedPreferences.getInstance()), MemoryKvStore());
+  // Observable so the opt-in cloud backup (features/backup) hears which collection changed.
+  final KvStore kv = ObservableKvStore(
+    await Boot.step<KvStore>('prefs', () async => PrefsKvStore(await SharedPreferences.getInstance()), MemoryKvStore()),
+  );
   final secure = SecureKvStore();
   final tokens = TokenStore(secure);
   final api = ApiClient(baseUrl: Env.apiBaseUrl, tokens: tokens);
@@ -82,6 +105,11 @@ Future<void> _start() async {
     adhanVoice: () => current().adhanVoice.name,
   );
 
+  final push = FirebasePushService(showInForeground: notifier.showPush);
+  final audio = JustAudioEngine(
+    channelName: () => lookupAppLocalizations(Locale(current().locale)).channelRecitation,
+    filesDir: getApplicationSupportDirectory,
+  );
   container = ProviderContainer(
     overrides: [
       kvStoreProvider.overrideWithValue(kv),
@@ -96,21 +124,62 @@ Future<void> _start() async {
       connectivityProvider.overrideWithValue(PluginConnectivityMonitor()),
       localNotificationsProvider.overrideWithValue(notifier),
       notificationTapsProvider.overrideWith((_) => notifier.taps),
-      audioEngineProvider.overrideWithValue(JustAudioEngine()),
+      audioEngineProvider.overrideWithValue(audio),
+      homeWidgetPublisherProvider.overrideWithValue(PluginHomeWidgetPublisher()),
+      // Constructing it touches no platform channel; a session opens only on a user's tap.
+      nfcServiceProvider.overrideWithValue(PluginNfcService()),
+      // Opens the system picker only on a tap (profile photo); nothing at start-up.
+      photoPickerProvider.overrideWithValue(PluginPhotoPicker()),
       filesDirProvider.overrideWithValue(getApplicationSupportDirectory),
-      // Phase 2: pushServiceProvider (Firebase) and adSinksProvider (ad SDKs) — see README.
+      pushServiceProvider.overrideWithValue(push),
+      // On-device recitation recognition: loads nothing until a recitation starts (spec §6.8).
+      recitationEngineProvider.overrideWith(
+        (ref) => SherpaRecitationEngine(store: ref.watch(asrModelStoreProvider), kv: ref.watch(kvStoreProvider)),
+      ),
+      // «تلاواتي»: the microphone opens only on «ابدأ التسجيل» (the take's PCM → AAC-LC .m4a).
+      voiceRecorderProvider.overrideWithValue(PluginVoiceRecorder()),
+      // Ad SDKs whose build values exist; each stays off until `ads_measurement` is granted.
+      adSinksProvider.overrideWithValue(
+        buildAdSinks(
+          AdSinkConfig.fromEnvironment(),
+          debug: kDebugMode,
+          google: FirebaseGoogleMeasurement.new,
+          meta: PluginMetaAppEvents.new,
+        ),
+      ),
     ],
   );
   await Boot.step('consents', container.read(consentRepositoryProvider).load, null);
-  container.read(apiClientProvider).onSessionExpired = () => container.read(authRepositoryProvider).signOut();
+  // The server refused the refresh token: the UI follows (session ends) and asks to sign in again.
+  container.read(apiClientProvider).onSessionExpired = () => container
+      .read(sessionProvider.notifier)
+      .expire()
+      .then((ended) {
+        final nav = rootNavigatorKey.currentContext;
+        if (ended && nav != null && nav.mounted) GoRouter.of(nav).go('/onboarding/welcome');
+      })
+      .catchError((Object _) {})
+      .ignore();
 
   // Plugin set-up the first frame doesn't need, in parallel. Both are idempotent and awaited again
   // by their first real use (scheduling a reminder, playing audio).
+  final router = buildRouter(initialLocation: '/splash');
+  final product = container.read(productAnalyticsProvider);
+  final routes = RouteTracker(product);
+  router.routerDelegate.addListener(() => routes.onLocation(router.routerDelegate.currentConfiguration.uri.path));
+  AppLifecycleListener(onPause: () => unawaited(product.flush()));
   Boot.afterFirstFrame({
     'notifications': notifier.init,
-    'audio': JustAudioEngine.init,
+    'audio': audio.init,
+    'push': push.start,
+    'analytics': () async {
+      product.start();
+      await product.track(ProductEvent.appOpen);
+    },
+    // Ad SDKs follow the stored consent; nothing starts before the consent screen was answered.
+    'ads': container.read(analyticsProvider).start,
   });
-  runApp(UncontrolledProviderScope(container: container, child: YaqeenApp(router: buildRouter(initialLocation: '/splash'))));
+  runApp(UncontrolledProviderScope(container: container, child: YaqeenApp(router: router)));
 }
 
 class YaqeenApp extends ConsumerWidget {
@@ -125,6 +194,7 @@ class YaqeenApp extends ConsumerWidget {
     final locale = ref.watch(settingsProvider.select((s) => s.locale));
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
+      scrollBehavior: const YqScrollBehavior(),
       onGenerateTitle: (context) => AppLocalizations.of(context).appName,
       theme: YqTheme.light(),
       locale: Locale(locale),

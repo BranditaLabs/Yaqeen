@@ -1,9 +1,16 @@
+import { withSentryConfig } from '@sentry/nextjs/config';
+import { resolve } from 'node:path';
 import type { NextConfig } from 'next';
 
 const config: NextConfig = {
   output: 'standalone',
+  // The monorepo root (builds run in apps/admin): traced files land at standalone/apps/admin even when
+  // this checkout sits inside another one (git worktrees), which would otherwise move the root up.
+  outputFileTracingRoot: resolve(process.cwd(), '..', '..'),
   poweredByHeader: false,
   reactStrictMode: true,
+  // forbidden(): a role outside a section's NAV_ACCESS gets a real 403 page (app/forbidden.tsx).
+  experimental: { authInterrupts: true },
   async headers() {
     return [
       {
@@ -18,4 +25,13 @@ const config: NextConfig = {
   },
 };
 
-export default config;
+// Error tracking: source maps are uploaded (then not served) only when CI provides SENTRY_AUTH_TOKEN.
+export default withSentryConfig(config, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT_ADMIN ?? 'yaqeen-admin',
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  release: { name: `yaqeen-admin@${process.env.GIT_SHA ?? 'dev'}` },
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN, deleteSourcemapsAfterUpload: true },
+  silent: !process.env.CI,
+  telemetry: false,
+});

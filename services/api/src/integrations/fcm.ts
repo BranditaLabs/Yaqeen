@@ -44,7 +44,7 @@ export class FcmSender {
           token: m.token,
           notification: { title: m.title, body: m.body },
           data: { link: m.link, ...(m.campaignId ? { campaignId: m.campaignId } : {}) },
-          android: { priority: 'normal', notification: { channelId: 'yaqeen_updates' } },
+          android: { priority: 'normal', notification: { channelId: 'offers' } },
           apns: { payload: { aps: { sound: 'default', 'thread-id': 'yaqeen-updates' } } },
         })),
       );

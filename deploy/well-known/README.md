@@ -1,11 +1,13 @@
 # Universal / App Links
 
-Served by the Shopify store theme at `https://yaqin-brand.com/.well-known/` (spec §6.20):
+`https://yaqeenarabia.com/app/<target>` opens the app (spec §6.20). The API serves the two
+verification files on the site host, generated from its settings — nothing to upload anywhere:
 
-| File | Replace before publishing |
+| URL | Setting (API env) |
 | --- | --- |
-| `apple-app-site-association` (no extension, `application/json`) | `TEAMID` → Apple Developer Team ID |
-| `assetlinks.json` | the Play **app signing** SHA-256 fingerprint (Play Console › App integrity) |
+| `/.well-known/apple-app-site-association` | `APPLE_TEAM_ID` (10-character Team ID); bundle `IOS_BUNDLE_ID` |
+| `/.well-known/assetlinks.json` | `ANDROID_CERT_SHA256` — the Play **app signing** SHA-256 first (Play Console › App integrity), then the upload/debug keys; package `ANDROID_APP_ID` |
 
-The app side is already configured: iOS `Runner.entitlements` (`applinks:yaqin-brand.com`) and the
-Android `autoVerify` intent filter for `/app/*`. Paths map through `routeForDeepLink`.
+Until a setting is present the route answers 404, never a file with placeholder ids. The app side:
+iOS `Runner.entitlements` (`applinks:yaqeenarabia.com`, `www.`) and the Android `autoVerify`
+intent filter for `/app/*`. Paths map through `routeForDeepLink`.

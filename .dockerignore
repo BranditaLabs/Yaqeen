@@ -4,3 +4,17 @@
 **/.env
 apps/mobile
 .git
+.claude
+.agents
+.codex
+graphify-out
+e2e
+**/test-results
+**/playwright-report
+**/.env.*
+!**/.env.example
+**/*.rdb
+**/*.jks
+**/*.keystore
+**/key.properties
+**/*.p8

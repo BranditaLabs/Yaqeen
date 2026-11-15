@@ -1,0 +1,6 @@
+/* Usage strings (English). Info.plist carries the bilingual fallback. */
+"NSCameraUsageDescription" = "Only to take a photo for your Yaqeen profile, if you choose to.";
+"NSPhotoLibraryUsageDescription" = "Only to choose a photo for your Yaqeen profile; nothing else is read.";
+"NSLocationWhenInUseUsageDescription" = "We use your location only for prayer times and the qibla; it stays on your device.";
+"NSMicrophoneUsageDescription" = "We listen to your recitation on this device for recitation practice without uploading it, and record your «My recitations» clips when you choose to, saved to your account.";
+"NFCReaderUsageDescription" = "We read your Yaqeen medal or card's link when you hold it to the phone, to activate it.";

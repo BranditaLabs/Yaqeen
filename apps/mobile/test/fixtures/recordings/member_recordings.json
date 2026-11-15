@@ -1,0 +1,39 @@
+{
+  "owner": {
+    "handle": "ahmed-4821",
+    "name": "أحمد",
+    "avatar": { "kind": "preset", "id": "m03" },
+    "level": { "level": 3, "progress": 0.42 },
+    "points": null,
+    "rank": null,
+    "me": false
+  },
+  "items": [
+    {
+      "id": "6f1c2a4e-3b7d-4c8e-9a10-1b2c3d4e5f60",
+      "surah": 1,
+      "fromAyah": 1,
+      "toAyah": 4,
+      "durationMs": 9800,
+      "visibility": "public",
+      "commentsOn": true,
+      "position": 1,
+      "reactions": { "mashallah": 4, "barakallah": 2, "ahsant": 1 },
+      "myReaction": "mashallah",
+      "commentCount": 3,
+      "createdAt": "2026-11-13T19:20:00.000Z",
+      "audioPath": "/v1/recordings/6f1c2a4e-3b7d-4c8e-9a10-1b2c3d4e5f60/audio",
+      "words": [{ "ayah": 1, "index": 0, "startMs": 300, "endMs": 720 }],
+      "owner": {
+        "handle": "ahmed-4821",
+        "name": "أحمد",
+        "avatar": { "kind": "preset", "id": "m03" },
+        "level": { "level": 3, "progress": 0.42 },
+        "points": null,
+        "rank": null,
+        "me": false
+      },
+      "mine": false
+    }
+  ]
+}

@@ -43,13 +43,26 @@ class AzkarController extends Notifier<AzkarDay> {
     return AzkarDay(date: today);
   }
 
+  /// The provider lives as long as the app, so a screen resumed after midnight would still hold
+  /// yesterday's counts: start the new day (the store keeps only the current one). Returns true when
+  /// it rolled over.
+  bool ensureToday() {
+    final today = _today;
+    if (state.date == today) return false;
+    _save?.cancel();
+    state = AzkarDay(date: today);
+    return true;
+  }
+
   /// Returns true when this tap finished the item.
   bool tap(ContentItem item, {required List<ContentItem> set, required ZikrSet kind}) {
     var day = state;
     if (day.date != _today) day = AzkarDay(date: _today);
     if (day.doneItem(item)) return false;
     day = day.tap(item);
-    if (ref.read(settingsProvider).haptics) HapticFeedback.lightImpact();
+    final settings = ref.read(settingsProvider);
+    if (settings.haptics) HapticFeedback.lightImpact();
+    if (settings.azkarSound) SystemSound.play(SystemSoundType.click);
     final finished = day.doneItem(item);
     if (day.doneSet(set) && !day.ticked.contains(kind.key)) {
       final wire = taskWireFor(kind);
@@ -60,6 +73,14 @@ class AzkarController extends Notifier<AzkarDay> {
     _save?.cancel();
     _save = Timer(const Duration(milliseconds: 400), () => _store.saveDay(state));
     return finished;
+  }
+
+  /// Cloud backup merged today's counts from another phone (never fewer than shown here).
+  void adopt(AzkarDay day) {
+    if (day.date != state.date) return;
+    _save?.cancel();
+    state = day;
+    _store.saveDay(state).ignore();
   }
 
   void reset(ContentItem item) {

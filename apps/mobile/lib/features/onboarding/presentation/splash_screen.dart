@@ -17,10 +17,34 @@ import '../../../core/theme/typography.dart';
 /// Timeline (ms): dawn 0–1800 · wings spread 300–1600 · diamond settles 1250–2250 ·
 /// glow 1850–3250 then breathes · glint 2300–3800 · verse 2600–4000 · progress 2800–5200 → [next].
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key, this.next = '/home', this.hold = const Duration(milliseconds: 3800)});
+  const SplashScreen({
+    super.key,
+    this.next = '/home',
+    this.hold = const Duration(milliseconds: 3800),
+    this.verse = bundledVerse,
+    this.verseCaption = bundledCaption,
+  });
 
   final String next;
   final Duration hold;
+
+  /// The verse under the mark: the reviewer-approved remote config `splashVerse` (spec §5.2),
+  /// or the bundled Quran 15:99 below.
+  final String verse;
+  final String verseCaption;
+
+  static const bundledVerse = 'وَٱعْبُدْ رَبَّكَ حَتَّىٰ يَأْتِيَكَ ٱلْيَقِينُ';
+  static const bundledCaption = 'الحِجر · 99';
+
+  /// The word the brand lights in gold, only when the verse carries it.
+  static const highlight = 'ٱلْيَقِينُ';
+
+  /// [verse] split around the last «ٱلْيَقِينُ»: (before, highlighted, after). No match → all in before.
+  static (String, String, String) splitVerse(String verse) {
+    final i = verse.lastIndexOf(highlight);
+    if (i < 0) return (verse, '', '');
+    return (verse.substring(0, i), highlight, verse.substring(i + highlight.length));
+  }
 
   /// Mark width: 35% of a 390-pt screen. Aspect ratio from the master artwork.
   static const markWidth = 136.0;
@@ -119,7 +143,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                     ),
                   ),
                 ),
-                Positioned(left: 32, right: 32, bottom: 112, child: _Verse(animation: _verse)),
+                Positioned(left: 32, right: 32, bottom: 112, child: _Verse(animation: _verse, verse: widget.verse, caption: widget.verseCaption)),
                 Positioned(left: 0, right: 0, bottom: 64, child: Center(child: _Progress(animation: _progress))),
               ],
             );
@@ -302,28 +326,37 @@ class _Glint extends StatelessWidget {
 }
 
 class _Verse extends StatelessWidget {
-  const _Verse({required this.animation});
+  const _Verse({required this.animation, required this.verse, required this.caption});
   final Animation<double> animation;
+  final String verse;
+  final String caption;
 
   @override
   Widget build(BuildContext context) {
+    final (before, gold, after) = SplashScreen.splitVerse(verse);
     return FadeTransition(
       opacity: animation,
       child: SlideTransition(
         position: Tween(begin: const Offset(0, 0.06), end: Offset.zero).animate(animation),
-        child: const Column(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text.rich(
               TextSpan(
-                text: 'وَٱعْبُدْ رَبَّكَ حَتَّىٰ يَأْتِيَكَ ',
-                children: [TextSpan(text: 'ٱلْيَقِينُ', style: TextStyle(color: YqColors.goldText))],
+                text: before,
+                children: [
+                  if (gold.isNotEmpty) TextSpan(text: gold, style: const TextStyle(color: YqColors.goldText)),
+                  if (after.isNotEmpty) TextSpan(text: after),
+                ],
               ),
               textAlign: TextAlign.center,
-              style: TextStyle(fontFamily: YqFonts.quran, fontSize: 18, height: 2, color: Color(0xC70A1530)),
+              textDirection: TextDirection.rtl,
+              style: const TextStyle(fontFamily: YqFonts.quran, fontSize: 18, height: 2, color: Color(0xC70A1530)),
             ),
-            SizedBox(height: 4),
-            Text('الحِجر · 99', style: TextStyle(fontSize: 11, color: YqColors.slate400)),
+            if (caption.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(caption, style: const TextStyle(fontSize: 11, color: YqColors.slate400)),
+            ],
           ],
         ),
       ),

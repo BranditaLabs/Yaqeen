@@ -4,7 +4,10 @@ Two systems, deliberately separate.
 
 ## 1. Local (on the device) — worship reminders
 
-Adhan per prayer, optional pre-prayer reminder, morning azkar (after Fajr), evening azkar (after Asr), daily wird.
+Adhan per prayer, optional pre-prayer reminder, morning azkar (after Fajr), evening azkar (after Asr), and the
+user's **routine**: Quran wird, hifz review (on due days) and a dhikr session, each at the time chosen on the
+onboarding routine step (APP_SPEC §5.7·ب) — *after a prayer* (+15 min) or *at a set time* (`SlotTime` in the
+planner; resolved per day from that day's prayer times). The routine is device-only and is never sent to the API.
 
 - Planned by `NotificationPlanner.plan()` (`apps/mobile/lib/core/notifications/notification_planner.dart`), pure and unit-tested.
 - Prayer times computed on-device from location (no server round-trip, works offline).

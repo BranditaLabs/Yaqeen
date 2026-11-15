@@ -66,4 +66,39 @@ void main() {
     expect(s.balance, 3320);
     expect(s.today!.status, DayStatus.done);
   });
+
+  test('a summary from an earlier day rolls on to the local today, empty', () {
+    final s = ChallengeSummary.fromJson(json);
+    final next = s.rolledTo('2026-10-22');
+    expect(next.today!.date, '2026-10-22');
+    expect(next.today!.dayNumber, 50);
+    expect(next.dayNumber, 50);
+    expect(next.today!.completed, isEmpty);
+    expect(next.today!.status, DayStatus.today);
+    expect(next.today!.points, 0);
+    expect(next.balance, s.balance);
+    // Same day or an earlier one: unchanged.
+    expect(identical(s.rolledTo('2026-10-20'), s), isTrue);
+    expect(identical(s.rolledTo('2026-10-19'), s), isTrue);
+  });
+
+  test('calendar journey length follows the server span, not a fixed 365', () {
+    ChallengeCalendar cal(String? start, String? end) => ChallengeCalendar.fromJson({
+          'month': '2026-10',
+          'enrolled': true,
+          'startedOn': start,
+          'endsOn': end,
+          'today': '2026-10-20',
+          'dayNumber': 47,
+          'streak': 0,
+          'balance': 0,
+          'qadaWindowDays': 7,
+          'qadaDayPoints': 80,
+          'dailyTotal': 100,
+          'days': <Object>[],
+        });
+    expect(cal('2026-09-04', '2027-09-03').lengthDays, 365);
+    expect(cal('2026-09-04', '2026-12-12').lengthDays, 100);
+    expect(cal(null, null).lengthDays, 365);
+  });
 }

@@ -1,5 +1,6 @@
 import type { FastifyError, FastifyReply, FastifyRequest } from 'fastify';
 import { ZodError, z } from 'zod';
+import { captureError } from './observability.js';
 
 /** Typed application error → `{ error: { code, message } }` with the given HTTP status. */
 export class AppError extends Error {
@@ -33,5 +34,6 @@ export function errorHandler(err: FastifyError | Error, req: FastifyRequest, rep
     return reply.status(fe.statusCode).send({ error: { code: fe.code ?? 'bad_request', message: fe.message } });
   }
   req.log.error({ err }, 'unhandled error');
+  captureError(err, { route: req.routeOptions?.url, requestId: req.id });
   return reply.status(500).send({ error: { code: 'internal', message: 'Something went wrong' } });
 }

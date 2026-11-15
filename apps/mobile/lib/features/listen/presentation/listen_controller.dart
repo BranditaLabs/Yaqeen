@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +11,7 @@ import '../../../core/time/zoned.dart';
 import '../../challenge/domain/challenge_models.dart';
 import '../../challenge/presentation/challenge_controller.dart';
 import '../../onboarding/presentation/session_controller.dart';
+import '../../quran/domain/passage.dart';
 import '../../quran/domain/quran_data.dart';
 import '../data/audio_downloads.dart';
 import '../data/listen_store.dart';
@@ -30,10 +32,15 @@ class ListenState {
     this.playing = false,
     this.speed = 1.0,
     this.repeat = ListenRepeat.off,
+    this.repeatTimes = 0,
+    this.rangeFrom,
+    this.rangeTo,
     this.synced = false,
     this.sleepAt,
     this.sleepEndOfSurah = false,
     this.sampleOf,
+    this.roundsDone = 0,
+    this.loopEnded = false,
   });
 
   final ListenStatus status;
@@ -46,6 +53,13 @@ class ListenState {
   final double speed;
   final ListenRepeat repeat;
 
+  /// Passes of the repeated ayah or range ([listenRepeatTimes]); 0 means without end.
+  final int repeatTimes;
+
+  /// The ayat looped by [ListenRepeat.range] (inclusive).
+  final int? rangeFrom;
+  final int? rangeTo;
+
   /// Per-ayah timings are loaded (highlight + ayah skip work).
   final bool synced;
   final DateTime? sleepAt;
@@ -53,6 +67,12 @@ class ListenState {
 
   /// Reciter id whose sample is playing (spec §5.14), or null.
   final String? sampleOf;
+
+  /// Passes of the repeated ayah/range played so far (a guided «استماع ×3» shows «×n / 3»).
+  final int roundsDone;
+
+  /// A counted range played its last pass and stopped (the signal a guided session moves on with).
+  final bool loopEnded;
 
   AyahRef get ref => AyahRef(surah, ayah);
   bool get sleepOn => sleepAt != null || sleepEndOfSurah;
@@ -67,10 +87,15 @@ class ListenState {
     bool? playing,
     double? speed,
     ListenRepeat? repeat,
+    int? repeatTimes,
+    int? rangeFrom,
+    int? rangeTo,
     bool? synced,
     DateTime? Function()? sleepAt,
     bool? sleepEndOfSurah,
     String? Function()? sampleOf,
+    int? roundsDone,
+    bool? loopEnded,
   }) =>
       ListenState(
         status: status ?? this.status,
@@ -82,10 +107,15 @@ class ListenState {
         playing: playing ?? this.playing,
         speed: speed ?? this.speed,
         repeat: repeat ?? this.repeat,
+        repeatTimes: repeatTimes ?? this.repeatTimes,
+        rangeFrom: rangeFrom ?? this.rangeFrom,
+        rangeTo: rangeTo ?? this.rangeTo,
         synced: synced ?? this.synced,
         sleepAt: sleepAt == null ? this.sleepAt : sleepAt(),
         sleepEndOfSurah: sleepEndOfSurah ?? this.sleepEndOfSurah,
         sampleOf: sampleOf == null ? this.sampleOf : sampleOf(),
+        roundsDone: roundsDone ?? this.roundsDone,
+        loopEnded: loopEnded ?? this.loopEnded,
       );
 }
 
@@ -99,6 +129,18 @@ class ListenController extends Notifier<ListenState> {
   DateTime? _since;
   int _lastSavedSecond = -1;
   bool _disposed = false;
+
+  /// Completes when a counted range stops ([ListenState.loopEnded]) with true — or with false when
+  /// that wait is cut short (a pause, another open, the controller going away); see
+  /// [playAyahThenPause].
+  Completer<bool>? _loopDone;
+
+  /// Ends a pending [playAyahThenPause] wait without its ayah having finished.
+  void _cancelLoopWait() {
+    final c = _loopDone;
+    _loopDone = null;
+    if (c != null && !c.isCompleted) c.complete(false);
+  }
 
   AudioEngine get _engine => ref.read(audioEngineProvider);
   ReciterRepository get _reciters => ref.read(reciterRepositoryProvider);
@@ -120,14 +162,43 @@ class ListenController extends Notifier<ListenState> {
       _subs.clear();
       _sleep?.cancel();
       _tick?.cancel();
+      _cancelLoopWait();
     });
     return const ListenState();
   }
 
-  /// Opens [surah] at [ayah] (or the saved position for that surah) and starts playing.
-  Future<void> open(int surah, {int? ayah, bool autoplay = true, Reciter? reciter}) async {
-    state = state.copyWith(status: ListenStatus.loading, surah: surah, ayah: ayah ?? 1, position: Duration.zero, synced: false);
-    final r = reciter ?? await _currentReciter();
+  /// Opens [surah] at [ayah] (or the saved position for that surah) and starts playing. With [to],
+  /// the ayat [ayah]–[to] loop [times] times (0 = without end: a hifz portion; 3: a guided «×3»).
+  /// The surah already loaded is not reopened: the player only seeks to [ayah].
+  Future<void> open(int surah, {int? ayah, int? to, int? times, bool autoplay = true, Reciter? reciter, bool reload = false}) {
+    // Something else is played: an echo waiting for its ayah to end will not see it end.
+    _cancelLoopWait();
+    return _open(surah, ayah: ayah, to: to, times: times, autoplay: autoplay, reciter: reciter, reload: reload);
+  }
+
+  Future<void> _open(int surah, {int? ayah, int? to, int? times, bool autoplay = true, Reciter? reciter, bool reload = false}) async {
+    final loaded = state.status == ListenStatus.ready && state.sampleOf == null && state.surah == surah;
+    if (loaded && !reload && (reciter == null || reciter.id == state.reciter?.id)) {
+      return _seekWithin(ayah: ayah, to: to, times: times, autoplay: autoplay);
+    }
+    final sameSurah = state.status != ListenStatus.idle && state.surah == surah;
+    state = state.copyWith(
+      status: ListenStatus.loading,
+      surah: surah,
+      ayah: ayah ?? 1,
+      position: Duration.zero,
+      synced: false,
+      roundsDone: 0,
+      loopEnded: false,
+    );
+    final Reciter? r;
+    try {
+      r = reciter ?? await _currentReciter();
+    } on Exception {
+      // No catalogue at all (first run, offline): an error with retry, not «no reciter yet».
+      state = state.copyWith(status: ListenStatus.unavailable, playing: false);
+      return;
+    }
     if (r == null) {
       state = state.copyWith(status: ListenStatus.noReciter);
       return;
@@ -138,6 +209,18 @@ class ListenController extends Notifier<ListenState> {
     final quran = await ref.read(quranDataProvider.future);
     final s = quran.surah(surah);
     final start = resume ? snap.position : (ayah != null && _timings != null ? _timings!.startOf(ayah) : Duration.zero);
+    var repeat = resume ? snap.repeat : state.repeat;
+    var count = resume ? snap.repeatTimes : state.repeatTimes;
+    var from = resume ? snap.rangeFrom : state.rangeFrom;
+    var until = resume ? snap.rangeTo : state.rangeTo;
+    if (ayah != null && to != null) {
+      repeat = ListenRepeat.range;
+      count = times ?? 0;
+      from = ayah.clamp(1, s.ayahCount);
+      until = to.clamp(from, s.ayahCount);
+    } else if (repeat == ListenRepeat.range && !resume && !sameSurah) {
+      repeat = ListenRepeat.off; // a range belongs to its surah
+    }
     try {
       final duration = await _engine.open(
         await _downloads.sourceFor(r, surah),
@@ -153,12 +236,87 @@ class ListenController extends Notifier<ListenState> {
         duration: duration,
         synced: _timings != null,
         speed: resume ? snap.speed : state.speed,
-        repeat: resume ? snap.repeat : state.repeat,
+        repeat: repeat,
+        repeatTimes: count,
+        rangeFrom: from,
+        rangeTo: until,
+        roundsDone: resume ? snap.roundsDone : 0,
+        loopEnded: resume && snap.loopEnded,
       );
       if (autoplay) await _engine.play();
     } on Exception {
       state = state.copyWith(status: ListenStatus.unavailable, reciter: r, playing: false);
     }
+  }
+
+  /// [open] on the surah already loaded: set the range, seek to [ayah] (with timings), play.
+  Future<void> _seekWithin({int? ayah, int? to, int? times, required bool autoplay}) async {
+    final t = _timings;
+    if (ayah != null && to != null) {
+      final n = t?.ayahCount ?? to;
+      final a = ayah.clamp(1, n);
+      state = state.copyWith(repeat: ListenRepeat.range, repeatTimes: times ?? 0, rangeFrom: a, rangeTo: to.clamp(a, n));
+    } else if (ayah != null && state.repeat == ListenRepeat.range && !(ayah >= (state.rangeFrom ?? 0) && ayah <= (state.rangeTo ?? 0))) {
+      state = state.copyWith(repeat: ListenRepeat.off); // a new place outside the old range
+    }
+    if (ayah != null && t != null) {
+      await seek(t.startOf(ayah));
+    } else if (ayah == 1) {
+      await seek(Duration.zero);
+    } else {
+      state = state.copyWith(roundsDone: 0, loopEnded: false);
+    }
+    _save();
+    if (autoplay && !state.playing) await _engine.play();
+  }
+
+  /// Plays [p] from its first ayah, looping it [times] times (0 = without end).
+  Future<void> playPassage(Passage p, {int times = 0, bool autoplay = true}) =>
+      open(p.surah, ayah: p.from, to: p.to, times: times, autoplay: autoplay);
+
+  /// Echo practice (guided «تكرار ×10»): plays [ref] once and pauses. Resolves with the pause left
+  /// for the reader to repeat it — the ayah's length × [gapFactor] at the current speed — or null
+  /// when the ayah can't be cut out of the recitation (no timings, no audio).
+  ///
+  /// Also null when the wait is cut short — the user pauses, something else is opened, or the
+  /// controller goes away — so the echo loop never hangs. The ayah range it sets is the echo's own:
+  /// the caller puts the earlier repeat back with [restoreRepeat].
+  Future<Duration?> playAyahThenPause(AyahRef ref, {double gapFactor = 1.2}) async {
+    _cancelLoopWait();
+    final done = _loopDone = Completer<bool>();
+    await _open(ref.surah, ayah: ref.ayah, to: ref.ayah, times: 1);
+    final t = _timings;
+    if (!identical(_loopDone, done) || state.status != ListenStatus.ready || t == null || state.surah != ref.surah) {
+      if (identical(_loopDone, done)) _cancelLoopWait();
+      return null;
+    }
+    if (!await done.future) return null;
+    final length = t.endOf(ref.ayah) - t.startOf(ref.ayah);
+    return length * (gapFactor / state.speed);
+  }
+
+  /// Puts back the repeat (mode, passes, range) of [before] — the state captured before echo
+  /// practice cut the recitation into single ayat. A range belongs to its surah: another surah's
+  /// comes back as no repeat.
+  void restoreRepeat(ListenState before) {
+    if (before.surah == state.surah) {
+      setRepeat(before.repeat, times: before.repeatTimes, from: before.rangeFrom, to: before.rangeTo);
+    } else {
+      setRepeat(before.repeat == ListenRepeat.range ? ListenRepeat.off : before.repeat, times: before.repeatTimes);
+    }
+  }
+
+  /// The surah a general «استماع» entry (Home, Quran index, challenge) opens: the one already
+  /// loaded, so Now playing attaches to it instead of replacing it; else the saved resume point;
+  /// else [fallback] (the last-read surah).
+  Future<int> entrySurah(int fallback) async => (await entryRef(fallback)).surah;
+
+  /// Where such an entry lands: the ayah playing, else the saved resume point, else [fallback]'s
+  /// first ayah.
+  Future<AyahRef> entryRef(int fallback) async {
+    if (state.status == ListenStatus.ready || state.status == ListenStatus.loading) return state.ref;
+    final snap = await _store.snapshot();
+    return snap == null ? AyahRef(fallback, 1) : AyahRef(snap.surah, snap.ayah);
   }
 
   Future<Reciter?> _currentReciter() async {
@@ -179,14 +337,18 @@ class ListenController extends Notifier<ListenState> {
   }
 
   /// Plays [r]'s sample through the single player; [stopSample] restores the surah, paused.
+  /// Quran Foundation reciters have no separate sample: Al-Fatiha plays through the same resolver.
   Future<void> playSample(Reciter r) async {
-    final url = r.sampleUrl;
-    if (url == null) return;
+    if (!r.hasSample) return;
     if (state.sampleOf != null) await stopSample();
     _save();
-    state = state.copyWith(sampleOf: () => r.id);
+    // A sample is not recitation listening: close the stretch counted toward the `listen` task.
+    _endListening();
+    state = state.copyWith(sampleOf: () => r.id, playing: false);
     try {
-      await _engine.open(Uri.parse(url), meta: AudioMeta(id: 'sample/${r.id}', title: r.nameAr, artist: r.nameEn));
+      final explicit = r.sampleUrl;
+      final source = explicit != null ? Uri.parse(explicit) : await _downloads.sourceFor(r, 1);
+      await _engine.open(source, meta: AudioMeta(id: 'sample/${r.id}', title: r.nameAr, artist: r.nameEn));
       await _engine.play();
     } on Exception {
       state = state.copyWith(sampleOf: () => null);
@@ -195,21 +357,61 @@ class ListenController extends Notifier<ListenState> {
 
   Future<void> stopSample() async {
     if (state.sampleOf == null) return;
+    await _endSample();
+  }
+
+  /// Plays a short clip that is not catalogue recitation — a member's own recording («تلاواتي») —
+  /// through the single player, the way a sample plays: the surah is paused and comes back (paused)
+  /// when the clip ends or [stopSample] is called; listening time is not counted. [meta.id] becomes
+  /// [ListenState.sampleOf] so the caller knows its clip is the one loaded. False when it cannot open.
+  Future<bool> playClip(Uri source, AudioMeta meta) async {
+    if (state.sampleOf != null) await stopSample();
+    _save();
+    _endListening();
+    state = state.copyWith(sampleOf: () => meta.id, playing: false);
+    try {
+      await _engine.open(source, meta: meta);
+      await _engine.play();
+      return true;
+    } on Exception {
+      state = state.copyWith(sampleOf: () => null);
+      return false;
+    }
+  }
+
+  /// Ends a sample (stopped, or played to its end) and puts the surah back, paused. The engine is
+  /// paused first: after a file completes the player still counts as playing, so play() would no-op.
+  Future<void> _endSample() async {
     await _engine.pause();
-    state = state.copyWith(sampleOf: () => null);
-    if (state.status == ListenStatus.ready) await open(state.surah, autoplay: false, reciter: state.reciter);
+    state = state.copyWith(sampleOf: () => null, playing: false);
+    if (state.status == ListenStatus.ready) await open(state.surah, autoplay: false, reciter: state.reciter, reload: true);
   }
 
   Future<void> toggle() async {
+    if (state.sampleOf != null) await stopSample();
     if (state.status != ListenStatus.ready) return;
-    state.playing ? await _engine.pause() : await _engine.play();
+    if (!state.playing && state.loopEnded && state.repeat == ListenRepeat.range && _timings != null) {
+      // A counted range that ran out starts over.
+      await seek(_timings!.startOf(state.rangeFrom ?? state.ayah));
+    }
+    if (state.playing) {
+      _cancelLoopWait();
+      await _engine.pause();
+    } else {
+      await _engine.play();
+    }
   }
 
-  Future<void> pause() => _engine.pause();
+  /// Pauses — and ends an echo's wait for its ayah ([playAyahThenPause] returns null).
+  Future<void> pause() {
+    _cancelLoopWait();
+    return _engine.pause();
+  }
 
   Future<void> seek(Duration to) async {
+    state = state.copyWith(roundsDone: 0, loopEnded: false);
     await _engine.seek(to);
-    _onPosition(to);
+    _onPosition(to, seeking: true);
   }
 
   Future<void> next() => _skip(1);
@@ -235,13 +437,50 @@ class ListenController extends Notifier<ListenState> {
     _save();
   }
 
-  void toggleRepeatAyah() {
-    state = state.copyWith(repeat: state.repeat == ListenRepeat.ayah ? ListenRepeat.off : ListenRepeat.ayah);
+  void toggleRepeatAyah() => setRepeat(state.repeat == ListenRepeat.ayah ? ListenRepeat.off : ListenRepeat.ayah);
+
+  /// [times]: passes of the ayah or range (0 = without end). [from]–[to]: the range (any order).
+  void setRepeat(ListenRepeat mode, {int? times, int? from, int? to}) {
+    final a = from ?? state.rangeFrom ?? state.ayah;
+    final b = to ?? state.rangeTo ?? state.ayah;
+    state = state.copyWith(
+      repeat: mode,
+      repeatTimes: times,
+      rangeFrom: math.min(a, b),
+      rangeTo: math.max(a, b),
+      roundsDone: 0,
+      loopEnded: false,
+    );
     _save();
   }
 
-  void setRepeat(ListenRepeat mode) {
-    state = state.copyWith(repeat: mode);
+  /// Last ayah of the repeated unit (the current ayah, or the range's end), or null.
+  int? get _loopEnd => switch (state.repeat) {
+        ListenRepeat.ayah => state.ayah,
+        ListenRepeat.range => state.rangeTo,
+        _ => null,
+      };
+
+  /// One pass of the repeated ayah/range ended: the ayah to start the next pass from, or null once
+  /// [ListenState.repeatTimes] passes have played (an ayah then moves on; a range stops).
+  int? _nextRound() {
+    final rounds = state.roundsDone + 1;
+    final times = state.repeatTimes;
+    if (times != 0 && rounds >= times) {
+      // A range stops here and says so; a repeated ayah moves on (its count starts over).
+      final range = state.repeat == ListenRepeat.range;
+      state = state.copyWith(roundsDone: range ? rounds : 0, loopEnded: range);
+      if (range) _signalLoopEnd();
+      return null;
+    }
+    state = state.copyWith(roundsDone: rounds);
+    return state.repeat == ListenRepeat.range ? state.rangeFrom ?? state.ayah : state.ayah;
+  }
+
+  void _signalLoopEnd() {
+    final c = _loopDone;
+    _loopDone = null;
+    if (c != null && !c.isCompleted) c.complete(true);
     _save();
   }
 
@@ -262,15 +501,21 @@ class ListenController extends Notifier<ListenState> {
     }
   }
 
-  void _onPosition(Duration p) {
+  void _onPosition(Duration p, {bool seeking = false}) {
     if (state.sampleOf != null) return;
     final t = _timings;
     var ayah = t?.ayahAt(p) ?? state.ayah;
-    if (t != null && state.repeat == ListenRepeat.ayah && state.playing && ayah > state.ayah) {
-      // Loop the current ayah: jump back to its start as soon as playback crosses its end.
-      _engine.seek(t.startOf(state.ayah));
-      ayah = state.ayah;
-      p = t.startOf(ayah);
+    final end = _loopEnd;
+    if (t != null && end != null && !seeking && state.playing && state.ayah <= end && ayah > end) {
+      // The repeated ayah/range ended: jump back to its start as soon as playback crosses its end.
+      final from = _nextRound();
+      if (from != null) {
+        _engine.seek(t.startOf(from));
+        ayah = from;
+        p = t.startOf(from);
+      } else if (state.repeat == ListenRepeat.range) {
+        _engine.pause();
+      }
     }
     state = state.copyWith(position: p, ayah: ayah);
     if (p.inSeconds ~/ 5 != _lastSavedSecond) {
@@ -283,20 +528,41 @@ class ListenController extends Notifier<ListenState> {
     if (playing == state.playing || state.sampleOf != null) return;
     state = state.copyWith(playing: playing);
     if (playing) {
+      _tick?.cancel();
       _since = DateTime.now();
       _tick = Timer.periodic(const Duration(seconds: 30), (_) => _flushListened());
     } else {
-      _tick?.cancel();
-      _flushListened();
-      _since = null;
+      _endListening();
       _save();
     }
   }
 
+  void _endListening() {
+    _tick?.cancel();
+    _tick = null;
+    _flushListened();
+    _since = null;
+  }
+
   Future<void> _onCompleted() async {
     if (state.sampleOf != null) {
-      state = state.copyWith(sampleOf: () => null, playing: false);
+      await _endSample();
       return;
+    }
+    final t = _timings;
+    final end = _loopEnd;
+    if (t != null && end != null && state.ayah <= end && end >= t.ayahCount) {
+      // The repeated ayah/range ends with the surah: loop it here, the file has no later ayah.
+      final from = _nextRound();
+      if (from != null) {
+        await _engine.seek(t.startOf(from));
+        await _engine.play();
+        return;
+      }
+      if (state.repeat == ListenRepeat.range) {
+        await _engine.pause();
+        return;
+      }
     }
     if (state.repeat == ListenRepeat.surah) {
       await _engine.seek(Duration.zero);
@@ -354,6 +620,11 @@ class ListenController extends Notifier<ListenState> {
             position: state.position,
             speed: state.speed,
             repeat: state.repeat,
+            repeatTimes: state.repeatTimes,
+            rangeFrom: state.rangeFrom,
+            rangeTo: state.rangeTo,
+            roundsDone: state.roundsDone,
+            loopEnded: state.loopEnded,
           ),
         )
         .ignore();
@@ -362,3 +633,6 @@ class ListenController extends Notifier<ListenState> {
 
 final listenControllerProvider = NotifierProvider<ListenController, ListenState>(ListenController.new);
 final recitersProvider = FutureProvider.autoDispose((ref) => ref.watch(reciterRepositoryProvider).list());
+
+/// The reciter chosen earlier, as stored on the device (the controller loads it only on first play).
+final storedReciterIdProvider = FutureProvider.autoDispose((ref) => ref.watch(listenStoreProvider).reciterId());

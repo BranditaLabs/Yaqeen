@@ -1,6 +1,39 @@
 import { describe, expect, it } from 'vitest';
-import { base32Decode, base32Encode, hashPassword, maskEmail, totp, verifyPassword, verifyTotp } from '../src/lib/crypto.js';
+import { randomBytes } from 'node:crypto';
+import {
+  base32Decode,
+  base32Encode,
+  hashPassword,
+  isSealed,
+  maskEmail,
+  openSecret,
+  sealSecret,
+  secretsKey,
+  totp,
+  verifyPassword,
+  verifyTotp,
+} from '../src/lib/crypto.js';
 import { buildDiscountRequest, generateCode } from '../src/domain/shopify.js';
+
+describe('sealed admin secrets', () => {
+  const key = secretsKey(randomBytes(32).toString('base64'));
+  it('round-trips, never stores the plain value, and detects tampering', () => {
+    const sealed = sealSecret('JBSWY3DPEHPK3PXP', key);
+    expect(isSealed(sealed)).toBe(true);
+    expect(sealed).not.toContain('JBSWY3DPEHPK3PXP');
+    expect(sealSecret('JBSWY3DPEHPK3PXP', key)).not.toBe(sealed); // fresh IV each time
+    expect(openSecret(sealed, key)).toBe('JBSWY3DPEHPK3PXP');
+    const tampered = sealed.slice(0, -2) + (sealed.endsWith('A') ? 'BB' : 'AA');
+    expect(() => openSecret(tampered, key)).toThrow();
+    expect(() => openSecret(sealed, secretsKey(randomBytes(32).toString('base64')))).toThrow();
+  });
+  it('reads legacy plain values; refuses sealed ones without the key; checks key length', () => {
+    expect(openSecret('JBSWY3DPEHPK3PXP', key)).toBe('JBSWY3DPEHPK3PXP');
+    expect(sealSecret('x', null)).toBe('x');
+    expect(() => openSecret(sealSecret('x', key), null)).toThrow(/ADMIN_SECRETS_KEY/);
+    expect(() => secretsKey(Buffer.from('short').toString('base64'))).toThrow(/32 bytes/);
+  });
+});
 
 describe('TOTP (RFC 6238 test vectors, SHA1)', () => {
   const secret = Buffer.from('12345678901234567890');

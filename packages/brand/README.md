@@ -50,3 +50,10 @@ ZEYADA Arabic 1 (Arabic headlines) and Canela Text (Latin headlines) — see `fo
 | Play Store | `app-icon/android/play-store-512.png` | Play Console listing |
 | Native splash (iOS + Android 12+) | `splash/android12-splash-icon.png` (navy mark) on `#F7F9FC` | `flutter_native_splash` config |
 | Web / admin | `web/*` | `apps/admin/public` (copied by the script) |
+
+## Avatars
+
+`avatars/` — 16 preset profile avatars (8 men `m01–m08`, 8 women `f01–f08`): faceless illustrations on the
+porcelain ground, brand blues and gold. `svg/` are the 512×512 masters, `avatars.json` the ids with
+Arabic/English labels; the app ships the WebP renders in `apps/mobile/assets/avatars/`. A preset id is
+what the API stores (`avatar: "preset:m01"`); the public card and leaderboards draw the same files.

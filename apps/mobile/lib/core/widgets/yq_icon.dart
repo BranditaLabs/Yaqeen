@@ -3,7 +3,7 @@ import 'package:path_drawing/path_drawing.dart';
 
 import '../theme/tokens.dart';
 
-/// The 20 custom Yaqeen icons, drawn on a 24×24 grid.
+/// The custom Yaqeen line icons, drawn on a 24×24 grid (no ornament).
 enum YqIcons {
   home,
   quran,
@@ -25,6 +25,20 @@ enum YqIcons {
   streak,
   play,
   share,
+  memorise,
+  recite,
+  hifz,
+  trophy,
+  badge,
+  league,
+  podium,
+  camera,
+  photo,
+  edit,
+  flag,
+  sync,
+  lock,
+  block,
 }
 
 enum YqIconTone { active, idle, gold, light }
@@ -105,6 +119,51 @@ final Map<YqIcons, List<(_K, String)>> _paths = {
     (_K.f, 'M5 11.5v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7'),
     (_K.a, 'M9.5 17.5h5'),
   ],
+  YqIcons.memorise: [(_K.f, 'M6 3.5h9l3.5 3.5v13.5H6z'), (_K.s, 'M9 9.5h6M9 13h4'), (_K.a, 'M13.5 17.5l1.5 1.5 3-3')],
+  YqIcons.recite: [
+    (_K.f, 'M9 5.5a3 3 0 0 1 6 0V11a3 3 0 0 1-6 0z'),
+    (_K.s, 'M5.5 11a6.5 6.5 0 0 0 13 0'),
+    (_K.s, 'M12 17.5V21'),
+    (_K.a, 'M9.5 21h5'),
+  ],
+  YqIcons.hifz: [
+    (_K.f, 'M5 4.5h11.5A2.5 2.5 0 0 1 19 7v13.5H7.5A2.5 2.5 0 0 1 5 18z'),
+    (_K.s, 'M5 18a2.5 2.5 0 0 1 2.5-2.5H19'),
+    (_K.a, 'M10 4.5v6l2-1.4 2 1.4v-6'),
+  ],
+  YqIcons.trophy: [
+    (_K.f, 'M7 3.5h10v5a5 5 0 0 1-10 0z'),
+    (_K.s, 'M7 5.5H4.5a3 3 0 0 0 3 4M17 5.5h2.5a3 3 0 0 1-3 4'),
+    (_K.s, 'M12 13.5v4'),
+    (_K.a, 'M8.5 20.5h7'),
+  ],
+  YqIcons.badge: [(_K.s, 'M8.5 3.5l2 6M15.5 3.5l-2 6'), (_K.f, _c(12, 15, 5)), (_K.g, _c(12, 15, 1.8))],
+  YqIcons.league: [(_K.f, 'M12 3l7 2.5V11c0 4.5-3 8-7 9.5C8 19 5 15.5 5 11V5.5z'), (_K.a, 'M9 13.5l3-3 3 3')],
+  YqIcons.podium: [
+    (_K.f, 'M9 9.5h6v11H9z'),
+    (_K.f, 'M3.5 13.5H9v7H3.5z'),
+    (_K.f, 'M15 15.5h5.5v5H15z'),
+    (_K.g, _c(12, 5, 1.6)),
+  ],
+  YqIcons.camera: [
+    (_K.f, 'M4 8h3.5L9 5.5h6L16.5 8H20a1 1 0 0 1 1 1v9.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z'),
+    (_K.s, _c(12, 13.5, 3.5)),
+    (_K.g, _c(17.8, 10.6, 0.7)),
+  ],
+  YqIcons.photo: [
+    (_K.f, 'M4.5 4.5h15a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1z'),
+    (_K.s, 'M3.5 16l5-5 4 4 2.5-2.5 5 5'),
+    (_K.g, _c(15.5, 8.5, 1.5)),
+  ],
+  YqIcons.edit: [(_K.f, 'M15.5 4.5l4 4L9 19H5v-4z'), (_K.s, 'M13.5 6.5l4 4'), (_K.a, 'M13 20h6.5')],
+  YqIcons.flag: [(_K.s, 'M5.5 21V3.5'), (_K.f, 'M5.5 4.5h11l-2 4 2 4h-11')],
+  YqIcons.sync: [
+    (_K.s, 'M19.5 12a7.5 7.5 0 0 1-13 5.1'),
+    (_K.s, 'M4.5 12a7.5 7.5 0 0 1 13-5.1'),
+    (_K.a, 'M17.5 3.5v3.4h-3.4M6.5 20.5v-3.4h3.4'),
+  ],
+  YqIcons.lock: [(_K.f, 'M5.5 10.5h13v10h-13z'), (_K.s, 'M8.5 10.5v-3a3.5 3.5 0 0 1 7 0v3'), (_K.a, 'M12 14.5V17')],
+  YqIcons.block: [(_K.f, _c(12, 12, 8.5)), (_K.s, 'M6 6l12 12')],
 };
 
 // Parsed once and cached.
@@ -118,11 +177,11 @@ class _Palette {
   final Color accent;
 }
 
-const _palettes = {
-  YqIconTone.active: _Palette(YqColors.lapis, Color(0x241F3F94), YqColors.gold),
-  YqIconTone.idle: _Palette(YqColors.muted, null, YqColors.muted),
-  YqIconTone.gold: _Palette(YqColors.goldText, Color(0x3DC6A867), YqColors.gold),
-  YqIconTone.light: _Palette(YqColors.white, Color(0x2EFFFFFF), YqColors.goldLight),
+final _palettes = {
+  YqIconTone.active: _Palette(YqColors.lapis, YqColors.lapis.withValues(alpha: 0x24 / 255), YqColors.gold),
+  YqIconTone.idle: const _Palette(YqColors.muted, null, YqColors.muted),
+  YqIconTone.gold: _Palette(YqColors.goldText, YqColors.gold.withValues(alpha: 0x3D / 255), YqColors.gold),
+  YqIconTone.light: _Palette(YqColors.white, YqColors.white.withValues(alpha: 0x2E / 255), YqColors.goldLight),
 };
 
 /// Duotone line icon: 1.5 stroke, round caps, soft tint when active and

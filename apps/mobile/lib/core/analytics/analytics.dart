@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 
 import '../storage/kv_store.dart';
 
@@ -22,24 +25,33 @@ enum AdEvent {
   final String wireName;
 }
 
-/// One ad platform SDK (Firebase/Google Ads, Meta, TikTok). Implemented in
-/// `lib/core/analytics/sinks/` once the SDK packages are added.
+/// One ad platform SDK (Firebase/Google Ads, Meta, TikTok) — `lib/core/analytics/sinks/`.
+///
+/// Sinks only ever see what [Analytics] hands them: an [AdEvent] and allowlisted params plus the
+/// `att` flag (1/0). They are called only while `ads_measurement` is granted, must not touch their SDK
+/// before [setEnabled] or [log], and must turn their SDK off on `setEnabled(false)`.
 abstract interface class AdSink {
   String get name;
   Future<void> log(AdEvent event, Map<String, Object> params);
-  Future<void> setEnabled(bool enabled);
+
+  /// [attAuthorized]: iOS App Tracking Transparency answered "allow" (always true on Android, which
+  /// has no ATT). Without it the SDK must not collect the advertising identifier.
+  Future<void> setEnabled(bool enabled, {bool attAuthorized = false});
 }
 
 class Analytics {
   Analytics({
     required List<AdSink> sinks,
     required bool Function() adsConsent,
-    bool Function()? attAuthorized,
+    Future<bool> Function()? attAuthorized,
+    bool Function()? consentDecided,
     KvStore? store,
     DateTime Function()? now,
+    this.sinkTimeout = const Duration(seconds: 5),
   })  : _sinks = sinks,
         _adsConsent = adsConsent,
-        _attAuthorized = attAuthorized ?? (() => true),
+        _attAuthorized = attAuthorized ?? (() async => false),
+        _consentDecided = consentDecided ?? (() => true),
         _store = store,
         _now = now ?? DateTime.now;
 
@@ -54,8 +66,14 @@ class Analytics {
   static const queueable = {AdEvent.firstOpen, AdEvent.signUp};
   static const queueTtl = Duration(hours: 24);
 
-  /// iOS App Tracking Transparency status. Without it, sinks must run in limited mode.
-  final bool Function() _attAuthorized;
+  /// iOS App Tracking Transparency status. Without it, sinks must run in limited mode (no IDFA).
+  final Future<bool> Function() _attAuthorized;
+
+  /// Whether the user has answered the consent screen. Before that no SDK is touched at all.
+  final bool Function() _consentDecided;
+
+  /// An SDK call that hangs or throws never blocks or breaks the screen that logged the event.
+  final Duration sinkTimeout;
 
   bool get enabled => _adsConsent();
 
@@ -93,18 +111,51 @@ class Analytics {
   }
 
   Future<void> _send(AdEvent event, Map<String, Object> params) async {
+    if (_sinks.isEmpty) return;
     final safe = {
       for (final e in params.entries)
         if (allowedParams.contains(e.key)) e.key: e.value,
-      'att': _attAuthorized() ? 1 : 0,
+      'att': await _att() ? 1 : 0,
     };
-    await Future.wait(_sinks.map((s) => s.log(event, safe)));
+    await _each('log ${event.wireName}', (s) => s.log(event, Map.unmodifiable(safe)));
   }
 
-  /// Call when the user changes the `ads_measurement` consent. Granting it sends the queued
-  /// install events that are still fresh; declining drops them.
+  Future<bool> _att() async {
+    try {
+      return await _attAuthorized().timeout(sinkTimeout);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _each(String what, Future<void> Function(AdSink) run) => Future.wait(
+        _sinks.map((s) async {
+          try {
+            await run(s).timeout(sinkTimeout);
+          } catch (e) {
+            debugPrint('YQ-ADS ${s.name} $what failed: $e');
+          }
+        }),
+      );
+
+  Future<void> _setSinks(bool granted) async {
+    if (_sinks.isEmpty) return;
+    final att = granted && await _att();
+    await _each('setEnabled($granted)', (s) => s.setEnabled(granted, attAuthorized: att));
+  }
+
+  /// After the first frame on every launch: brings the SDKs in line with the stored consent (on with
+  /// it, off without it). Does nothing before the consent screen has been answered.
+  Future<void> start() async {
+    if (!_consentDecided()) return;
+    await _setSinks(_adsConsent());
+  }
+
+  /// Call when the user changes the `ads_measurement` consent (after the ATT prompt, so the SDKs
+  /// start with its answer). Granting it sends the queued install events that are still fresh;
+  /// declining drops them and turns every SDK off.
   Future<void> onConsentChanged(bool granted) async {
-    await Future.wait(_sinks.map((s) => s.setEnabled(granted)));
+    await _setSinks(granted);
     final pending = await _pending();
     await _store?.delete(_queueKey);
     if (!granted) return;
@@ -114,16 +165,25 @@ class Analytics {
   }
 }
 
-/// Default sink until SDKs are wired — logs in debug only.
+/// In-memory sink for debug builds and tests: records what an ad SDK would have received.
 class DebugAdSink implements AdSink {
   final List<String> logged = [];
+  final List<Map<String, Object>> params = [];
+  bool? enabled;
+  bool? attAuthorized;
 
   @override
   String get name => 'debug';
 
   @override
-  Future<void> log(AdEvent event, Map<String, Object> params) async => logged.add(event.wireName);
+  Future<void> log(AdEvent event, Map<String, Object> params) async {
+    logged.add(event.wireName);
+    this.params.add(params);
+  }
 
   @override
-  Future<void> setEnabled(bool enabled) async {}
+  Future<void> setEnabled(bool enabled, {bool attAuthorized = false}) async {
+    this.enabled = enabled;
+    this.attAuthorized = attAuthorized;
+  }
 }

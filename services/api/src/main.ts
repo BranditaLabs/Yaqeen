@@ -5,9 +5,15 @@ import { createDb } from './db/client.js';
 import { AlAdhanClient } from './integrations/aladhan.js';
 import { FcmSender } from './integrations/fcm.js';
 import { ShopifyClient } from './integrations/shopify.js';
+import { registerPoolMetrics, serveMetrics, startDefaultMetrics } from './lib/metrics.js';
+import { captureError, flushErrors, initSentry } from './lib/observability.js';
 
 const env = loadEnv();
+initSentry(env, 'api');
+if (env.METRICS_PORT) startDefaultMetrics();
 const { db, pool } = createDb(env.DATABASE_URL, { max: env.PG_POOL_MAX, statementTimeoutMs: env.PG_STATEMENT_TIMEOUT_MS });
+registerPoolMetrics(pool);
+const metricsServer = env.METRICS_PORT ? serveMetrics(env.METRICS_PORT) : null;
 // Redis is optional in local dev (REDIS_URL=""): caching and shared rate limits are then in-memory/off.
 const redis = env.REDIS_URL ? new Redis(env.REDIS_URL, { maxRetriesPerRequest: 2, enableOfflineQueue: false }) : null;
 redis?.on('error', () => {}); // degraded mode is handled per call; avoid crash on reconnects
@@ -38,12 +44,17 @@ const shutdown = async (signal: string) => {
   app.log.info({ signal, graceMs: env.SHUTDOWN_GRACE_MS }, 'draining');
   await new Promise((r) => setTimeout(r, env.SHUTDOWN_GRACE_MS));
   await app.close();
+  metricsServer?.close();
+  await flushErrors();
   await pool.end();
   redis?.disconnect();
   process.exit(0);
 };
 process.on('SIGTERM', () => void shutdown('SIGTERM'));
 process.on('SIGINT', () => void shutdown('SIGINT'));
-process.on('unhandledRejection', (err) => app.log.error({ err }, 'unhandled rejection'));
+process.on('unhandledRejection', (err) => {
+  app.log.error({ err }, 'unhandled rejection');
+  captureError(err);
+});
 
 await app.listen({ host: '0.0.0.0', port: env.PORT });

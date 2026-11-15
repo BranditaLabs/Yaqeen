@@ -42,7 +42,7 @@ class YqSwitch extends StatelessWidget {
               decoration: const BoxDecoration(
                 color: YqColors.white,
                 shape: BoxShape.circle,
-                boxShadow: [BoxShadow(color: Color(0x330F1A36), blurRadius: 6, offset: Offset(0, 2))],
+                boxShadow: [BoxShadow(color: Color(0x330A1530), blurRadius: 6, offset: Offset(0, 2))],
               ),
             ),
           ),
@@ -72,7 +72,10 @@ class YqSegmented<T> extends StatelessWidget {
       child: Row(
         children: [
           for (final (value, label) in segments)
+            // Width follows the label (within limits), so «Morning azkar» gets the room it needs
+            // next to «Sleep» and every label stays at — or very near — its real size.
             Expanded(
+              flex: label.characters.length.clamp(6, 20),
               child: Semantics(
                 button: true,
                 selected: value == selected,
@@ -86,20 +89,30 @@ class YqSegmented<T> extends StatelessWidget {
                   child: AnimatedContainer(
                     duration: YqMotion.fast,
                     curve: YqMotion.ease,
-                    height: 38,
+                    constraints: const BoxConstraints(minHeight: 38),
+                    padding: const EdgeInsets.symmetric(horizontal: YqSpace.s, vertical: YqSpace.xs),
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       color: value == selected ? YqColors.white : const Color(0x00FFFFFF),
                       borderRadius: BorderRadius.circular(YqRadii.pill),
                       boxShadow:
-                          value == selected ? const [BoxShadow(color: Color(0x140F1A36), blurRadius: 8, offset: Offset(0, 2))] : null,
+                          value == selected ? const [BoxShadow(color: Color(0x140A1530), blurRadius: 8, offset: Offset(0, 2))] : null,
                     ),
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: value == selected ? FontWeight.w700 : FontWeight.w400,
-                        color: value == selected ? YqColors.lapis : YqColors.muted,
+                    // One line in every segment, so the pills stay equal and round: a long label
+                    // (bold when selected, English, large text) shrinks to fit instead of wrapping.
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        softWrap: false,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.2,
+                          fontWeight: value == selected ? FontWeight.w700 : FontWeight.w400,
+                          color: value == selected ? YqColors.lapis : YqColors.muted,
+                        ),
                       ),
                     ),
                   ),

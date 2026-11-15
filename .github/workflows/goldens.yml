@@ -1,0 +1,48 @@
+# Regenerates the Flutter golden images on Linux and commits them back to the branch.
+# Goldens are never generated on Windows/macOS (font rasterisation differs); every stream
+# that changes a golden's look dispatches this workflow on its branch instead.
+name: Goldens
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch to regenerate the goldens on (the commit goes back to it)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: goldens-${{ inputs.ref }}
+  cancel-in-progress: false
+
+jobs:
+  goldens:
+    name: Regenerate goldens (Linux)
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: apps/mobile } }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: subosito/flutter-action@v2
+        # Same channel as the CI "Flutter" job, so the goldens match what CI compares against.
+        with: { channel: stable, cache: true }
+      - run: flutter pub get
+      - run: flutter gen-l10n
+      - run: flutter test --update-goldens
+      - name: Commit changed goldens
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -- '*.png'
+          if git diff --cached --quiet; then
+            echo "Goldens unchanged."
+            exit 0
+          fi
+          git commit -m "Goldens: regenerate on Linux"
+          git push origin "HEAD:refs/heads/${REF}"

@@ -12,7 +12,7 @@ version is a new object, so the CDN never serves a stale file and older apps kee
 
 ## One-time setup (≈10 min)
 1. **Cloudflare dashboard › R2** → enable R2 → **Create bucket** `yaqeen-packs` (location: Automatic).
-2. Bucket › **Settings › Custom Domains** → **Connect domain** `cdn.yaqin-brand.com`.
+2. Bucket › **Settings › Custom Domains** → **Connect domain** `cdn.yaqeenarabia.com`.
    - The zone must be on Cloudflare.
    - This puts the bucket behind the CDN cache. The `r2.dev` URL is rate-limited: don't ship it.
 3. **R2 › Manage API tokens** → **Create API token**:
@@ -26,7 +26,7 @@ version is a new object, so the CDN never serves a stale file and older apps kee
 | `R2_ACCESS_KEY_ID` | secret | token's Access Key ID |
 | `R2_SECRET_ACCESS_KEY` | secret | token's Secret Access Key |
 | `R2_BUCKET` | variable | `yaqeen-packs` |
-| `PACKS_PUBLIC_BASE_URL` | variable | `https://cdn.yaqin-brand.com` |
+| `PACKS_PUBLIC_BASE_URL` | variable | `https://cdn.yaqeenarabia.com` |
 
 ## Publishing the tafsir
 1. **Actions › Tafsir pack › Run workflow**. The run:

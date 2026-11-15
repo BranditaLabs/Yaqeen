@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -13,8 +13,10 @@ import 'package:yaqeen/core/widgets/liquid_glass.dart';
 import 'package:yaqeen/features/azkar/domain/azkar_progress.dart';
 import 'package:yaqeen/features/azkar/presentation/azkar_controller.dart';
 import 'package:yaqeen/features/azkar/presentation/azkar_screen.dart';
+import 'package:yaqeen/features/content/data/content_repository.dart';
 import 'package:yaqeen/features/content/domain/content_item.dart';
 import 'package:yaqeen/features/duas/presentation/duas_screen.dart';
+import 'package:yaqeen/features/prayer/domain/prayer_calculator.dart';
 
 import '../helpers/fonts.dart';
 import '../helpers/harness.dart';
@@ -52,6 +54,14 @@ http.Client server() => MockClient((req) async {
       }
       return http.Response('{}', 404);
     });
+
+/// The bundled seed, from memory.
+class _Seed extends CachingAssetBundle {
+  _Seed(this.items);
+  final List<Object?> items;
+  @override
+  Future<ByteData> load(String key) async => ByteData.sublistView(Uint8List.fromList(utf8.encode(jsonEncode({'items': items}))));
+}
 
 List<Override> base() => [
       clockProvider.overrideWithValue(() => DateTime.utc(2026, 10, 20, 6)),
@@ -93,6 +103,81 @@ void main() {
       expect(AzkarDay.forToday(d, '2026-10-21').counts, isEmpty);
       expect(AzkarDay.tryParse(jsonDecode(jsonEncode(d.toJson())))!.countOf(set[0]), 3);
     });
+  });
+
+  group('content sync', () {
+    ContentRepository repo(MemoryKvStore kv, http.Response Function() res, {List<Object?> seed = const []}) => ContentRepository(
+          api: ApiClient(baseUrl: 'https://api.test', tokens: TokenStore(MemoryKvStore()), client: MockClient((_) async => res())),
+          cache: kv,
+          bundle: _Seed(seed),
+        );
+    http.Response json(Object body) => http.Response.bytes(utf8.encode(jsonEncode(body)), 200, headers: {'content-type': 'application/json'});
+
+    test('an empty or non-list answer never wipes the library on the device', () async {
+      final kv = MemoryKvStore();
+      expect(await repo(kv, () => json(payload)).sync(), hasLength(6));
+      final cached = await kv.read('cache.content');
+
+      final empty = await repo(kv, () => json(const [])).sync();
+      expect(empty!.map((i) => i.id), containsAll(['m1', 'd1']));
+      expect(await kv.read('cache.content'), cached);
+
+      expect(await repo(kv, () => http.Response('', 200)).sync(), isNull);
+      expect(await repo(kv, () => json({'error': null})).sync(), isNull);
+      expect(await kv.read('cache.content'), cached);
+
+      // A real list still replaces it in full (unpublished items drop).
+      expect((await repo(kv, () => json([payload.first])).sync())!.map((i) => i.id), ['m1']);
+    });
+
+    test('an empty cache falls back to the bundled seed', () async {
+      final kv = MemoryKvStore();
+      await kv.write('cache.content', '[]');
+      expect((await repo(kv, () => json(const []), seed: payload).local()).map((i) => i.id), contains('m1'));
+      // Nothing anywhere yet: the server's empty list is the honest answer.
+      expect(await repo(MemoryKvStore(), () => json(const [])).sync(), isEmpty);
+    });
+  });
+
+  test("default set follows the place's prayer windows: evening from Asr until Isha", () {
+    final times = PrayerDayTimes(
+      year: 2026,
+      month: 10,
+      day: 20,
+      fajr: DateTime.utc(2026, 10, 20, 2, 30),
+      sunrise: DateTime.utc(2026, 10, 20, 3, 50),
+      dhuhr: DateTime.utc(2026, 10, 20, 9, 40),
+      asr: DateTime.utc(2026, 10, 20, 12, 50),
+      maghrib: DateTime.utc(2026, 10, 20, 15, 15),
+      isha: DateTime.utc(2026, 10, 20, 16, 35),
+    );
+    expect(defaultZikrSet(DateTime.utc(2026, 10, 20, 12, 30), times), ZikrSet.morning); // 15:30 Cairo, before Asr
+    expect(defaultZikrSet(DateTime.utc(2026, 10, 20, 13), times), ZikrSet.evening);
+    expect(defaultZikrSet(DateTime.utc(2026, 10, 20, 17), times), ZikrSet.morning);
+  });
+
+  test('controller: a new day starts from zero even while the provider stays alive', () async {
+    var now = DateTime.utc(2026, 10, 20, 6);
+    final c = ProviderContainer(
+      overrides: [
+        kvStoreProvider.overrideWithValue(MemoryKvStore()),
+        secureStoreProvider.overrideWithValue(MemoryKvStore()),
+        clockProvider.overrideWithValue(() => now),
+        apiClientProvider.overrideWithValue(ApiClient(baseUrl: 'https://api.test', tokens: TokenStore(MemoryKvStore()), client: server())),
+      ],
+    );
+    addTearDown(c.dispose);
+    final lib = ContentLibrary(payload.map(ContentItem.tryParse).whereType<ContentItem>().toList());
+    final set = lib.azkar(ZikrSet.morning);
+    final ctl = c.read(azkarControllerProvider.notifier);
+    await Future<void>.delayed(Duration.zero);
+    ctl.tap(set[1], set: [set[1]], kind: ZikrSet.afterPrayer);
+    expect(c.read(azkarControllerProvider).doneItem(set[1]), isTrue);
+    expect(ctl.ensureToday(), isFalse);
+    now = DateTime.utc(2026, 10, 21, 6);
+    expect(ctl.ensureToday(), isTrue);
+    expect(c.read(azkarControllerProvider).date, '2026-10-21');
+    expect(c.read(azkarControllerProvider).doneItem(set[1]), isFalse);
   });
 
   test('controller: rapid taps all count, and progress survives a restart', () async {

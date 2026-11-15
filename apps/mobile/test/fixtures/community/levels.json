@@ -1,0 +1,23 @@
+[
+  {
+    "level": 1,
+    "nameAr": "بداية الطريق",
+    "nameEn": "Setting out",
+    "progress": 0,
+    "nextAt": 500
+  },
+  {
+    "level": 2,
+    "nameAr": "على الطريق",
+    "nameEn": "On the path",
+    "progress": 0.5,
+    "nextAt": 2000
+  },
+  {
+    "level": 6,
+    "nameAr": "منارة",
+    "nameEn": "Beacon",
+    "progress": 1,
+    "nextAt": null
+  }
+]

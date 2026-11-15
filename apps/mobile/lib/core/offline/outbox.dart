@@ -47,7 +47,15 @@ class Outbox {
     return (jsonDecode(raw) as List).map((e) => OutboxItem.fromJson((e as Map).cast<String, dynamic>())).toList();
   }
 
-  Future<void> _save(List<OutboxItem> items) => _store.write(_key, jsonEncode(items.map((e) => e.toJson()).toList()));
+  final _changes = StreamController<void>.broadcast();
+
+  /// Fires after every write to the queue (an item added, sent or dropped).
+  Stream<void> get changes => _changes.stream;
+
+  Future<void> _save(List<OutboxItem> items) async {
+    await _store.write(_key, jsonEncode(items.map((e) => e.toJson()).toList()));
+    _changes.add(null);
+  }
 
   Future<void> add(OutboxItem item) async => _save([...await items(), item]);
 
@@ -55,8 +63,8 @@ class Outbox {
 
   Future<int> get length async => (await items()).length;
 
-  /// Sends items in order. Stops at the first offline error (keeps the rest);
-  /// drops items the server rejects permanently (e.g. already completed).
+  /// Sends items in order. Stops at the first offline error or 401 (keeps the rest for the next
+  /// session); drops items the server rejects permanently (e.g. already completed).
   /// Returns the number of items removed from the queue.
   Future<int> flush(OutboxSender send, {void Function(OutboxItem item, ApiException error)? onRejected}) async {
     final queue = await items();
@@ -66,7 +74,8 @@ class Outbox {
         await send(item);
         removed++;
       } on ApiException catch (e) {
-        if (!e.isPermanent) break;
+        // A 401 is about the session, not the write: the tick is still owed once signed in again.
+        if (!e.isPermanent || e.status == 401) break;
         onRejected?.call(item, e);
         removed++;
       } on OfflineException {

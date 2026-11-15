@@ -1,0 +1,6 @@
+/* Usage strings (Arabic). Info.plist carries the bilingual fallback. */
+"NSCameraUsageDescription" = "لالتقاط صورة لملفّك في يقين فقط، إن اخترت ذلك.";
+"NSPhotoLibraryUsageDescription" = "لاختيار صورة لملفّك في يقين فقط، ولا نقرأ غيرها.";
+"NSLocationWhenInUseUsageDescription" = "نستخدم موقعك لحساب مواقيت الصلاة واتجاه القبلة فقط، ويبقى على جهازك.";
+"NSMicrophoneUsageDescription" = "نستمع لتلاوتك على جهازك للتسميع دون رفع أي صوت، ونسجّل تلاواتك في «تلاواتي» حين تختار ذلك لتُحفظ في حسابك.";
+"NFCReaderUsageDescription" = "نقرأ رابط ميدالية أو بطاقة يقين حين تقرّبها من الهاتف لتفعيلها.";

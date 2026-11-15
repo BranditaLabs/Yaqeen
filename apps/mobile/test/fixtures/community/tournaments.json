@@ -1,0 +1,62 @@
+[
+  {
+    "id": "7d3c2a10-5b1e-4c7a-9f00-1a2b3c4d5e01",
+    "slug": "ramadan-1448",
+    "titleAr": "رمضان 1448",
+    "titleEn": "Ramadan 1448",
+    "bodyAr": "تنافسٌ لطيف طوال الشهر.",
+    "bodyEn": "A gentle month-long challenge.",
+    "startsAt": "2027-02-07T22:00:00.000Z",
+    "endsAt": "2027-03-09T22:00:00.000Z",
+    "joinUntil": "2027-02-17T22:00:00.000Z",
+    "phase": "upcoming",
+    "closed": false,
+    "joined": false,
+    "participants": 0,
+    "badgeAr": "منصّة رمضان",
+    "badgeEn": "Ramadan podium",
+    "me": null
+  },
+  {
+    "id": "7d3c2a10-5b1e-4c7a-9f00-1a2b3c4d5e02",
+    "slug": "autumn-good",
+    "titleAr": "خريف الخير",
+    "titleEn": "Autumn of good",
+    "bodyAr": "",
+    "bodyEn": "",
+    "startsAt": "2026-11-07T22:00:00.000Z",
+    "endsAt": "2026-11-28T22:00:00.000Z",
+    "joinUntil": "2026-11-21T22:00:00.000Z",
+    "phase": "live",
+    "closed": false,
+    "joined": true,
+    "participants": 214,
+    "badgeAr": "خريف الخير",
+    "badgeEn": "Autumn of good",
+    "me": {
+      "rank": 17,
+      "points": 640
+    }
+  },
+  {
+    "id": "7d3c2a10-5b1e-4c7a-9f00-1a2b3c4d5e03",
+    "slug": "mawlid",
+    "titleAr": "تحدّي المولد",
+    "titleEn": "Mawlid challenge",
+    "bodyAr": "",
+    "bodyEn": "",
+    "startsAt": "2026-08-20T21:00:00.000Z",
+    "endsAt": "2026-08-30T21:00:00.000Z",
+    "joinUntil": "2026-08-30T21:00:00.000Z",
+    "phase": "ended",
+    "closed": true,
+    "joined": true,
+    "participants": 140,
+    "badgeAr": "المولد",
+    "badgeEn": "Mawlid",
+    "me": {
+      "rank": 1,
+      "points": 980
+    }
+  }
+]

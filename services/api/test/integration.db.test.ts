@@ -5,6 +5,7 @@
  *
  * The database is wiped and migrated at the start of the run.
  */
+import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { eq, sql } from 'drizzle-orm';
@@ -37,7 +38,7 @@ describe.skipIf(!url)('integration (Postgres)', () => {
     await reset.end();
 
     ({ db, pool } = createDb(url!));
-    await migrate(db, { migrationsFolder: new URL('../drizzle', import.meta.url).pathname });
+    await migrate(db, { migrationsFolder: fileURLToPath(new URL('../drizzle', import.meta.url)) });
     await db.insert(s.taskRules).values([
       { key: 'wird', labelAr: 'وِرد', labelEn: 'Wird', points: 20, sortOrder: 1 },
       { key: 'morning_azkar', labelAr: 'الصباح', labelEn: 'Morning', points: 10, sortOrder: 2 },
@@ -69,16 +70,28 @@ describe.skipIf(!url)('integration (Postgres)', () => {
     return { id: u!.id, token: await signUserToken({ sub: u!.id, guest: false }, env.JWT_SECRET) };
   }
 
+  // Each test admin logs in from its own address: /admin/auth/login allows 5 per 5 minutes per IP,
+  // and this file signs in more admins than that.
+  let adminIp = 0;
   async function makeAdmin(role: 'super_admin' | 'religious_reviewer' | 'content_editor' | 'support', email: string) {
     const secret = generateTotpSecret();
     await db.insert(s.adminUsers).values({ name: role, email, role, passwordHash: await hashPassword('a-strong-password'), totpSecret: secret });
     const res = await app.inject({
       method: 'POST',
       url: '/admin/auth/login',
+      remoteAddress: `10.9.0.${++adminIp}`,
       payload: { email, password: 'a-strong-password', totp: totp(base32Decode(secret), NOW.getTime()) },
     });
     expect(res.statusCode).toBe(200);
     return res.json().token as string;
+  }
+
+  /** «مهمة اليوم» counts only on days with a reviewer-approved task (placeholder text). */
+  async function publishDailyTasks(...dates: string[]) {
+    const live = { taskAr: '[مهمة]', taskEn: '[task]' };
+    for (const date of dates) {
+      await db.insert(s.dailyTasks).values({ date, ...live, status: 'published', live }).onConflictDoNothing();
+    }
   }
 
   it('guest can sign in but cannot enroll (points need a real account)', async () => {
@@ -99,6 +112,7 @@ describe.skipIf(!url)('integration (Postgres)', () => {
     const u = await makeUser('Sara');
     await app.inject({ method: 'POST', url: '/v1/challenge/enroll', headers: auth(u.token) });
     await db.update(s.challengeEnrollments).set({ startedOn: '2026-10-15' }).where(eq(s.challengeEnrollments.userId, u.id));
+    await publishDailyTasks('2026-10-18', '2026-10-20');
 
     const tasks = ['wird', 'morning_azkar', 'five_prayers', 'evening_azkar', 'listen', 'daily_task'];
     for (const t of tasks) {
@@ -210,6 +224,43 @@ describe.skipIf(!url)('integration (Postgres)', () => {
     expect(pub.map((c: { id: string }) => c.id)).toContain(created.id);
   });
 
+  it('daily task: served only after a second person approves it; no task, nothing to tick', async () => {
+    const editorToken = await makeAdmin('content_editor', 'editor-daily@yaqin-brand.com');
+    const reviewerToken = await makeAdmin('religious_reviewer', 'sheikh-daily@yaqin-brand.com');
+    const date = '2026-10-21';
+    const put = await app.inject({
+      method: 'PUT',
+      url: '/admin/content/daily-tasks',
+      headers: auth(editorToken),
+      payload: { date, taskAr: '[مهمة الغد]', taskEn: '[task]' },
+    });
+    expect(put.statusCode).toBe(200);
+    expect((await app.inject({ method: 'GET', url: `/v1/daily-task?date=${date}` })).json()).toBeNull();
+
+    const own = await app.inject({ method: 'POST', url: `/admin/content/daily-tasks/${date}/review`, headers: auth(editorToken), payload: { decision: 'approve' } });
+    expect(own.statusCode).toBe(403);
+    const ok = await app.inject({ method: 'POST', url: `/admin/content/daily-tasks/${date}/review`, headers: auth(reviewerToken), payload: { decision: 'approve' } });
+    expect(ok.json().status).toBe('published');
+    expect((await app.inject({ method: 'GET', url: `/v1/daily-task?date=${date}` })).json()).toMatchObject({ taskAr: '[مهمة الغد]' });
+
+    // An edit goes back to review; the approved text stays live meanwhile.
+    await app.inject({ method: 'PUT', url: '/admin/content/daily-tasks', headers: auth(editorToken), payload: { date, taskAr: '[تعديل]', taskEn: '[edit]' } });
+    const [row] = await db.select().from(s.dailyTasks).where(eq(s.dailyTasks.date, date));
+    expect(row).toMatchObject({ status: 'pending_review', live: { taskAr: '[مهمة الغد]', taskEn: '[task]' } });
+
+    // No published task on 17 Oct: ticking it is refused (it isn't part of that day).
+    const u = await makeUser('Yusuf');
+    await app.inject({ method: 'POST', url: '/v1/challenge/enroll', headers: auth(u.token) });
+    await db.update(s.challengeEnrollments).set({ startedOn: '2026-10-15' }).where(eq(s.challengeEnrollments.userId, u.id));
+    const none = await app.inject({
+      method: 'POST',
+      url: '/v1/challenge/tasks/daily_task/complete',
+      headers: auth(u.token),
+      payload: { date: '2026-10-17', clientEventId: 'yusuf-daily' },
+    });
+    expect(none.json().error.code).toBe('no_daily_task');
+  });
+
   it('admin login rejects a wrong TOTP', async () => {
     const res = await app.inject({
       method: 'POST',
@@ -238,12 +289,13 @@ describe.skipIf(!url)('integration (Postgres)', () => {
     expect((await app.inject({ method: 'PUT', url: '/admin/rewards/milestones', headers: H, payload: [{ days: 2, points: 70, labelAr: 'يومان', active: true }] })).statusCode).toBe(200);
 
     const cfg = (await app.inject({ method: 'GET', url: '/v1/config' })).json();
-    expect(cfg.points).toEqual({ dailyTotal: 120, qadaDayPoints: 60, qadaWindowDays: 3, challengeLengthDays: 365, cheapestRewardPoints: 1000 });
+    expect(cfg.points).toEqual({ dailyTotal: 120, qadaDayPoints: 60, qadaWindowDays: 3, challengeLengthDays: 365, cheapestRewardPoints: 1000, bonuses: [] });
 
     // 2) The app follows the new rules immediately.
     const u = await makeUser('Huda');
     await app.inject({ method: 'POST', url: '/v1/challenge/enroll', headers: auth(u.token) });
     await db.update(s.challengeEnrollments).set({ startedOn: '2026-10-19' }).where(eq(s.challengeEnrollments.userId, u.id));
+    await publishDailyTasks('2026-10-19', '2026-10-20');
     const off = await app.inject({ method: 'POST', url: '/v1/challenge/tasks/listen/complete', headers: auth(u.token), payload: { date: '2026-10-20', clientEventId: 'huda-listen' } });
     expect(off.json().error.code).toBe('task_inactive');
 

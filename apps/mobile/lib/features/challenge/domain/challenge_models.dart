@@ -19,7 +19,10 @@ enum TaskKey {
 enum BonusKind {
   whiteDaysFast('white_days_fast'),
   monThuFast('mon_thu_fast'),
-  fridayKahf('friday_kahf');
+  fridayKahf('friday_kahf'),
+  ramadanFast('ramadan_fast'),
+  taraweeh('taraweeh'),
+  ramadanJuz('ramadan_juz');
 
   const BonusKind(this.wire);
   final String wire;
@@ -143,6 +146,27 @@ class ChallengeSummary {
         qadaDays: (j['qadaDays'] as int?) ?? 0,
       );
 
+  /// The summary moved on to [date] (the place's today) when it still shows an earlier day — a
+  /// cached summary read after local midnight. The new day starts empty; the server's next answer
+  /// replaces it. Unchanged when [date] is not later than [today].
+  ChallengeSummary rolledTo(String date) {
+    final t = today;
+    if (t == null || date.compareTo(t.date) <= 0) return this;
+    final gap = DateTime.parse('${date}T00:00:00Z').difference(DateTime.parse('${t.date}T00:00:00Z')).inDays;
+    return ChallengeSummary(
+      enrolled: enrolled,
+      startedOn: startedOn,
+      dayNumber: dayNumber + gap,
+      streak: streak,
+      balance: balance,
+      today: ChallengeDay(date: date, dayNumber: t.dayNumber + gap, status: DayStatus.today, points: 0, completed: const {}),
+      tasks: tasks,
+      challengeLengthDays: challengeLengthDays,
+      nextMilestone: nextMilestone,
+      qadaDays: qadaDays,
+    );
+  }
+
   /// Optimistic update after a local completion (server confirms later via the outbox).
   ChallengeSummary completeLocally(TaskKey task) {
     final t = today;
@@ -260,6 +284,15 @@ class ChallengeCalendar {
         dailyTotal: j['dailyTotal'] as int,
         days: (j['days'] as List).map((e) => CalendarCell.fromJson((e as Map).cast<String, dynamic>())).toList(),
       );
+
+  /// The journey's length as the server set it (`endsOn` is the last day, inclusive); the admin
+  /// can change it, so it is never assumed to be 365 unless the span is unknown.
+  int get lengthDays {
+    final s = startedOn, e = endsOn;
+    if (s == null || e == null) return 365;
+    final n = DateTime.parse('${e}T00:00:00Z').difference(DateTime.parse('${s}T00:00:00Z')).inDays + 1;
+    return n > 0 ? n : 365;
+  }
 
   /// Rule: qada only for past, not-complete days inside the window (spec §5.21).
   bool canMakeUp(CalendarCell cell) {

@@ -1,4 +1,7 @@
 import '../../features/prayer/domain/prayer_calculator.dart';
+import 'routine_slot.dart';
+
+export 'routine_slot.dart';
 
 /// How a prayer alerts: full adhan, a plain notification, or nothing (spec §5.17).
 enum AlertMode { adhan, notify, silent }
@@ -6,6 +9,9 @@ enum AlertMode { adhan, notify, silent }
 enum AdhanVoice { makkah, madinah, calm, takbir }
 
 enum MushafTheme { paper, white, night }
+
+/// How reader pages turn: like a book (page lifts from the spine) or a flat slide.
+enum PageTurn { book, slide }
 
 enum QuranScript { uthmani, indopak }
 
@@ -55,6 +61,9 @@ class AppSettings {
     this.quranFontSize = 26,
     this.mushafTheme = MushafTheme.paper,
     this.comfortableSpacing = false,
+    this.pageTurn = PageTurn.book,
+    this.autoNight = false,
+    this.immersiveReading = true,
     this.keepAwake = true,
     this.place,
     this.method = CalcMethod.egypt,
@@ -69,6 +78,10 @@ class AppSettings {
     this.kahfFriday = true,
     this.wirdMissing = false,
     this.hifzDue = true,
+    this.suhoorReminder = true,
+    this.suhoorMinutes = 45,
+    this.iftarReminder = true,
+    this.iftarMinutes = 15,
     this.quietStartMinutes = 21 * 60,
     this.quietEndMinutes = 5 * 60,
     this.quietHours = true,
@@ -76,9 +89,12 @@ class AppSettings {
     this.azkarSound = false,
     this.volumeKeysCount = false,
     this.wirdGoalPages = 2,
-    this.wirdReminderMinutes = 6 * 60,
+    this.quranSlot = defaultQuranSlot,
+    this.hifzSlot = RoutineSlot.off,
+    this.dhikrSlot = RoutineSlot.off,
     this.hijriOffsetDays = 0,
     this.onboardingStep = 0,
+    this.onboardingRoute,
     this.onboardingCompletedAt,
     this.lastSplashDay,
     this.readerHintSeen = false,
@@ -93,6 +109,9 @@ class AppSettings {
     PrayerName.isha: AlertMode.notify,
   };
 
+  /// Quran reading a quarter of an hour after Fajr until the user picks their own time.
+  static const defaultQuranSlot = RoutineSlot.afterPrayer(PrayerName.fajr);
+
   /// Font sizes for S / M / L / XL (spec §5.4).
   static const fontSizes = [22.0, 26.0, 30.0, 34.0];
 
@@ -101,6 +120,12 @@ class AppSettings {
   final double quranFontSize;
   final MushafTheme mushafTheme;
   final bool comfortableSpacing;
+
+  /// Reader: page-turn style; night pages after Maghrib until sunrise; hide the system bars with
+  /// the reader's own chrome.
+  final PageTurn pageTurn;
+  final bool autoNight;
+  final bool immersiveReading;
   final bool keepAwake;
   final Place? place;
   final CalcMethod method;
@@ -118,6 +143,12 @@ class AppSettings {
   final bool wirdMissing;
   final bool hifzDue;
 
+  /// Ramadan only: «السحور» [suhoorMinutes] before Fajr and «الإفطار قريب» [iftarMinutes] before Maghrib.
+  final bool suhoorReminder;
+  final int suhoorMinutes;
+  final bool iftarReminder;
+  final int iftarMinutes;
+
   /// Minutes since midnight. Quiet hours never silence the adhan.
   final int quietStartMinutes;
   final int quietEndMinutes;
@@ -127,10 +158,21 @@ class AppSettings {
   final bool volumeKeysCount;
   final int wirdGoalPages;
 
-  /// Daily wird reminder, minutes since midnight.
-  final int wirdReminderMinutes;
+  /// The daily routine (routine step, spec §5.2): when the user reads Quran, reviews hifz and
+  /// does a dhikr session. Drives the Home timeline and the local reminders. Device first; optional
+  /// encrypted cloud backup (consent `cloud_backup`).
+  final RoutineSlot quranSlot;
+  final RoutineSlot hifzSlot;
+  final RoutineSlot dhikrSlot;
   final int hijriOffsetDays;
+
+  /// Legacy resume index (kept for settings saved before [onboardingRoute] existed; read through the
+  /// frozen v1 route list by the splash gate).
   final int onboardingStep;
+
+  /// The onboarding route to resume at (e.g. `/onboarding/profile`) — resume by name, so adding a
+  /// step never shifts where an interrupted onboarding continues. Null in settings saved before it.
+  final String? onboardingRoute;
   final DateTime? onboardingCompletedAt;
 
   /// YYYY-MM-DD of the last full splash animation (later launches that day use the short hold).
@@ -148,6 +190,9 @@ class AppSettings {
     double? quranFontSize,
     MushafTheme? mushafTheme,
     bool? comfortableSpacing,
+    PageTurn? pageTurn,
+    bool? autoNight,
+    bool? immersiveReading,
     bool? keepAwake,
     Place? place,
     CalcMethod? method,
@@ -162,6 +207,10 @@ class AppSettings {
     bool? kahfFriday,
     bool? wirdMissing,
     bool? hifzDue,
+    bool? suhoorReminder,
+    int? suhoorMinutes,
+    bool? iftarReminder,
+    int? iftarMinutes,
     int? quietStartMinutes,
     int? quietEndMinutes,
     bool? quietHours,
@@ -169,9 +218,12 @@ class AppSettings {
     bool? azkarSound,
     bool? volumeKeysCount,
     int? wirdGoalPages,
-    int? wirdReminderMinutes,
+    RoutineSlot? quranSlot,
+    RoutineSlot? hifzSlot,
+    RoutineSlot? dhikrSlot,
     int? hijriOffsetDays,
     int? onboardingStep,
+    String? onboardingRoute,
     DateTime? onboardingCompletedAt,
     String? lastSplashDay,
     bool? readerHintSeen,
@@ -182,6 +234,9 @@ class AppSettings {
         quranFontSize: quranFontSize ?? this.quranFontSize,
         mushafTheme: mushafTheme ?? this.mushafTheme,
         comfortableSpacing: comfortableSpacing ?? this.comfortableSpacing,
+        pageTurn: pageTurn ?? this.pageTurn,
+        autoNight: autoNight ?? this.autoNight,
+        immersiveReading: immersiveReading ?? this.immersiveReading,
         keepAwake: keepAwake ?? this.keepAwake,
         place: place ?? this.place,
         method: method ?? this.method,
@@ -196,6 +251,10 @@ class AppSettings {
         kahfFriday: kahfFriday ?? this.kahfFriday,
         wirdMissing: wirdMissing ?? this.wirdMissing,
         hifzDue: hifzDue ?? this.hifzDue,
+        suhoorReminder: suhoorReminder ?? this.suhoorReminder,
+        suhoorMinutes: suhoorMinutes ?? this.suhoorMinutes,
+        iftarReminder: iftarReminder ?? this.iftarReminder,
+        iftarMinutes: iftarMinutes ?? this.iftarMinutes,
         quietStartMinutes: quietStartMinutes ?? this.quietStartMinutes,
         quietEndMinutes: quietEndMinutes ?? this.quietEndMinutes,
         quietHours: quietHours ?? this.quietHours,
@@ -203,9 +262,12 @@ class AppSettings {
         azkarSound: azkarSound ?? this.azkarSound,
         volumeKeysCount: volumeKeysCount ?? this.volumeKeysCount,
         wirdGoalPages: wirdGoalPages ?? this.wirdGoalPages,
-        wirdReminderMinutes: wirdReminderMinutes ?? this.wirdReminderMinutes,
+        quranSlot: quranSlot ?? this.quranSlot,
+        hifzSlot: hifzSlot ?? this.hifzSlot,
+        dhikrSlot: dhikrSlot ?? this.dhikrSlot,
         hijriOffsetDays: hijriOffsetDays ?? this.hijriOffsetDays,
         onboardingStep: onboardingStep ?? this.onboardingStep,
+        onboardingRoute: onboardingRoute ?? this.onboardingRoute,
         onboardingCompletedAt: onboardingCompletedAt ?? this.onboardingCompletedAt,
         lastSplashDay: lastSplashDay ?? this.lastSplashDay,
         readerHintSeen: readerHintSeen ?? this.readerHintSeen,
@@ -217,6 +279,9 @@ class AppSettings {
         'quranFontSize': quranFontSize,
         'mushafTheme': mushafTheme.name,
         'comfortableSpacing': comfortableSpacing,
+        'pageTurn': pageTurn.name,
+        'autoNight': autoNight,
+        'immersiveReading': immersiveReading,
         'keepAwake': keepAwake,
         'place': place?.toJson(),
         'method': method.wire,
@@ -231,6 +296,10 @@ class AppSettings {
         'kahfFriday': kahfFriday,
         'wirdMissing': wirdMissing,
         'hifzDue': hifzDue,
+        'suhoorReminder': suhoorReminder,
+        'suhoorMinutes': suhoorMinutes,
+        'iftarReminder': iftarReminder,
+        'iftarMinutes': iftarMinutes,
         'quietStartMinutes': quietStartMinutes,
         'quietEndMinutes': quietEndMinutes,
         'quietHours': quietHours,
@@ -238,9 +307,12 @@ class AppSettings {
         'azkarSound': azkarSound,
         'volumeKeysCount': volumeKeysCount,
         'wirdGoalPages': wirdGoalPages,
-        'wirdReminderMinutes': wirdReminderMinutes,
+        'quranSlot': quranSlot.toJson(),
+        'hifzSlot': hifzSlot.toJson(),
+        'dhikrSlot': dhikrSlot.toJson(),
         'hijriOffsetDays': hijriOffsetDays,
         'onboardingStep': onboardingStep,
+        'onboardingRoute': onboardingRoute,
         'onboardingCompletedAt': onboardingCompletedAt?.toIso8601String(),
         'lastSplashDay': lastSplashDay,
         'readerHintSeen': readerHintSeen,
@@ -258,6 +330,9 @@ class AppSettings {
       quranFontSize: (j['quranFontSize'] as num?)?.toDouble().clamp(22.0, 34.0) ?? d.quranFontSize,
       mushafTheme: byName(MushafTheme.values, 'mushafTheme', d.mushafTheme),
       comfortableSpacing: pick('comfortableSpacing', d.comfortableSpacing),
+      pageTurn: byName(PageTurn.values, 'pageTurn', d.pageTurn),
+      autoNight: pick('autoNight', d.autoNight),
+      immersiveReading: pick('immersiveReading', d.immersiveReading),
       keepAwake: pick('keepAwake', d.keepAwake),
       place: j['place'] is Map ? Place.fromJson((j['place'] as Map).cast<String, dynamic>()) : null,
       method: CalcMethod.fromWire(j['method'] as String?),
@@ -275,6 +350,10 @@ class AppSettings {
       kahfFriday: pick('kahfFriday', d.kahfFriday),
       wirdMissing: pick('wirdMissing', d.wirdMissing),
       hifzDue: pick('hifzDue', d.hifzDue),
+      suhoorReminder: pick('suhoorReminder', d.suhoorReminder),
+      suhoorMinutes: pick('suhoorMinutes', d.suhoorMinutes),
+      iftarReminder: pick('iftarReminder', d.iftarReminder),
+      iftarMinutes: pick('iftarMinutes', d.iftarMinutes),
       quietStartMinutes: pick('quietStartMinutes', d.quietStartMinutes),
       quietEndMinutes: pick('quietEndMinutes', d.quietEndMinutes),
       quietHours: pick('quietHours', d.quietHours),
@@ -282,19 +361,36 @@ class AppSettings {
       azkarSound: pick('azkarSound', d.azkarSound),
       volumeKeysCount: pick('volumeKeysCount', d.volumeKeysCount),
       wirdGoalPages: pick('wirdGoalPages', d.wirdGoalPages),
-      wirdReminderMinutes: pick('wirdReminderMinutes', d.wirdReminderMinutes),
+      // Before the routine existed the wird had a fixed clock time; a changed one is kept as such.
+      quranSlot: RoutineSlot.fromJson(
+        j['quranSlot'],
+        j['wirdReminderMinutes'] is int && j['wirdReminderMinutes'] != 6 * 60
+            ? RoutineSlot.at((j['wirdReminderMinutes'] as int).clamp(0, 24 * 60 - 1))
+            : d.quranSlot,
+      ),
+      hifzSlot: RoutineSlot.fromJson(j['hifzSlot'], d.hifzSlot),
+      dhikrSlot: RoutineSlot.fromJson(j['dhikrSlot'], d.dhikrSlot),
       hijriOffsetDays: pick('hijriOffsetDays', d.hijriOffsetDays),
       onboardingStep: pick('onboardingStep', d.onboardingStep),
+      onboardingRoute: j['onboardingRoute'] is String ? j['onboardingRoute'] as String : null,
       onboardingCompletedAt: DateTime.tryParse(j['onboardingCompletedAt'] as String? ?? ''),
       lastSplashDay: j['lastSplashDay'] as String?,
       readerHintSeen: pick('readerHintSeen', d.readerHintSeen),
     );
   }
 
+  /// ISO-3166 alpha-2 of the chosen city (`assets/geo/cities.json`), null when unknown. The server
+  /// uses it only for the opt-in country board (APP_SPEC §5.31.3).
+  String? get countryCode {
+    final c = place?.country.trim().toUpperCase();
+    return c != null && RegExp(r'^[A-Z]{2}$').hasMatch(c) ? c : null;
+  }
+
   /// The fields the API stores (spec §6.2). Coordinates are deliberately absent.
   Map<String, dynamic> serverPatch() => {
         'locale': locale,
         'city': place?.nameEn,
+        'country': countryCode,
         'timezone': placeOrDefault.timezone,
         'prayerMethod': method.apiWire,
         'asrSchool': asr.wire,
