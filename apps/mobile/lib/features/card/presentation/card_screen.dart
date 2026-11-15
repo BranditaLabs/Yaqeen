@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../../recordings/presentation/card_recordings.dart';
+import '../../recordings/presentation/recordings_providers.dart' show recordingsOnProvider;
 import '../../../core/analytics/product_analytics.dart';
 import '../../../core/config/config_controller.dart';
 import '../../../core/config/env.dart';
@@ -456,6 +458,10 @@ class _CardScreenState extends ConsumerState<CardScreen> {
           ],
         ),
       ),
+      if (ref.watch(recordingsOnProvider)) ...[
+        const SizedBox(height: YqSpace.xl),
+        const CardRecordingsSection(),
+      ],
       const SizedBox(height: YqSpace.xl),
       YqHeading(t.cardThemeTitle),
       Row(
@@ -607,6 +613,7 @@ class _CardPreview extends ConsumerWidget {
                     child: JourneyRail(key: ValueKey(card.theme), events: events, night: night, dense: true),
                   ),
           ),
+          if (ref.watch(recordingsOnProvider)) CardRecordingsPreview(night: night),
           if (card.links.isNotEmpty) ...[
             const SizedBox(height: YqSpace.m),
             Wrap(

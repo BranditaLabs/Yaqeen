@@ -3045,5 +3045,345 @@
   "asrEchoMode": "ردّد بعد القارئ",
   "asrEchoYourTurn": "ردّد الآن",
   "asrAutoCount": "يُحتسب التكرار حين تتلو المقطع كاملاً",
-  "asrRepeatListening": "يستمع لتكرارك"
+  "asrRepeatListening": "يستمع لتكرارك",
+  "recTitle": "تلاواتي",
+  "recEmpty": "سجّل تلاوتك لآيات تحبها ({seconds} ثانية)",
+  "@recEmpty": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "recRecordNew": "سجّل تلاوة",
+  "recLimitReached": "{max} تلاوات كحدّ أقصى",
+  "@recLimitReached": {
+    "placeholders": {
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "recDailyLimit": "حاولت كثيراً اليوم. عُد غداً.",
+  "recSeconds": "{seconds} ث",
+  "@recSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "recCommentsCount": "{count} تعليق",
+  "@recCommentsCount": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "recVisPrivate": "خاصة",
+  "recVisMembers": "للأعضاء",
+  "recVisPublic": "عامة",
+  "recVisPrivateHint": "لك وحدك، في حسابك",
+  "recVisMembersHint": "يسمعها أعضاء يقين في التطبيق",
+  "recVisPublicHint": "للأعضاء وعلى بطاقتك العامة",
+  "recStatusProcessing": "قيد الفحص…",
+  "recStatusReview": "تحتاج مراجعة من فريقنا",
+  "recStatusApproved": "منشورة",
+  "recStatusPrivate": "محفوظة لك",
+  "recRejectNotMatching": "لم تطابق الآيات المختارة",
+  "recRejectUnclear": "التسجيل غير واضح",
+  "recRejectSilence": "لم نسمع صوتاً",
+  "recRejectTooLong": "أطول من {seconds} ثانية",
+  "@recRejectTooLong": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "recRejectRemoved": "أزالها فريقنا",
+  "recRerecord": "أعد التسجيل",
+  "recDraftLocal": "على هذا الجهاز فقط",
+  "recDraftSignIn": "سجّل الدخول لحفظها في حسابك",
+  "recDraftQueued": "ستُرفع عند الاتصال",
+  "recDraftFailed": "لم تُرفع",
+  "recDraftUpload": "ارفعها",
+  "recMenu": "خيارات التلاوة",
+  "recMenuVisibility": "من يسمعها",
+  "recMenuComments": "التعليقات",
+  "recMenuMoveUp": "إلى الأعلى",
+  "recMenuMoveDown": "إلى الأسفل",
+  "recDeleteTitle": "حذف هذه التلاوة؟",
+  "recDeleteBody": "تُحذف مع تفاعلاتها وتعليقاتها، ولا يمكن استعادتها.",
+  "recDeleteConfirm": "احذفها",
+  "recDeleted": "حُذفت التلاوة",
+  "recReorderHint": "اضغط مطوّلاً واسحب لترتيبها",
+  "recPrivacyLine": "تسمع تلاوات الأعضاء بأصواتهم؛ لا يصل شيء منها إلى الإعلانات.",
+  "recPickTitle": "اختر الآيات",
+  "recPickHint": "اسحب من أول آية إلى آخرها",
+  "recVerseRef": "سورة {surah} · الآيات {from}–{to}",
+  "@recVerseRef": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      },
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "recVerseRefOne": "سورة {surah} · الآية {ayah}",
+  "@recVerseRefOne": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      },
+      "ayah": {
+        "type": "String"
+      }
+    }
+  },
+  "recEstimate": "≈ {seconds} ث",
+  "@recEstimate": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "recEstimateNear": "قريب من {seconds} ثانية",
+  "@recEstimateNear": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "recEstimateOver": "قد يتجاوز {seconds} ثانية — اقرأ بإيقاع أسرع قليلاً",
+  "@recEstimateOver": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "recEstimateBlocked": "أطول من {seconds} ثانية — اختر آيات أقل",
+  "@recEstimateBlocked": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "recTrim": "اقتصر على ما يتّسع",
+  "recStartHandle": "أول آية",
+  "recEndHandle": "آخر آية",
+  "recFewer": "آية أقل",
+  "recMore": "آية أكثر",
+  "recContinue": "تابع للتسجيل",
+  "recPickNone": "المس آية للبدء",
+  "recPrevPage": "الصفحة السابقة",
+  "recNextPage": "الصفحة التالية",
+  "recOneSurah": "التلاوة الواحدة من سورة واحدة",
+  "recLive": "مباشر",
+  "recGetReady": "استعد…",
+  "recTapToStop": "اضغط للإيقاف",
+  "recStart": "ابدأ التسجيل",
+  "recSecondsLeft": "{seconds} ث متبقية",
+  "@recSecondsLeft": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "recPacingGuide": "دليل الإيقاع: يتقدّم النص مع الوقت",
+  "recFollowing": "نتابع كلماتك على جهازك",
+  "recModelOffer": "نزّل نموذج التسميع ليتابع كلماتك",
+  "recMicTitle": "نحتاج الميكروفون",
+  "recMicBody": "لتسجيل تلاوتك. لا نسمع شيئاً إلا بعد أن تضغط «ابدأ».",
+  "recMicDenied": "الميكروفون غير مسموح. افتح الإعدادات واسمح به ليقين.",
+  "recOpenSettings": "افتح الإعدادات",
+  "recReachedLimit": "بلغت {seconds} ثانية",
+  "@recReachedLimit": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "recEncodeFailed": "تعذّر حفظ التسجيل. حاول مرة أخرى.",
+  "recDiscardTitle": "تجاهل هذا التسجيل؟",
+  "recDiscard": "تجاهل",
+  "recTooShort": "قصير جداً — سجّل آية على الأقل",
+  "recReviewTitle": "استمع قبل الحفظ",
+  "recCheckClean": "سمعنا كل الكلمات كما في المصحف",
+  "recCheckFlagged": "تخطّيت كلمة في الآية {ayah} — أعد التسجيل؟",
+  "@recCheckFlagged": {
+    "placeholders": {
+      "ayah": {
+        "type": "String"
+      }
+    }
+  },
+  "recCheckFlaggedMany": "فاتتك كلمات في {count} آيات — أعد التسجيل؟",
+  "@recCheckFlaggedMany": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "recCheckNotMatching": "لا يبدو أنها الآيات المختارة",
+  "recCheckUnclear": "لم نتبيّن الكلمات — جرّب مكاناً أهدأ",
+  "recCheckAdvisory": "فحص على جهازك للإرشاد فقط؛ تُفحص التلاوات المشاركة على خوادمنا.",
+  "recWhoHears": "من يسمعها؟",
+  "recAllowComments": "السماح بالتعليقات",
+  "recSave": "حفظ",
+  "recSaved": "حُفظت في تلاواتي",
+  "recSavedQueued": "حُفظت وستُرفع عند الاتصال",
+  "recSavedLocal": "حُفظت على هذا الجهاز. سجّل الدخول لحفظها في حسابك.",
+  "recSignInToShare": "سجّل الدخول لتشاركها مع الأعضاء",
+  "recGateTitle": "المشاركة مع الأعضاء",
+  "recGateBody": "تظهر تلاواتك المشاركة باسمك في المنافسات. تحتاج إلى تأكيد العمر والانضمام إلى إحدى المنافسات.",
+  "recGateJoinBoard": "انضم إلى لوحة المستويات",
+  "recGateJoinLeague": "انضم إلى الدوري الأسبوعي",
+  "recGateUnavailable": "المشاركة غير متاحة الآن.",
+  "recGateBanned": "حسابك موقوف عن المنافسات، فلا يمكن المشاركة.",
+  "recErrTooLarge": "الملف أكبر من المسموح",
+  "recErrBadFormat": "تعذّرت قراءة التسجيل. سجّل مرة أخرى.",
+  "recErrInvalidRange": "الآيات المختارة غير صحيحة",
+  "recErrLimit": "لديك {max} تلاوات. احذف واحدة لتضيف غيرها.",
+  "@recErrLimit": {
+    "placeholders": {
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "recErrNotPublic": "لا يمكن مشاركة تلاوة لم تُقبل",
+  "recErrOffline": "تحتاج اتصالاً",
+  "recErrFeatureOff": "تلاواتي غير متاحة الآن",
+  "recErrGone": "لم تعد هذه التلاوة متاحة",
+  "recErrBlocked": "لا يمكنك التفاعل مع هذا العضو",
+  "recErrRate": "مهلاً قليلاً ثم حاول",
+  "recErrAccount": "سجّل الدخول لتسمع تلاوات الأعضاء",
+  "recErrCommunity": "انضم إلى المنافسات لتتفاعل وتعلّق",
+  "recErrAttest": "أكّد عمرك أولاً",
+  "recErrOwn": "لا يمكنك التفاعل مع تلاوتك",
+  "recListenerTitle": "تلاوة {name}",
+  "@recListenerTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "recReactMashallah": "ما شاء الله",
+  "recReactBarakallah": "بارك الله فيك",
+  "recReactAhsant": "أحسنت",
+  "recReactA11y": "{reaction}، {count}",
+  "@recReactA11y": {
+    "placeholders": {
+      "reaction": {
+        "type": "String"
+      },
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "recReactOwnHint": "تفاعلات الأعضاء مع تلاوتك",
+  "recCommentsTitle": "التعليقات",
+  "recCommentHint": "اكتب تعليقاً لطيفاً…",
+  "recCommentSend": "أرسل",
+  "recCommentRejected": "لا يمكن نشر هذا التعليق",
+  "recCommentWhyLink": "الروابط غير مسموحة",
+  "recCommentWhyPhone": "أرقام الهواتف غير مسموحة",
+  "recCommentWhyWord": "فيه كلمات غير لائقة",
+  "recCommentWhyMention": "الإشارة إلى غير الأعضاء غير مسموحة",
+  "recCommentWhyShort": "قصير جداً",
+  "recCommentWhyLong": "أطول من {max} حرفاً",
+  "@recCommentWhyLong": {
+    "placeholders": {
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "recCommentWhyChars": "فيه رموز غير مسموحة",
+  "recCommentRate": "علّقت كثيراً. انتظر قليلاً.",
+  "recCommentsEmpty": "لا تعليقات بعد",
+  "recCommentsOffNote": "أوقف صاحب التلاوة التعليقات",
+  "recCommentsTurnOff": "إيقاف التعليقات",
+  "recCommentsTurnOn": "تشغيل التعليقات",
+  "recCommentDelete": "حذف التعليق",
+  "recCommentDeleted": "حُذف التعليق",
+  "recCommentReport": "إبلاغ عن التعليق",
+  "recReport": "إبلاغ عن التلاوة",
+  "recReportNotRecitation": "ليست تلاوة",
+  "recReportInappropriate": "غير لائق",
+  "recReportSpam": "مزعج",
+  "recReportOther": "سبب آخر",
+  "recReported": "شكراً، سيراجعه فريقنا",
+  "recBlock": "حظر {name}",
+  "@recBlock": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "recBlocked": "حُظر {name}",
+  "@recBlocked": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "recLoadMore": "المزيد",
+  "recMemberTitle": "تلاوات {name}",
+  "@recMemberTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "recMemberEmpty": "لا تلاوات مشاركة بعد",
+  "recKaraokeLater": "يظهر تتبّع الكلمات بعد الفحص",
+  "recCardTitle": "تلاواتي على البطاقة",
+  "recCardHint": "تظهر هنا التلاوات العامة المقبولة فقط.",
+  "recCardNone": "لا تلاوات عامة بعد. اجعل تلاوة «عامة» من ملفّك.",
+  "recCardPending": "تظهر بعد الفحص",
+  "recPlayA11y": "تشغيل {ref}",
+  "@recPlayA11y": {
+    "placeholders": {
+      "ref": {
+        "type": "String"
+      }
+    }
+  },
+  "recPauseA11y": "إيقاف {ref}",
+  "@recPauseA11y": {
+    "placeholders": {
+      "ref": {
+        "type": "String"
+      }
+    }
+  },
+  "recCountdownA11y": "التسجيل جارٍ، {seconds} ثانية متبقية",
+  "@recCountdownA11y": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "recWordsA11y": "الآيات المختارة"
 }

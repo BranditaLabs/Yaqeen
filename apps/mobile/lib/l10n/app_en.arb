@@ -2949,5 +2949,345 @@
   "asrEchoMode": "Repeat after the reciter",
   "asrEchoYourTurn": "Your turn",
   "asrAutoCount": "A repetition counts when you recite the passage in full",
-  "asrRepeatListening": "Listening to your repetition"
+  "asrRepeatListening": "Listening to your repetition",
+  "recTitle": "My recitations",
+  "recEmpty": "Record your recitation of verses you love ({seconds} seconds)",
+  "@recEmpty": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "recRecordNew": "Record a recitation",
+  "recLimitReached": "{max} recitations at most",
+  "@recLimitReached": {
+    "placeholders": {
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "recDailyLimit": "You've tried a lot today. Come back tomorrow.",
+  "recSeconds": "{seconds} s",
+  "@recSeconds": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "recCommentsCount": "{count} comments",
+  "@recCommentsCount": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "recVisPrivate": "Private",
+  "recVisMembers": "Members",
+  "recVisPublic": "Public",
+  "recVisPrivateHint": "Only you, on your account",
+  "recVisMembersHint": "Yaqeen members can hear it in the app",
+  "recVisPublicHint": "Members and your public card",
+  "recStatusProcessing": "Being checked…",
+  "recStatusReview": "Waiting for our team's review",
+  "recStatusApproved": "Published",
+  "recStatusPrivate": "Saved for you",
+  "recRejectNotMatching": "Didn't match the chosen verses",
+  "recRejectUnclear": "The recording isn't clear",
+  "recRejectSilence": "We didn't hear a voice",
+  "recRejectTooLong": "Longer than {seconds} seconds",
+  "@recRejectTooLong": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "recRejectRemoved": "Removed by our team",
+  "recRerecord": "Record again",
+  "recDraftLocal": "On this phone only",
+  "recDraftSignIn": "Sign in to save it to your account",
+  "recDraftQueued": "Will upload when you're online",
+  "recDraftFailed": "Not uploaded",
+  "recDraftUpload": "Upload",
+  "recMenu": "Recitation options",
+  "recMenuVisibility": "Who can hear it",
+  "recMenuComments": "Comments",
+  "recMenuMoveUp": "Move up",
+  "recMenuMoveDown": "Move down",
+  "recDeleteTitle": "Delete this recitation?",
+  "recDeleteBody": "It goes with its reactions and comments, and can't be restored.",
+  "recDeleteConfirm": "Delete it",
+  "recDeleted": "Recitation deleted",
+  "recReorderHint": "Long-press and drag to reorder",
+  "recPrivacyLine": "Members' recitations, in their own voices; none of it reaches ads.",
+  "recPickTitle": "Choose the verses",
+  "recPickHint": "Drag from the first verse to the last",
+  "recVerseRef": "{surah} · Ayat {from}–{to}",
+  "@recVerseRef": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      },
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "recVerseRefOne": "{surah} · Ayah {ayah}",
+  "@recVerseRefOne": {
+    "placeholders": {
+      "surah": {
+        "type": "String"
+      },
+      "ayah": {
+        "type": "String"
+      }
+    }
+  },
+  "recEstimate": "≈ {seconds} s",
+  "@recEstimate": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "recEstimateNear": "Close to {seconds} seconds",
+  "@recEstimateNear": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "recEstimateOver": "May run past {seconds} seconds — read a little quicker",
+  "@recEstimateOver": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "recEstimateBlocked": "Longer than {seconds} seconds — choose fewer verses",
+  "@recEstimateBlocked": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "recTrim": "Keep what fits",
+  "recStartHandle": "First verse",
+  "recEndHandle": "Last verse",
+  "recFewer": "One verse fewer",
+  "recMore": "One verse more",
+  "recContinue": "Continue to record",
+  "recPickNone": "Touch a verse to start",
+  "recPrevPage": "Previous page",
+  "recNextPage": "Next page",
+  "recOneSurah": "One recitation stays within one surah",
+  "recLive": "LIVE",
+  "recGetReady": "Get ready…",
+  "recTapToStop": "Tap to stop",
+  "recStart": "Start recording",
+  "recSecondsLeft": "{seconds} s left",
+  "@recSecondsLeft": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "recPacingGuide": "Pacing guide: the text moves with time",
+  "recFollowing": "Following your words on this phone",
+  "recModelOffer": "Download the recitation model to follow your words",
+  "recMicTitle": "We need the microphone",
+  "recMicBody": "To record your recitation. We hear nothing until you tap Start.",
+  "recMicDenied": "Microphone access is off. Open Settings and allow it for Yaqeen.",
+  "recOpenSettings": "Open Settings",
+  "recReachedLimit": "{seconds} seconds reached",
+  "@recReachedLimit": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "recEncodeFailed": "Couldn't save the recording. Try again.",
+  "recDiscardTitle": "Discard this take?",
+  "recDiscard": "Discard",
+  "recTooShort": "Too short — record at least a verse",
+  "recReviewTitle": "Listen before saving",
+  "recCheckClean": "We heard every word as written",
+  "recCheckFlagged": "A word in verse {ayah} was missed — record again?",
+  "@recCheckFlagged": {
+    "placeholders": {
+      "ayah": {
+        "type": "String"
+      }
+    }
+  },
+  "recCheckFlaggedMany": "Words missed in {count} verses — record again?",
+  "@recCheckFlaggedMany": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "recCheckNotMatching": "This doesn't sound like the chosen verses",
+  "recCheckUnclear": "We couldn't make out the words — try a quieter place",
+  "recCheckAdvisory": "A check on your phone, for guidance only; shared recitations are checked on our servers.",
+  "recWhoHears": "Who can hear it?",
+  "recAllowComments": "Allow comments",
+  "recSave": "Save",
+  "recSaved": "Saved to My recitations",
+  "recSavedQueued": "Saved; it will upload when you're online",
+  "recSavedLocal": "Saved on this phone. Sign in to save it to your account.",
+  "recSignInToShare": "Sign in to share it with members",
+  "recGateTitle": "Sharing with members",
+  "recGateBody": "Shared recitations show under your competition name. You need to confirm your age and join one of the competitions.",
+  "recGateJoinBoard": "Join the level board",
+  "recGateJoinLeague": "Join the weekly league",
+  "recGateUnavailable": "Sharing isn't available right now.",
+  "recGateBanned": "Your account is paused from competitions, so it can't share.",
+  "recErrTooLarge": "The file is too large",
+  "recErrBadFormat": "The recording couldn't be read. Record again.",
+  "recErrInvalidRange": "The chosen verses aren't valid",
+  "recErrLimit": "You have {max} recitations. Delete one to add another.",
+  "@recErrLimit": {
+    "placeholders": {
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "recErrNotPublic": "A recitation that wasn't accepted can't be shared",
+  "recErrOffline": "You need a connection",
+  "recErrFeatureOff": "My recitations isn't available right now",
+  "recErrGone": "This recitation is no longer available",
+  "recErrBlocked": "You can't interact with this member",
+  "recErrRate": "Wait a moment, then try again",
+  "recErrAccount": "Sign in to hear members' recitations",
+  "recErrCommunity": "Join the competitions to react and comment",
+  "recErrAttest": "Confirm your age first",
+  "recErrOwn": "You can't react to your own recitation",
+  "recListenerTitle": "{name}'s recitation",
+  "@recListenerTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "recReactMashallah": "Masha'Allah",
+  "recReactBarakallah": "Barak Allahu feek",
+  "recReactAhsant": "Well done",
+  "recReactA11y": "{reaction}, {count}",
+  "@recReactA11y": {
+    "placeholders": {
+      "reaction": {
+        "type": "String"
+      },
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "recReactOwnHint": "Members' reactions to your recitation",
+  "recCommentsTitle": "Comments",
+  "recCommentHint": "Write a kind comment…",
+  "recCommentSend": "Send",
+  "recCommentRejected": "This comment can't be posted",
+  "recCommentWhyLink": "Links aren't allowed",
+  "recCommentWhyPhone": "Phone numbers aren't allowed",
+  "recCommentWhyWord": "It has inappropriate words",
+  "recCommentWhyMention": "Mentions of non-members aren't allowed",
+  "recCommentWhyShort": "Too short",
+  "recCommentWhyLong": "Longer than {max} characters",
+  "@recCommentWhyLong": {
+    "placeholders": {
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "recCommentWhyChars": "It has characters that aren't allowed",
+  "recCommentRate": "You've commented a lot. Wait a little.",
+  "recCommentsEmpty": "No comments yet",
+  "recCommentsOffNote": "The reciter turned comments off",
+  "recCommentsTurnOff": "Turn comments off",
+  "recCommentsTurnOn": "Turn comments on",
+  "recCommentDelete": "Delete comment",
+  "recCommentDeleted": "Comment deleted",
+  "recCommentReport": "Report comment",
+  "recReport": "Report recitation",
+  "recReportNotRecitation": "Not a recitation",
+  "recReportInappropriate": "Inappropriate",
+  "recReportSpam": "Spam",
+  "recReportOther": "Other reason",
+  "recReported": "Thanks — our team will review it",
+  "recBlock": "Block {name}",
+  "@recBlock": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "recBlocked": "{name} blocked",
+  "@recBlocked": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "recLoadMore": "More",
+  "recMemberTitle": "{name}'s recitations",
+  "@recMemberTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "recMemberEmpty": "No shared recitations yet",
+  "recKaraokeLater": "Word highlighting appears after the check",
+  "recCardTitle": "My recitations on the card",
+  "recCardHint": "Only accepted public recitations appear here.",
+  "recCardNone": "No public recitations yet. Make one Public from your profile.",
+  "recCardPending": "Appears after the check",
+  "recPlayA11y": "Play {ref}",
+  "@recPlayA11y": {
+    "placeholders": {
+      "ref": {
+        "type": "String"
+      }
+    }
+  },
+  "recPauseA11y": "Pause {ref}",
+  "@recPauseA11y": {
+    "placeholders": {
+      "ref": {
+        "type": "String"
+      }
+    }
+  },
+  "recCountdownA11y": "Recording, {seconds} seconds left",
+  "@recCountdownA11y": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "recWordsA11y": "The chosen verses"
 }

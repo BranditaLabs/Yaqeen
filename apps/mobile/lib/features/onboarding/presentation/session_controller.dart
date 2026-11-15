@@ -12,6 +12,8 @@ import '../../../core/settings/settings_controller.dart';
 import '../../../core/widgets/yq_avatar.dart';
 import '../../backup/data/backup_engine.dart';
 import '../../profile/data/profile_repository.dart';
+import '../../recordings/data/recordings_repository.dart';
+import '../../recordings/presentation/recordings_providers.dart';
 import '../../profile/presentation/badges_strip.dart' show sweptBadgesProvider;
 import '../../profile/domain/me_profile.dart';
 import '../../profile/presentation/me_profile_controller.dart';
@@ -180,19 +182,24 @@ class SessionController extends Notifier<Session> {
     // generation moves synchronously).
     final files = ref.read(profileRepositoryProvider).wipe();
     final kv = ref.read(kvStoreProvider);
-    for (final key in ProfileRepository.wipedKeys) {
+    for (final key in [...ProfileRepository.wipedKeys, ...RecordingsRepository.wipedKeys]) {
       await kv.delete(key);
     }
+    // «تلاواتي»: the cached list, drafts, on-device timings and every audio file on this phone.
+    final recordings = ref.read(recordingsRepositoryProvider).wipe();
     YqAvatar.clearMemoryCache();
     // The last-seen level also lives in memory: the next account must not be compared with it.
     if (ref.exists(levelUpProvider)) ref.read(levelUpProvider.notifier).reset();
     // So does the set of medals whose light already passed (re-read from the wiped KV).
     if (ref.exists(sweptBadgesProvider)) ref.invalidate(sweptBadgesProvider);
     await ref.read(consentRepositoryProvider).adopt(ConsentKind.community, false);
+    if (ref.exists(myRecordingsProvider)) ref.invalidate(myRecordingsProvider);
     if (awaitFiles) {
       await files;
+      await recordings;
     } else {
       files.ignore();
+      recordings.ignore();
     }
   }
 

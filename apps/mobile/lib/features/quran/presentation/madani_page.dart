@@ -88,6 +88,14 @@ class MadaniPageState extends State<MadaniPage> {
   @visibleForTesting
   PageGeometry? get geometry => _geometry;
 
+  /// The ayah under the global point [global] (the verse picker's swipe in «تلاواتي»), or null.
+  AyahRef? ayahAt(Offset global) {
+    final box = context.findRenderObject();
+    final g = _geometry;
+    if (box is! RenderBox || !box.attached || !box.hasSize || g == null) return null;
+    return g.ayahAt(box.globalToLocal(global));
+  }
+
   PageGeometry? _geometry;
   Size? _geometryFor;
   final Map<String, double> _units = {};

@@ -28,6 +28,7 @@ import 'core/platform/device_services.dart';
 import 'core/platform/just_audio_engine.dart';
 import 'core/platform/location_service.dart';
 import 'core/platform/plugin_photo_picker.dart';
+import 'core/platform/plugin_voice_recorder.dart';
 import 'core/platform/sentry_error_reporter.dart';
 import 'core/platform/social_auth.dart';
 import 'core/settings/settings_controller.dart';
@@ -43,6 +44,7 @@ import 'core/theme/theme.dart';
 import 'core/time/zoned.dart';
 import 'features/onboarding/data/auth_repository.dart';
 import 'features/onboarding/presentation/session_controller.dart';
+import 'features/recordings/presentation/recordings_providers.dart';
 import 'l10n/gen/app_localizations.dart';
 import 'core/platform/home_widget_publisher.dart';
 import 'core/platform/nfc_service.dart';
@@ -134,6 +136,8 @@ Future<void> _start() async {
       recitationEngineProvider.overrideWith(
         (ref) => SherpaRecitationEngine(store: ref.watch(asrModelStoreProvider), kv: ref.watch(kvStoreProvider)),
       ),
+      // «تلاواتي»: the microphone opens only on «ابدأ التسجيل» (the take's PCM → AAC-LC .m4a).
+      voiceRecorderProvider.overrideWithValue(PluginVoiceRecorder()),
       // Ad SDKs whose build values exist; each stays off until `ads_measurement` is granted.
       adSinksProvider.overrideWithValue(
         buildAdSinks(
