@@ -622,6 +622,8 @@ describe.skipIf(!url)('recordings «تلاواتي» (Postgres)', () => {
     expect(String(page.headers['content-security-policy'])).toContain("default-src 'self'");
     expect((await app.inject({ method: 'GET', url: `/u/${owner.handle}/r/${pub}.m4a` })).statusCode).toBe(200);
     expect((await app.inject({ method: 'GET', url: `/u/${owner.handle}/r/${membersOnly}.m4a` })).statusCode).toBe(404);
+    // Back in review → its audio is off the open web too.
+    expect((await app.inject({ method: 'GET', url: `/u/${owner.handle}/r/${inReview}.m4a` })).statusCode).toBe(404);
     const js = await app.inject({ method: 'GET', url: '/u/assets/recitations.js' });
     expect(js.headers['content-type']).toContain('text/javascript');
     // The cards kill switch takes the recordings' audio down with `/u/:handle`.
@@ -634,6 +636,25 @@ describe.skipIf(!url)('recordings «تلاواتي» (Postgres)', () => {
       await db.update(s.appConfig).set({ value: { recordings: true } }).where(eq(s.appConfig.key, 'features'));
       await app.ctx.cache.bumpNamespace('config');
     }
+    expect((await app.inject({ method: 'GET', url: `/u/${owner.handle}/r/${pub}.m4a` })).statusCode).toBe(200);
+    // Held by reports (still approved, public): off the page and its audio 404s (3 per profile: reuse one).
+    const held = inReview;
+    await db.update(s.recordings).set({ status: 'approved' }).where(eq(s.recordings.id, held));
+    await app.ctx.cache.bumpNamespace('profile');
+    expect((await app.inject({ method: 'GET', url: `/u/${owner.handle}` })).body).toContain(held);
+    await db.update(s.recordings).set({ heldAt: new Date() }).where(eq(s.recordings.id, held));
+    await app.ctx.cache.bumpNamespace('profile');
+    const afterHold = (await app.inject({ method: 'GET', url: `/u/${owner.handle}` })).body;
+    expect(afterHold).not.toContain(held);
+    expect(afterHold).toContain(pub);
+    expect((await app.inject({ method: 'GET', url: `/u/${owner.handle}/r/${held}.m4a` })).statusCode).toBe(404);
+    // A card moderated by support: the page 404s and so does every recording's audio.
+    await db.update(s.publicProfiles).set({ moderatedAt: new Date() }).where(eq(s.publicProfiles.userId, owner.id));
+    await app.ctx.cache.bumpNamespace('profile');
+    expect((await app.inject({ method: 'GET', url: `/u/${owner.handle}` })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'GET', url: `/u/${owner.handle}/r/${pub}.m4a` })).statusCode).toBe(404);
+    await db.update(s.publicProfiles).set({ moderatedAt: null }).where(eq(s.publicProfiles.userId, owner.id));
+    await app.ctx.cache.bumpNamespace('profile');
     expect((await app.inject({ method: 'GET', url: `/u/${owner.handle}/r/${pub}.m4a` })).statusCode).toBe(200);
     // Unpublished card → nothing.
     await db.update(s.publicProfiles).set({ published: false }).where(eq(s.publicProfiles.userId, owner.id));
