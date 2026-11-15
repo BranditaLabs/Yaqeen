@@ -3,8 +3,11 @@ import { defineConfig, devices } from '@playwright/test';
 // Real API (Postgres, no Redis) and the production admin build, on their own ports so a dev stack
 // can keep running. Run `pnpm --filter @yaqeen/admin build` first; `pnpm --filter @yaqeen/e2e e2e`
 // resets the e2e database and runs everything.
-const API = 'http://localhost:4100';
-const ADMIN = 'http://localhost:3100'; // the session cookie is set for this host
+// Ports can move (E2E_API_PORT / E2E_ADMIN_PORT) so two checkouts can run the suite side by side.
+const API_PORT = process.env.E2E_API_PORT ?? '4100';
+const ADMIN_PORT = process.env.E2E_ADMIN_PORT ?? '3100';
+const API = `http://localhost:${API_PORT}`;
+const ADMIN = `http://localhost:${ADMIN_PORT}`; // the session cookie is set for this host
 const DATABASE_URL = process.env.E2E_DATABASE_URL ?? 'postgres://yq:yq@127.0.0.1:5432/yqe2e';
 // In a cloud container the browsers are pre-installed outside the default cache.
 const executablePath = process.env.E2E_CHROMIUM_PATH || undefined;
@@ -52,7 +55,7 @@ export default defineConfig({
       url: `${API}/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
-      env: { DATABASE_URL, REDIS_URL: '', PORT: '4100', NODE_ENV: 'development', PUBLIC_PROFILE_BASE_URL: API, LOG_LEVEL: 'warn' },
+      env: { DATABASE_URL, REDIS_URL: '', PORT: API_PORT, NODE_ENV: 'development', PUBLIC_PROFILE_BASE_URL: API, LOG_LEVEL: 'warn' },
     },
     {
       // The admin builds as Next standalone (like its Docker image): copy the static assets in, then run it.
@@ -60,7 +63,7 @@ export default defineConfig({
       url: `${ADMIN}/login`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
-      env: { API_URL: API, PORT: '3100', HOSTNAME: 'localhost', NEXT_TELEMETRY_DISABLED: '1' },
+      env: { API_URL: API, PORT: ADMIN_PORT, HOSTNAME: 'localhost', NEXT_TELEMETRY_DISABLED: '1' },
     },
   ],
 });

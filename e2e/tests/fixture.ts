@@ -26,8 +26,8 @@ export type Fixture = {
   recitations: { flagged: string; held: string; comment: string; reviewerToken: string };
 };
 
-export const ADMIN_URL = 'http://localhost:3100';
-export const API_URL = 'http://localhost:4100';
+export const ADMIN_URL = `http://localhost:${process.env.E2E_ADMIN_PORT ?? '3100'}`;
+export const API_URL = `http://localhost:${process.env.E2E_API_PORT ?? '4100'}`;
 
 /** A browser context signed in as another staff role (cookie as the login action sets it). */
 export async function staffContext(browser: import('@playwright/test').Browser, token: string) {
