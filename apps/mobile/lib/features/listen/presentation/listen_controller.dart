@@ -360,6 +360,25 @@ class ListenController extends Notifier<ListenState> {
     await _endSample();
   }
 
+  /// Plays a short clip that is not catalogue recitation — a member's own recording («تلاواتي») —
+  /// through the single player, the way a sample plays: the surah is paused and comes back (paused)
+  /// when the clip ends or [stopSample] is called; listening time is not counted. [meta.id] becomes
+  /// [ListenState.sampleOf] so the caller knows its clip is the one loaded. False when it cannot open.
+  Future<bool> playClip(Uri source, AudioMeta meta) async {
+    if (state.sampleOf != null) await stopSample();
+    _save();
+    _endListening();
+    state = state.copyWith(sampleOf: () => meta.id, playing: false);
+    try {
+      await _engine.open(source, meta: meta);
+      await _engine.play();
+      return true;
+    } on Exception {
+      state = state.copyWith(sampleOf: () => null);
+      return false;
+    }
+  }
+
   /// Ends a sample (stopped, or played to its end) and puts the surah back, paused. The engine is
   /// paused first: after a file completes the player still counts as playing, so play() would no-op.
   Future<void> _endSample() async {
