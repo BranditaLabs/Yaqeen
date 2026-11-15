@@ -1,8 +1,12 @@
 /**
  * The public profile page («بطاقة يقين») opened by an NFC tag or QR code. Server-rendered HTML:
- * no script, every user string escaped, links limited to https. Mobile-first, Arabic RTL by
- * default (English when the visitor's browser prefers it), brand colours from the design tokens
- * and the logo from artwork only (CLAUDE.md rule 8).
+ * no inline script (the only script is the same-origin «تلاواتي» player), every user string escaped,
+ * links limited to https. Mobile-first, Arabic RTL by default (English when the visitor's browser
+ * prefers it), brand colours from the design tokens and the logo from artwork only (CLAUDE.md rule 8).
+ *
+ * Motion uses the app's motion tokens (Flutter `Motion`) as custom properties on :root — quick
+ * 160 ms, standard 280 ms, emphasised 450 ms, ring draw 900 ms, emphasised curve cubic-bezier(.2,0,0,1):
+ * the level ring's track fades in, then its arc draws; prefers-reduced-motion shows every end state.
  *
  * The page is also Yaqeen's front door for whoever scans it: below the owner's card sits a CTA to
  * get the app and to shop the store, tagged with the owner's handle for attribution.
@@ -327,7 +331,8 @@ export function renderActivatePage(code: string, kind: 'medal' | 'card', lang: P
 /* The stylesheet: porcelain + living sky (theme sky), warm cream (gold), brand night (night). */
 const CSS = `
 :root{--ink:#0A1530;--muted:#56637F;--lapis:#1F3F94;--navy:#10214D;--gold:#C6A867;--goldText:#7C6127;--goldLight:#E9D49E;
---porcelain:#F3F6FB;--glass:rgba(255,255,255,.62);--rim:rgba(255,255,255,.92);--top:#E3EBF7;--bottom:#F3F6FB;--glow:#ABC4E8;--track:rgba(31,63,148,.12)}
+--porcelain:#F3F6FB;--glass:rgba(255,255,255,.62);--rim:rgba(255,255,255,.92);--top:#E3EBF7;--bottom:#F3F6FB;--glow:#ABC4E8;--track:rgba(31,63,148,.12);
+--t-quick:160ms;--t-std:280ms;--t-emph:450ms;--t-ring:900ms;--ease-emph:cubic-bezier(.2,0,0,1);--ease-out:cubic-bezier(.215,.61,.355,1)}
 .theme-gold{--top:#FFFBF1;--bottom:#F4E8C8;--glow:#E9D49E;--track:rgba(124,97,39,.14)}
 .theme-night{--ink:#F3F6FB;--muted:#C3C8D3;--glass:rgba(255,255,255,.08);--rim:rgba(255,255,255,.16);--top:#0A1530;--bottom:#1F3F94;--glow:#576FAF;--track:rgba(255,255,255,.14);--porcelain:#0A1530}
 *{box-sizing:border-box;margin:0}
@@ -347,9 +352,12 @@ main{position:relative;max-width:460px;margin:0 auto;padding:calc(env(safe-area-
 .ring{position:absolute;inset:0;transform:rotate(-90deg)}
 [dir=rtl] .ring{transform:rotate(-90deg) scaleY(-1)}
 .ring circle{fill:none;stroke-width:5}
-.ring .track{stroke:var(--track)}
-.ring .arc{stroke:var(--gold);stroke-linecap:round;animation:arc 1.6s cubic-bezier(.2,.7,.2,1) both .3s}
+.ring .track{stroke:var(--track);animation:fade var(--t-quick) var(--ease-out) .2s both}
+.ring .arc{stroke:var(--gold);stroke-linecap:round;animation:arc var(--t-ring) var(--ease-emph) .36s both}
 @keyframes arc{from{stroke-dasharray:0 400}}
+@keyframes fade{from{opacity:0}}
+.medallion>.avatar,.medallion>.initial{animation:settle var(--t-emph) var(--ease-emph) .16s both}
+@keyframes settle{from{opacity:0;transform:scale(.94)}}
 .initial{width:104px;height:104px;border-radius:50%;display:grid;place-items:center;font-family:Amiri,serif;font-weight:700;font-size:48px;color:#fff;background:linear-gradient(180deg,#576FAF,#1F3F94);border:3px solid rgba(255,255,255,.95);box-shadow:0 18px 34px -16px rgba(31,63,148,.7)}
 .theme-gold .initial{background:linear-gradient(180deg,#D4BE8D,#7C6127)}
 .medallion.empty .initial{background:linear-gradient(180deg,#C8D5EC,#8F9FCA)}
@@ -403,10 +411,10 @@ footer a{color:var(--lapis);font-weight:700;text-decoration:none}
 .spark.s3{top:62%;inset-inline-start:7%;animation-delay:2.8s;width:4px;height:4px}.spark.s4{top:82%;inset-inline-end:14%;animation-delay:4.1s}
 .theme-sky .spark{background:#fff;box-shadow:0 0 12px 3px rgba(171,196,232,.8)}
 @keyframes twinkle{0%,100%{opacity:0;transform:scale(.4)}45%{opacity:.9;transform:scale(1)}60%{opacity:.6}}
-.medallion::after{content:"";position:absolute;inset:-2px;border-radius:50%;background:conic-gradient(from 0deg,transparent 0 78%,rgba(255,255,255,.95) 88%,transparent 96%);-webkit-mask:radial-gradient(closest-side,transparent 88%,#000 90%,#000 98%,transparent);mask:radial-gradient(closest-side,transparent 88%,#000 90%,#000 98%,transparent);opacity:0;animation:glint 1.8s cubic-bezier(.4,0,.2,1) 1.7s both}
+.medallion::after{content:"";position:absolute;inset:-2px;border-radius:50%;background:conic-gradient(from 0deg,transparent 0 78%,rgba(255,255,255,.95) 88%,transparent 96%);-webkit-mask:radial-gradient(closest-side,transparent 88%,#000 90%,#000 98%,transparent);mask:radial-gradient(closest-side,transparent 88%,#000 90%,#000 98%,transparent);opacity:0;animation:glint 1.8s var(--ease-emph) 1.26s both}
 .medallion.empty::after{display:none}
 @keyframes glint{0%{opacity:0;transform:rotate(-40deg)}25%{opacity:1}100%{opacity:0;transform:rotate(320deg)}}
-.initial{animation:breathe 6s ease-in-out 2.4s infinite}
+.medallion>.initial{animation:settle var(--t-emph) var(--ease-emph) .16s both,breathe 6s ease-in-out 2.4s infinite}
 @keyframes breathe{50%{transform:scale(1.025);box-shadow:0 22px 40px -16px rgba(31,63,148,.75)}}
 .bar i{transform-origin:left;animation:fill 1.4s cubic-bezier(.2,.7,.2,1) .6s both}
 [dir=rtl] .bar i{transform-origin:right;margin-inline-start:auto}
