@@ -16,6 +16,7 @@ import '../features/listen/presentation/downloads_controller.dart';
 import '../features/notifications/presentation/inbox_screen.dart' show inboxProvider;
 import '../features/notifications/presentation/reminders_controller.dart';
 import '../features/onboarding/presentation/session_controller.dart';
+import '../features/recordings/presentation/recordings_providers.dart' show recordingsSyncProvider;
 import 'router.dart';
 import '../core/di/providers.dart';
 import '../core/theme/tokens.dart';
@@ -53,7 +54,10 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
       onError: (Object _) {},
     );
     // Every 15 minutes while in the foreground.
-    _flushTimer = Timer.periodic(const Duration(minutes: 15), (_) => ref.read(outboxSyncProvider).flush().ignore());
+    _flushTimer = Timer.periodic(const Duration(minutes: 15), (_) {
+      ref.read(outboxSyncProvider).flush().ignore();
+      ref.read(recordingsSyncProvider).flush().ignore();
+    });
     // A tapped campaign push opens its screen and counts the open.
     _pushTaps = ref.read(pushServiceProvider).onOpened.listen((o) {
       final nav = rootNavigatorKey.currentContext;
@@ -92,8 +96,9 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
       () => ref.read(quranDataProvider.future),
       // Keep the local adhan/reminder schedule fresh (spec §6.5: re-plan on start).
       () => ref.read(remindersControllerProvider.notifier).replan(),
-      // Deliver anything queued offline last session.
+      // Deliver anything queued offline last session (and recitations saved offline).
       () => ref.read(outboxSyncProvider).flush(),
+      () => ref.read(recordingsSyncProvider).flush(),
       () => ref.read(remoteConfigProvider.notifier).refresh(),
       _updatePacks,
       // Full-reciter downloads cut short by a kill or restart pick up where they stopped.
@@ -115,6 +120,7 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       ref.read(sessionProvider.notifier).ensureServerAccount().ignore();
       ref.read(outboxSyncProvider).flush().ignore();
+      ref.read(recordingsSyncProvider).flush().ignore();
       ref.read(remoteConfigProvider.notifier).refresh().ignore();
       ref.read(remindersControllerProvider.notifier).replan().ignore();
       _syncPush().catchError((Object _) {}).ignore();
@@ -168,6 +174,7 @@ class _AppGateState extends ConsumerState<AppGate> with WidgetsBindingObserver {
       if (next.valueOrNull == true && prev?.valueOrNull == false) {
         ref.read(sessionProvider.notifier).ensureServerAccount().ignore();
         ref.read(outboxSyncProvider).flush(force: true).ignore();
+        ref.read(recordingsSyncProvider).flush(force: true).ignore();
       }
     });
     final config = ref.watch(remoteConfigProvider);

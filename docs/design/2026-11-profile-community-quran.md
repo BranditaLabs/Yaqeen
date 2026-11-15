@@ -810,6 +810,8 @@ All 32 blocking items are accepted; none rejected.
 
 Backend, AI check, admin queue and web card built by the `profile-recitations` stream; the mobile screens (verse picker, recorder, profile track cards, listener, reactions and comments) are built on these contracts by the mobile stream (APP_SPEC §5.24 «تلاواتي», §5.26, §5.31.6).
 
+**Mobile (built 2026-11-15, `apps/mobile/lib/features/recordings/README.md`).** One microphone session per take: the PCM feeds the on-device recogniser live (`startFromPcm`, the «تسميع» engine) and is encoded at stop by the platform's own AAC encoder (Android MediaCodec + MediaMuxer, iOS AVAudioFile) to `RECORDING_FORMAT` — `record` cannot write a file and stream PCM at once, and this keeps a single session with no new dependency. Clips play through the app's single player (`ListenController.playClip`). Takes that cannot upload yet (a guest's, an offline one) are drafts on the phone with their own small queue (the JSON Outbox cannot carry audio).
+
 ### 16.1 Owner decisions (final)
 - A profile track is the user's **own voice**: they choose verses (surah + ayah range) and record themselves. No catalogue or famous-reciter picks, no other audio. **Max 30 s**, **up to 3** on a profile.
 - **Moderated by AI voice recognition**, automatically and at extremely low cost: a self-hosted, Quran-tuned speech model checks that the recording recites the chosen verses. Borderline cases go to a human queue.

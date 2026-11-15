@@ -1110,6 +1110,8 @@ export const recordings = pgTable(
     transcript: text('transcript'),
     clientScore: real('client_score'),
     clientWords: jsonb('client_words'),
+    /** The app's id for the take (contracts `RecordingClientId`): the same take uploaded again is this row. */
+    clientId: text('client_id'),
     /** 3 distinct open reports hold an approved recording out of every view until support decides. */
     heldAt: ts('held_at'),
     createdAt: createdAt(),
@@ -1119,6 +1121,7 @@ export const recordings = pgTable(
   (t) => [
     index('recordings_user_idx').on(t.userId, t.position),
     index('recordings_queue_idx').on(t.status, t.createdAt),
+    uniqueIndex('recordings_client_uq').on(t.userId, t.clientId),
     check('recordings_status_ck', sql`${t.status} in ('processing', 'private_ready', 'approved', 'needs_review', 'rejected', 'removed')`),
     check('recordings_reject_reason_ck', sql`${t.rejectReason} in ('not_matching', 'unclear', 'silence', 'too_long', 'removed_by_moderator')`),
     check('recordings_visibility_ck', sql`${t.visibility} in ('private', 'members', 'public')`),

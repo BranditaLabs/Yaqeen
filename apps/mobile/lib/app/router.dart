@@ -26,6 +26,7 @@ import '../core/notifications/push_service.dart';
 import 'routes/community_routes.dart';
 import 'routes/profile_routes.dart';
 import 'routes/quran_routes.dart';
+import 'routes/recordings_routes.dart';
 import 'shell.dart';
 
 /// Navigator for full-screen routes (reader, recitation, player, Qibla) — above the tab bar.
@@ -134,7 +135,7 @@ GoRouter buildRouter({String initialLocation = '/home'}) => GoRouter(
                 GoRoute(
                   path: '/profile',
                   builder: (_, __) => const ProfileScreen(),
-                  routes: [...profileRoutes(rootNavigatorKey), ...communityRoutes(rootNavigatorKey)],
+                  routes: [...profileRoutes(rootNavigatorKey), ...communityRoutes(rootNavigatorKey), ...recordingsRoutes(rootNavigatorKey)],
                 ),
               ],
             ),

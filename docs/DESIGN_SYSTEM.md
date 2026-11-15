@@ -181,6 +181,12 @@ running** (`pumpAndSettle` completes). A toast that follows a light comes at onc
 - Haptics only on user actions, through `GlassTap` (a selection tick) or the existing
   setting-aware calls; never on a moment that plays by itself.
 - Gold moves only for achievement: the level-up light, a medal's first light, a closed podium.
+- «تسميع» (`ReciteLayer`, own layer over the printed page — the glyphs never repaint): a
+  recognised word fades in and rises (12 % of the line pitch) over 420 ms, lapis settling to ink
+  (`easeOutCubic`); the glow on the next word glides 260 ms; «سمّع ثم تحقّق» reveals all words
+  one after another (35 ms apart, ≤ 1.4 s in all). The ticker runs only while something moves.
+  The mic orb's halo follows the voice level; a light haptic tick per completed ayah, a soft one
+  per counted repetition. Reduce motion: words appear, the glow jumps, no halo, no stagger.
 
 **Primitives** (in `core/widgets` unless noted)
 
@@ -196,8 +202,8 @@ running** (`pumpAndSettle` completes). A toast that follows a light comes at onc
 | `YqPulse`, `YqSlideIn`, `YqShiftIn`, `YqDrawLine`, `YqBreathingDot`, `YqWhenVisible` | A once-only swell; a slide + fade in (the pinned «ترتيبك» row, a podium step); a ranked row gliding from its old place (at most 3 rows; a longer move fades in; `RankMotionScope(listId:)` makes another board a new baseline, never a glide); a hairline drawing outward; the «live» dot; start-when-seen. |
 | `GlassTap(pressScale:)` | Eases down (160 ms; cards 0.98, orbs 0.96, small badges 0.92) and springs back with a touch of overshoot. |
 | `showYqSheet(spring: true)` | The sheet opens on the critically damped `sheetSpring`. |
-| `YqPlayRing` | Play/pause morph, a lapis progress ring that follows the reported position exactly (no ease to trail it), and an optional hairline orbit turning once per 12 s while playing (stopped when paused or off-screen). For recordings and recitations. |
-| `YqLiveLevel` | 5–7 lapis bars driven by a `Stream<double>` of real amplitude, newest in the centre spreading outward, each eased (140 ms); still under reduce-motion (samples ignored, the stream listened to once, so a single-subscription microphone stream is safe). No ticker of its own. |
+| `YqPlayRing` | Play/pause morph, a lapis progress ring that follows the reported position exactly (no ease to trail it), and an optional hairline orbit turning once per 12 s while playing (stopped when paused or off-screen). For recordings and recitations (used by «تلاواتي»: cards, review, listener). |
+| `YqLiveLevel` | 5–7 lapis bars driven by a `Stream<double>` of real amplitude, newest in the centre spreading outward, each eased (140 ms); still under reduce-motion (samples ignored, the stream listened to once, so a single-subscription microphone stream is safe). No ticker of its own. Used by the «تلاواتي» recorder. |
 
 **Moments**
 
@@ -214,6 +220,10 @@ running** (`pumpAndSettle` completes). A toast that follows a light comes at onc
 | Onboarding 05·ج | The preview's track fades in; a picked picture cross-fades in; preset pictures pop in 30 ms apart. When reached: a small ring fills through the six levels, lighting their dots, and settles back on level 1; a miniature league (neighbours are shapes, never people) slides in from the reading side with the person's picture and name, lit with one sheen when they switch the league on. Once per visit. |
 | «تسميع» (reader) | `ReciteLayer`, its own layer over the printed page (the glyphs never repaint): a recognised word fades in and rises (12 % of the line pitch) over 420 ms, lapis settling to ink (`easeOutCubic`); the glow on the next word glides 260 ms; «سمّع ثم تحقّق» reveals all words one after another (35 ms apart, ≤ 1.4 s in all). The ticker runs only while something moves. The mic orb's halo follows the voice level; a light haptic tick per completed ayah, a soft one per counted repetition. Reduce motion: words appear, the glow jumps, no halo, no stagger. |
 | Skeletons | Every skeleton in these features gives way to content with the 200 ms fade. |
+| «تلاواتي» picker | Each ayah the finger reaches joins the lapis tint with a selection tick; the estimate line changes in place (no motion). |
+| «تلاواتي» recorder | 3 · 2 · 1 scale down from 1.25 and fade in (280 ms, emphasised curve). The «مباشر» pill's dot breathes (opacity 0.35 ↔ 1, 1.4 s) only while a take runs — bounded by the 30-second take. `YqLiveLevel` follows the real microphone; the ring round the stop button follows elapsed time exactly; the stop glyph morphs circle → rounded square (280 ms). A recognised word turns lapis over 280 ms, the current word carries a soft lapis wash, and the view eases to keep the voice in sight (450 ms). A haptic at the 30-second stop and on each count-in beat. Reduce motion: a still pill (lit), still bars, the ring still counts, words change at once, the view jumps. |
+| «تلاواتي» listener | Karaoke uses the same word transition; `YqPlayRing` with its hairline orbit while playing. A new reaction pops once on `popSpring` (1 → 1.12 → 1) and its count rolls; taking it back only changes colour. Reduce motion: no pop, colours change at once. |
+| «تلاواتي» cards | Press 0.98; a recording in the AI check shows a breathing lapis dot (a few breaths, then lit); the list comes in with the 200 ms fade from two card-shaped skeletons. |
 
 ## 6. Performance
 

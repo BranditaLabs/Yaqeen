@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show SocketException;
+import 'dart:math' show Random;
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
@@ -23,6 +24,22 @@ class ApiException implements Exception {
 
   @override
   String toString() => 'ApiException($status, $code, $message)';
+}
+
+/// One part of a `multipart/form-data` body ([ApiClient.postMultipart]).
+class MultipartPart {
+  const MultipartPart(this.name, this.bytes, {this.contentType, this.filename});
+
+  /// A UTF-8 JSON part (e.g. a recording's `meta`).
+  MultipartPart.json(this.name, Object? value)
+      : bytes = utf8.encode(jsonEncode(value)),
+        contentType = 'application/json',
+        filename = null;
+
+  final String name;
+  final List<int> bytes;
+  final String? contentType;
+  final String? filename;
 }
 
 /// No connectivity / timeout. Callers should queue and retry later.
@@ -80,6 +97,36 @@ class ApiClient {
   Future<dynamic> putBytes(String path, List<int> bytes, String contentType) =>
       _send('PUT', path, bytes: bytes, contentType: contentType);
 
+  /// Sends `multipart/form-data` (the one upload that needs it: a recording's JSON `meta` and its
+  /// `audio`, `POST /v1/me/recordings`) and decodes the JSON answer.
+  /// [timeout] overrides the client's for this call (a clip on a slow mobile link).
+  Future<dynamic> postMultipart(String path, List<MultipartPart> parts, {String? boundary, Duration? timeout}) {
+    final b = boundary ?? 'yaqeen-${List.generate(16, (_) => _boundaryChars[_rand.nextInt(_boundaryChars.length)]).join()}';
+    return _send('POST', path, bytes: multipartBody(b, parts), contentType: 'multipart/form-data; boundary=$b', timeout: timeout);
+  }
+
+  static final _rand = Random();
+  static const _boundaryChars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+
+  /// The wire bytes of a multipart body for [boundary] (also what tests read back).
+  static Uint8List multipartBody(String boundary, List<MultipartPart> parts) {
+    const crlf = '\r\n';
+    final out = BytesBuilder(copy: false);
+    for (final p in parts) {
+      final head = StringBuffer('--$boundary${crlf}Content-Disposition: form-data; name="${p.name}"');
+      if (p.filename != null) head.write('; filename="${p.filename}"');
+      head.write(crlf);
+      if (p.contentType != null) head.write('Content-Type: ${p.contentType}$crlf');
+      head.write(crlf);
+      out
+        ..add(utf8.encode(head.toString()))
+        ..add(p.bytes)
+        ..add(utf8.encode(crlf));
+    }
+    out.add(utf8.encode('--$boundary--$crlf'));
+    return out.takeBytes();
+  }
+
   /// Downloads an authed binary (e.g. the caller's own photo at `/v1/me/avatar/photo/256`).
   Future<Uint8List> getBytes(String path) async => await _send('GET', path, raw: true) as Uint8List;
 
@@ -93,6 +140,7 @@ class ApiClient {
     String? contentType,
     bool raw = false,
     bool retried = false,
+    Duration? timeout,
   }) async {
     final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
     // A refresh in flight: wait for it rather than send a token that is about to be replaced.
@@ -115,7 +163,7 @@ class ApiClient {
 
     final http.Response res;
     try {
-      res = await http.Response.fromStream(await _http.send(req).timeout(timeout));
+      res = await http.Response.fromStream(await _http.send(req).timeout(timeout ?? this.timeout));
     } on SocketException {
       throw const OfflineException();
     } on TimeoutException {
@@ -138,6 +186,7 @@ class ApiClient {
           contentType: contentType,
           raw: raw,
           retried: true,
+          timeout: timeout,
         );
       }
     }

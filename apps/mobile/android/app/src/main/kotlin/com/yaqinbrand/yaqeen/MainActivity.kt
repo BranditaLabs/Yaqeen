@@ -42,8 +42,22 @@ class MainActivity : AudioServiceActivity() {
                         result.error("unavailable", e.message, null)
                     }
                 }
+                // «تلاواتي»: the microphone was refused for good — this app's settings page.
+                "openAppSettings" -> {
+                    try {
+                        startActivity(
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null))
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                        result.success(null)
+                    } catch (e: Exception) {
+                        result.error("unavailable", e.message, null)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }
+        // «تلاواتي»: the take's PCM → AAC-LC .m4a (AacEncoder.kt).
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.yaqinbrand.yaqeen/aac").setMethodCallHandler { call, result -> AacEncoder.handle(call, result) }
     }
 }

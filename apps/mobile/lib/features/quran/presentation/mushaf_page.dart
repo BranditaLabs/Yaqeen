@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show BoxHitTestResult;
 
 import '../../../core/format.dart';
 import '../../../core/settings/app_settings.dart';
@@ -140,10 +141,10 @@ class MushafPage extends StatefulWidget {
   final ValueChanged<AyahRef>? onNoteTap;
 
   @override
-  State<MushafPage> createState() => _MushafPageState();
+  State<MushafPage> createState() => MushafPageState();
 }
 
-class _MushafPageState extends State<MushafPage> {
+class MushafPageState extends State<MushafPage> {
   final Map<AyahRef, GestureRecognizer> _recognizers = {};
   bool? _builtForTap;
 
@@ -158,6 +159,23 @@ class _MushafPageState extends State<MushafPage> {
       r.dispose();
     }
     _recognizers.clear();
+  }
+
+  /// The ayah under the global point [global] — the verse picker's swipe («تلاواتي») maps a finger
+  /// to an ayah the same way a tap does (the span under it), or null between ayat.
+  AyahRef? ayahAt(Offset global) {
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.attached || !box.hasSize) return null;
+    final result = BoxHitTestResult();
+    if (!box.hitTest(result, position: box.globalToLocal(global))) return null;
+    for (final e in result.path) {
+      final target = e.target;
+      if (target is! TextSpan || target.recognizer == null) continue;
+      for (final entry in _recognizers.entries) {
+        if (identical(entry.value, target.recognizer)) return entry.key;
+      }
+    }
+    return null;
   }
 
   bool get _tapMode => widget.onAyahTap != null && (widget.memorise != MemoriseMode.off || widget.onAyahLongPress == null);

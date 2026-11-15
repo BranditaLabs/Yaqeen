@@ -32,6 +32,7 @@ import '../../community/presentation/badge_label.dart';
 import '../../content/presentation/pack_row.dart';
 import '../../onboarding/presentation/session_controller.dart';
 import '../../onboarding/presentation/sign_in_sheet.dart';
+import '../../recordings/presentation/recordings_section.dart';
 import '../domain/avatar.dart';
 import '../domain/me_profile.dart';
 import 'avatar_sheet.dart';
@@ -230,6 +231,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         if (signedIn && profile != null) ...[
           BadgesStrip(badges: profile.recentBadges, count: profile.badgesCount),
           const SizedBox(height: YqSpace.l),
+        ],
+        // «تلاواتي» (flag `recordings`): guests too — their takes stay on this phone until they sign in.
+        if (config.isOn(Flags.recordings)) ...[
+          const RecordingsSection(),
+          const SizedBox(height: YqSpace.xl),
         ],
         if (signedIn) const JourneySection(),
         if (competitions) ...[

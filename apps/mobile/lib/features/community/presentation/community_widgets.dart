@@ -19,6 +19,8 @@ import '../../../core/widgets/yq_once.dart';
 import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
+import '../../recordings/presentation/member_recordings_sheet.dart';
+import '../../recordings/presentation/recordings_providers.dart' show recordingsOnProvider;
 import '../../profile/domain/level.dart';
 import '../domain/community_models.dart';
 
@@ -89,13 +91,14 @@ String pointsText(int? points, AppLocalizations t) => points == null || points <
 /// One person in a public list: rank · avatar in their (snapshot) level ring · name · points (or
 /// the level name on the level board). The caller's own row is tinted lapis and says «أنت».
 /// Long-press another person's row → report/block.
-class CompetitorRow extends StatefulWidget {
+class CompetitorRow extends ConsumerStatefulWidget {
   const CompetitorRow({
     super.key,
     required this.competitor,
     this.showPoints = true,
     this.podium = false,
     this.onLongPress,
+    this.onTap,
   });
 
   final PublicCompetitor competitor;
@@ -107,14 +110,18 @@ class CompetitorRow extends StatefulWidget {
   final bool podium;
   final VoidCallback? onLongPress;
 
+  /// A tap; by default another member's row opens their «تلاوات» sheet while the `recordings`
+  /// flag is on (APP_SPEC §5.31.6).
+  final VoidCallback? onTap;
+
   /// How far apart the closed podium's rows rise (1, then 2, then 3).
   static const podiumStep = Duration(milliseconds: 120);
 
   @override
-  State<CompetitorRow> createState() => _CompetitorRowState();
+  ConsumerState<CompetitorRow> createState() => _CompetitorRowState();
 }
 
-class _CompetitorRowState extends State<CompetitorRow> {
+class _CompetitorRowState extends ConsumerState<CompetitorRow> {
   /// One-time moments, decided when the row first builds on this screen ([RankMotionScope]) and
   /// kept for the row's life, so a rebuild never cuts them short.
   bool _sheen = false;
@@ -258,11 +265,13 @@ class _CompetitorRowState extends State<CompetitorRow> {
       delay: CompetitorRow.podiumStep * ((c.rank ?? 1) - 1),
       child: YqSheen(play: _sheen, color: YqColors.lapis, opacity: 0.14, radius: YqRadii.chip, delay: Motion.emphasised, child: row),
     );
+    final onTap = widget.onTap ?? (!c.me && ref.watch(recordingsOnProvider) ? () => showMemberRecordingsSheet(context, c) : null);
     return Semantics(
       label: semantics,
       excludeSemantics: true,
+      onTap: onTap,
       onLongPress: onLongPress,
-      child: GestureDetector(behavior: HitTestBehavior.opaque, onLongPress: onLongPress, child: YqShiftIn(rows: shift, child: body)),
+      child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: onTap, onLongPress: onLongPress, child: YqShiftIn(rows: shift, child: body)),
     );
   }
 }

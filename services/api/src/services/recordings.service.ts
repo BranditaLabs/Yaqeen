@@ -321,9 +321,17 @@ export async function upload(ctx: AppContext, uid: string, meta: RecordingMeta, 
   const shared = meta.visibility !== 'private';
   if (shared) requireMember(id0);
   const now = ctx.now();
-  const id = await ctx.db.transaction(async (tx) => {
-    // Serialise this user's uploads (the 3-per-profile limit).
+  const { id, repeat } = await ctx.db.transaction(async (tx) => {
+    // Serialise this user's uploads (the 3-per-profile limit, and the same take sent twice).
     await tx.execute(sql`select id from users where id = ${uid} for update`);
+    if (meta.clientId) {
+      // The same take again (a retry after a timeout, the offline queue): the recording already kept.
+      const [kept] = await tx
+        .select({ id: recordings.id })
+        .from(recordings)
+        .where(and(eq(recordings.userId, uid), eq(recordings.clientId, meta.clientId)));
+      if (kept) return { id: kept.id, repeat: true };
+    }
     const [{ n } = { n: 0 }] = await tx.select({ n: sql<number>`count(*)::int` }).from(recordings).where(eq(recordings.userId, uid));
     if (Number(n) >= PROFILE_RECORDINGS_MAX) throw conflict('recordings_limit');
     await takeDaily(tx, uid, cairoDay(now));
@@ -345,12 +353,13 @@ export async function upload(ctx: AppContext, uid: string, meta: RecordingMeta, 
         // The on-device pre-check: diagnostics for a reviewer only, never used to approve.
         clientScore: shared ? (meta.clientScore ?? null) : null,
         clientWords: shared ? (meta.clientWords ?? null) : null,
+        clientId: meta.clientId ?? null,
         createdAt: now,
       })
       .returning({ id: recordings.id });
-    return row!.id;
+    return { id: row!.id, repeat: false };
   });
-  if (shared) schedule(ctx, id);
+  if (shared && !repeat) schedule(ctx, id);
   return ownOne(ctx, uid, id);
 }
 

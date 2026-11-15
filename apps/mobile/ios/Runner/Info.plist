@@ -87,7 +87,7 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>لاختيار صورة لملفّك في يقين فقط، ولا نقرأ غيرها. Only to choose a photo for your Yaqeen profile; nothing else is read.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>نستمع لتلاوتك على جهازك فقط للتسميع، ولا يُرفع أي صوت. We listen to your recitation on this device only; no audio is uploaded.</string>
+	<string>نستمع لتلاوتك على جهازك للتسميع دون رفع أي صوت، ونسجّل تلاواتك في «تلاواتي» حين تختار ذلك لتُحفظ في حسابك. We listen to your recitation on this device for recitation practice without uploading it, and record your «My recitations» clips when you choose to, saved to your account.</string>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>لقياس نجاح إعلانات يقين فقط: التحميل والتسجيل والاستبدال. عباداتك لا تُشارك أبداً. Only to measure Yaqeen's ads (installs, sign-ups, redemptions). Your worship is never shared.</string>
 	<key>UIBackgroundModes</key>

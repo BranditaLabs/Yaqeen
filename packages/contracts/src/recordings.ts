@@ -192,6 +192,13 @@ export type MemberRecordings = z.infer<typeof MemberRecordings>;
 const ClientWords = z.array(RecordingWord).max(400);
 
 /**
+ * The app's own id for one take (its draft id). Uploading the same take again — a retry after a
+ * timeout the server had already answered, or the offline queue — returns the recording it already
+ * kept instead of creating a second one (which would use a profile slot and a daily upload).
+ */
+export const RecordingClientId = z.string().min(8).max(64).regex(/^[A-Za-z0-9_-]+$/);
+
+/**
  * `POST /v1/me/recordings` multipart: part `meta` (this JSON) + part `audio` (the .m4a). `durationMs` is
  * the app's measurement (the server trusts the file's own duration). `clientScore`/`clientWords` are the
  * on-device pre-check, kept only while the recording waits in the review queue and never used to approve.
@@ -205,6 +212,7 @@ export const RecordingMetaBase = z.object({
   commentsOn: z.boolean().default(true),
   clientScore: z.number().min(0).max(1).optional(),
   clientWords: ClientWords.optional(),
+  clientId: RecordingClientId.optional(),
 });
 export const RecordingMeta = RecordingMetaBase.refine((m) => m.fromAyah <= m.toAyah, { message: 'recording_invalid_range' });
 export type RecordingMeta = z.infer<typeof RecordingMeta>;
