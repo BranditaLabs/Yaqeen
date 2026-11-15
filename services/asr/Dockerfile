@@ -3,7 +3,9 @@
 # Stage 1 converts the pinned Quran-tuned Whisper to CTranslate2 int8 (torch only lives here);
 # stage 2 is the small runtime with the converted model baked in at /model.
 
-FROM python:3.12-slim AS convert
+# Bookworm (glibc 2.36), not the floating slim tag: ctranslate2 4.5.0's library asks for an executable
+# stack, which glibc ≥ 2.41 (Debian trixie, today's python:3.12-slim) refuses at import.
+FROM python:3.12-slim-bookworm AS convert
 ARG MODEL_ID=tarteel-ai/whisper-base-ar-quran
 # Pinned revision (licence: Apache-2.0 — see services/asr/README.md › Model).
 ARG MODEL_REVISION=5c3c53fdf9272c4f6ee0bee09a1e5a4a615ee25c
@@ -17,7 +19,7 @@ RUN ct2-transformers-converter --model "$MODEL_ID" --revision "$MODEL_REVISION" 
  && cp /tok/tokenizer.json /model/tokenizer.json \
  && printf '%s@%s\n' "$MODEL_ID" "$MODEL_REVISION" > /model/MODEL_REVISION
 
-FROM python:3.12-slim AS runtime
+FROM python:3.12-slim-bookworm AS runtime
 ENV PIP_NO_CACHE_DIR=1 PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     ASR_MODEL_DIR=/model HF_HUB_OFFLINE=1 HF_HUB_DISABLE_TELEMETRY=1
 WORKDIR /srv
