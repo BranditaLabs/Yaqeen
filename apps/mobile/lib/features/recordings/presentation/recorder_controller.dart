@@ -140,7 +140,8 @@ class RecorderState {
 /// stops by itself at 30 s with a haptic. After the take, the recogniser's final pass over the whole
 /// clip gives the advisory [ClientCheck] and the karaoke timings.
 class RecorderController extends AutoDisposeFamilyNotifier<RecorderState, Passage> {
-  static const countInStep = Duration(milliseconds: 800);
+  /// One beat of the 3-2-1 count-in (shortened by tests).
+  static Duration countInStep = const Duration(milliseconds: 800);
   static const tick = Duration(milliseconds: 100);
 
   /// How long the final on-device pass may take before review shows without it.
@@ -160,10 +161,12 @@ class RecorderController extends AutoDisposeFamilyNotifier<RecorderState, Passag
   int _generation = 0;
 
   VoiceRecorder get _recorder => ref.read(voiceRecorderProvider);
-  RecitationEngine get _engine => ref.read(recitationEngineProvider);
+  late RecitationEngine _engine;
 
   @override
   RecorderState build(Passage arg) {
+    // Kept for the controller's life: onDispose may not read providers.
+    final engine = _engine = ref.watch(recitationEngineProvider);
     ref.onDispose(() {
       _generation++;
       _timer?.cancel();
@@ -172,7 +175,7 @@ class RecorderController extends AutoDisposeFamilyNotifier<RecorderState, Passag
       final take = _take;
       _take = null;
       if (take != null) take.cancel().ignore();
-      _engine.stop().ignore();
+      engine.stop().ignore();
     });
     Future.microtask(_prepare);
     return const RecorderState();
@@ -260,7 +263,7 @@ class RecorderController extends AutoDisposeFamilyNotifier<RecorderState, Passag
         state = state.copyWith(elapsed: const Duration(milliseconds: kRecordingMaxMs));
         HapticFeedback.mediumImpact().ignore();
         stop(auto: true).ignore();
-      } else {
+      } else if (e != state.elapsed) {
         state = state.copyWith(elapsed: e);
       }
     });

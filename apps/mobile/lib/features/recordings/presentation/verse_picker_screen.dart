@@ -62,10 +62,18 @@ class _VersePickerScreenState extends ConsumerState<VersePickerScreen> {
     setState(() => _selection = VerseSelection.single(q, ref));
   }
 
-  void _drag(Offset global) {
-    final s = _selection;
+  /// A pan that started between ayat anchors on the first ayah it reaches.
+  bool _anchored = false;
+
+  void _drag(QuranData q, Offset global) {
     final ref = _hit(global);
-    if (s == null || ref == null) return;
+    if (ref == null) return;
+    final s = _selection;
+    if (s == null || !_anchored) {
+      _anchored = true;
+      _select(q, ref);
+      return;
+    }
     final next = s.dragTo(ref);
     if (next != s) {
       HapticFeedback.selectionClick().ignore();
@@ -142,10 +150,10 @@ class _VersePickerScreenState extends ConsumerState<VersePickerScreen> {
                           textKey: _text,
                           onTap: (r) => _select(quran, r),
                           onPanStart: (g) {
-                            final r = _hit(g);
-                            if (r != null) _select(quran, r);
+                            _anchored = false;
+                            _drag(quran, g);
                           },
-                          onPanUpdate: _drag,
+                          onPanUpdate: (g) => _drag(quran, g),
                         ),
                 ),
               ),
