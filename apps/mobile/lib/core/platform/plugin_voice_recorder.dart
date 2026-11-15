@@ -21,9 +21,18 @@ class PluginVoiceRecorder extends VoiceRecorder {
   static const _aac = MethodChannel('com.yaqinbrand.yaqeen/aac');
   static const _device = MethodChannel('com.yaqinbrand.yaqeen/device');
 
-  /// Keeps a recording no longer than this even if the UI's 30 s stop were missed (contracts
-  /// `RECORDING_MAX_MS` + the encoder tolerance): the PCM is cut here before encoding.
-  static const hardCap = Duration(milliseconds: 30200);
+  /// The most PCM that is encoded (the rest of a take is dropped before the encoder). The server
+  /// checks the longest of the file's `mdhd`, `stts` and frames × 1024 ÷ 16 kHz against contracts
+  /// `RECORDING_MAX_MS` + `RECORDING_DURATION_TOLERANCE_MS` (30 250 ms), and all three include the
+  /// encoder's priming (iOS AVAudioFile 2112 samples, Android MediaCodec ≈ 1024) and the padding of
+  /// the last frame. 29 900 ms of PCM with 2112 priming samples and two padding frames is 472
+  /// frames = 30 208 ms — inside the limit — so a full 30-second take (which runs a little past 30 s
+  /// before the stop lands) is never refused as `recording_too_long`.
+  static const hardCap = Duration(milliseconds: 29900);
+
+  /// The encoders' priming (the larger, iOS) and the frames of padding allowed for, in [hardCap].
+  static const primingSamples = 2112;
+  static const paddingFrames = 2;
 
   AudioRecorder? _recorder;
 
@@ -84,12 +93,17 @@ class _PluginTake implements VoiceTake {
   _PluginTake(this._recorder, Stream<Uint8List> bytes) {
     _sub = bytes.listen(
       (chunk) {
+        // The take's clock counts everything heard (the UI's 30-second stop follows it); only the
+        // first [PluginVoiceRecorder.hardCap] is kept, followed live and encoded.
+        _receivedBytes += chunk.length;
         final room = _maxBytes - _raw.length;
-        if (room <= 0) return;
+        if (room <= 0) {
+          if (!_level.isClosed) _level.add(levelOf(pcm16ToFloat(chunk)));
+          return;
+        }
         final kept = chunk.length > room ? Uint8List.sublistView(chunk, 0, room) : chunk;
         _raw.add(kept);
         final s = _decoder.convert(kept);
-        _samples += s.length;
         if (!_pcm.isClosed) _pcm.add(s);
         if (!_level.isClosed) _level.add(levelOf(s));
       },
@@ -106,7 +120,7 @@ class _PluginTake implements VoiceTake {
   final _decoder = Pcm16Decoder();
   final _pcm = StreamController<Float32List>();
   final _level = StreamController<double>.broadcast();
-  int _samples = 0;
+  int _receivedBytes = 0;
 
   static final _maxBytes = PluginVoiceRecorder.hardCap.inMilliseconds * asrSampleRate ~/ 1000 * 2;
 
@@ -120,7 +134,7 @@ class _PluginTake implements VoiceTake {
   @override
   Stream<double> get level => _level.stream;
   @override
-  Duration get elapsed => Duration(microseconds: _samples * 1000000 ~/ asrSampleRate);
+  Duration get elapsed => Duration(microseconds: (_receivedBytes ~/ 2) * 1000000 ~/ asrSampleRate);
 
   Future<void> _end() async {
     try {

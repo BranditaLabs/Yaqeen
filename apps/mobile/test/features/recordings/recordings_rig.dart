@@ -91,9 +91,15 @@ class RecordingsRig {
   final audio = FakeAudioEngine();
   DateTime now = DateTime.utc(2026, 11, 14, 10);
 
-  late final recorder = FakeVoiceRecorder(writeFile: (path, bytes) async => File(path)
-    ..createSync(recursive: true)
-    ..writeAsBytesSync(bytes),);
+  /// While set, writing a take's clip waits for it (a slow encoder).
+  Completer<void>? writeGate;
+
+  late final recorder = FakeVoiceRecorder(writeFile: (path, bytes) async {
+    await writeGate?.future;
+    File(path)
+      ..createSync(recursive: true)
+      ..writeAsBytesSync(bytes);
+  },);
   RecitationEngine engine = const UnavailableRecitationEngine();
 
   List<Override> get overrides => [
@@ -125,6 +131,13 @@ class PcmFakeEngine extends RecitationEngine {
   PcmFakeEngine({this.live = true, this.available = true});
   bool live;
   bool available;
+
+  /// While set, the whole-take result waits for it after the PCM closed (a slow final pass).
+  Completer<void>? finalGate;
+
+  /// While set, [isAvailable] waits for it (the engine checks after the microphone opened).
+  Completer<void>? availableGate;
+  int starts = 0;
   StreamController<RecognitionUpdate>? _out;
   StreamSubscription<Float32List>? _pcm;
   RecognitionUpdate? _last;
@@ -133,7 +146,10 @@ class PcmFakeEngine extends RecitationEngine {
   bool? startedLive;
 
   @override
-  Future<bool> isAvailable() async => available;
+  Future<bool> isAvailable() async {
+    await availableGate?.future;
+    return available;
+  }
   @override
   Future<bool> isSupported() async => true;
   @override
@@ -144,11 +160,15 @@ class PcmFakeEngine extends RecitationEngine {
   @override
   Stream<RecognitionUpdate> startFromPcm(Stream<Float32List> pcm, {bool live = true}) {
     startedLive = live;
+    starts++;
     final out = _out = StreamController<RecognitionUpdate>();
-    _pcm = pcm.listen((_) => pcmChunks++, onDone: () {
+    _last = null;
+    _pcm = pcm.listen((_) => pcmChunks++, onDone: () async {
+      await finalGate?.future;
       final words = finalWords ?? _last?.words ?? const <RecognizedWord>[];
+      if (out.isClosed) return;
       out.add(RecognitionUpdate(committed: words, isFinal: true));
-      out.close();
+      out.close().ignore();
     },);
     return out.stream;
   }
@@ -157,7 +177,8 @@ class PcmFakeEngine extends RecitationEngine {
   void emit(List<(String, double, double)> words) {
     final u = RecognitionUpdate(committed: [for (final (w, s, e) in words) RecognizedWord(w, start: s, end: e)]);
     _last = u;
-    _out?.add(u);
+    final out = _out;
+    if (out != null && !out.isClosed) out.add(u);
   }
 
   @override

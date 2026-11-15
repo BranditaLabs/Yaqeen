@@ -176,6 +176,30 @@ void main() {
       expect((await s.c.read(recordingDraftsProvider).all()).single.state, DraftState.queued);
     });
 
+    test("the day's uploads used up: kept on this phone for tomorrow, never queued against the cap", () async {
+      final s = setUpRig(routes: {'POST /v1/me/recordings': (_) => errorResponse(429, 'recording_daily_limit')});
+      await record(s.c, s.rig);
+      ctl(s.c).setVisibility(RecordingVisibility.members);
+      expect(await ctl(s.c).save(), SaveOutcome.later);
+      final d = (await s.c.read(recordingDraftsProvider).all()).single;
+      expect(d.state, DraftState.local);
+      expect(d.visibility, RecordingVisibility.members);
+      expect(File(d.path).existsSync(), isTrue);
+    });
+
+    test("the upload carries the take's id; a queued retry sends the same one", () async {
+      final s = setUpRig();
+      await record(s.c, s.rig);
+      s.rig.offlineAll = true;
+      expect(await ctl(s.c).save(), SaveOutcome.queued);
+      final d = (await s.c.read(recordingDraftsProvider).all()).single;
+      expect(utf8.decode(s.rig.requests['POST /v1/me/recordings']!.bodyBytes), contains('"clientId":"${d.id}"'));
+      s.rig.offlineAll = false;
+      s.rig.routes['POST /v1/me/recordings'] = (_) => jsonResponse({...created, 'status': 'private_ready', 'visibility': 'private'}, 202);
+      expect(await s.c.read(recordingDraftsProvider).flush(force: true), hasLength(1));
+      expect(utf8.decode(s.rig.requests['POST /v1/me/recordings']!.bodyBytes), contains('"clientId":"${d.id}"'));
+    });
+
     test('a gate refusal stays on the review with its code', () async {
       final s = setUpRig(routes: {'POST /v1/me/recordings': (_) => errorResponse(403, 'community_required')});
       await record(s.c, s.rig);
@@ -185,6 +209,102 @@ void main() {
       expect(stateOf(s.c).error, RecordingFailure.communityRequired);
       final meta = s.rig.requests['POST /v1/me/recordings']!;
       expect(utf8.decode(meta.bodyBytes), contains('"visibility":"members"'));
+    });
+  });
+
+  group('one take at a time', () {
+    tearDown(() => RecorderController.checkTimeout = const Duration(seconds: 25));
+
+    test('re-recording while the last check runs: the old stop never touches the new take', () async {
+      RecorderController.checkTimeout = const Duration(milliseconds: 300);
+      final engine = PcmFakeEngine()..finalGate = Completer<void>(); // the old final pass never lands
+      final s = setUpRig(engine: engine);
+      await ctl(s.c).begin();
+      s.rig.recorder.take!.emit(ms: 6000);
+      final oldStop = ctl(s.c).stop();
+      await until(() => stateOf(s.c).phase == RecorderPhase.review);
+      expect(stateOf(s.c).checking, isTrue);
+      // «أعد التسجيل» while the check of the first take still runs.
+      engine.finalGate = null;
+      await ctl(s.c).again();
+      expect(stateOf(s.c).phase, RecorderPhase.recording);
+      expect(engine.starts, 2);
+      await oldStop; // its wait ended with the discard (or its timeout)
+      await Future<void>.delayed(const Duration(milliseconds: 400)); // past the old stop's timeout
+      // The new take still follows the voice and its check covers the whole take.
+      s.rig.recorder.take!.emit();
+      engine.emit(spoken(ikhlasText(), n: 5));
+      await Future<void>.delayed(Duration.zero);
+      expect(stateOf(s.c).marks.take(4), everyElement(WordMark.ok));
+      engine.finalWords = [for (final (w, a, b) in spoken(ikhlasText())) RecognizedWord(w, start: a, end: b)];
+      s.rig.recorder.take!.emit(ms: 6000);
+      await ctl(s.c).stop();
+      expect(stateOf(s.c).checking, isFalse);
+      expect(stateOf(s.c).check!.verdict, ClientVerdict.clean);
+    });
+
+    test('«حفظ» before the on-device check finished waits for it: the karaoke timings are kept', () async {
+      final engine = PcmFakeEngine()..finalGate = Completer<void>();
+      final s = setUpRig(engine: engine, routes: {'POST /v1/me/recordings': (_) => jsonResponse({...created, 'status': 'private_ready', 'visibility': 'private'}, 202)});
+      await ctl(s.c).begin();
+      engine.finalWords = [for (final (w, a, b) in spoken(ikhlasText())) RecognizedWord(w, start: a, end: b)];
+      s.rig.recorder.take!.emit(ms: 6000);
+      ctl(s.c).stop().ignore();
+      await until(() => stateOf(s.c).phase == RecorderPhase.review);
+      expect(stateOf(s.c).checking, isTrue);
+      final saving = ctl(s.c).save();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(s.rig.calls, isEmpty); // waiting for the check
+      engine.finalGate!.complete();
+      expect(await saving, SaveOutcome.uploaded);
+      final words = await s.c.read(recordingsRepositoryProvider).localWords(created['id'] as String);
+      expect(words, hasLength(15));
+    });
+
+    test('leaving while the engine is asked about the model: no recogniser, no timer, the take closed', () async {
+      final engine = PcmFakeEngine()..availableGate = Completer<void>();
+      final s = setUpRig(engine: engine);
+      await until(() => ctl(s.c).words.isNotEmpty);
+      final begun = ctl(s.c).begin();
+      await until(() => s.rig.recorder.take != null);
+      await ctl(s.c).discard(keepScreen: true);
+      engine.availableGate!.complete();
+      await begun;
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      expect(engine.starts, 0);
+      expect(stateOf(s.c).phase, RecorderPhase.ready);
+      expect(s.rig.recorder.take!.cancelled, isTrue);
+    });
+
+    test('backing out while the clip is written: the file is not left behind', () async {
+      final s = setUpRig();
+      await ctl(s.c).begin();
+      s.rig.writeGate = Completer<void>();
+      s.rig.recorder.take!.emit(ms: 6000);
+      final stopping = ctl(s.c).stop();
+      expect(stateOf(s.c).phase, RecorderPhase.encoding);
+      await ctl(s.c).discard();
+      s.rig.writeGate!.complete();
+      await stopping;
+      final path = s.rig.recorder.take!.stoppedAt!;
+      expect(File(path).existsSync(), isFalse);
+      expect(stateOf(s.c).phase, isNot(RecorderPhase.review));
+    });
+
+    test('a take on review is deleted when the screen goes without saving it', () async {
+      final rig = RecordingsRig();
+      final c = rig.container();
+      final sub = c.listen(recorderProvider(ikhlas), (_, __) {});
+      final ctl = c.read(recorderProvider(ikhlas).notifier);
+      await ctl.begin();
+      rig.recorder.take!.emit(ms: 6000);
+      await ctl.stop();
+      final path = c.read(recorderProvider(ikhlas)).clip!.path;
+      expect(File(path).existsSync(), isTrue);
+      sub.close();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(File(path).existsSync(), isFalse);
+      c.dispose();
     });
   });
 

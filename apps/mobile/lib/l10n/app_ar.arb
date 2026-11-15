@@ -3247,6 +3247,25 @@
   "recSaved": "حُفظت في تلاواتي",
   "recSavedQueued": "حُفظت وستُرفع عند الاتصال",
   "recSavedLocal": "حُفظت على هذا الجهاز. سجّل الدخول لحفظها في حسابك.",
+  "recSavedLater": "حاولت كثيراً اليوم. حُفظت على هذا الجهاز؛ ارفعها غداً.",
+  "recAyahTooLong": "هذه الآية أطول من {seconds} ثانية — اختر آية أقصر",
+  "@recAyahTooLong": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "recRerecordFullTitle": "تُحذف هذه التلاوة أولاً",
+  "recRerecordFullBody": "لديك {max} تلاوات. لتسجيل هذه الآيات من جديد تُحذف التلاوة التي لم تُقبل.",
+  "@recRerecordFullBody": {
+    "placeholders": {
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "recRerecordFullConfirm": "احذفها وسجّل من جديد",
   "recSignInToShare": "سجّل الدخول لتشاركها مع الأعضاء",
   "recGateTitle": "المشاركة مع الأعضاء",
   "recGateBody": "تظهر تلاواتك المشاركة باسمك في المنافسات. تحتاج إلى تأكيد العمر والانضمام إلى إحدى المنافسات.",

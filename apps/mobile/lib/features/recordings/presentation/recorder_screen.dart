@@ -61,7 +61,13 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
 
   Future<bool> _confirmDiscard() async {
     final s = ref.read(recorderProvider(widget.passage));
-    final busy = s.phase == RecorderPhase.recording || s.phase == RecorderPhase.countIn || (s.clip != null && s.phase != RecorderPhase.saved);
+    // Saving: the take is on its way (upload or this phone) — leaving now could not take it back.
+    if (s.phase == RecorderPhase.saving) return false;
+    // Encoding has no clip yet, but the take is being written: it is discarded like one on review.
+    final busy = s.phase == RecorderPhase.recording ||
+        s.phase == RecorderPhase.countIn ||
+        s.phase == RecorderPhase.encoding ||
+        (s.clip != null && s.phase != RecorderPhase.saved);
     if (!busy) return true;
     final t = AppLocalizations.of(context);
     final ok = await showYqSheet<bool>(
@@ -94,6 +100,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
       SaveOutcome.uploaded => t.recSaved,
       SaveOutcome.queued => t.recSavedQueued,
       SaveOutcome.local => t.recSavedLocal,
+      SaveOutcome.later => t.recSavedLater,
     };
     YqToast.show(context, message);
     context.go('/profile');

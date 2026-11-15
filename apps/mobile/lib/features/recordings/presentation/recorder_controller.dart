@@ -34,7 +34,35 @@ enum FollowMode {
 }
 
 /// Where the take ended up after «حفظ».
-enum SaveOutcome { uploaded, queued, local }
+enum SaveOutcome {
+  uploaded,
+  queued,
+  local,
+
+  /// The day's uploads are used up (`recording_daily_limit`): kept on this phone as a draft the
+  /// person uploads with «ارفعها» tomorrow (never retried on its own against the cap).
+  later,
+}
+
+/// The recogniser of one take: its subscription, the latest update (the final one is the whole
+/// take) and whether it finished. Each take has its own, so an older take's stop or a discard can
+/// never cancel or read a newer take's recogniser.
+class _TakeAsr {
+  StreamSubscription<RecognitionUpdate>? sub;
+  RecognitionUpdate? last;
+  final done = Completer<void>();
+
+  void end() {
+    if (!done.isCompleted) done.complete();
+  }
+
+  void cancel() {
+    sub?.cancel().ignore();
+    sub = null;
+    // Cancelling never fires onDone: whoever waits on this take stops waiting now.
+    end();
+  }
+}
 
 class RecorderState {
   const RecorderState({
@@ -145,7 +173,7 @@ class RecorderController extends AutoDisposeFamilyNotifier<RecorderState, Passag
   static const tick = Duration(milliseconds: 100);
 
   /// How long the final on-device pass may take before review shows without it.
-  static const checkTimeout = Duration(seconds: 25);
+  static Duration checkTimeout = const Duration(seconds: 25);
 
   /// Shorter than this cannot hold an ayah: «قصير جداً».
   static const minTake = Duration(milliseconds: 1500);
@@ -153,12 +181,20 @@ class RecorderController extends AutoDisposeFamilyNotifier<RecorderState, Passag
   VoiceTake? _take;
   Timer? _timer;
   Timer? _countdown;
-  StreamSubscription<RecognitionUpdate>? _asr;
-  RecognitionUpdate? _final;
-  Completer<void>? _finalDone;
+  _TakeAsr? _asr;
+
+  /// Completes once the current take's on-device check landed (or was given up): «حفظ» waits on it.
+  Completer<void>? _checked;
   RecitationFollower? _follower;
   List<(AyahRef, String)> _expected = const [];
   int _generation = 0;
+
+  /// Where takes are written (fetched before recording, so stopping closes the microphone at once).
+  Directory? _draftsDir;
+
+  /// The clip on review that nobody saved yet: deleted when the screen goes without saving it.
+  String? _unsaved;
+  bool _saving = false;
 
   VoiceRecorder get _recorder => ref.read(voiceRecorderProvider);
   late RecitationEngine _engine;
@@ -172,10 +208,17 @@ class RecorderController extends AutoDisposeFamilyNotifier<RecorderState, Passag
       _timer?.cancel();
       _countdown?.cancel();
       _asr?.cancel();
+      _asr = null;
+      _completeChecked();
       final take = _take;
       _take = null;
       if (take != null) take.cancel().ignore();
       engine.stop().ignore();
+      // Left without saving (a take on review, or one still being written): its file goes too. A
+      // save in flight keeps it (the draft or the upload still reads it).
+      final unsaved = _unsaved;
+      _unsaved = null;
+      if (unsaved != null && !_saving) _deleteFile(unsaved);
     });
     Future.microtask(_prepare);
     return const RecorderState();
@@ -203,6 +246,7 @@ class RecorderController extends AutoDisposeFamilyNotifier<RecorderState, Passag
       return;
     }
     if (_follower == null) await _prepare();
+    _draftsDir ??= await ref.read(recordingsRepositoryProvider).draftsDir();
     final gen = ++_generation;
     _follower = RecitationFollower(ExpectedWord.of(_expected));
     state = RecorderState(
@@ -229,32 +273,40 @@ class RecorderController extends AutoDisposeFamilyNotifier<RecorderState, Passag
     try {
       take = await _recorder.start();
     } on MicDeniedException {
-      state = state.copyWith(phase: RecorderPhase.denied);
+      if (gen == _generation) state = state.copyWith(phase: RecorderPhase.denied);
       return;
     }
-    if (gen != _generation) {
+    // Every await below may outlive the screen (back during the count-in): a newer generation
+    // closes this take before anything listens to it or a timer starts.
+    bool stale() {
+      if (gen == _generation) return false;
       take.cancel().ignore();
-      return;
+      return true;
+    }
+
+    if (stale()) return;
+    var mode = FollowMode.pacing;
+    LiveSupport? support;
+    final available = await _engine.isAvailable();
+    if (stale()) return;
+    if (available) {
+      support = await _engine.liveSupport();
+      if (stale()) return;
+      mode = support.live ? FollowMode.live : FollowMode.pacing;
     }
     _take = take;
-    _final = null;
-    _finalDone = Completer<void>();
-    var mode = FollowMode.pacing;
-    var asr = false;
-    if (await _engine.isAvailable()) {
-      final support = await _engine.liveSupport();
-      mode = support.live ? FollowMode.live : FollowMode.pacing;
-      asr = true;
-      _asr = _engine.startFromPcm(take.pcm, live: support.live).listen(
-            _onUpdate,
-            onError: (Object _) => _endAsr(),
-            onDone: _endAsr,
+    final asr = _asr = _TakeAsr();
+    _checked = Completer<void>();
+    if (support != null) {
+      asr.sub = _engine.startFromPcm(take.pcm, live: support.live).listen(
+            (u) => _onUpdate(asr, u),
+            onError: (Object _) => asr.end(),
+            onDone: asr.end,
           );
-    }
-    if (!asr) {
+    } else {
       // Nothing listens to the samples: drain them so the take never buffers.
       take.pcm.listen((_) {}).onError((Object _) {});
-      _endAsr();
+      asr.end();
     }
     state = state.copyWith(phase: RecorderPhase.recording, mode: mode, elapsed: Duration.zero);
     _timer = Timer.periodic(tick, (_) {
@@ -269,17 +321,17 @@ class RecorderController extends AutoDisposeFamilyNotifier<RecorderState, Passag
     });
   }
 
-  void _endAsr() {
-    final d = _finalDone;
-    if (d != null && !d.isCompleted) d.complete();
+  void _completeChecked() {
+    final c = _checked;
+    if (c != null && !c.isCompleted) c.complete();
   }
 
-  void _onUpdate(RecognitionUpdate u) {
+  void _onUpdate(_TakeAsr asr, RecognitionUpdate u) {
     // The latest update holds everything heard so far; the final one (after the clip's PCM closed)
     // is the whole take.
-    _final = u;
+    asr.last = u;
     final f = _follower;
-    if (f == null || state.phase != RecorderPhase.recording) return;
+    if (asr != _asr || f == null || state.phase != RecorderPhase.recording) return;
     final changed = f.update([for (final w in u.committed) w.text], [for (final w in u.tentative) w.text]);
     if (changed) state = state.copyWith(marks: List.of(f.marks), frontier: f.frontier);
   }
@@ -291,40 +343,55 @@ class RecorderController extends AutoDisposeFamilyNotifier<RecorderState, Passag
   Future<void> stop({bool auto = false}) async {
     final take = _take;
     if (take == null || state.phase != RecorderPhase.recording) return;
+    // This take's own recogniser and generation: a re-record or a discard while this stop waits
+    // makes everything below a no-op for the newer take.
+    final gen = _generation;
+    final asr = _asr;
+    final checked = _checked;
+    void finish() {
+      asr?.cancel();
+      if (_asr == asr) _asr = null;
+      if (checked != null && !checked.isCompleted) checked.complete();
+    }
+
     _take = null;
     _timer?.cancel();
     final elapsed = take.elapsed;
     state = state.copyWith(phase: RecorderPhase.encoding, autoStopped: auto, checking: true);
     if (elapsed < minTake) {
       await take.cancel();
-      _asr?.cancel();
+      finish();
       await _engine.stop();
-      state = state.copyWith(phase: RecorderPhase.ready, tooShort: true, checking: false);
+      if (gen == _generation) state = state.copyWith(phase: RecorderPhase.ready, tooShort: true, checking: false);
       return;
     }
     final RecordedClip clip;
     try {
-      clip = await take.stop(await _takePath());
+      // The folder is known before the take started: the microphone closes now, not after a lookup.
+      final dir = _draftsDir ??= await ref.read(recordingsRepositoryProvider).draftsDir();
+      clip = await take.stop('${dir.path}${Platform.pathSeparator}${RecordingDrafts.newId()}.m4a');
     } on Object {
-      _asr?.cancel();
+      finish();
       await _engine.stop();
-      state = state.copyWith(phase: RecorderPhase.ready, encodeFailed: true, checking: false);
+      if (gen == _generation) state = state.copyWith(phase: RecorderPhase.ready, encodeFailed: true, checking: false);
       return;
     }
+    if (gen != _generation) {
+      // Discarded (back, or «أعد التسجيل») while the clip was being written: nothing keeps it.
+      _deleteFile(clip.path);
+      finish();
+      return;
+    }
+    _unsaved = clip.path;
     state = state.copyWith(phase: RecorderPhase.review, clip: () => clip);
     // The recogniser finishes the whole clip once its PCM stream closed.
-    final done = _finalDone;
-    if (done != null) await done.future.timeout(checkTimeout, onTimeout: () {});
-    _asr?.cancel();
-    _asr = null;
-    final heard = _final;
-    final check = heard == null ? null : ClientCheck.of(_expected, heard.words);
-    if (state.clip == clip) state = state.copyWith(check: () => check, checking: false);
-  }
-
-  Future<String> _takePath() async {
-    final dir = await ref.read(recordingsRepositoryProvider).draftsDir();
-    return '${dir.path}${Platform.pathSeparator}${RecordingDrafts.newId()}.m4a';
+    if (asr != null) await asr.done.future.timeout(checkTimeout, onTimeout: () {});
+    final heard = asr?.last;
+    if (gen == _generation && state.clip == clip) {
+      final check = heard == null ? null : ClientCheck.of(_expected, heard.words);
+      state = state.copyWith(check: () => check, checking: false);
+    }
+    finish();
   }
 
   /// «أعد التسجيل»: drops the clip and starts again.
@@ -339,13 +406,16 @@ class RecorderController extends AutoDisposeFamilyNotifier<RecorderState, Passag
     _timer?.cancel();
     _countdown?.cancel();
     _asr?.cancel();
+    _asr = null;
+    _completeChecked();
     final take = _take;
     _take = null;
+    final clip = state.clip;
+    _unsaved = null;
+    if (clip != null) _deleteFile(clip.path);
     if (take != null) await take.cancel();
     await ref.read(recordingPlayerProvider.notifier).stop('take');
-    final clip = state.clip;
-    if (clip != null) _deleteFile(clip.path);
-    if (keepScreen) state = state.copyWith(phase: RecorderPhase.ready, clip: () => null, check: () => null, autoStopped: false);
+    if (keepScreen) state = state.copyWith(phase: RecorderPhase.ready, clip: () => null, check: () => null, checking: false, autoStopped: false);
   }
 
   void _deleteFile(String path) {
@@ -363,60 +433,80 @@ class RecorderController extends AutoDisposeFamilyNotifier<RecorderState, Passag
   void setComments(bool on) => state = state.copyWith(commentsOn: on);
 
   /// «حفظ»: a guest keeps the take on this phone; an account uploads it now (offline → queued for
-  /// later, quietly). A refusal stays on the review with its message.
+  /// later, quietly). A refusal stays on the review with its message. Tapped while the on-device
+  /// check still runs, it waits for it (up to [checkTimeout]) so the karaoke timings are kept.
   Future<SaveOutcome?> save() async {
     final clip = state.clip;
     if (clip == null || state.phase != RecorderPhase.review) return null;
-    state = state.copyWith(phase: RecorderPhase.saving, error: () => null);
-    final check = state.check;
-    final draft = RecordingDraft(
-      id: RecordingDrafts.newId(),
-      surah: arg.surah,
-      fromAyah: arg.from,
-      toAyah: arg.to,
-      durationMs: clip.duration.inMilliseconds.clamp(1, kRecordingMaxMs + 250),
-      path: clip.path,
-      visibility: state.visibility,
-      commentsOn: state.commentsOn,
-      createdAt: ref.read(clockProvider)(),
-      state: DraftState.local,
-      clientScore: check?.score,
-      clientWords: check?.words,
-    );
-    final drafts = ref.read(recordingDraftsProvider);
-    await ref.read(recordingPlayerProvider.notifier).stop('take');
-    if (!ref.read(sessionProvider).canEarnPoints) {
-      await drafts.add(draft.copyWith(visibility: RecordingVisibility.private));
-      return _saved(SaveOutcome.local);
-    }
-    final repo = ref.read(recordingsRepositoryProvider);
+    final gen = _generation;
+    _saving = true;
     try {
-      final r = await repo.upload(
-        surah: draft.surah,
-        fromAyah: draft.fromAyah,
-        toAyah: draft.toAyah,
-        durationMs: draft.durationMs,
-        audio: await File(clip.path).readAsBytes(),
-        visibility: draft.visibility,
-        commentsOn: draft.commentsOn,
-        clientScore: draft.clientScore,
-        clientWords: draft.clientWords,
+      state = state.copyWith(phase: RecorderPhase.saving, error: () => null);
+      final checked = _checked;
+      if (state.checking && checked != null) await checked.future.timeout(checkTimeout, onTimeout: () {});
+      if (gen != _generation) return null;
+      final check = state.check;
+      final draft = RecordingDraft(
+        id: RecordingDrafts.newId(),
+        surah: arg.surah,
+        fromAyah: arg.from,
+        toAyah: arg.to,
+        durationMs: clip.duration.inMilliseconds.clamp(1, kRecordingMaxMs + 250),
+        path: clip.path,
+        visibility: state.visibility,
+        commentsOn: state.commentsOn,
+        createdAt: ref.read(clockProvider)(),
+        state: DraftState.local,
+        clientScore: check?.score,
+        clientWords: check?.words,
       );
-      if (check != null) await repo.saveLocalWords(r.id, check.words);
-      _deleteFile(clip.path);
-      if (ref.exists(myRecordingsProvider)) ref.read(myRecordingsProvider.notifier).added(r);
-      return _saved(SaveOutcome.uploaded);
-    } on RecordingException catch (e) {
-      if (e.transient) {
-        await drafts.add(draft.copyWith(state: DraftState.queued));
-        return _saved(SaveOutcome.queued);
+      final drafts = ref.read(recordingDraftsProvider);
+      await ref.read(recordingPlayerProvider.notifier).stop('take');
+      if (gen != _generation) return null;
+      if (!ref.read(sessionProvider).canEarnPoints) {
+        await drafts.add(draft.copyWith(visibility: RecordingVisibility.private));
+        return _saved(SaveOutcome.local);
       }
-      state = state.copyWith(phase: RecorderPhase.review, error: () => e.failure);
-      return null;
+      final repo = ref.read(recordingsRepositoryProvider);
+      try {
+        final r = await repo.upload(
+          surah: draft.surah,
+          fromAyah: draft.fromAyah,
+          toAyah: draft.toAyah,
+          durationMs: draft.durationMs,
+          audio: await File(clip.path).readAsBytes(),
+          visibility: draft.visibility,
+          commentsOn: draft.commentsOn,
+          clientScore: draft.clientScore,
+          clientWords: draft.clientWords,
+          // The draft's id: a retry of this take (a timeout after the server kept it) is the same
+          // recording, never a second one.
+          clientId: draft.id,
+        );
+        if (check != null) await repo.saveLocalWords(r.id, check.words);
+        _deleteFile(clip.path);
+        if (ref.exists(myRecordingsProvider)) ref.read(myRecordingsProvider.notifier).added(r);
+        return _saved(SaveOutcome.uploaded);
+      } on RecordingException catch (e) {
+        if (e.transient) {
+          await drafts.add(draft.copyWith(state: DraftState.queued));
+          return _saved(SaveOutcome.queued);
+        }
+        if (e.failure == RecordingFailure.dailyLimit) {
+          // Kept for tomorrow's «ارفعها» rather than lost (or retried against the cap).
+          await drafts.add(draft);
+          return _saved(SaveOutcome.later);
+        }
+        if (gen == _generation) state = state.copyWith(phase: RecorderPhase.review, error: () => e.failure);
+        return null;
+      }
+    } finally {
+      _saving = false;
     }
   }
 
   SaveOutcome _saved(SaveOutcome o) {
+    _unsaved = null;
     state = state.copyWith(phase: RecorderPhase.saved, outcome: () => o, clip: () => null);
     return o;
   }

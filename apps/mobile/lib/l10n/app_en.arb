@@ -3151,6 +3151,25 @@
   "recSaved": "Saved to My recitations",
   "recSavedQueued": "Saved; it will upload when you're online",
   "recSavedLocal": "Saved on this phone. Sign in to save it to your account.",
+  "recSavedLater": "You've tried a lot today. Saved on this phone; upload it tomorrow.",
+  "recAyahTooLong": "This verse is longer than {seconds} seconds — choose a shorter one",
+  "@recAyahTooLong": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "recRerecordFullTitle": "This recitation is deleted first",
+  "recRerecordFullBody": "You have {max} recitations. To record these verses again, the one that wasn't accepted is deleted.",
+  "@recRerecordFullBody": {
+    "placeholders": {
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "recRerecordFullConfirm": "Delete and record again",
   "recSignInToShare": "Sign in to share it with members",
   "recGateTitle": "Sharing with members",
   "recGateBody": "Shared recitations show under your competition name. You need to confirm your age and join one of the competitions.",
