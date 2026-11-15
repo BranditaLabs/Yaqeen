@@ -98,6 +98,18 @@ touching user privacy.
   `leaderboard` (off by default); job `yaqeen-community` hourly; admin «المسابقات». Never show worship detail there.
 - **One-Page Quran:** the reader holds the mode dock (read/listen/hifz/recite), follow-audio, the mini player and guided
   hifz/review sessions; `/quran/listen/*` and `/quran/recite/*` redirect into it.
+- **Motion:** tokens and `reduceMotion(context)` in `core/design/motion.dart` (docs/DESIGN_SYSTEM.md §5). Restrained and
+  physical: one-time moments, springs that settle, no endless loops; under reduce-motion every moment jumps to its end
+  state and no ticker keeps running (`pumpAndSettle` must complete).
+- **On-device Quran ASR («تسميع», voice-aware «تحفيظ»):** `features/recite` (README there, model card `docs/MODELS.md`) —
+  sherpa-onnx Whisper tiny (Quran fine-tune, int8) behind `RecitationEngine`; the model comes through the `DownloadQueue`
+  from `ASR_MODEL_BASE_URL` (pinned SHA-256). Audio and results never leave the phone. Flag `recite` stays off until
+  real-user accuracy is measured.
+- **«تلاواتي» recordings** (flag `recordings`, off): members' own recitation (≤ 30 s, private by default; user content).
+  App `features/recordings`; API `recordings.service` (reactions, filtered comments, reports → auto-hide); shared
+  recordings are checked by our `services/asr` (scale-to-zero `yaqeen-asr`, `ASR_TOKEN`) through
+  `domain/recitation-match.ts`, which must agree with the app's aligner on `packages/contracts/fixtures/recitation-match`;
+  admin «التلاوات» is a queue only. Never expose a recording outside its visibility.
 - **NFC:** only through `NfcService` (`core/platform/nfc_service.dart`); accept only our `/t/<code>` URLs; never start a session at launch.
 - **Browser E2E:** `e2e/` (Playwright + axe) resets its own `*e2e*` database and runs the admin, the website and the card pages; add a test there when you change an admin page or a public page.
 - **Ramadan, widgets, website:** Ramadan mode in `features/ramadan` (on only with flag `ramadan` and a Ramadan/Sha'ban Hijri date; the log is device-only; Ramadan bonuses are claimed with the tick's date). Home-screen widgets read the snapshot from `features/home/data/widget_snapshot.dart` (written after each re-plan through `HomeWidgetPublisher`); native code in `android/.../NextPrayerWidget.kt` and `ios/YaqeenWidget/` — colours only from the generated `yq_tokens.xml` / `YqTokens.swift` (`pnpm --filter @yaqeen/design-tokens build`). The public website is `services/api/src/web/site-pages.ts` (no scripts; keep owner-only legal facts bracketed; bump `LEGAL_VERSION` when the policy changes) and `docs/STORE_LISTING.md` must match what the build collects.
