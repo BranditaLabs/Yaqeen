@@ -60,6 +60,7 @@ class MyRecordingsController extends AutoDisposeAsyncNotifier<MyRecordingsView> 
   static const pollEvery = Duration(seconds: 20);
 
   Timer? _poll;
+  bool _disposed = false;
   RecordingsRepository get _repo => ref.read(recordingsRepositoryProvider);
   RecordingDrafts get _drafts => ref.read(recordingDraftsProvider);
 
@@ -67,7 +68,9 @@ class MyRecordingsController extends AutoDisposeAsyncNotifier<MyRecordingsView> 
   Future<MyRecordingsView> build() async {
     final account = ref.watch(sessionProvider.select((s) => s.canEarnPoints));
     final sub = ref.watch(recordingDraftsProvider).changes.listen((_) => _reloadDrafts().ignore());
+    _disposed = false;
     ref.onDispose(() {
+      _disposed = true;
       sub.cancel();
       _poll?.cancel();
     });
@@ -109,14 +112,15 @@ class MyRecordingsController extends AutoDisposeAsyncNotifier<MyRecordingsView> 
 
   void _schedulePoll(MyRecordingsView v) {
     _poll?.cancel();
-    if (!v.anyPending) return;
+    if (!v.anyPending || _disposed) return;
     _poll = Timer(pollEvery, () => refresh().ignore());
   }
 
   Future<void> _reloadDrafts() async {
     final v = state.valueOrNull;
-    if (v == null) return;
-    state = AsyncData(v.copyWith(drafts: await _drafts.all()));
+    if (v == null || _disposed) return;
+    final drafts = await _drafts.all();
+    if (!_disposed) state = AsyncData((state.valueOrNull ?? v).copyWith(drafts: drafts));
   }
 
   /// Fresh from the server (pull-to-refresh, app resume, the poll). [flush] uploads queued drafts first.
@@ -126,9 +130,10 @@ class MyRecordingsController extends AutoDisposeAsyncNotifier<MyRecordingsView> 
       return;
     }
     try {
-      state = AsyncData(await _fetch(await _drafts.all(), flush: flush));
+      final view = await _fetch(await _drafts.all(), flush: flush);
+      if (!_disposed) state = AsyncData(view);
     } on Object catch (e, st) {
-      if (state.valueOrNull == null) state = AsyncError(e, st);
+      if (!_disposed && state.valueOrNull == null) state = AsyncError(e, st);
     }
   }
 

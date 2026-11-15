@@ -19,7 +19,8 @@ class ClientCheck {
   /// One mark per expected word, in order.
   final List<WordMark> marks;
 
-  /// Karaoke timings of the words heard as written (`ok`), contracts `RecordingWord`.
+  /// Karaoke timings of every expected word paired with a heard one (`ok` and «تنبيه»), contracts
+  /// `RecordingWord` — the same map as the server's.
   final List<RecordingWord> words;
   final List<ExpectedWord> expected;
 
@@ -50,12 +51,19 @@ class ClientCheck {
   /// Aligns [heard] (with times in seconds from the start of the take) against [expected] ayat.
   static ClientCheck of(List<(AyahRef, String)> expected, List<RecognizedWord> heard) {
     final exp = ExpectedWord.of(expected);
-    final rawTexts = [for (final w in heard) w.text];
-    final drop = RecitationAligner.opening(rawTexts, [for (final w in exp.take(8)) w.text]).drop;
-    final got = [
-      for (final w in heard.skip(drop))
-        if (RecitationAligner.words(w.text).isNotEmpty) w,
+    // A recogniser segment holding several words shares its time span between them (as the
+    // server's port does); pause marks are not words.
+    final all = <RecognizedWord>[
+      for (final h in heard)
+        ...() {
+          final parts = RecitationAligner.words(h.text);
+          if (parts.length <= 1) return [for (final p in parts) RecognizedWord(p, start: h.start, end: h.end)];
+          final span = (h.end - h.start).clamp(0, double.infinity) / parts.length;
+          return [for (final (k, p) in parts.indexed) RecognizedWord(p, start: h.start + k * span, end: h.start + (k + 1) * span)];
+        }(),
     ];
+    final drop = RecitationAligner.opening([for (final w in all) w.text], [for (final w in exp) w.text]).drop;
+    final got = all.sublist(drop);
     final n = exp.length, m = got.length;
     final same = List.generate(n, (i) => List.generate(m, (j) => RecitationAligner.same(exp[i].text, got[j].text)));
     final dp = List.generate(n + 1, (i) => List<int>.filled(m + 1, 0));
@@ -89,6 +97,7 @@ class ClientCheck {
         i--;
       } else if (dp[i][j] == dp[i - 1][j - 1] + 1) {
         marks[i - 1] = WordMark.warn;
+        pair[i - 1] = j - 1;
         i--;
         j--;
       } else {
@@ -102,7 +111,7 @@ class ClientCheck {
       final w = got[p];
       final start = (w.start * 1000).round();
       final end = (w.end * 1000).round();
-      words.add(RecordingWord(ayah: exp[k].ayah.ayah, index: exp[k].index, startMs: start < 0 ? 0 : start, endMs: end < start ? start : end));
+      words.add(RecordingWord(ayah: exp[k].ayah.ayah, index: exp[k].index, startMs: start < 0 ? 0 : start, endMs: end < 0 ? 0 : end));
     }
     return ClientCheck(marks: marks, words: words, expected: exp, heardCount: m);
   }

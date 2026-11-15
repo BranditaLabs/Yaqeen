@@ -93,7 +93,7 @@ class RecordingsRig {
 
   late final recorder = FakeVoiceRecorder(writeFile: (path, bytes) async => File(path)
     ..createSync(recursive: true)
-    ..writeAsBytesSync(bytes));
+    ..writeAsBytesSync(bytes),);
   RecitationEngine engine = const UnavailableRecitationEngine();
 
   List<Override> get overrides => [
@@ -149,7 +149,7 @@ class PcmFakeEngine extends RecitationEngine {
       final words = finalWords ?? _last?.words ?? const <RecognizedWord>[];
       out.add(RecognitionUpdate(committed: words, isFinal: true));
       out.close();
-    });
+    },);
     return out.stream;
   }
 

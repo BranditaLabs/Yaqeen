@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yaqeen/core/platform/recitation_engine.dart';
 import 'package:yaqeen/features/quran/domain/passage.dart';
@@ -111,6 +114,26 @@ void main() {
       expect(ClientCheck.of(ikhlas, heard(falaq)).verdict, ClientVerdict.notMatching);
       expect(ClientCheck.of(ikhlas, const []).verdict, ClientVerdict.unclear);
     });
+
+    // The shared contract vectors (packages/contracts/fixtures/recitation-match/cases.json): the
+    // on-device check marks every word, scores coverage and maps karaoke timings exactly as the
+    // server's AI check does.
+    final cases = (jsonDecode(File('../../packages/contracts/fixtures/recitation-match/cases.json').readAsStringSync()) as List).cast<Map<String, dynamic>>();
+    for (final c in cases) {
+      test('agrees with the server on case ${c['name']}', () {
+        final surah = c['surah'] as int;
+        final exp = [for (final e in (c['expected'] as List).cast<Map<String, dynamic>>()) (AyahRef(surah, e['ayah'] as int), e['text'] as String)];
+        final heard = [
+          for (final h in (c['heard'] as List).cast<Map<String, dynamic>>())
+            RecognizedWord(h['text'] as String, start: (h['startMs'] as int) / 1000, end: (h['endMs'] as int) / 1000),
+        ];
+        final r = (c['result'] as Map).cast<String, dynamic>();
+        final check = ClientCheck.of(exp, heard);
+        expect([for (final m in check.marks) m.name], r['marks'], reason: 'marks');
+        expect((check.score * 10000).round() / 10000, r['coverage'], reason: 'coverage');
+        expect([for (final w in check.words) w.toJson()], r['words'], reason: 'words');
+      });
+    }
 
     test('thresholds mirror contracts RECITATION_MATCH', () {
       expect(RecitationMatch.approveCoverage, 0.75);

@@ -111,7 +111,7 @@ void main() {
     test('comment_rejected carries its reason; transient vs permanent', () async {
       final rig = RecordingsRig(routes: {
         'POST /v1/recordings/r1/comments': (_) => errorResponse(400, 'comment_rejected', details: {'problem': 'link'}),
-      });
+      },);
       final e = await repoOf(rig).postComment('r1', 'see example.com').then<RecordingException?>((_) => null, onError: (Object e) => e as RecordingException);
       expect(e!.failure, RecordingFailure.commentRejected);
       expect(e.problem, 'link');
@@ -148,7 +148,7 @@ void main() {
         'DELETE /v1/recordings/r1/comments/c1': (_) => http.Response('', 204),
         'POST /v1/recordings/r1/report': (_) => http.Response('', 204),
         'POST /v1/recordings/r1/comments/c1/report': (_) => http.Response('', 204),
-      });
+      },);
       final repo = repoOf(rig);
       expect((await repo.member('ahmed-4821')).items, hasLength(1));
       expect((await repo.react('r1', ReactionKind.mashallah)).myReaction, ReactionKind.mashallah);
@@ -170,7 +170,7 @@ void main() {
           fetched++;
           return http.Response.bytes([1, 2, 3], 200);
         },
-      });
+      },);
       final repo = repoOf(rig);
       final a = await repo.audioFile('r1', '/v1/recordings/r1/audio');
       final b = await repo.audioFile('r1', '/v1/recordings/r1/audio');

@@ -136,7 +136,7 @@ void main() {
               'commentsOn': true,
             }),
         ...routes,
-      });
+      },);
       // The audio is already on the phone (no file IO inside the fake clock).
       File('${rig.dir.path}/recordings/cache/$id.m4a')
         ..createSync(recursive: true)
@@ -183,7 +183,7 @@ void main() {
               'reactions': {'mashallah': 3, 'barakallah': 2, 'ahsant': 1},
               'myReaction': null,
             }),
-      });
+      },);
       Semantics pill(String code) => tester.widget<Semantics>(find.descendant(of: find.byKey(ValueKey('rec-react-$code')), matching: find.byType(Semantics)).first);
       expect(pill('mashallah').properties.selected, isTrue);
       await tester.tap(find.byKey(const ValueKey('rec-react-barakallah')));
@@ -206,7 +206,7 @@ void main() {
             : errorResponse(429, 'comment_rate_limited'),
         'DELETE /v1/recordings/$id/comments/$c1': (_) => http.Response('', 204),
         'POST /v1/recordings/$id/comments/$c2/report': (_) => http.Response('', 204),
-      });
+      },);
       expect(find.byKey(const ValueKey('rec-comment-$c1')), findsOneWidget);
       await tester.enterText(find.byKey(const ValueKey('rec-composer')), 'زوروا example.com');
       await tester.pump();
@@ -241,7 +241,7 @@ void main() {
     testWidgets('comments off: a note instead of the composer', (tester) async {
       await open(tester, rec: member(commentsOn: false), routes: {
         'GET /v1/recordings/$id/comments': (_) => jsonResponse({'items': <Object>[], 'nextCursor': null, 'commentsOn': false}),
-      });
+      },);
       expect(find.byKey(const ValueKey('rec-composer')), findsNothing);
       expect(find.byKey(const ValueKey('rec-composer-off')), findsOneWidget);
     });
@@ -266,7 +266,7 @@ void main() {
           await gate.future;
           return jsonResponse(recFixture('my_recordings.json'));
         },
-      });
+      },);
       await tester.pumpWidget(section(rig));
       await tester.pump();
       expect(find.byType(RecordingsSkeleton), findsOneWidget);
@@ -312,7 +312,7 @@ void main() {
         'GET /v1/me/recordings': (_) => jsonResponse(items),
         'PATCH /v1/me/recordings/$first': (_) => jsonResponse({...(items['items'] as List)[0] as Map<String, dynamic>, 'position': 2}),
         'DELETE /v1/me/recordings/$first': (_) => http.Response('', 204),
-      });
+      },);
       await tester.pumpWidget(section(rig));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(ValueKey('rec-menu-$first')));
@@ -341,7 +341,7 @@ void main() {
       final rig = RecordingsRig(routes: {
         'GET /v1/me/recordings': (_) => jsonResponse({'items': [private], 'leftToday': 7}),
         'PATCH /v1/me/recordings/${private['id']}': (_) => errorResponse(403, 'community_required'),
-      });
+      },);
       await tester.pumpWidget(section(rig));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(ValueKey('rec-menu-${private['id']}')));
