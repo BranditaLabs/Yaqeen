@@ -130,6 +130,7 @@ class _QiblaOrbState extends ConsumerState<QiblaOrb> with WidgetsBindingObserver
       label: '${t.qiblaCardTitle(YqFormat.number(bearing.round()))}، $status${live ? '، ${t.homeQiblaLive}' : ''}',
       child: GlassTap(
         onTap: () => context.push('/prayer/qibla'),
+        pressScale: 0.96,
         child: YqOrb(
           title: t.qiblaTitle,
           status: status,
@@ -279,6 +280,7 @@ class TasbeehOrb extends ConsumerWidget {
       child: GlassTap(
         onTap: () => _count(ref),
         onLongPress: () => _reset(context, ref),
+        pressScale: 0.96,
         child: YqOrb(
           title: t.tasbeehTitle,
           status: t.tasbeehRound(YqFormat.number(round)),
@@ -348,6 +350,7 @@ class WirdOrb extends ConsumerWidget {
     return GlassTap(
       onTap: () => startWirdSession(context, ref),
       semanticLabel: '${t.dailyWird}، ${t.pagesOf(shown, goal)}',
+      pressScale: 0.96,
       child: YqOrb(
         title: t.dailyWird,
         status: complete ? t.homeWirdDone : t.pagesOf(shown, goal),

@@ -11,6 +11,8 @@ import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:yaqeen/core/config/remote_config.dart';
+import 'package:yaqeen/core/design/motion.dart';
+import 'package:yaqeen/core/widgets/yq_once.dart';
 import 'package:yaqeen/core/di/providers.dart';
 import 'package:yaqeen/core/network/api_client.dart';
 import 'package:yaqeen/core/network/connectivity.dart';
@@ -21,6 +23,8 @@ import 'package:yaqeen/core/storage/kv_store.dart';
 import 'package:yaqeen/core/theme/tokens.dart';
 import 'package:yaqeen/core/time/zoned.dart';
 import 'package:yaqeen/core/widgets/controls.dart';
+import 'package:yaqeen/core/widgets/yq_count.dart';
+import 'package:yaqeen/core/widgets/yq_avatar.dart';
 import 'package:yaqeen/core/widgets/liquid_glass.dart';
 import 'package:yaqeen/core/widgets/yq_icon.dart';
 import 'package:yaqeen/core/widgets/yq_layout.dart';
@@ -285,6 +289,30 @@ void main() {
     expect(find.text('بطاقة يقين'), findsOneWidget);
   });
 
+  testWidgets('the edit badge: its whole target opens the picture sheet, and pressing it leaves the ring still', (tester) async {
+    size(tester);
+    await pumpProfile(tester, await signedIn());
+    final badge = find.byKey(const ValueKey('profile-edit-badge'));
+    final ring = find.ancestor(of: find.byKey(const ValueKey('profile-avatar')), matching: find.byType(GlassTap)).first;
+    final target = tester.getRect(badge);
+    expect(target.size, const Size.square(YqSpace.touch));
+    // RTL: the badge hangs past the ring's bottom-left corner; that outer strip still answers.
+    final ringRect = tester.getRect(find.byKey(const ValueKey('profile-avatar')));
+    expect(target.bottom, greaterThan(ringRect.bottom));
+    final corner = target.bottomLeft + const Offset(2, -2);
+    expect(corner.dy, greaterThan(ringRect.bottom));
+    final press = await tester.startGesture(corner);
+    await tester.pump(const Duration(milliseconds: 200)); // held past the tap deadline
+    double scaleOf(Finder tap) =>
+        tester.widget<AnimatedScale>(find.descendant(of: tap, matching: find.byType(AnimatedScale)).first).scale;
+    expect(scaleOf(badge), 0.92);
+    expect(scaleOf(ring), 1); // only the badge pops
+    await press.up();
+    await settle(tester, 2);
+    expect(find.text('صورتك'), findsWidgets);
+    await dispose(tester);
+  });
+
   /* ------------------------------------------------------------- signed in */
 
   testWidgets('signed in: avatar in the level ring, caption with handle, Level · Points · League orbs', (tester) async {
@@ -357,10 +385,43 @@ void main() {
     await dispose(tester);
   });
 
+  testWidgets('reduce-motion: the end state at once (ring, numbers, flip) and everything settles', (tester) async {
+    size(tester);
+    await kv.write(ProfileRepository.lastSeenLevelKey, '2'); // a level-up is owed too
+    await tester.pumpWidget(
+      harness(
+        Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(disableAnimations: true),
+            child: const NameRevertToaster(child: Scaffold(body: ProfileScreen())),
+          ),
+        ),
+        overrides: await signedIn(config: flags({Flags.leagues: true})),
+        kv: kv,
+      ),
+    );
+    await settle(tester);
+    // The toast comes at once (no light to wait for); numbers are plain text, not rolling.
+    expect(find.text('بلغت مستوى مواظب'), findsOneWidget);
+    expect(find.text('1,800 للمستوى التالي'), findsOneWidget);
+    expect(find.text('820'), findsOneWidget);
+    expect(find.byType(YqRollingNumber), findsWidgets);
+    expect(find.byType(Transform).evaluate().where((e) => e.widget is Transform && (e.widget as Transform).transform.storage[11] != 0), isEmpty);
+    await tester.tap(find.text('الرصيد'));
+    await tester.pump();
+    expect(find.text('هذا الأسبوع'), findsOneWidget); // flipped without turning
+    expect(find.text('145'), findsOneWidget);
+    await tester.pumpAndSettle(); // no ticker left running
+    await dispose(tester);
+  });
+
   testWidgets('level-up: the glint and «بلغت مستوى…» play once, then the level is marked seen', (tester) async {
     size(tester);
     await kv.write(ProfileRepository.lastSeenLevelKey, '2');
     await pumpProfile(tester, await signedIn());
+    // The light sweeps round the ring first; the quiet toast follows it.
+    expect(tester.widget<YqLevelAvatar>(find.byKey(const ValueKey('profile-avatar'))).achieved, isTrue);
+    await tester.pump(Motion.glint);
     expect(find.text('بلغت مستوى مواظب'), findsOneWidget);
     expect(await kv.read(ProfileRepository.lastSeenLevelKey), '3');
     await tester.pump(const Duration(seconds: 3));
@@ -779,16 +840,19 @@ void main() {
       ],
     );
     await tester.pumpWidget(
-      MaterialApp.router(
-        routerConfig: router,
-        locale: const Locale('ar'),
-        supportedLocales: AppLocalizations.supportedLocales,
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
+      ProviderScope(
+        overrides: [kvStoreProvider.overrideWithValue(MemoryKvStore())],
+        child: MaterialApp.router(
+          routerConfig: router,
+          locale: const Locale('ar'),
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -796,6 +860,67 @@ void main() {
     await tester.tap(find.text('الكل'));
     await tester.pumpAndSettle();
     expect(find.text('all-badges'), findsOneWidget);
+  });
+
+  testWidgets('badges: a medal catches its light once on this phone, then never again', (tester) async {
+    final me = MeProfile.fromJson(fixture('me_profile'));
+    final store = MemoryKvStore();
+    Future<void> show() async {
+      await tester.pumpWidget(
+        harness(Scaffold(body: BadgesStrip(badges: me.recentBadges, count: me.badgesCount)), kv: store),
+      );
+      await tester.pump();
+      await tester.pump();
+    }
+
+    await show();
+    final medals = tester.widgetList<BadgeMedal>(find.byType(BadgeMedal)).toList();
+    expect(medals, hasLength(3));
+    expect(medals.every((m) => m.sweep), isTrue);
+    expect([for (final m in medals) m.sweepDelay], [Duration.zero, BadgeMedal.sweepStep, BadgeMedal.sweepStep * 2]);
+    await tester.pumpAndSettle(); // one pass each, then rest
+    expect(store.data[ProfileRepository.badgesSweptKey], isNotNull);
+    expect(ProfileRepository.wipedKeys, contains(ProfileRepository.badgesSweptKey));
+
+    await tester.pumpWidget(const SizedBox());
+    await show();
+    expect(tester.widgetList<BadgeMedal>(find.byType(BadgeMedal)).any((m) => m.sweep), isFalse);
+  });
+
+  testWidgets('badges: the strip then «الكل» in one run: the second list does not sweep the same medals again', (tester) async {
+    final me = MeProfile.fromJson(fixture('me_profile'));
+    final store = MemoryKvStore();
+    // The same harness each time keeps one ProviderScope (one app run).
+    Future<void> show(Key key) async {
+      await tester.pumpWidget(
+        harness(Scaffold(body: BadgesStrip(key: key, badges: me.recentBadges, count: me.badgesCount)), kv: store),
+      );
+      await tester.pump();
+      await tester.pump();
+    }
+
+    await show(const ValueKey('profile-strip'));
+    expect(tester.widgetList<BadgeMedal>(find.byType(BadgeMedal)).every((m) => m.sweep), isTrue);
+    await tester.pumpAndSettle();
+    await show(const ValueKey('another-list')); // a new list screen, same run
+    expect(tester.widgetList<BadgeMedal>(find.byType(BadgeMedal)).any((m) => m.sweep), isFalse);
+    expect(tester.widgetList<YqSheen>(find.byType(YqSheen)).any((s) => s.play), isFalse);
+  });
+
+  testWidgets('badges: a medal rebuilt in a lazy list (scrolled away and back) keeps its light spent', (tester) async {
+    final me = MeProfile.fromJson(fixture('me_profile'));
+    final memo = MotionMemo();
+    final badge = me.recentBadges.first;
+    Future<void> medal(Key key) async {
+      await tester.pumpWidget(harness(YqMotionMemo(memo: memo, child: Center(child: BadgeMedal(key: key, badge: badge, sweep: true)))));
+      await tester.pump();
+    }
+
+    await medal(const ValueKey('first-build'));
+    expect(tester.widget<YqSheen>(find.byType(YqSheen)).play, isTrue);
+    await tester.pumpAndSettle();
+    await medal(const ValueKey('rebuilt')); // a new element, as a lazy list builds it again
+    expect(tester.widget<YqSheen>(find.byType(YqSheen)).play, isFalse);
   });
 
   testWidgets('level ladder: six levels, the current one in lapis, gold dots on the reached, the note', (tester) async {

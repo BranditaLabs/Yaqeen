@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:yaqeen/core/design/motion.dart';
 import 'package:yaqeen/core/di/providers.dart';
 import 'package:yaqeen/core/network/api_client.dart';
 import 'package:yaqeen/core/storage/kv_store.dart';
 import 'package:yaqeen/core/theme/tokens.dart';
 import 'package:yaqeen/core/widgets/yq_avatar.dart';
+import 'package:yaqeen/core/widgets/yq_once.dart';
 import 'package:yaqeen/core/widgets/yq_ring.dart';
 import 'package:yaqeen/features/onboarding/data/auth_repository.dart';
 import 'package:yaqeen/features/profile/data/profile_repository.dart';
@@ -91,12 +93,17 @@ void main() {
       handle.dispose();
     });
 
-    testWidgets('achieved = gold with a one-shot glint; reduce-motion skips the glint', (tester) async {
-      await tester.pumpWidget(harness(const Center(child: YqLevelAvatar(avatar: InitialAvatar(), level: 6, progress: 1, achieved: true))));
+    testWidgets('a level just reached: gold with a one-shot glint and pulse; reduce-motion skips both', (tester) async {
+      await tester.pumpWidget(
+        harness(const Center(child: YqLevelAvatar(avatar: InitialAvatar(), level: 6, progress: 1, achieved: true, glint: true))),
+      );
       final ring = tester.widget<YqRing>(find.byType(YqRing));
       expect(ring.color, YqColors.gold);
       expect(ring.glint, isTrue);
-      expect(find.descendant(of: find.byType(YqRing), matching: find.byType(TweenAnimationBuilder<double>)), findsNWidgets(2));
+      await tester.pump();
+      // The ring's own painter plus the glint's light.
+      expect(find.descendant(of: find.byType(YqRing), matching: find.byType(CustomPaint)), findsNWidgets(2));
+      expect(tester.widget<YqPulse>(find.byType(YqPulse)).active, isTrue);
       await tester.pumpAndSettle();
 
       await tester.pumpWidget(
@@ -104,12 +111,41 @@ void main() {
           Builder(
             builder: (context) => MediaQuery(
               data: MediaQuery.of(context).copyWith(disableAnimations: true),
-              child: const Center(child: YqLevelAvatar(avatar: InitialAvatar(), level: 6, progress: 1, achieved: true)),
+              child: const Center(child: YqLevelAvatar(avatar: InitialAvatar(), level: 6, progress: 1, achieved: true, glint: true)),
             ),
           ),
         ),
       );
-      expect(find.descendant(of: find.byType(YqRing), matching: find.byType(TweenAnimationBuilder<double>)), findsOneWidget);
+      expect(find.descendant(of: find.byType(YqRing), matching: find.byType(CustomPaint)), findsOneWidget);
+      expect(tester.binding.transientCallbackCount, 0);
+    });
+
+    testWidgets('by default a top-level gold ring stays quiet (no glint, no pulse on every visit)', (tester) async {
+      await tester.pumpWidget(
+        harness(const Center(child: YqLevelAvatar(avatar: InitialAvatar(), level: 6, progress: 1, achieved: true))),
+      );
+      await tester.pump();
+      expect(tester.widget<YqRing>(find.byType(YqRing)).color, YqColors.gold);
+      expect(tester.widget<YqRing>(find.byType(YqRing)).glint, isFalse);
+      expect(tester.widget<YqPulse>(find.byType(YqPulse)).active, isFalse);
+      expect(find.descendant(of: find.byType(YqRing), matching: find.byType(CustomPaint)), findsOneWidget);
+    });
+
+    testWidgets('a new picture cross-fades in from 0.94 without redrawing the ring', (tester) async {
+      Widget a(AvatarRef ref) => harness(Center(child: YqLevelAvatar(avatar: ref, level: 2, progress: 0.5, drawIn: Motion.ringDraw)));
+      await tester.pumpWidget(a(const InitialAvatar()));
+      await tester.pumpAndSettle();
+      final ringState = tester.state(find.byType(YqRing));
+      await tester.pumpWidget(a(const PresetAvatar('m01')));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byType(YqAvatar), findsNWidgets(2)); // old fading out, new fading in
+      final scale = tester.widget<ScaleTransition>(
+        find.ancestor(of: find.byType(YqAvatar).last, matching: find.byType(ScaleTransition)).first,
+      );
+      expect(scale.scale.value, inInclusiveRange(0.94, 1.0));
+      await tester.pumpAndSettle();
+      expect(find.byType(YqAvatar), findsOneWidget);
+      expect(tester.state(find.byType(YqRing)), same(ringState)); // the ring kept its state
     });
   });
 

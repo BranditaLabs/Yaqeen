@@ -3,12 +3,14 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/design/motion.dart';
 import '../../../core/format.dart';
 import '../../../core/widgets/yq_avatar.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../../onboarding/presentation/session_controller.dart';
 import '../../profile/domain/avatar.dart';
+import '../../profile/domain/me_profile.dart';
 import '../../profile/presentation/me_profile_controller.dart';
 
 /// True while Home plays the one-shot level-up glint on the chip (APP_SPEC §5.9): the only time,
@@ -28,9 +30,18 @@ class ProfileChip extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final t = AppLocalizations.of(context);
     final profile = ref.watch(meProfileProvider).valueOrNull;
-    if (profile == null) return YqSkeleton(child: YqSkeletonBox.circle(size));
+    // The skeleton circle gives way to the picture with the shared 200 ms fade.
+    return YqFadeSwap(
+      alignment: Alignment.center,
+      child: profile == null
+          ? YqSkeleton(key: const ValueKey('chip-skeleton'), child: YqSkeletonBox.circle(size))
+          : KeyedSubtree(key: const ValueKey('chip'), child: _chip(context, ref, profile)),
+    );
+  }
+
+  Widget _chip(BuildContext context, WidgetRef ref, MeProfile profile) {
+    final t = AppLocalizations.of(context);
     final session = ref.watch(sessionProvider);
     final glint = ref.watch(profileChipGlintProvider);
     final locale = Localizations.localeOf(context).languageCode;
@@ -57,8 +68,11 @@ class ProfileChip extends ConsumerWidget {
         progress: level.progress,
         size: size,
         stroke: 2.5,
-        // Gold only for the glint of a level just reached, or at the top level.
+        // Gold only for the glint of a level just reached, or at the top level; the ring draws
+        // in once (600 ms) and the light sweeps only for the moment itself.
         achieved: glint || level.isTop,
+        glint: glint,
+        drawIn: Motion.ringDrawSmall,
         showLevel: true,
         name: name,
         levelName: level.name(locale),

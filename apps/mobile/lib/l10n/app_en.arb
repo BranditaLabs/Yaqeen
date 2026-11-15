@@ -2899,6 +2899,14 @@
   "qsOpenPlayer": "Open the player",
   "skWorking": "Working",
   "skLoading": "Loading",
+  "cmPodiumPlace": "You finished the week in place {rank}",
+  "@cmPodiumPlace": {
+    "placeholders": {
+      "rank": {
+        "type": "String"
+      }
+    }
+  },
   "asrSettingsTitle": "On-device recitation recognition",
   "asrSettingsReady": "Ready · {size}",
   "asrSettingsDownload": "Download · {size}",

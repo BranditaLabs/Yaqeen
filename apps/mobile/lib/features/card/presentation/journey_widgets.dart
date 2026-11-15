@@ -7,11 +7,14 @@ import '../../../core/di/providers.dart';
 import '../../../core/format.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../core/widgets/liquid_glass.dart';
+import '../../../core/widgets/yq_count.dart';
 import '../../../core/widgets/yq_icon.dart';
 import '../../../core/widgets/yq_stage.dart';
 import '../../../core/widgets/yq_states.dart';
 import '../../../l10n/gen/app_localizations.dart';
 import '../domain/public_card.dart';
+
+export '../../../core/widgets/yq_count.dart' show CountUp;
 
 /// The owner's private journey (GET /v1/me/journey). Online; offline the section offers a retry.
 /// Invalidated after a synced challenge tick and on Profile's pull-to-refresh.
@@ -35,33 +38,6 @@ String levelName(int level, String locale) {
 }
 
 bool _still(BuildContext context) => MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-
-/// A number that counts up to [value] (and glides between values when it changes).
-/// Screen readers get the final value at once.
-class CountUp extends StatelessWidget {
-  const CountUp({super.key, required this.value, this.style, this.builder});
-  final int value;
-  final TextStyle? style;
-
-  /// Wraps the formatted number in a sentence, e.g. «{n} نقطة».
-  final String Function(String n)? builder;
-
-  @override
-  Widget build(BuildContext context) {
-    String text(num v) => builder == null ? YqFormat.number(v.round()) : builder!(YqFormat.number(v.round()));
-    if (_still(context)) return Text(text(value), style: style);
-    return Semantics(
-      label: text(value),
-      excludeSemantics: true,
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0, end: value.toDouble()),
-        duration: Duration(milliseconds: 700 + math.min(value, 600)),
-        curve: Curves.easeOutCubic,
-        builder: (context, v, _) => Text(text(v), style: style),
-      ),
-    );
-  }
-}
 
 /// Dated milestones on a rail that draws itself: each row rises, its dot springs in, then the
 /// thread runs on to the next. Newest first. [night] for the dark card look.

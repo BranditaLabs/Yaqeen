@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../design/motion.dart';
 import '../theme/tokens.dart';
 import 'outer_shadow.dart';
 
@@ -129,12 +130,14 @@ class LiquidGlass extends StatelessWidget {
   }
 }
 
-/// Tappable glass card with a gentle press-scale and haptic tick.
+/// Tappable glass card with a gentle press-scale and haptic tick. The press eases down to
+/// [pressScale] (0.98 for cards, 0.96 for orbs, 0.92 for small badges) and springs back on release.
 class GlassTap extends StatefulWidget {
-  const GlassTap({super.key, required this.child, required this.onTap, this.onLongPress, this.semanticLabel});
+  const GlassTap({super.key, required this.child, required this.onTap, this.onLongPress, this.semanticLabel, this.pressScale = 0.98});
 
   final Widget child;
   final VoidCallback? onTap;
+  final double pressScale;
 
   /// Handled by the same detector as [onTap], so a hold never also counts as a tap.
   final VoidCallback? onLongPress;
@@ -169,10 +172,11 @@ class _GlassTapState extends State<GlassTap> {
                 setState(() => _down = false);
                 widget.onLongPress!();
               },
+        // Down: a quick ease; up: a spring with a touch of overshoot. Instant under reduce-motion.
         child: AnimatedScale(
-          scale: _down ? 0.98 : 1,
-          duration: YqMotion.fast,
-          curve: YqMotion.ease,
+          scale: _down ? widget.pressScale : 1,
+          duration: reduceMotion(context) ? Duration.zero : (_down ? Motion.quick : Motion.popCurve.settle),
+          curve: _down ? Motion.easeOut : Motion.popCurve,
           child: widget.child,
         ),
       ),

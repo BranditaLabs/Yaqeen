@@ -8,10 +8,13 @@ import 'package:yaqeen/core/widgets/liquid_glass.dart';
 import 'package:yaqeen/features/community/data/community_repository.dart';
 import 'package:yaqeen/features/community/domain/community_models.dart';
 import 'package:yaqeen/features/community/presentation/community_providers.dart';
+import 'package:yaqeen/features/community/presentation/community_widgets.dart';
 import 'package:yaqeen/features/community/presentation/league_screen.dart';
 import 'package:yaqeen/features/community/presentation/week_result_sheet.dart';
 import 'package:yaqeen/features/profile/data/profile_repository.dart';
 import 'package:yaqeen/features/profile/presentation/me_profile_controller.dart';
+import 'package:yaqeen/core/widgets/yq_once.dart';
+import 'package:yaqeen/features/profile/domain/avatar.dart';
 
 import '../../helpers/fonts.dart';
 import '../../helpers/harness.dart';
@@ -267,7 +270,8 @@ void main() {
     await seedProfile(rig, profileJson(banned: true));
     await pumpLeague(tester, rig);
     expect(find.text('أُوقفت مشاركتك في المنافسات. راسلنا لمراجعتها.'), findsOneWidget);
-    expect(find.text('أنت'), findsNothing);
+    // No standings (the week-result sheet's podium may still say «أنت» for last week).
+    expect(find.byType(CompetitorRow), findsNothing);
   });
 
   testWidgets('offline: the cached league with the offline banner', (tester) async {
@@ -585,6 +589,147 @@ void main() {
       await seedProfile(rig, profileJson());
       await pumpLeague(tester, rig);
       expect(find.text('انتهى الأسبوع'), findsOneWidget);
+    });
+  });
+
+  group('motion', () {
+    Widget still(Widget child) => Builder(
+          builder: (context) => MediaQuery(data: MediaQuery.of(context).copyWith(disableAnimations: true), child: child),
+        );
+
+    PublicCompetitor person(String handle, int rank, {bool me = false}) => PublicCompetitor(
+          handle: handle,
+          name: 'name-$handle',
+          avatar: const InitialAvatar(),
+          level: const PublicLevelRing(level: 2, progress: 0.5),
+          points: 500 - rank,
+          rank: rank,
+          me: me,
+        );
+
+    test('RankMotion: a new order gives each moved row its distance, once; the first order none', () {
+      final m = RankMotion()..update(['a', 'b', 'c']);
+      expect(m.takeMove('a'), 0);
+      m.update(['c', 'a', 'b']);
+      expect(m.takeMove('c'), 2); // climbed two rows
+      expect(m.takeMove('a'), -1);
+      expect(m.takeMove('a'), 0); // consumed
+    });
+
+    testWidgets('a row that moved between snapshots glides from its old place; the own row sheens once', (tester) async {
+      Widget list(List<PublicCompetitor> rows) => harness(
+            RankMotionScope(
+              handles: [for (final r in rows) r.handle],
+              child: Scaffold(body: Column(children: [for (final r in rows) CompetitorRow(key: ValueKey(r.handle), competitor: r)])),
+            ),
+          );
+      final a = person('a', 1);
+      final me = person('me', 2, me: true);
+      await tester.pumpWidget(list([a, me]));
+      expect(tester.widget<YqSheen>(find.descendant(of: find.byKey(const ValueKey('me')), matching: find.byType(YqSheen))).play, isTrue);
+      expect(tester.widget<YqSheen>(find.descendant(of: find.byKey(const ValueKey('a')), matching: find.byType(YqSheen))).play, isFalse);
+      await tester.pumpAndSettle();
+
+      await tester.pumpWidget(list([person('me', 1, me: true), person('a', 2)]));
+      final shifts = {
+        for (final h in ['me', 'a'])
+          h: tester.widget<YqShiftIn>(find.descendant(of: find.byKey(ValueKey(h)), matching: find.byType(YqShiftIn))).rows,
+      };
+      expect(shifts, {'me': 1, 'a': -1});
+      // The row's slot moved at once; what is drawn in it glides up from the old place.
+      final slot = tester.getTopLeft(find.byKey(const ValueKey('me'))).dy;
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.getTopLeft(find.text('name-me')).dy, greaterThan(slot + 10)); // still on its way up
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.text('name-me')).dy, lessThan(tester.getTopLeft(find.text('name-a')).dy));
+    });
+
+    testWidgets('a closed podium rises 1, 2, 3 in sequence, once', (tester) async {
+      final rows = [person('a', 1), person('b', 2), person('c', 3), person('d', 4)];
+      await tester.pumpWidget(
+        harness(
+          RankMotionScope(
+            handles: [for (final r in rows) r.handle],
+            child: Scaffold(
+              body: Column(children: [for (final r in rows) CompetitorRow(key: ValueKey(r.handle), competitor: r, podium: true)]),
+            ),
+          ),
+        ),
+      );
+      final slides = [
+        for (final h in ['a', 'b', 'c', 'd'])
+          tester.widget<YqSlideIn>(find.descendant(of: find.byKey(ValueKey(h)), matching: find.byType(YqSlideIn))),
+      ];
+      expect([for (final s in slides) s.play], [true, true, true, false]);
+      expect([for (final s in slides.take(3)) s.delay], [Duration.zero, CompetitorRow.podiumStep, CompetitorRow.podiumStep * 2]);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('the joined league under reduce-motion: final numbers, drawn zone lines, and it settles', (tester) async {
+      final rig = CommunityRig(
+        routes: {
+          'GET /v1/leagues/current': (_) => jsonResponse(leagueJoined()),
+          'GET /v1/me/profile': (_) => jsonResponse(profileJson()),
+        },
+      );
+      await rig.kv.write(seenWeekKey, '2026-11-07'); // no week sheet in the way
+      tester.view.physicalSize = const Size(390 * 3, 2600 * 3);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(harness(still(const LeagueScreen()), kv: rig.kv, overrides: rig.overrides));
+      await tester.pumpAndSettle();
+      expect(find.text('335 نقطة هذا الأسبوع'), findsOneWidget);
+      expect(find.text('أنت'), findsOneWidget);
+      expect(find.byType(YqDrawLine), findsWidgets);
+      for (final line in tester.widgetList<FractionallySizedBox>(
+        find.descendant(of: find.byType(YqDrawLine), matching: find.byType(FractionallySizedBox)),
+      )) {
+        expect(line.widthFactor, 1);
+      }
+      expect(tester.binding.transientCallbackCount, 0);
+    });
+
+    testWidgets('week result: the outcome glyph settles, a top-three finish rises on the podium', (tester) async {
+      const last = LeagueLastWeek(startsOn: '2026-11-07', division: 2, newDivision: 3, rank: 2, outcome: LeagueOutcome.up, badge: null);
+      await tester.pumpWidget(harness(const Scaffold(body: WeekResultSheet(lastWeek: last))));
+      expect(find.byKey(const ValueKey('outcome-up')), findsOneWidget);
+      expect(find.byType(WeekPodium), findsOneWidget);
+      expect(find.text('أنت'), findsOneWidget);
+      expect(find.bySemanticsLabel('أنهيت الأسبوع في المركز 2'), findsOneWidget);
+      await tester.pumpAndSettle();
+
+      // Fourth place: no podium. Reduce-motion: the glyph is simply there.
+      const fourth = LeagueLastWeek(startsOn: '2026-11-07', division: 2, newDivision: 2, rank: 4, outcome: LeagueOutcome.stay, badge: null);
+      await tester.pumpWidget(harness(still(const Scaffold(body: WeekResultSheet(lastWeek: fourth)))));
+      expect(find.byType(WeekPodium), findsNothing);
+      expect(find.byKey(const ValueKey('outcome-stay')), findsOneWidget);
+      expect(tester.binding.transientCallbackCount, 0);
+    });
+
+    testWidgets('the week result opens on the spring and settles', (tester) async {
+      final rig = CommunityRig(routes: {'GET /v1/me/profile': (_) => offline()});
+      await seedProfile(rig, profileJson());
+      await tester.pumpWidget(
+        harness(
+          Scaffold(
+            body: Consumer(
+              builder: (context, ref, _) {
+                ref.watch(meProfileProvider);
+                return TextButton(onPressed: () => maybeShowWeekResult(context, ref), child: const Text('go'));
+              },
+            ),
+          ),
+          kv: rig.kv,
+          overrides: rig.overrides,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('go'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(find.text('انتهى الأسبوع'), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.byType(OutcomeGlyph), findsOneWidget);
     });
   });
 }

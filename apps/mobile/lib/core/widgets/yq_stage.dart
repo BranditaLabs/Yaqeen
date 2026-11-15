@@ -227,21 +227,22 @@ class YqCanvas extends StatelessWidget {
           );
     return AmbientBackground(
       lights: lights,
+      // One shape with or without a footer, so a footer arriving (or leaving) never remounts the
+      // scroll view: its position and its one-time moments carry on.
       child: YqRiseScope(
-        child: footer == null
-            ? body
-            : Column(
-                children: [
-                  Expanded(child: body),
-                  SafeArea(
-                    top: false,
-                    child: Padding(
-                      padding: const EdgeInsetsDirectional.fromSTEB(YqSpace.gutter, YqSpace.s, YqSpace.gutter, YqSpace.m),
-                      child: footer,
-                    ),
-                  ),
-                ],
+        child: Column(
+          children: [
+            Expanded(child: body),
+            if (footer != null)
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.fromSTEB(YqSpace.gutter, YqSpace.s, YqSpace.gutter, YqSpace.m),
+                  child: footer,
+                ),
               ),
+          ],
+        ),
       ),
     );
   }

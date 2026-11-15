@@ -6,9 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/profile/domain/avatar.dart';
 import '../../l10n/gen/app_localizations.dart';
+import '../design/motion.dart';
 import '../di/providers.dart';
 import '../format.dart';
 import '../theme/tokens.dart';
+import 'yq_once.dart';
 import 'yq_ring.dart';
 import 'yq_states.dart';
 
@@ -164,10 +166,55 @@ class _Initial extends StatelessWidget {
   }
 }
 
+/// A [YqAvatar] that, when the picture changes, cross-fades the new one in while it scales up
+/// from 0.94 (the old one fading underneath). The first picture is simply there; instant under
+/// reduce-motion.
+class YqAvatarSwap extends StatelessWidget {
+  const YqAvatarSwap({super.key, required this.avatar, this.size = 40, this.name, this.rim = true, this.semanticLabel});
+  final AvatarRef avatar;
+  final double size;
+  final String? name;
+  final bool rim;
+  final String? semanticLabel;
+
+  /// One key per picture (not per URL refresh of the same photo).
+  static String identity(AvatarRef a) => switch (a) {
+        PresetAvatar(:final id) => 'preset:$id',
+        PhotoAvatar(:final id) => 'photo:$id',
+        _ => 'initial',
+      };
+
+  @override
+  Widget build(BuildContext context) => AnimatedSwitcher(
+        duration: reduceMotion(context) ? Duration.zero : Motion.emphasised,
+        switchInCurve: Motion.emphasisedCurve,
+        switchOutCurve: Curves.easeIn,
+        transitionBuilder: (child, animation) => FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(scale: Tween(begin: 0.94, end: 1.0).animate(animation), child: child),
+        ),
+        child: YqAvatar(
+          key: ValueKey(identity(avatar)),
+          avatar: avatar,
+          size: size,
+          name: name,
+          rim: rim,
+          semanticLabel: semanticLabel,
+        ),
+      );
+}
+
 /// An avatar inside the level ring: lapis on a soft lapis track; [achieved] (the top level, or a
-/// level just reached) turns it gold and plays one 600 ms glint — skipped under reduce-motion.
-/// [showLevel] adds the level numeral at the bottom end. [ring] false draws the avatar alone
-/// (guests). Public rings use the nightly snapshot; the caller's own ring is live.
+/// level just reached) turns it gold. [showLevel] adds the level numeral at the bottom end. [ring]
+/// false draws the avatar alone (guests). Public rings use the nightly snapshot; the caller's own
+/// ring is live.
+///
+/// Motion (docs/DESIGN_SYSTEM.md §5), all skipped under reduce-motion:
+/// - [drawIn]: the ring sweeps from 0 on first show (the track first); later progress eases on.
+/// - [glint] (off unless asked for): one light sweeps round the ring and the picture swells
+///   softly (1.0 → 1.04 → 1.0), once — the level-up moment only (the Profile stage and the Home
+///   chip pass it for a level just reached). A top-level gold ring elsewhere stays quiet.
+/// - A new picture cross-fades in, scaling up from 0.94.
 class YqLevelAvatar extends StatelessWidget {
   const YqLevelAvatar({
     super.key,
@@ -182,6 +229,8 @@ class YqLevelAvatar extends StatelessWidget {
     this.name,
     this.levelName,
     this.semanticLabel,
+    this.drawIn,
+    this.glint = false,
   });
 
   final AvatarRef avatar;
@@ -190,6 +239,12 @@ class YqLevelAvatar extends StatelessWidget {
   final double size;
   final double stroke;
   final bool achieved;
+
+  /// The first sweep's duration ([Motion.ringDraw], [Motion.ringDrawSmall]); null = no draw-in.
+  final Duration? drawIn;
+
+  /// The one-time light sweep and pulse of a level just reached; never implied by [achieved].
+  final bool glint;
   final bool showLevel;
   final bool ring;
   final String? name;
@@ -201,7 +256,8 @@ class YqLevelAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
-    if (!ring) return YqAvatar(avatar: avatar, size: size, name: name, semanticLabel: semanticLabel);
+    if (!ring) return YqAvatarSwap(avatar: avatar, size: size, name: name, semanticLabel: semanticLabel);
+    final glinting = glint;
     // The ring is drawn 1 pt in from the edge; leave a clear gap between it and the picture.
     final inner = size - 2 * (stroke + 1 + (size >= 64 ? 3.0 : 2.0));
     final percent = (progress.clamp(0.0, 1.0) * 100).round();
@@ -224,9 +280,13 @@ class YqLevelAvatar extends StatelessWidget {
                 stroke: stroke,
                 color: achieved ? YqColors.gold : YqColors.lapis,
                 track: achieved ? YqColors.gold.withValues(alpha: 0.25) : YqColors.lapis100.withValues(alpha: 0.5),
-                glint: achieved,
+                glint: glinting,
+                drawIn: drawIn,
               ),
-              YqAvatar(avatar: avatar, size: inner.clamp(8.0, size), name: name, rim: false),
+              YqPulse(
+                active: glinting,
+                child: YqAvatarSwap(avatar: avatar, size: inner.clamp(8.0, size), name: name, rim: false),
+              ),
               if (showLevel)
                 PositionedDirectional(
                   end: -1,

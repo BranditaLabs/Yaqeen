@@ -54,6 +54,13 @@ class _LeagueScreenState extends ConsumerState<LeagueScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screen = _screen(context);
+    // The loading screen gives way to the league with the shared 200 ms fade; later state
+    // changes (left, banned, closing) simply replace the screen.
+    return YqFadeSwap(expand: true, child: KeyedSubtree(key: ValueKey(screen is _Loading), child: screen));
+  }
+
+  Widget _screen(BuildContext context) {
     final t = AppLocalizations.of(context);
     final flagOn = ref.watch(remoteConfigProvider.select((c) => c.isOn(Flags.leagues)));
     final account = ref.watch(sessionProvider.select((s) => s.canEarnPoints));
@@ -270,73 +277,71 @@ class _Joined extends ConsumerWidget {
     final division = divisionName(league.division, t, custom: league.divisionName(locale));
     final entries = _leagueEntries(league, rows, next: league.nextName(locale), prev: league.prevName(locale), t: t);
 
-    return Scaffold(
-      backgroundColor: YqColors.porcelain,
-      body: YqCanvas(
-        onRefresh: onRefresh,
-        stage: YqStage(
-          compact: true,
-          child: Column(
-            children: [
-              YqStageBar(back: true, title: t.cmLeagueTitle, subtitle: days <= 0 ? t.cmEndsTonight : t.cmEndsInDays(days)),
-              const SizedBox(height: YqSpace.l),
-              CommunityMoment(
-                eyebrow: division,
-                value: AnimatedSwitcher(
-                  duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : YqMotion.base,
-                  child: Text(rankText(myRank, t), key: ValueKey(myRank), style: YqMoment.numeral()),
-                ),
-                caption: t.cmWeekPoints(YqFormat.number(league.myLivePoints)),
-              ),
-            ],
-          ),
-        ),
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(padding: const EdgeInsets.only(top: YqSpace.xl), child: YqOfflineBanner(offline: offline)),
-          ),
-          if (rows.isEmpty)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: YqSpace.l),
-                child: Text(t.cmLeagueEmpty, textAlign: TextAlign.center, style: const TextStyle(color: YqColors.muted)),
-              ),
-            )
-          else
-            SliverList.builder(
-              itemCount: entries.length,
-              itemBuilder: (context, i) => switch (entries[i]) {
-                _ZoneEntry(:final label) when label.isEmpty => const Padding(
-                    padding: EdgeInsets.symmetric(vertical: YqSpace.xs),
-                    child: Divider(color: YqColors.line, height: 1),
-                  ),
-                _ZoneEntry(:final label) => ZoneLabel(label),
-                _RowEntry(:final c) => CompetitorRow(
-                    key: ValueKey(c.handle),
-                    competitor: c,
-                    onLongPress: c.me ? null : () => showReportSheet(context, c),
-                  ),
-              },
-            ),
-          const SliverToBoxAdapter(child: SnapshotLine()),
-          const SliverToBoxAdapter(child: _History()),
-          SliverToBoxAdapter(
+    // Rows that moved between snapshots glide from their old place; one-time moments (own-row
+    // sheen, own ring, zone lines) play once on this screen.
+    return RankMotionScope(
+      handles: [for (final r in rows) r.handle],
+      child: Scaffold(
+        backgroundColor: YqColors.porcelain,
+        body: YqCanvas(
+          onRefresh: onRefresh,
+          stage: YqStage(
+            compact: true,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const CommunityFooter(),
-                const SizedBox(height: YqSpace.m),
-                YqButton.secondary(
-                  label: t.cmLeaveLeague,
-                  onPressed: () async {
-                    final ok = await confirmLeave(context, title: t.cmLeaveLeague, body: t.cmLeaveLeagueBody);
-                    if (ok) await leaveLeague(ref);
-                  },
+                YqStageBar(back: true, title: t.cmLeagueTitle, subtitle: days <= 0 ? t.cmEndsTonight : t.cmEndsInDays(days)),
+                const SizedBox(height: YqSpace.l),
+                CommunityMoment(
+                  eyebrow: division,
+                  value: RankNumeral(rank: myRank),
+                  count: (league.myLivePoints, t.cmWeekPoints),
                 ),
               ],
             ),
           ),
-        ],
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(padding: const EdgeInsets.only(top: YqSpace.xl), child: YqOfflineBanner(offline: offline)),
+            ),
+            if (rows.isEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: YqSpace.l),
+                  child: Text(t.cmLeagueEmpty, textAlign: TextAlign.center, style: const TextStyle(color: YqColors.muted)),
+                ),
+              )
+            else
+              SliverList.builder(
+                itemCount: entries.length,
+                itemBuilder: (context, i) => switch (entries[i]) {
+                  _ZoneEntry(:final label) => ZoneLabel(label),
+                  _RowEntry(:final c) => CompetitorRow(
+                      key: ValueKey(c.handle),
+                      competitor: c,
+                      onLongPress: c.me ? null : () => showReportSheet(context, c),
+                    ),
+                },
+              ),
+            const SliverToBoxAdapter(child: SnapshotLine()),
+            const SliverToBoxAdapter(child: _History()),
+            SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const CommunityFooter(),
+                  const SizedBox(height: YqSpace.m),
+                  YqButton.secondary(
+                    label: t.cmLeaveLeague,
+                    onPressed: () async {
+                      final ok = await confirmLeave(context, title: t.cmLeaveLeague, body: t.cmLeaveLeagueBody);
+                      if (ok) await leaveLeague(ref);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -352,6 +357,11 @@ class _History extends ConsumerWidget {
     final locale = Localizations.localeOf(context).languageCode;
     final async = ref.watch(leagueHistoryProvider);
     final items = async.valueOrNull?.value;
+    // The skeleton rows give way to the past weeks with the shared 200 ms fade.
+    return YqFadeSwap(child: KeyedSubtree(key: ValueKey(items == null), child: _body(context, t, locale, async, items)));
+  }
+
+  Widget _body(BuildContext context, AppLocalizations t, String locale, AsyncValue<Object?> async, List<LeagueHistoryItem>? items) {
     if (items == null) {
       if (async.hasError) return const SizedBox.shrink();
       return const Padding(

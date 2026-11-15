@@ -2926,6 +2926,14 @@
   "qsOpenPlayer": "فتح المشغّل",
   "skWorking": "جارٍ التنفيذ",
   "skLoading": "جارٍ التحميل",
+  "cmPodiumPlace": "أنهيت الأسبوع في المركز {rank}",
+  "@cmPodiumPlace": {
+    "placeholders": {
+      "rank": {
+        "type": "String"
+      }
+    }
+  },
   "asrSettingsTitle": "التعرّف على التلاوة على الجهاز",
   "asrSettingsReady": "جاهز · {size}",
   "@asrSettingsReady": {

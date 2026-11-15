@@ -45,6 +45,9 @@ class ProfileRepository {
   static const lastPresetKey = 'profile.lastPreset.v1';
   static const lastSeenLevelKey = 'profile.lastSeenLevel';
 
+  /// The earned badges whose one-time light sweep has played on this phone (BadgesStrip).
+  static const badgesSweptKey = 'profile.badgesSwept.v1';
+
   /// Every key [wipe] removes: the profile's and the community screens' caches.
   static const wipedKeys = [
     meKey,
@@ -52,6 +55,7 @@ class ProfileRepository {
     pendingUploadKey,
     lastPresetKey,
     lastSeenLevelKey,
+    badgesSweptKey,
     'community.league.v1',
     'community.league.history.v1',
     'community.tournaments.v1',
