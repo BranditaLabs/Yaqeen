@@ -51,6 +51,7 @@ import { recordingComments, recordingDaily, recordingReactions, recordingReports
 import { checkComment } from '../domain/comments.js';
 import { durations, inspectM4a, matchesRecordingFormat } from '../domain/m4a.js';
 import { expectedAyat, validRange } from '../domain/quran-words.js';
+import { ayahStarts } from '../domain/ayah-starts.js';
 import { matchRecitation } from '../domain/recitation-match.js';
 import { AsrTooLong, AsrUndecodable } from '../integrations/asr.js';
 import { audit } from '../lib/audit.js';
@@ -896,6 +897,8 @@ export interface CardRecording {
    * page's CSP (media-src 'self') and CORP (same-origin) must allow it on whichever host serves the card.
    */
   audioUrl: string;
+  /** Start (ms) of each ayah, `fromAyah`…`toAyah`, from the verified word timings (null: nothing to follow). */
+  ayahStarts: number[] | null;
 }
 
 /**
@@ -907,8 +910,8 @@ export async function forCard(ctx: AppContext, handle: string): Promise<CardReco
   // Both switches: «تلاواتي» (`recordings`) and the cards programme (`publicCards`, which 404s `/u/:handle`).
   if (!(await featureOn(ctx)) || !(await cardFeatureOn(ctx, 'publicCards'))) return [];
   const h = handle.trim().toLowerCase();
-  const rows = await ctx.db.execute<{ id: string; surah: number; from_ayah: number; to_ayah: number; duration_ms: number; handle: string }>(sql`
-    select r.id, r.surah, r.from_ayah, r.to_ayah, r.duration_ms, pp.handle from recordings r ${OWNER_JOINS}
+  const rows = await ctx.db.execute<{ id: string; surah: number; from_ayah: number; to_ayah: number; duration_ms: number; handle: string; words: RecordingWord[] | null }>(sql`
+    select r.id, r.surah, r.from_ayah, r.to_ayah, r.duration_ms, pp.handle, r.words from recordings r ${OWNER_JOINS}
     where pp.handle = ${h} and pp.published and pp.moderated_at is null
       and ${MEMBER_VISIBLE} and r.visibility = 'public' and ${OWNER_SHAREABLE}
     order by r.position, r.created_at`);
@@ -925,6 +928,7 @@ export async function forCard(ctx: AppContext, handle: string): Promise<CardReco
     durationMs: Number(r.duration_ms),
     reactions: extra.get(r.id)!.counts,
     audioUrl: `/u/${encodeURIComponent(r.handle)}/r/${r.id}.m4a`,
+    ayahStarts: ayahStarts(r.words, Number(r.from_ayah), Number(r.to_ayah)),
   }));
 }
 

@@ -623,8 +623,17 @@ describe.skipIf(!url)('recordings «تلاواتي» (Postgres)', () => {
     const owner = await makeUser({ member: true, card: true });
     const pub = await approvedRecording(owner, 'public');
     const membersOnly = await approvedRecording(owner, 'members');
+    // Public but back in review (e.g. reports, a reviewer's second look): not on the open web.
+    const inReview = await approvedRecording(owner, 'public');
+    await db.update(s.recordings).set({ status: 'needs_review' }).where(eq(s.recordings.id, inReview));
     const html = (await app.inject({ method: 'GET', url: `/u/${owner.handle}` })).body;
     expect(html).toContain('تلاواتي');
+    expect(html).not.toContain(inReview);
+    expect(html.match(/<article class="rec"/g)).toHaveLength(1);
+    // The verified word timings light the ayah numbers in turn (reference only, no Quran text).
+    expect(html).toMatch(/<ol class="ayat" aria-hidden="true" data-at="0(,\d+){3}"><li>1<\/li><li>2<\/li><li>3<\/li><li>4<\/li><\/ol>/);
+    expect(html).toContain('--ease-emph:cubic-bezier(.2,0,0,1)');
+    expect(html).toContain('prefers-reduced-motion');
     // A same-origin path (CSP media-src 'self', CORP same-origin), never an absolute URL on another host.
     expect(html).toContain(`src="/u/${owner.handle}/r/${pub}.m4a"`);
     expect(html).not.toContain(`https://id.test/u/${owner.handle}/r/`);
@@ -635,6 +644,8 @@ describe.skipIf(!url)('recordings «تلاواتي» (Postgres)', () => {
     expect(String(page.headers['content-security-policy'])).toContain("default-src 'self'");
     expect((await app.inject({ method: 'GET', url: `/u/${owner.handle}/r/${pub}.m4a` })).statusCode).toBe(200);
     expect((await app.inject({ method: 'GET', url: `/u/${owner.handle}/r/${membersOnly}.m4a` })).statusCode).toBe(404);
+    // Back in review → its audio is off the open web too.
+    expect((await app.inject({ method: 'GET', url: `/u/${owner.handle}/r/${inReview}.m4a` })).statusCode).toBe(404);
     const js = await app.inject({ method: 'GET', url: '/u/assets/recitations.js' });
     expect(js.headers['content-type']).toContain('text/javascript');
     // The cards kill switch takes the recordings' audio down with `/u/:handle`.
@@ -647,6 +658,25 @@ describe.skipIf(!url)('recordings «تلاواتي» (Postgres)', () => {
       await db.update(s.appConfig).set({ value: { recordings: true } }).where(eq(s.appConfig.key, 'features'));
       await app.ctx.cache.bumpNamespace('config');
     }
+    expect((await app.inject({ method: 'GET', url: `/u/${owner.handle}/r/${pub}.m4a` })).statusCode).toBe(200);
+    // Held by reports (still approved, public): off the page and its audio 404s (3 per profile: reuse one).
+    const held = inReview;
+    await db.update(s.recordings).set({ status: 'approved' }).where(eq(s.recordings.id, held));
+    await app.ctx.cache.bumpNamespace('profile');
+    expect((await app.inject({ method: 'GET', url: `/u/${owner.handle}` })).body).toContain(held);
+    await db.update(s.recordings).set({ heldAt: new Date() }).where(eq(s.recordings.id, held));
+    await app.ctx.cache.bumpNamespace('profile');
+    const afterHold = (await app.inject({ method: 'GET', url: `/u/${owner.handle}` })).body;
+    expect(afterHold).not.toContain(held);
+    expect(afterHold).toContain(pub);
+    expect((await app.inject({ method: 'GET', url: `/u/${owner.handle}/r/${held}.m4a` })).statusCode).toBe(404);
+    // A card moderated by support: the page 404s and so does every recording's audio.
+    await db.update(s.publicProfiles).set({ moderatedAt: new Date() }).where(eq(s.publicProfiles.userId, owner.id));
+    await app.ctx.cache.bumpNamespace('profile');
+    expect((await app.inject({ method: 'GET', url: `/u/${owner.handle}` })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'GET', url: `/u/${owner.handle}/r/${pub}.m4a` })).statusCode).toBe(404);
+    await db.update(s.publicProfiles).set({ moderatedAt: null }).where(eq(s.publicProfiles.userId, owner.id));
+    await app.ctx.cache.bumpNamespace('profile');
     expect((await app.inject({ method: 'GET', url: `/u/${owner.handle}/r/${pub}.m4a` })).statusCode).toBe(200);
     // Unpublished card → nothing.
     await db.update(s.publicProfiles).set({ published: false }).where(eq(s.publicProfiles.userId, owner.id));

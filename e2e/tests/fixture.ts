@@ -24,6 +24,8 @@ export type Fixture = {
   groupId: string;
   /** «التلاوات»: a flagged recording, a held one, a hidden comment, and a religious reviewer's session. */
   recitations: { flagged: string; held: string; comment: string; reviewerToken: string };
+  /** A published card with two public, approved recordings (word timings, 1.6 s each) — `recordings` on. */
+  cardRecitations: { handle: string; first: string; second: string };
 };
 
 export const ADMIN_URL = `http://localhost:${process.env.E2E_ADMIN_PORT ?? '3100'}`;

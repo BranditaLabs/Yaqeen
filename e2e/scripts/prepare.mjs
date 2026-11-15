@@ -52,10 +52,11 @@ await db.query(`insert into profile_tags (code, kind, batch, user_id, linked_at)
 
 const competitions = await seedCompetitions();
 const recitations = await seedRecitations(competitions.runner, competitions.removed);
+const cardRecitations = await seedCardRecitations();
 await db.end();
 
 mkdirSync(join(here, '..', '.auth'), { recursive: true });
-writeFileSync(join(here, '..', '.auth', 'fixture.json'), JSON.stringify({ email, password, totpSecret, handle, tagCode, ...competitions, recitations }, null, 2));
+writeFileSync(join(here, '..', '.auth', 'fixture.json'), JSON.stringify({ email, password, totpSecret, handle, tagCode, ...competitions, recitations, cardRecitations }, null, 2));
 console.log(`e2e database ready: ${dbName} (admin ${email}, card /u/${handle}, tag /t/${tagCode}, tournament ${competitions.tournamentId})`);
 
 /** HS256 admin session token, as the API signs it (dev secret; staff roles without a TOTP login each). */
@@ -225,4 +226,44 @@ async function seedRecitations(runner, removed) {
   }
   await db.query(`insert into recording_reports (target, target_id, reporter_id, reason) values ('recording', $1, $2, 'not_recitation')`, [held, removed.id]);
   return { flagged, held, comment: comment.id, reviewerToken: adminToken(reviewer.id, 'religious_reviewer') };
+}
+
+/**
+ * «تلاواتي» on the web card: a member (attested, in the community) with a published card and two public,
+ * approved recordings carrying verified word timings, with the `recordings` switch on. The stored audio
+ * is a stub; the browser test routes the audio to a short generated tone.
+ */
+async function seedCardRecitations() {
+  await db.query(
+    `insert into app_config (key, value) values ('features', '{"recordings": true}'::jsonb)
+     on conflict (key) do update set value = app_config.value || excluded.value`,
+  );
+  const owner = { handle: 'e2e_reciter', name: 'يوسف القارئ' };
+  const {
+    rows: [u],
+  } = await db.query(`insert into users (display_name, email, locale, adult_attested_at, country) values ($1, 'reciter@example.com', 'ar', now(), 'EG') returning id`, [owner.name]);
+  const show = JSON.stringify({ level: true, streak: false, challengeDay: false, badges: false, memberSince: false });
+  await db.query(`insert into public_profiles (user_id, handle, published, display_name, bio, links, show, theme) values ($1, $2, true, $3, '', '[]', $4, 'sky')`, [u.id, owner.handle, owner.name, show]);
+  await db.query(`insert into consents (user_id, kind, granted) values ($1, 'community', true)`, [u.id]);
+  // 800 earned points (level 2, part way to 3) in the public snapshot, so the card draws its level ring.
+  for (let i = 1; i <= 8; i++) {
+    await db.query(`insert into points_ledger (user_id, delta, reason, ref_key, created_at) values ($1, 100, 'task', $2, now() - make_interval(days => $3))`, [u.id, `e2e-reciter-task-${i}`, i]);
+  }
+  await db.query(`update user_point_totals set public_lifetime = lifetime_earned, public_day = (now() at time zone 'Africa/Cairo')::date where user_id = $1`, [u.id]);
+  const audio = Buffer.concat([Buffer.from([0, 0, 0, 24]), Buffer.from('ftypM4A ', 'latin1'), Buffer.alloc(4), Buffer.from('M4A mp42', 'latin1'), Buffer.alloc(1024, 0x21)]);
+  const rec = async (surah, from, to, position) => {
+    // One word per ayah, 350 ms apart: the lit ayah number moves within the 1.6 s test tone.
+    const words = Array.from({ length: to - from + 1 }, (_, i) => ({ ayah: from + i, index: 0, startMs: i * 350, endMs: i * 350 + 300 }));
+    const {
+      rows: [r],
+    } = await db.query(
+      `insert into recordings (user_id, surah, from_ayah, to_ayah, duration_ms, audio, bytes, status, visibility, position, score, speech, words, verified_at)
+       values ($1, $2, $3, $4, 1600, $5, $6, 'approved', 'public', $7, 0.97, 0.8, $8::jsonb, now()) returning id`,
+      [u.id, surah, from, to, audio, audio.length, position, JSON.stringify(words)],
+    );
+    return r.id;
+  };
+  const first = await rec(112, 1, 4, 1);
+  const second = await rec(113, 1, 5, 2);
+  return { handle: owner.handle, first, second };
 }
