@@ -46,25 +46,73 @@ function reducedBlocks(css: string): string[] {
   return out;
 }
 
+/** The player's rule (RECITATIONS_JS `mark`): the last ayah whose start has passed is lit. */
+function litAt(starts: number[], ms: number): number {
+  let k = -1;
+  for (let i = 0; i < starts.length; i++) {
+    if (starts[i]! <= ms) k = i;
+    else break;
+  }
+  return k;
+}
+
 describe('ayah starts from word timings', () => {
-  it('takes each ayah’s first word, starts at 0 and never goes back', () => {
+  it('takes each ayah’s first word and starts at 0', () => {
     const words = [
       { ayah: 1, index: 0, startMs: 120, endMs: 500 },
       { ayah: 1, index: 1, startMs: 520, endMs: 900 },
       { ayah: 2, index: 0, startMs: 2_400, endMs: 2_900 },
       { ayah: 3, index: 1, startMs: 5_300, endMs: 5_600 },
       { ayah: 3, index: 0, startMs: 5_100, endMs: 5_290 },
-      { ayah: 4, index: 0, startMs: 4_000, endMs: 4_200 }, // aligner glitch: earlier than ayah 3
+      { ayah: 4, index: 0, startMs: 8_000, endMs: 8_200 },
     ];
-    expect(ayahStarts(words, 1, 4)).toEqual([0, 2_400, 5_100, 5_100]);
+    const at = ayahStarts(words, 1, 4)!;
+    expect(at).toEqual([0, 2_400, 5_100, 8_000]);
+    expect([0, 2_399, 2_400, 5_099, 5_100, 7_999, 8_000, 11_000].map((ms) => litAt(at, ms))).toEqual([0, 0, 1, 1, 2, 2, 3, 3]);
   });
 
-  it('an ayah without words inherits the previous start; nothing to follow → null', () => {
-    expect(ayahStarts([{ ayah: 3, startMs: 4_000 }], 2, 4)).toEqual([0, 4_000, 4_000]);
+  it('an ayah without words is passed over: the ayah being recited stays lit, never the one after it', () => {
+    // Range 2–4, only ayah 3 heard: ayah 2 is lit until ayah 3 begins; ayah 4 (no word) → nothing to follow.
+    expect(ayahStarts([{ ayah: 3, startMs: 4_000 }], 2, 4)).toBeNull();
+    // A one-word muqatta'at (ayah 1) and ayah 3 missed inside the range: each takes the next known start.
+    const at = ayahStarts(
+      [
+        { ayah: 2, startMs: 1_500 },
+        { ayah: 4, startMs: 6_000 },
+        { ayah: 5, startMs: 9_000 },
+      ],
+      1,
+      5,
+    )!;
+    expect(at).toEqual([0, 1_500, 6_000, 6_000, 9_000]);
+    // While ayah 2 is recited (1.5–6 s) it is the lit one — not the unmatched ayah 3 — then ayah 4, then 5.
+    expect([0, 1_499, 1_500, 5_999, 6_000, 8_999, 9_000].map((ms) => litAt(at, ms))).toEqual([0, 0, 1, 1, 3, 3, 4]);
+    expect([0, 1_000, 3_000, 7_000, 10_000].map((ms) => litAt(at, ms))).not.toContain(2);
+  });
+
+  it('an aligner glitch (a later ayah timed earlier) never lights an ayah ahead of its known start', () => {
+    const at = ayahStarts(
+      [
+        { ayah: 1, startMs: 100 },
+        { ayah: 2, startMs: 2_400 },
+        { ayah: 3, startMs: 5_100 },
+        { ayah: 4, startMs: 4_000 },
+      ],
+      1,
+      4,
+    )!;
+    expect(at).toEqual([0, 2_400, 4_000, 4_000]);
+    for (let i = 1; i < at.length; i++) expect(at[i]!).toBeGreaterThanOrEqual(at[i - 1]!);
+    // Ayah 2 stays lit until the earliest known later start (4 s); ayah 3's late start is pulled back and passed over.
+    expect([2_400, 3_999, 4_000].map((ms) => litAt(at, ms))).toEqual([1, 1, 3]);
+  });
+
+  it('nothing to follow → null', () => {
     expect(ayahStarts([{ ayah: 5, startMs: 100 }], 5, 5)).toBeNull(); // one ayah
     expect(ayahStarts([], 1, 4)).toBeNull();
     expect(ayahStarts(null, 1, 4)).toBeNull();
     expect(ayahStarts([{ ayah: 9, startMs: 100 }], 1, 4)).toBeNull(); // out of range only
+    expect(ayahStarts([{ ayah: 1, startMs: 0 }, { ayah: 2, startMs: 3_000 }], 1, 4)).toBeNull(); // trailing ayat unheard
   });
 });
 
