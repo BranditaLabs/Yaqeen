@@ -339,6 +339,28 @@ describe.skipIf(!url)('recordings «تلاواتي» (Postgres)', () => {
     expect(r.json().error.code).toBe('recording_daily_limit');
   });
 
+  it('the same take sent twice (clientId) is one recording: no second slot, daily upload or AI check', async () => {
+    const u = await makeUser({ member: true });
+    asr.answer('exact_recitation');
+    const m = { ...meta('exact_recitation'), clientId: 'dabc123xyz' };
+    const [a, b] = await Promise.all([upload(u.token, m), upload(u.token, m)]);
+    expect([a.statusCode, b.statusCode]).toEqual([202, 202]);
+    expect(a.json().id).toBe(b.json().id);
+    const again = await upload(u.token, m);
+    expect(again.json().id).toBe(a.json().id);
+    await rec.drain(app.ctx);
+    expect(asr.calls).toBe(1);
+    const list = (await app.inject({ method: 'GET', url: '/v1/me/recordings', headers: auth(u.token) })).json();
+    expect(list.items).toHaveLength(1);
+    expect(list.leftToday).toBe(9);
+    // Another take (another id), and the same id from another account, are new recordings.
+    expect((await upload(u.token, { ...m, visibility: 'private', clientId: 'dabc123xyz2' })).json().id).not.toBe(a.json().id);
+    const other = await makeUser({ member: true });
+    expect((await upload(other.token, { ...m, visibility: 'private' })).json().id).not.toBe(a.json().id);
+    // An id that is not one of the app's is refused.
+    expect((await upload(u.token, { ...m, clientId: 'bad id!' })).statusCode).toBe(400);
+  });
+
   it('patch: private → members verifies; back to private keeps approved; reorder; rejected cannot be shared', async () => {
     const u = await makeUser({ member: true });
     const a = (await upload(u.token, { surah: 1, fromAyah: 1, toAyah: 4, durationMs: 8000 })).json();

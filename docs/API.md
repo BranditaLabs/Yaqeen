@@ -166,7 +166,7 @@ Contracts: `packages/contracts/src/recordings.ts` (fixtures `apps/mobile/test/fi
 
 | Method & path | Body → response | Errors |
 | --- | --- | --- |
-| POST `/v1/me/recordings` | `multipart/form-data`: part `meta` = `RecordingMeta` JSON (`surah, fromAyah, toAyah, durationMs, visibility='private', commentsOn=true, clientScore?, clientWords?`), part `audio` (`audio/mp4`) → **202** `Recording` | 400 `recording_bad_format` · `recording_too_long` · `recording_invalid_range`, 413 `recording_too_large`, 409 `recordings_limit`, 429 `recording_daily_limit`, 403 gates · `feature_off` (20/h per token) |
+| POST `/v1/me/recordings` | `multipart/form-data`: part `meta` = `RecordingMeta` JSON (`surah, fromAyah, toAyah, durationMs, visibility='private', commentsOn=true, clientScore?, clientWords?, clientId?`), part `audio` (`audio/mp4`) → **202** `Recording`. `clientId` (the app's draft id, `[A-Za-z0-9_-]{8,64}`) makes the upload idempotent: the same take sent again returns the recording already kept (no second slot, daily upload or AI check) | 400 `recording_bad_format` · `recording_too_long` · `recording_invalid_range`, 413 `recording_too_large`, 409 `recordings_limit`, 429 `recording_daily_limit`, 403 gates · `feature_off` (20/h per token) |
 | GET `/v1/me/recordings` | → `MyRecordings {items, leftToday}` | — |
 | GET `/v1/me/recordings/:id/audio` | the owner's audio (any status), `Range` → 206, `private, no-store` | 404 |
 | PATCH `/v1/me/recordings/:id` | `RecordingPatch {visibility?, commentsOn?, position?}` → `Recording` | 409 `recording_not_public` (rejected/removed), 429 `recording_daily_limit`, 403 gates |
