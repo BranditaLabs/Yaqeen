@@ -96,7 +96,7 @@ export function ProgramEditor({ settings: s0, tasks: t0, editable }: { settings:
         </table>
       </div>
 
-      <div className={`flex items-center justify-between rounded-chip px-4 py-2.5 text-sm ${totalOk ? 'bg-[#E3F1EA] text-success' : 'bg-[#FDF3F4] text-error'}`}>
+      <div className={`flex items-center justify-between rounded-chip px-4 py-2.5 text-sm ${totalOk ? 'bg-[#EDF6F1] text-success' : 'bg-[#FDF3F4] text-error'}`}>
         <span>مجموع المهام المفعّلة</span>
         <span className="num font-semibold">
           {activeTotal} / {settings.dailyTotal}

@@ -42,7 +42,7 @@ export function Kpi({ label, value, hint }: { label: string; value: string; hint
 const TONES = {
   blue: 'bg-ice text-lapis',
   gold: 'bg-sand text-gold-text',
-  green: 'bg-[#E3F1EA] text-success',
+  green: 'bg-[#EDF6F1] text-success',
   red: 'bg-[#F7E4E7] text-error',
   gray: 'bg-white text-muted border border-line',
 } as const;
