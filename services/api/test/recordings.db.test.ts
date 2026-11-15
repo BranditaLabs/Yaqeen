@@ -601,8 +601,17 @@ describe.skipIf(!url)('recordings «تلاواتي» (Postgres)', () => {
     const owner = await makeUser({ member: true, card: true });
     const pub = await approvedRecording(owner, 'public');
     const membersOnly = await approvedRecording(owner, 'members');
+    // Public but back in review (e.g. reports, a reviewer's second look): not on the open web.
+    const inReview = await approvedRecording(owner, 'public');
+    await db.update(s.recordings).set({ status: 'needs_review' }).where(eq(s.recordings.id, inReview));
     const html = (await app.inject({ method: 'GET', url: `/u/${owner.handle}` })).body;
     expect(html).toContain('تلاواتي');
+    expect(html).not.toContain(inReview);
+    expect(html.match(/<article class="rec"/g)).toHaveLength(1);
+    // The verified word timings light the ayah numbers in turn (reference only, no Quran text).
+    expect(html).toMatch(/<ol class="ayat" aria-hidden="true" dir="ltr" data-at="0(,\d+){3}"><li>1<\/li><li>2<\/li><li>3<\/li><li>4<\/li><\/ol>/);
+    expect(html).toContain('--ease-emph:cubic-bezier(.2,0,0,1)');
+    expect(html).toContain('prefers-reduced-motion');
     // A same-origin path (CSP media-src 'self', CORP same-origin), never an absolute URL on another host.
     expect(html).toContain(`src="/u/${owner.handle}/r/${pub}.m4a"`);
     expect(html).not.toContain(`https://id.test/u/${owner.handle}/r/`);
