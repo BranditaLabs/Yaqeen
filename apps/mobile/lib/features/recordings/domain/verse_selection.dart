@@ -121,6 +121,10 @@ class VerseSelection {
     return VerseSelection._(surah, from, t, _counts);
   }
 
+  /// Blocked even when trimmed: the first ayah alone is estimated past the limit (2:282 ≈ 58 s), so
+  /// «اقتصر على ما يتّسع» could change nothing — the panel says this ayah is too long instead.
+  bool get unrecordable => fit == RangeFit.blocked && fitOf(estimateFor(_counts[from - 1])) == RangeFit.blocked;
+
   int _sum(int f, int t) {
     var n = 0;
     for (var a = f; a <= t; a++) {

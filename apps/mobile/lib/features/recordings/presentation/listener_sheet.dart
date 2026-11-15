@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -44,6 +46,7 @@ class ListenTarget {
     required this.mine,
     required this.social,
     this.owner,
+    this.ownList = false,
   });
 
   factory ListenTarget.own(Recording r, {List<RecordingWord>? localWords}) => ListenTarget(
@@ -61,6 +64,7 @@ class ListenTarget {
         mine: true,
         // Reactions and comments exist only where members can hear it.
         social: r.live,
+        ownList: true,
       );
 
   factory ListenTarget.member(PublicRecording r) => ListenTarget(
@@ -95,8 +99,19 @@ class ListenTarget {
   final bool social;
   final PublicCompetitor? owner;
 
+  /// Opened from the owner's own list: its audio is cached on this phone (a member's recording is
+  /// fetched for the listen only, `RecordingsRepository.memberAudioFile`).
+  final bool ownList;
+
   String get playKey => 'rec/$id';
+
+  Future<File> audio(RecordingsRepository repo) => ownList ? repo.audioFile(id, audioPath) : repo.memberAudioFile(id, audioPath);
 }
+
+/// How the listener's parts report a refused call: true when a gate (sign-in, the community join)
+/// was passed and the action is worth trying again — the caller retries once its own busy flag is
+/// clear (a retry from inside the failing call would be swallowed by that flag).
+typedef RecordingFailureHandler = Future<bool> Function(RecordingException e);
 
 /// Opens the listener (APP_SPEC §5.31.6): the verses in the mushaf font with the word-by-word
 /// highlight following the `words` timings, `YqPlayRing`, the three reactions and the comments.
@@ -104,7 +119,9 @@ class ListenTarget {
 Future<void> showRecordingListener(BuildContext context, ListenTarget target, {ValueChanged<ReactionState>? onChanged}) async {
   final container = ProviderScope.containerOf(context);
   await showYqSheet<void>(context, builder: (_) => ListenerSheet(target: target, onChanged: onChanged));
-  container.read(recordingPlayerProvider.notifier).stop(target.playKey).ignore();
+  await container.read(recordingPlayerProvider.notifier).stop(target.playKey);
+  // A member's clip was fetched for this listen only.
+  if (!target.ownList) container.read(recordingsRepositoryProvider).clearListened().ignore();
 }
 
 class ListenerSheet extends ConsumerStatefulWidget {
@@ -129,7 +146,7 @@ class _ListenerSheetState extends ConsumerState<ListenerSheet> {
   Future<void> _toggle() async {
     final t = AppLocalizations.of(context);
     final repo = ref.read(recordingsRepositoryProvider);
-    await ref.read(recordingPlayerProvider.notifier).toggle(_t.playKey, () => repo.audioFile(_t.id, _t.audioPath), title: t.recTitle);
+    await ref.read(recordingPlayerProvider.notifier).toggle(_t.playKey, () => _t.audio(repo), title: t.recTitle);
     final s = ref.read(recordingPlayerProvider);
     if (s.failed && mounted) YqToast.show(context, t.errorGeneric);
   }
@@ -148,6 +165,7 @@ class _ListenerSheetState extends ConsumerState<ListenerSheet> {
     });
     HapticFeedback.selectionClick().ignore();
     final repo = ref.read(recordingsRepositoryProvider);
+    RecordingException? failed;
     try {
       final s = removing ? await repo.unreact(_t.id) : await repo.react(_t.id, k);
       if (!mounted) return;
@@ -157,15 +175,18 @@ class _ListenerSheetState extends ConsumerState<ListenerSheet> {
       });
       widget.onChanged?.call(s);
     } on RecordingException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _counts = before.$1;
-        _mine = before.$2;
-      });
-      await _explain(e, retry: () => _react(k));
+      failed = e;
+      if (mounted) {
+        setState(() {
+          _counts = before.$1;
+          _mine = before.$2;
+        });
+      }
     } finally {
       if (mounted) setState(() => _reacting = false);
     }
+    // Explained (and retried after a passed gate) once this reaction is no longer in flight.
+    if (failed != null && mounted && await _explain(failed) && mounted) await _react(k);
   }
 
   static ReactionCounts _adjust(ReactionCounts c, ReactionKind? from, ReactionKind? to) {
@@ -177,25 +198,23 @@ class _ListenerSheetState extends ConsumerState<ListenerSheet> {
     );
   }
 
-  /// A refused action: the gates open their sheets, anything else is one quiet line.
-  Future<void> _explain(RecordingException e, {VoidCallback? retry}) async {
+  /// A refused action: the gates open their sheets (true when passed: the caller tries again),
+  /// anything else is one quiet line.
+  Future<bool> _explain(RecordingException e) async {
     final t = AppLocalizations.of(context);
     if (e.failure == RecordingFailure.accountRequired) {
-      final ok = await showSignInSheet(context);
-      if (ok && retry != null && mounted) retry();
-      return;
+      return await showSignInSheet(context) && mounted;
     }
     if (isShareGate(e.failure)) {
-      final ok = await showShareGate(context);
-      if (ok && retry != null && mounted) retry();
-      return;
+      return await showShareGate(context) && mounted;
     }
     if (e.failure == RecordingFailure.notFound && mounted) {
       YqToast.show(context, t.recErrGone);
       Navigator.of(context).maybePop();
-      return;
+      return false;
     }
     if (mounted) YqToast.show(context, failureText(t, e.failure, problem: e.problem));
+    return false;
   }
 
   Future<void> _setCommentsOn(bool on) async {
@@ -471,7 +490,7 @@ class CommentsSliver extends ConsumerWidget {
   const CommentsSliver({super.key, required this.recordingId, required this.ownerView, required this.onFailure});
   final String recordingId;
   final bool ownerView;
-  final Future<void> Function(RecordingException e, {VoidCallback? retry}) onFailure;
+  final RecordingFailureHandler onFailure;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -524,7 +543,7 @@ class CommentRow extends ConsumerWidget {
   const CommentRow({super.key, required this.recordingId, required this.comment, required this.onFailure});
   final String recordingId;
   final RecordingComment comment;
-  final Future<void> Function(RecordingException e, {VoidCallback? retry}) onFailure;
+  final RecordingFailureHandler onFailure;
 
   Future<void> _menu(BuildContext context, WidgetRef ref) async {
     final t = AppLocalizations.of(context);
@@ -634,7 +653,7 @@ class CommentComposer extends ConsumerStatefulWidget {
   const CommentComposer({super.key, required this.recordingId, required this.enabled, required this.onFailure});
   final String recordingId;
   final bool enabled;
-  final Future<void> Function(RecordingException e, {VoidCallback? retry}) onFailure;
+  final RecordingFailureHandler onFailure;
 
   @override
   ConsumerState<CommentComposer> createState() => _CommentComposerState();
@@ -662,6 +681,7 @@ class _CommentComposerState extends ConsumerState<CommentComposer> {
       _sending = true;
       _error = null;
     });
+    RecordingException? gate;
     try {
       await ref.read(commentsProvider(widget.recordingId).notifier).post(text);
       _text.clear();
@@ -670,11 +690,13 @@ class _CommentComposerState extends ConsumerState<CommentComposer> {
       if (e.failure == RecordingFailure.commentRejected || e.failure == RecordingFailure.commentRateLimited || e.failure == RecordingFailure.commentsOff) {
         setState(() => _error = failureText(t, e.failure, problem: e.problem));
       } else {
-        await widget.onFailure(e, retry: _send);
+        gate = e;
       }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+    // Explained (and sent again after a passed gate) once this send is no longer in flight.
+    if (gate != null && mounted && await widget.onFailure(gate) && mounted) await _send();
   }
 
   @override
@@ -687,7 +709,9 @@ class _CommentComposerState extends ConsumerState<CommentComposer> {
         child: Text(t.recCommentsOffNote, key: const ValueKey('rec-composer-off'), textAlign: TextAlign.center, style: const TextStyle(color: YqColors.muted, fontSize: 12.5)),
       );
     }
-    final len = _text.text.characters.length;
+    // UTF-16 units, as the server's strictest check counts (zod `.max(280)`): a mark of tashkeel or
+    // an emoji's parts count, so what the counter allows is never refused as `too_long`.
+    final len = _text.text.length;
     return Padding(
       padding: const EdgeInsets.only(top: YqSpace.s),
       child: Column(
@@ -703,8 +727,7 @@ class _CommentComposerState extends ConsumerState<CommentComposer> {
                   controller: _text,
                   minLines: 1,
                   maxLines: 4,
-                  maxLength: kCommentMax,
-                  maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                  inputFormatters: const [Utf16LengthLimiter(kCommentMax)],
                   onChanged: (_) => setState(() => _error = null),
                   decoration: InputDecoration(
                     hintText: t.recCommentHint,
@@ -814,5 +837,25 @@ Future<void> blockMember(BuildContext context, WidgetRef ref, PublicCompetitor w
   } else {
     hidden.unhide(who.handle);
     YqToast.show(context, t.errorGeneric);
+  }
+}
+
+/// Limits a field to [max] UTF-16 code units (Flutter's `maxLength` counts grapheme clusters, which
+/// the server does not): a paste is cut at the limit, never inside a surrogate pair.
+class Utf16LengthLimiter extends TextInputFormatter {
+  const Utf16LengthLimiter(this.max);
+  final int max;
+
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    if (newValue.text.length <= max) return newValue;
+    if (oldValue.text.length >= max && newValue.text.length > oldValue.text.length) return oldValue;
+    var end = max;
+    final units = newValue.text.codeUnits;
+    // Never split a surrogate pair.
+    if (units[end - 1] >= 0xD800 && units[end - 1] <= 0xDBFF) end--;
+    final text = newValue.text.substring(0, end);
+    final offset = newValue.selection.baseOffset.clamp(0, text.length);
+    return TextEditingValue(text: text, selection: TextSelection.collapsed(offset: offset));
   }
 }

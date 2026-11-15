@@ -25,7 +25,18 @@ off by default.
   (`share_gate.dart`). Every `RECORDING_ERROR_CODES` value has its copy (`failureText`).
 - **Guests keep drafts on the phone.** A guest's take is a local draft (private), uploaded only when
   they tap «ارفعها» after signing in. A signed-in take saved offline is queued and uploaded by
-  itself (`RecordingDrafts`, backoff 30 s → 15 min, jittered — the JSON Outbox cannot carry audio).
+  itself (`RecordingDrafts`, backoff 30 s → 15 min, jittered — the JSON Outbox cannot carry audio)
+  wherever the person is: `RecordingsSync` runs beside the Outbox in `AppGate` (network back with
+  `force`, resume, the 15-minute timer). Every change to the drafts list is serialised; one draft
+  uploads once at a time; its id travels as `clientId`, so a retry after a timeout the server had
+  already kept returns that recording. The server's own caps (`recording_daily_limit`,
+  `comment_rate_limited`, `rate_limited`) are never retried on their own — a take refused by the
+  daily cap is kept as a draft for «ارفعها» tomorrow.
+- **One take at a time.** Each take has its own recogniser (`_TakeAsr`) and generation: a re-record
+  or a discard while the last check runs never touches the new take; leaving during the count-in,
+  while the clip is written or on review deletes the file; «حفظ» during the check waits for it so the
+  karaoke timings are kept; back is blocked while saving. The encoder keeps at most 29.9 s of PCM so
+  a full take (priming + padding included) stays inside the server's 30 s + 250 ms.
 - **Wiped with the account.** `RecordingsRepository.wipedKeys` + `recordings/` files go on
   sign-out, session expiry and erasure (`SessionController._forgetProfile`).
 - **No spinners.** Shaped skeletons (`RecordingsSkeleton`), `YqButton(loading:)`, `YqFadeSwap`.
@@ -39,7 +50,7 @@ off by default.
 | `domain/recording_models.dart` | Contract mirrors (constants, enums, `Recording`, `PublicRecording`, comments, `RecitationMatch`). |
 | `domain/verse_selection.dart` | `VerseSelection` (one surah, drag anchor/edge, handles, trim), `kRecitationWordsPerSecond` = 2.2, `RangeFit` (ok · near ≥ 80 % · over > 30 s · blocked > 120 %). |
 | `domain/client_check.dart` | `ClientCheck.of(expected, heard)`: the `RecitationAligner` rules over the whole take → marks, coverage, flagged ayat, karaoke `RecordingWord`s, `ClientVerdict`. Generic (expected words in, aligned words out) so «تسميع» can reuse it. |
-| `data/recordings_repository.dart` | The API (`/v1/me/recordings…`, members, reactions, comments, reports), cached list `recordings.mine.v1`, on-device timings `recordings.words.v1`, authed audio cache `recordings/cache/<id>.m4a`, `RecordingException`. |
+| `data/recordings_repository.dart` | The API (`/v1/me/recordings…`, members, reactions, comments, reports), cached list `recordings.mine.v1`, on-device timings `recordings.words.v1`, the owner's authed audio cache `recordings/cache/<id>.m4a`; a member's clip fetched per listen into `recordings/listen/` and emptied when the listener or the member's sheet closes; `RecordingException`. |
 | `data/recording_drafts.dart` | Takes not on the server yet (`recordings.drafts.v1`, `recordings/drafts/`): local / queued / failed. |
 | `presentation/recordings_providers.dart` | `voiceRecorderProvider`, `myRecordingsProvider` (cache first, poll every 20 s while a check runs, optimistic move/comments), `memberRecordingsProvider`, `commentsProvider`, `recordingPlayerProvider`. |
 | `presentation/recorder_controller.dart` | The recorder's state machine (ready · denied · 3-2-1 · recording · encoding · review · saving · saved), auto-stop at 30 s with a haptic, live follow or pacing guide, save outcomes. |

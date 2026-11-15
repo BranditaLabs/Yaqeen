@@ -185,7 +185,7 @@ class _Body extends ConsumerWidget {
             itemBuilder: (context, i) => Padding(
               key: ValueKey('rec-card-${items[i].id}'),
               padding: const EdgeInsets.only(bottom: YqSpace.s),
-              child: RecordingCard(recording: items[i], index: i, total: items.length),
+              child: RecordingCard(recording: items[i], index: i, total: items.length, full: view.full),
             ),
           ),
         for (final d in view.drafts)
@@ -203,10 +203,34 @@ class _Body extends ConsumerWidget {
 
 /// One recording on the profile.
 class RecordingCard extends ConsumerWidget {
-  const RecordingCard({super.key, required this.recording, required this.index, required this.total});
+  const RecordingCard({super.key, required this.recording, required this.index, required this.total, this.full = false});
   final Recording recording;
   final int index;
   final int total;
+
+  /// The profile holds its [kProfileRecordingsMax] (the server counts a rejected one too).
+  final bool full;
+
+  /// «أعد التسجيل» on a rejected card. With the profile full the new take would be refused
+  /// (`recordings_limit`) only after it was recorded, so the rejected one is deleted first — after
+  /// the person agrees.
+  Future<void> _rerecord(BuildContext context, WidgetRef ref) async {
+    final t = AppLocalizations.of(context);
+    final r = recording;
+    final path = '/profile/recordings/new?surah=${r.surah}&from=${r.fromAyah}&to=${r.toAyah}';
+    if (!full) {
+      context.push(path);
+      return;
+    }
+    if (!await confirmRerecordReplaces(context) || !context.mounted) return;
+    try {
+      await ref.read(recordingPlayerProvider.notifier).stop('rec/${r.id}');
+      await ref.read(myRecordingsProvider.notifier).delete(r);
+      if (context.mounted) context.push(path);
+    } on RecordingException catch (e) {
+      if (context.mounted) YqToast.show(context, failureText(t, e.failure));
+    }
+  }
 
   Future<void> _open(BuildContext context, WidgetRef ref) async {
     final local = recording.words == null ? await ref.read(recordingsRepositoryProvider).localWords(recording.id) : null;
@@ -278,7 +302,7 @@ class RecordingCard extends ConsumerWidget {
                 alignment: AlignmentDirectional.centerStart,
                 child: TextButton(
                   key: ValueKey('rec-rerecord-${r.id}'),
-                  onPressed: () => context.push('/profile/recordings/new?surah=${r.surah}&from=${r.fromAyah}&to=${r.toAyah}'),
+                  onPressed: () => _rerecord(context, ref),
                   child: Text(t.recRerecord),
                 ),
               ),
@@ -290,34 +314,48 @@ class RecordingCard extends ConsumerWidget {
 }
 
 /// A take still on this phone: play it, upload it (after signing in), or delete it.
-class DraftCard extends ConsumerWidget {
+class DraftCard extends ConsumerStatefulWidget {
   const DraftCard({super.key, required this.draft});
   final RecordingDraft draft;
 
-  Future<void> _upload(BuildContext context, WidgetRef ref) async {
+  @override
+  ConsumerState<DraftCard> createState() => _DraftCardState();
+}
+
+class _DraftCardState extends ConsumerState<DraftCard> {
+  /// An upload of this take is on its way: «ارفعها» waits (a second tap would send it twice).
+  bool _uploading = false;
+
+  Future<void> _upload() async {
+    if (_uploading) return;
     final t = AppLocalizations.of(context);
     if (!ref.read(sessionProvider).canEarnPoints) {
       final ok = await showSignInSheet(context, title: t.recDraftSignIn);
-      if (!ok || !context.mounted) return;
+      if (!ok || !mounted) return;
     }
+    RecordingException? failed;
+    setState(() => _uploading = true);
     try {
-      await ref.read(myRecordingsProvider.notifier).uploadDraft(draft);
-      if (context.mounted) YqToast.show(context, t.recSaved);
+      await ref.read(myRecordingsProvider.notifier).uploadDraft(widget.draft);
+      if (mounted) YqToast.show(context, t.recSaved);
     } on RecordingException catch (e) {
-      if (!context.mounted) return;
-      if (isShareGate(e.failure)) {
-        if (await showShareGate(context) && context.mounted) await _upload(context, ref);
-        return;
-      }
-      YqToast.show(context, failureText(t, e.failure));
+      failed = e;
+    } finally {
+      if (mounted) setState(() => _uploading = false);
     }
+    if (failed == null || !mounted) return;
+    if (isShareGate(failed.failure)) {
+      if (await showShareGate(context) && mounted) await _upload();
+      return;
+    }
+    YqToast.show(context, failureText(t, failed.failure));
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
-    final d = draft;
+    final d = widget.draft;
     final signedIn = ref.watch(sessionProvider.select((s) => s.canEarnPoints));
     final play = ref.watch(recordingPlayerProvider);
     final key = 'draft/${d.id}';
@@ -348,7 +386,7 @@ class DraftCard extends ConsumerWidget {
             ),
           ),
           if (d.state != DraftState.queued)
-            TextButton(key: ValueKey('rec-draft-upload-${d.id}'), onPressed: () => _upload(context, ref), child: Text(t.recDraftUpload)),
+            TextButton(key: ValueKey('rec-draft-upload-${d.id}'), onPressed: _uploading ? null : _upload, child: Text(t.recDraftUpload)),
           IconButton(
             key: ValueKey('rec-draft-delete-${d.id}'),
             tooltip: t.delete,
@@ -386,6 +424,28 @@ Future<bool> confirmRecordingDelete(BuildContext context) async {
           onPressed: () => Navigator.of(sheet).pop(true),
           child: Text(t.recDeleteConfirm),
         ),
+        const SizedBox(height: YqSpace.s),
+        YqButton.text(label: t.cancel, expand: true, onPressed: () => Navigator.of(sheet).pop(false)),
+      ],
+    ),
+  );
+  return ok == true;
+}
+
+/// «تُحذف هذه التلاوة أولاً» — re-recording a rejected recording on a full profile. True when confirmed.
+Future<bool> confirmRerecordReplaces(BuildContext context) async {
+  final t = AppLocalizations.of(context);
+  final ok = await showYqSheet<bool>(
+    context,
+    builder: (sheet) => Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Semantics(header: true, child: Text(t.recRerecordFullTitle, style: Theme.of(sheet).textTheme.titleLarge)),
+        const SizedBox(height: YqSpace.s),
+        Text(t.recRerecordFullBody(YqFormat.number(kProfileRecordingsMax)), style: const TextStyle(color: YqColors.muted, height: 1.6)),
+        const SizedBox(height: YqSpace.l),
+        YqButton(key: const ValueKey('rec-rerecord-replace'), label: t.recRerecordFullConfirm, onPressed: () => Navigator.of(sheet).pop(true)),
         const SizedBox(height: YqSpace.s),
         YqButton.text(label: t.cancel, expand: true, onPressed: () => Navigator.of(sheet).pop(false)),
       ],
@@ -439,9 +499,12 @@ class _RecordingMenuState extends ConsumerState<RecordingMenu> {
 
   Future<void> _comments(bool on) async {
     final t = AppLocalizations.of(context);
+    // The menu's current recording (a visibility change in this sheet replaced the one it opened
+    // with): a failure puts back what the server has, not the snapshot from when it opened.
+    final current = _r;
     setState(() => _r = _r.copyWith(commentsOn: on));
     try {
-      await ref.read(myRecordingsProvider.notifier).setComments(widget.recording, on);
+      await ref.read(myRecordingsProvider.notifier).setComments(current, on);
     } on RecordingException catch (e) {
       if (!mounted) return;
       setState(() {

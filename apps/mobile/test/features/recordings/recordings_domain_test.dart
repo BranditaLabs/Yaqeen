@@ -77,6 +77,19 @@ void main() {
       final trimmed = kursi.trimmedToFit();
       expect(trimmed.from, 255);
       expect(trimmed.fit.index, lessThan(RangeFit.over.index));
+      expect(kursi.unrecordable, isFalse);
+    });
+
+    test('an ayah longer than the limit by itself is unrecordable (trimming cannot help)', () {
+      final debt = VerseSelection.single(q, const AyahRef(2, 282)); // ≈ 58 s
+      expect(debt.unrecordable, isTrue);
+      expect(debt.trimmedToFit(), debt);
+      // A range starting on it: trimming keeps that ayah, so it stays unrecordable.
+      expect(VerseSelection.ofPassage(q, const Passage(2, 282, 283)).unrecordable, isTrue);
+      // A range ending on it trims to what fits before it.
+      final ending = VerseSelection.ofPassage(q, const Passage(2, 281, 282));
+      expect(ending.unrecordable, isFalse);
+      expect(ending.trimmedToFit().fit.canRecord, isTrue);
     });
   });
 

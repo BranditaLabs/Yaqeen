@@ -325,6 +325,7 @@ class _SelectionPanel extends StatelessWidget {
       RangeFit.ok => (null, false),
       RangeFit.near => (t.recEstimateNear(limit), false),
       RangeFit.over => (t.recEstimateOver(limit), true),
+      RangeFit.blocked when s.unrecordable => (t.recAyahTooLong(limit), true),
       RangeFit.blocked => (t.recEstimateBlocked(limit), true),
     };
     return LiquidGlass(
@@ -345,7 +346,7 @@ class _SelectionPanel extends StatelessWidget {
           ),
           if (note != null) ...[
             const SizedBox(height: YqSpace.xs),
-            Text(note, key: ValueKey('rec-fit-${s.fit.name}'), style: TextStyle(fontSize: 12.5, color: strong ? YqColors.ink : YqColors.muted, fontWeight: strong ? FontWeight.w600 : FontWeight.w400)),
+            Text(note, key: ValueKey(s.unrecordable ? 'rec-fit-unrecordable' : 'rec-fit-${s.fit.name}'), style: TextStyle(fontSize: 12.5, color: strong ? YqColors.ink : YqColors.muted, fontWeight: strong ? FontWeight.w600 : FontWeight.w400)),
           ],
           const SizedBox(height: YqSpace.s),
           Row(
@@ -372,7 +373,10 @@ class _SelectionPanel extends StatelessWidget {
             ],
           ),
           const SizedBox(height: YqSpace.m),
-          if (s.fit == RangeFit.blocked)
+          if (s.unrecordable)
+            // Trimming cannot help (its first ayah alone is too long): the note says why.
+            YqButton(key: const ValueKey('rec-continue'), label: t.recContinue, onPressed: null)
+          else if (s.fit == RangeFit.blocked)
             YqButton.secondary(key: const ValueKey('rec-trim'), label: t.recTrim, onPressed: () => onChanged(s.trimmedToFit()))
           else
             YqButton(key: const ValueKey('rec-continue'), label: t.recContinue, onPressed: onContinue),

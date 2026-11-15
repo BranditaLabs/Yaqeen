@@ -1,20 +1,23 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
+import 'package:yaqeen/core/widgets/yq_button.dart';
 import 'package:yaqeen/core/widgets/yq_live_level.dart';
 import 'package:yaqeen/core/widgets/yq_states.dart';
 import 'package:yaqeen/features/quran/domain/passage.dart';
 import 'package:yaqeen/features/quran/presentation/mushaf_page.dart';
 import 'package:yaqeen/features/quran/presentation/quran_providers.dart';
 import 'package:yaqeen/features/recordings/data/recording_drafts.dart';
+import 'package:yaqeen/features/recordings/data/recordings_repository.dart';
 import 'package:yaqeen/features/recordings/domain/recording_models.dart';
 import 'package:yaqeen/features/recordings/presentation/listener_sheet.dart';
 import 'package:yaqeen/features/recordings/presentation/recorder_controller.dart';
 import 'package:yaqeen/features/recordings/presentation/recorder_screen.dart';
+import 'package:yaqeen/features/recordings/presentation/recordings_providers.dart';
 import 'package:yaqeen/features/recordings/presentation/recordings_section.dart';
 import 'package:yaqeen/features/recordings/presentation/verse_picker_screen.dart';
 import 'package:yaqeen/features/recordings/presentation/verse_words_view.dart';
@@ -88,6 +91,18 @@ void main() {
       expect(find.byKey(const ValueKey('rec-fit-blocked')), findsNothing);
       expect(find.byKey(const ValueKey('rec-continue')), findsOneWidget);
     });
+
+    testWidgets('an ayah longer than 30 s by itself says so (no trim that does nothing)', (tester) async {
+      phone(tester);
+      final rig = RecordingsRig();
+      await tester.pumpWidget(page(const VersePickerScreen(initial: Passage(2, 282, 282)), rig));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('rec-fit-unrecordable')), findsOneWidget);
+      expect(find.text('هذه الآية أطول من 30 ثانية — اختر آية أقصر'), findsOneWidget);
+      expect(find.byKey(const ValueKey('rec-trim')), findsNothing);
+      final go = tester.widget<YqButton>(find.byKey(const ValueKey('rec-continue')));
+      expect(go.onPressed, isNull);
+    });
   });
 
   group('listener', () {
@@ -135,12 +150,10 @@ void main() {
               'nextCursor': null,
               'commentsOn': true,
             }),
+        // A member's clip is fetched for the listen (written with sync IO inside the fake clock).
+        'GET /v1/recordings/$id/audio': (_) => http.Response.bytes([1, 2, 3], 200),
         ...routes,
       },);
-      // The audio is already on the phone (no file IO inside the fake clock).
-      File('${rig.dir.path}/recordings/cache/$id.m4a')
-        ..createSync(recursive: true)
-        ..writeAsBytesSync([1, 2, 3]);
       final target = ListenTarget.member(PublicRecording.fromJson(rec ?? member()));
       await tester.pumpWidget(
         page(
@@ -238,6 +251,45 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
     });
 
+    testWidgets('the counter counts as the server does (tashkeel marks and emoji parts count)', (tester) async {
+      await open(tester);
+      await tester.enterText(find.byKey(const ValueKey('rec-composer')), 'بِسْمِ');
+      await tester.pump();
+      expect(find.text('6/280'), findsOneWidget);
+      // A paste past the limit is cut at 280 UTF-16 units (what zod `.max(280)` allows).
+      await tester.enterText(find.byKey(const ValueKey('rec-composer')), 'بِ' * 200);
+      await tester.pump();
+      final field = tester.widget<TextField>(find.byKey(const ValueKey('rec-composer')));
+      expect(field.controller!.text.length, 280);
+      expect(find.text('280/280'), findsOneWidget);
+    });
+
+    testWidgets('a comment refused by a gate is sent once the gate is passed', (tester) async {
+      phone(tester);
+      var attempt = 0;
+      final rig = RecordingsRig(routes: {
+        'GET /v1/recordings/$id/comments': (_) => jsonResponse({'items': <Object>[], 'nextCursor': null, 'commentsOn': true}),
+        'POST /v1/recordings/$id/comments': (_) => ++attempt == 1 ? errorResponse(403, 'community_required') : jsonResponse(comment(c1, mine: true), 201),
+      },);
+      final gates = <RecordingFailure>[];
+      Future<bool> joined(RecordingException e) async {
+        gates.add(e.failure);
+        return true; // the person joined from the gate sheet
+      }
+
+      await tester.pumpWidget(page(Scaffold(body: CommentComposer(recordingId: id, enabled: true, onFailure: joined)), rig));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const ValueKey('rec-composer')), 'تلاوة خاشعة');
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('rec-composer-send')));
+      await tester.pumpAndSettle();
+      expect(gates, [RecordingFailure.communityRequired]);
+      expect(attempt, 2);
+      final field = tester.widget<TextField>(find.byKey(const ValueKey('rec-composer')));
+      expect(field.controller!.text, isEmpty); // posted
+      expect(find.text('قصير جداً'), findsNothing);
+    });
+
     testWidgets('comments off: a note instead of the composer', (tester) async {
       await open(tester, rec: member(commentsOn: false), routes: {
         'GET /v1/recordings/$id/comments': (_) => jsonResponse({'items': <Object>[], 'nextCursor': null, 'commentsOn': false}),
@@ -330,6 +382,74 @@ void main() {
       await tester.pumpAndSettle();
       expect(rig.calls, contains('DELETE /v1/me/recordings/$first'));
       expect(find.byType(RecordingCard), findsNWidgets(2));
+      await tester.pump(const Duration(seconds: 30));
+    });
+
+    testWidgets('re-recording a rejected one on a full profile deletes it first (after asking)', (tester) async {
+      phone(tester);
+      final items = recFixture('my_recordings.json');
+      final rejected = (items['items'] as List)[2]['id'];
+      final rig = RecordingsRig(routes: {
+        'GET /v1/me/recordings': (_) => jsonResponse(items),
+        'DELETE /v1/me/recordings/$rejected': (_) => http.Response('', 204),
+      },);
+      final router = GoRouter(
+        routes: [
+          GoRoute(path: '/', builder: (_, __) => const Scaffold(body: SingleChildScrollView(child: RecordingsSection()))),
+          GoRoute(path: '/profile/recordings/new', builder: (_, s) => Scaffold(body: Text('picker ${s.uri.query}'))),
+        ],
+      );
+      await tester.pumpWidget(harness(Router.withConfig(config: router), kv: rig.kv, overrides: rig.overrides));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ValueKey('rec-rerecord-$rejected')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('rec-rerecord-replace')), findsOneWidget);
+      expect(rig.calls, isNot(contains('DELETE /v1/me/recordings/$rejected')));
+      await tester.tap(find.byKey(const ValueKey('rec-rerecord-replace')));
+      await tester.pumpAndSettle();
+      expect(rig.calls, contains('DELETE /v1/me/recordings/$rejected'));
+      expect(find.textContaining('picker surah='), findsOneWidget);
+      await tester.pump(const Duration(seconds: 30));
+    });
+
+    testWidgets('menu: the comments switch after a visibility change keeps the new visibility on failure', (tester) async {
+      phone(tester);
+      final items = recFixture('my_recordings.json');
+      final base = (items['items'] as List)[2] as Map<String, dynamic>;
+      final private = {...base, 'status': 'private_ready', 'rejectReason': null, 'visibility': 'private'};
+      final pid = private['id'];
+      final shared = {...private, 'status': 'processing', 'visibility': 'members'};
+      var patches = 0;
+      final rig = RecordingsRig(routes: {
+        'GET /v1/me/recordings': (_) => jsonResponse({'items': [private], 'leftToday': 7}),
+        'PATCH /v1/me/recordings/$pid': (_) => ++patches == 1 ? jsonResponse(shared) : errorResponse(503, 'error'),
+      },);
+      late ProviderContainer container;
+      await tester.pumpWidget(
+        page(
+          Scaffold(
+            body: Consumer(
+              builder: (context, ref, _) {
+                container = ProviderScope.containerOf(context);
+                return const SingleChildScrollView(child: RecordingsSection());
+              },
+            ),
+          ),
+          rig,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ValueKey('rec-menu-$pid')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('rec-vis-members')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('rec-menu-comments')));
+      await tester.pumpAndSettle();
+      expect(patches, 2);
+      final now = container.read(myRecordingsProvider).value!.items.single;
+      expect(now.visibility, RecordingVisibility.members);
+      expect(now.status, RecordingStatus.processing);
+      expect(now.commentsOn, shared['commentsOn']); // the switch put back
       await tester.pump(const Duration(seconds: 30));
     });
 
