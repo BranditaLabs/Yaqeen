@@ -36,6 +36,20 @@ abstract final class RecordingFormat {
   static const mime = 'audio/mp4';
 }
 
+/// contracts `RECITATION_MATCH`: the server's verdict thresholds; the app's advisory pre-check
+/// (`ClientCheck`) uses the same coverage lines.
+abstract final class RecitationMatch {
+  static const approveCoverage = 0.75;
+  static const approveSpeech = 0.4;
+  static const silenceSpeech = 0.15;
+  static const rejectCoverage = 0.35;
+  static const maxExtraRatio = 0.5;
+  static const fuzzyMinLetters = 4;
+}
+
+/// contracts `COMMENTS_PAGE_SIZE`.
+const kCommentsPageSize = 20;
+
 /* ------------------------------------------------------------------- enums */
 
 enum RecordingStatus {
@@ -215,6 +229,40 @@ class Recording {
 
   bool get shared => visibility != RecordingVisibility.private;
 
+  /// Waiting for the AI check (the app polls while one is on screen).
+  bool get pending => status == RecordingStatus.processing;
+
+  /// Can be shared with members (a rejected or removed recording cannot: `recording_not_public`).
+  bool get shareable => status != RecordingStatus.rejected && status != RecordingStatus.removed;
+
+  /// Members can hear it now.
+  bool get live => shared && status == RecordingStatus.approved;
+
+  Recording copyWith({
+    RecordingStatus? status,
+    RecordingVisibility? visibility,
+    bool? commentsOn,
+    int? position,
+  }) =>
+      Recording(
+        id: id,
+        surah: surah,
+        fromAyah: fromAyah,
+        toAyah: toAyah,
+        durationMs: durationMs,
+        status: status ?? this.status,
+        rejectReason: rejectReason,
+        visibility: visibility ?? this.visibility,
+        commentsOn: commentsOn ?? this.commentsOn,
+        position: position ?? this.position,
+        reactions: reactions,
+        myReaction: myReaction,
+        commentCount: commentCount,
+        createdAt: createdAt,
+        audioPath: audioPath,
+        words: words,
+      );
+
   factory Recording.fromJson(Map<String, dynamic> j) => Recording(
         id: j['id'] as String,
         surah: _int(j['surah']),
@@ -258,6 +306,10 @@ class MyRecordings {
   const MyRecordings({required this.items, required this.leftToday});
   final List<Recording> items;
   final int leftToday;
+
+  static const empty = MyRecordings(items: [], leftToday: kRecordingUploadsPerDay);
+
+  Map<String, dynamic> toJson() => {'items': [for (final r in items) r.toJson()], 'leftToday': leftToday};
 
   factory MyRecordings.fromJson(Map<String, dynamic> j) => MyRecordings(
         items: [for (final e in j['items'] as List) Recording.fromJson((e as Map).cast<String, dynamic>())],
@@ -303,6 +355,25 @@ class PublicRecording {
   /// The community's public competitor shape (`points`/`rank` null).
   final PublicCompetitor owner;
   final bool mine;
+
+  PublicRecording withReactions(ReactionState r) => PublicRecording(
+        id: id,
+        surah: surah,
+        fromAyah: fromAyah,
+        toAyah: toAyah,
+        durationMs: durationMs,
+        visibility: visibility,
+        commentsOn: commentsOn,
+        position: position,
+        reactions: r.reactions,
+        myReaction: r.myReaction,
+        commentCount: commentCount,
+        createdAt: createdAt,
+        audioPath: audioPath,
+        words: words,
+        owner: owner,
+        mine: mine,
+      );
 
   factory PublicRecording.fromJson(Map<String, dynamic> j) => PublicRecording(
         id: j['id'] as String,
