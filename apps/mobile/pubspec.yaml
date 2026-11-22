@@ -18,8 +18,8 @@ dependencies:
   flutter_riverpod: ^2.6.1
   http: ^1.2.2
   shared_preferences: ^2.3.3
-  flutter_secure_storage: ^9.2.2
-  geolocator: ^14.0.2
+  flutter_secure_storage: ^11.2.0
+  geolocator: ^14.1.2
   flutter_compass: ^0.8.1
   flutter_local_notifications: ^22.3.2
   timezone: ^0.11.2
@@ -29,13 +29,13 @@ dependencies:
   audio_session: ^0.2.4
   google_sign_in: ^7.2.0
   sign_in_with_apple: ^8.2.0
-  wakelock_plus: ^1.5.2
-  share_plus: ^12.0.2
+  wakelock_plus: ^1.8.0
+  share_plus: ^13.3.1
   url_launcher: ^6.3.3
-  package_info_plus: ^9.0.1
+  package_info_plus: ^10.2.2
   connectivity_plus: ^7.3.1
   path_provider: ^2.1.6
-  crypto: ^3.0.7
+  crypto: ^3.0.8
   app_tracking_transparency: ^2.0.7
   qr_flutter: ^4.1.0
   sentry_flutter: ^9.0.0
@@ -50,8 +50,8 @@ dependencies:
   firebase_analytics: ^12.6.1
   # Ad measurement sinks (lib/core/analytics/sinks): Meta App Events, deferred init, Swift Package.
   # TikTok has no SDK in the app — server-side Events API (docs/ANALYTICS_EVENTS.md).
-  facebook_app_events: ^0.31.0
-  nfc_manager: 4.2.1
+  facebook_app_events: ^0.34.0
+  nfc_manager: 4.4.0
   # Profile photo (BSD-3, free): system Photo Picker on Android (no permission), PHPicker/camera on iOS.
   image_picker: ^1.1.2
   # On-device recitation recognition (docs/MODELS.md): sherpa-onnx runtime (Apache-2.0) running the
@@ -67,7 +67,7 @@ dev_dependencies:
   # `dart run flutter_launcher_icons` and `dart run flutter_native_splash:create`
   flutter_launcher_icons: ^0.14.1
   flutter_native_splash: ^2.4.1
-  sentry_dart_plugin: ^3.4.0
+  sentry_dart_plugin: ^3.6.0
 
 # App icon — generated from packages/brand (see packages/brand/README.md)
 flutter_launcher_icons:
